@@ -17,9 +17,7 @@ import           Control.Monad                         (forever, unless, void,
                                                         when)
 import Data.ByteString (ByteString, isInfixOf)
 import qualified Data.ByteString.Lazy                  as LB
-import           Data.Conduit                          (($$), (=$))
-import qualified Data.Conduit.Binary                   as CB
-import qualified Data.Conduit.List                     as CL
+import           Conduit
 import           Data.Default.Class                    (def)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
@@ -368,9 +366,10 @@ devel opts passThroughArgs = do
         -- process is piped to the actual stdout and stderr handles.
         withProcess_ procConfig $ \p -> do
             let helper getter h =
-                      getter p
-                   $$ CL.iterM (\(str :: ByteString) -> atomically (updateAppPort str buildStarted appPortVar))
-                   =$ CB.sinkHandle h
+                      runConduit
+                    $ getter p
+                   .| iterMC (\(str :: ByteString) -> atomically (updateAppPort str buildStarted appPortVar))
+                   .| sinkHandle h
             race_ (helper getStdout stdout) (helper getStderr stderr)
 
     -- Run the inner action with a TVar which will be set to True

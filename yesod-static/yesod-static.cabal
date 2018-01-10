@@ -42,8 +42,7 @@ library
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.7
                    , unix-compat           >= 0.2
-                   , conduit               >= 0.5
-                   , conduit-extra
+                   , conduit               >= 1.3
                    , cryptonite-conduit    >= 0.1
                    , cryptonite            >= 0.11
                    , memory
@@ -124,7 +123,6 @@ test-suite tests
                    , unordered-containers
                    , async
                    , process
-                   , conduit-extra
                    , exceptions
 
     ghc-options:     -Wall -threaded

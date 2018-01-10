@@ -53,8 +53,9 @@ import Data.Text (Text)
 import Data.Monoid (mappend)
 #endif
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as S8
-import qualified Blaze.ByteString.Builder
+import Data.ByteString.Builder (byteString, toLazyByteString)
 import Network.HTTP.Types (status301, status307)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
@@ -115,7 +116,7 @@ toWaiAppYre yre req =
     sendRedirect y segments' env sendResponse =
          sendResponse $ W.responseLBS status
                 [ ("Content-Type", "text/plain")
-                , ("Location", Blaze.ByteString.Builder.toByteString dest')
+                , ("Location", BL.toStrict $ toLazyByteString dest')
                 ] "Redirecting"
       where
         -- Ensure that non-GET requests get redirected correctly. See:
@@ -129,7 +130,7 @@ toWaiAppYre yre req =
             if S.null (W.rawQueryString env)
                 then dest
                 else dest `mappend`
-                     Blaze.ByteString.Builder.fromByteString (W.rawQueryString env)
+                     byteString (W.rawQueryString env)
 
 -- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
 -- set may change with future releases, but currently covers:

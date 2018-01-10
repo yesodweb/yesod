@@ -22,7 +22,6 @@ import Control.Monad.Trans.Resource (register)
 import Data.IORef
 import Data.Streaming.Network (bindPortTCP)
 import Network.HTTP.Types (status200)
-import Blaze.ByteString.Builder (fromByteString)
 
 mkYesod "App" [parseRoutes|
 / HomeR GET
@@ -46,16 +45,16 @@ getHomeR = do
 getWaiStreamR :: Handler ()
 getWaiStreamR = sendWaiResponse $ responseStream status200 [] $ \send flush -> do
     flush
-    send $ fromByteString "hello"
+    send "hello"
     flush
-    send $ fromByteString " world"
+    send " world"
 
 getWaiAppStreamR :: Handler ()
 getWaiAppStreamR = sendWaiApplication $ \_ f -> f $ responseStream status200 [] $ \send flush -> do
     flush
-    send $ fromByteString "hello"
+    send "hello"
     flush
-    send $ fromByteString " world"
+    send " world"
 
 getFreePort :: IO Int
 getFreePort = do

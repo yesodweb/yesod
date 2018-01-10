@@ -14,7 +14,7 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
 import Network.HTTP.Types (Status, mkStatus)
-import Blaze.ByteString.Builder (Builder, fromByteString, toLazyByteString)
+import Data.ByteString.Builder (Builder, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
@@ -101,7 +101,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ fromByteString "This is a test\n"
+goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent

@@ -6,6 +6,7 @@ module Yesod.Core.Internal.Response where
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
+import qualified Data.ByteString.Lazy         as BL
 import           Data.CaseInsensitive         (CI)
 import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
@@ -18,8 +19,7 @@ import           Yesod.Core.Types
 import qualified Network.HTTP.Types           as H
 import qualified Data.Text                    as T
 import           Control.Exception            (SomeException, handle)
-import           Blaze.ByteString.Builder     (fromLazyByteString,
-                                               toLazyByteString, toByteString)
+import           Data.ByteString.Builder      (lazyByteString, toLazyByteString)
 import qualified Data.ByteString.Lazy         as L
 import qualified Data.Map                     as Map
 import           Yesod.Core.Internal.Request  (tokenKey)
@@ -83,7 +83,7 @@ defaultStatus = H.mkStatus (-1) "INVALID DEFAULT STATUS"
 headerToPair :: Header
              -> (CI ByteString, ByteString)
 headerToPair (AddCookie sc) =
-    ("Set-Cookie", toByteString $ renderSetCookie sc)
+    ("Set-Cookie", BL.toStrict $ toLazyByteString $ renderSetCookie sc)
 headerToPair (DeleteCookie key path) =
     ( "Set-Cookie"
     , S.concat
@@ -100,7 +100,7 @@ evaluateContent (ContentBuilder b mlen) = handle f $ do
     let lbs = toLazyByteString b
         len = L.length lbs
         mlen' = mlen `mplus` Just (fromIntegral len)
-    len `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen')
+    len `seq` return (Right $ ContentBuilder (lazyByteString lbs) mlen')
   where
     f :: SomeException -> IO (Either ErrorResponse Content)
     f = return . Left . InternalError . T.pack . show

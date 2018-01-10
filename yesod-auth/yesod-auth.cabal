@@ -58,7 +58,7 @@ library
                    , binary
                    , http-client
                    , blaze-builder
-                   , conduit
+                   , conduit                 >= 1.3
                    , conduit-extra
                    , nonce                   >= 1.0.2     && < 1.1
 

@@ -24,9 +24,9 @@ module Yesod.EmbeddedStatic.Generators (
 
   -- * Util
   , pathToName
-  
+
   -- * Custom Generators
-  
+
   -- $example
 ) where
 
@@ -34,7 +34,6 @@ import Control.Applicative as A ((<$>), (<*>))
 import Control.Exception (try, SomeException)
 import Control.Monad (forM, when)
 import Data.Char (isDigit, isLower)
-import Data.Conduit (($$))
 import Data.Default (def)
 import Data.Maybe (isNothing)
 import Language.Haskell.TH
@@ -44,8 +43,7 @@ import System.FilePath ((</>))
 import Text.Jasmine (minifym)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Conduit.List as C
-import Data.Conduit.Binary (sourceHandle)
+import Conduit
 import qualified Data.Text as T
 import qualified System.Process as Proc
 import System.Exit (ExitCode (ExitSuccess))
@@ -208,13 +206,13 @@ compressTool f opts ct = do
                 }
     (Just hin, Just hout, _, ph) <- Proc.createProcess p
     (compressed, (), code) <- runConcurrently $ (,,)
-        A.<$> Concurrently (sourceHandle hout $$ C.consume)
+        A.<$> Concurrently (runConduit $ sourceHandle hout .| sinkLazy)
         A.<*> Concurrently (BL.hPut hin ct >> hClose hin)
         A.<*> Concurrently (Proc.waitForProcess ph)
     if code == ExitSuccess
         then do
             putStrLn $ "Compressed successfully with " ++ f
-            return $ BL.fromChunks compressed
+            return compressed
         else error $ "compressTool: compression failed with " ++ f
 
 

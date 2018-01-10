@@ -10,9 +10,8 @@ import           Yesod.Core.Handler
 
 import           Yesod.Routes.Class
 
-import           Blaze.ByteString.Builder           (Builder, toByteString)
-import           Blaze.ByteString.Builder.ByteString (copyByteString)
-import           Blaze.ByteString.Builder.Char.Utf8 (fromText, fromChar)
+import           Data.ByteString.Builder            (Builder, toLazyByteString)
+import           Data.Text.Encoding                 (encodeUtf8Builder)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
 #if __GLASGOW_HASKELL__ < 710
@@ -25,6 +24,7 @@ import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelO
 import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
+import qualified Data.ByteString.Lazy.Char8         as BL8
 import Data.Aeson (object, (.=))
 import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
@@ -113,10 +113,10 @@ class RenderRoute site => Yesod site where
     -- | Override the rendering function for a particular URL and query string
     -- parameters. One use case for this is to offload static hosting to a
     -- different domain name to avoid sending cookies.
-    -- 
+    --
     -- For backward compatibility default implementation is in terms of
     -- 'urlRenderOverride', probably ineffective
-    -- 
+    --
     -- Since 1.4.23
     urlParamRenderOverride :: site
                            -> Route site
@@ -126,11 +126,11 @@ class RenderRoute site => Yesod site where
       where
         addParams [] routeBldr = routeBldr
         addParams nonEmptyParams routeBldr =
-            let routeBS = toByteString routeBldr
-                qsSeparator = fromChar $ if S8.elem '?' routeBS then '&' else '?'
+            let routeBS = toLazyByteString routeBldr
+                qsSeparator = if BL8.elem '?' routeBS then "&" else "?"
                 valueToMaybe t = if t == "" then Nothing else Just t
                 queryText = map (id *** valueToMaybe) nonEmptyParams
-            in copyByteString routeBS `mappend` qsSeparator `mappend` renderQueryText False queryText
+            in routeBldr `mappend` qsSeparator `mappend` renderQueryText False queryText
 
     -- | Determine if a request is authorized or not.
     --
@@ -192,7 +192,7 @@ class RenderRoute site => Yesod site where
              -> [(T.Text, T.Text)] -- ^ query string
              -> Builder
     joinPath _ ar pieces' qs' =
-        fromText ar `mappend` encodePath pieces qs
+        encodeUtf8Builder ar `mappend` encodePath pieces qs
       where
         pieces = if null pieces' then [""] else map addDash pieces'
         qs = map (TE.encodeUtf8 *** go) qs'

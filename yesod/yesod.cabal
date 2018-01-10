@@ -38,8 +38,7 @@ library
                    , bytestring
                    , monad-logger
                    , fast-logger
-                   , conduit
-                   , conduit-extra             >= 1.1.14
+                   , conduit                   >= 1.3
                    , resourcet
                    , shakespeare
                    , streaming-commons

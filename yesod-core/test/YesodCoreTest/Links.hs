@@ -13,7 +13,7 @@ import Yesod.Core
 import Network.Wai
 import Network.Wai.Test
 import Data.Text (Text)
-import Blaze.ByteString.Builder (toByteString)
+import Data.ByteString.Builder (toLazyByteString)
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
@@ -86,7 +86,7 @@ case_blanks = runner $ do
     liftIO $ do
         let go r =
                 let (ps, qs) = renderRoute r
-                 in toByteString $ joinPath Y "" ps qs
+                 in toLazyByteString $ joinPath Y "" ps qs
         (go $ TextR "-") `shouldBe` "/single/--"
         (go $ TextR "") `shouldBe` "/single/-"
         (go $ TextsR ["", "-", "foo", "", "bar"]) `shouldBe` "/multi/-/--/foo/-/bar"

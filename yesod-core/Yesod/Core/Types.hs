@@ -9,8 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Yesod.Core.Types where
 
-import qualified Blaze.ByteString.Builder           as BBuilder
-import qualified Blaze.ByteString.Builder.Char.Utf8
+import qualified Data.ByteString.Builder            as BB
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative                (Applicative (..))
 import           Control.Applicative                ((<$>))
@@ -25,7 +24,7 @@ import           Control.Monad.Logger               (LogLevel, LogSource,
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), throwM, ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
-import           Data.Conduit                       (Flush, Source)
+import           Data.Conduit                       (Flush, ConduitT)
 import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
@@ -59,7 +58,6 @@ import           Control.Monad.Reader               (MonadReader (..))
 import           Data.Monoid                        ((<>))
 import Control.DeepSeq (NFData (rnf))
 import Control.DeepSeq.Generics (genericRnf)
-import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import Data.Semigroup (Semigroup)
@@ -134,13 +132,13 @@ type RequestBodyContents =
 data FileInfo = FileInfo
     { fileName        :: !Text
     , fileContentType :: !Text
-    , fileSourceRaw   :: !(Source (ResourceT IO) ByteString)
+    , fileSourceRaw   :: !(ConduitT () ByteString (ResourceT IO) ())
     , fileMove        :: !(FilePath -> IO ())
     }
 
 data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
                 | FileUploadDisk !(InternalState -> NWP.BackEnd FilePath)
-                | FileUploadSource !(NWP.BackEnd (Source (ResourceT IO) ByteString))
+                | FileUploadSource !(NWP.BackEnd (ConduitT () ByteString (ResourceT IO) ()))
 
 -- | How to determine the root of the application for constructing URLs.
 --
@@ -288,8 +286,8 @@ data PageContent url = PageContent
     , pageBody  :: HtmlUrl url
     }
 
-data Content = ContentBuilder !BBuilder.Builder !(Maybe Int) -- ^ The content and optional content length.
-             | ContentSource !(Source (ResourceT IO) (Flush BBuilder.Builder))
+data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and optional content length.
+             | ContentSource !(ConduitT () (Flush BB.Builder) (ResourceT IO) ())
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
@@ -444,11 +442,6 @@ instance MonadIO m => MonadLogger (WidgetT site m) where
 instance MonadIO m => MonadLoggerIO (WidgetT site m) where
     askLoggerIO = WidgetT $ \_ hd -> return $ rheLog $ handlerEnv hd
 
-instance MonadActive m => MonadActive (WidgetT site m) where
-    monadActive = lift monadActive
-instance MonadActive m => MonadActive (HandlerT site m) where
-    monadActive = lift monadActive
-
 instance MonadTrans (HandlerT site) where
     lift = HandlerT . const
 
@@ -496,7 +489,7 @@ instance Monoid (UniqueList x) where
 instance Semigroup (UniqueList x)
 
 instance IsString Content where
-    fromString = flip ContentBuilder Nothing . Blaze.ByteString.Builder.Char.Utf8.fromString
+    fromString = flip ContentBuilder Nothing . BB.stringUtf8
 
 instance RenderRoute WaiSubsite where
     data Route WaiSubsite = WaiSubsiteRoute [Text] [(Text, Text)]

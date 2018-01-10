@@ -33,9 +33,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With, decodeUtf8)
 import Data.Text.Encoding.Error (lenientDecode)
-import Data.Conduit
-import Data.Conduit.List (sourceList)
-import Data.Conduit.Binary (sourceFile, sinkFile)
+import Conduit
 import Data.Word (Word8, Word64)
 import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Exception (throwIO)
@@ -176,7 +174,7 @@ fromByteVector v =
 
 mkFileInfoLBS :: Text -> Text -> L.ByteString -> FileInfo
 mkFileInfoLBS name ct lbs =
-    FileInfo name ct (sourceList $ L.toChunks lbs) (`L.writeFile` lbs)
+    FileInfo name ct (sourceLazy lbs) (`L.writeFile` lbs)
 
 mkFileInfoFile :: Text -> Text -> FilePath -> FileInfo
 mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourceT $ sourceFile fp $$ sinkFile dst)

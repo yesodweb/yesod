@@ -240,13 +240,13 @@ import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
-import           Blaze.ByteString.Builder (Builder)
+import           Data.ByteString.Builder (Builder)
 import           Safe (headMay)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import           Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer, Sink)
+import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
@@ -679,9 +679,10 @@ sendRawResponseNoConduit raw = withRunInIO $ \runInIO ->
 -- Warp).
 --
 -- @since 1.2.7
-sendRawResponse :: (MonadHandler m, MonadUnliftIO m)
-                => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
-                -> m a
+sendRawResponse
+  :: (MonadHandler m, MonadUnliftIO m)
+  => (ConduitT () S8.ByteString IO () -> ConduitT S8.ByteString Void IO () -> m ())
+  -> m a
 sendRawResponse raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
@@ -1337,7 +1338,7 @@ provideRepType ct handler =
 -- | Stream in the raw request body without any parsing.
 --
 -- @since 1.2.0
-rawRequestBody :: MonadHandler m => Source m S.ByteString
+rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
@@ -1349,7 +1350,7 @@ rawRequestBody = do
 
 -- | Stream the data from the file. Since Yesod 1.2, this has been generalized
 -- to work in any @MonadResource@.
-fileSource :: MonadResource m => FileInfo -> Source m S.ByteString
+fileSource :: MonadResource m => FileInfo -> ConduitT () S.ByteString m ()
 fileSource = transPipe liftResourceT . fileSourceRaw
 
 -- | Provide a pure value for the response body.
@@ -1370,7 +1371,7 @@ respond ct = return . TypedContent ct . toContent
 --
 -- @since 1.2.0
 respondSource :: ContentType
-              -> Source (HandlerT site IO) (Flush Builder)
+              -> ConduitT () (Flush Builder) (HandlerT site IO) ()
               -> HandlerT site IO TypedContent
 respondSource ctype src = HandlerT $ \hd ->
     -- Note that this implementation relies on the fact that the ResourceT
@@ -1383,44 +1384,44 @@ respondSource ctype src = HandlerT $ \hd ->
 -- on most datatypes, such as @ByteString@ and @Html@.
 --
 -- @since 1.2.0
-sendChunk :: Monad m => ToFlushBuilder a => a -> Producer m (Flush Builder)
+sendChunk :: Monad m => ToFlushBuilder a => a -> ConduitT i (Flush Builder) m ()
 sendChunk = yield . toFlushBuilder
 
 -- | In a streaming response, send a flush command, causing all buffered data
 -- to be immediately sent to the client.
 --
 -- @since 1.2.0
-sendFlush :: Monad m => Producer m (Flush Builder)
+sendFlush :: Monad m => ConduitT i (Flush Builder) m ()
 sendFlush = yield Flush
 
 -- | Type-specialized version of 'sendChunk' for strict @ByteString@s.
 --
 -- @since 1.2.0
-sendChunkBS :: Monad m => S.ByteString -> Producer m (Flush Builder)
+sendChunkBS :: Monad m => S.ByteString -> ConduitT i (Flush Builder) m ()
 sendChunkBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @ByteString@s.
 --
 -- @since 1.2.0
-sendChunkLBS :: Monad m => L.ByteString -> Producer m (Flush Builder)
+sendChunkLBS :: Monad m => L.ByteString -> ConduitT i (Flush Builder) m ()
 sendChunkLBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for strict @Text@s.
 --
 -- @since 1.2.0
-sendChunkText :: Monad m => T.Text -> Producer m (Flush Builder)
+sendChunkText :: Monad m => T.Text -> ConduitT i (Flush Builder) m ()
 sendChunkText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @Text@s.
 --
 -- @since 1.2.0
-sendChunkLazyText :: Monad m => TL.Text -> Producer m (Flush Builder)
+sendChunkLazyText :: Monad m => TL.Text -> ConduitT i (Flush Builder) m ()
 sendChunkLazyText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for @Html@s.
 --
 -- @since 1.2.0
-sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
+sendChunkHtml :: Monad m => Html -> ConduitT i (Flush Builder) m ()
 sendChunkHtml = sendChunk
 
 -- | Converts a child handler to a parent handler
