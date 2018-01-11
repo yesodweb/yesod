@@ -161,10 +161,9 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | An alias for 'timeFieldTypeText'.
+-- | An alias for 'timeFieldTypeTime'.
 timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
-timeField = timeFieldTypeText
-{-# DEPRECATED timeField "'timeField' currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See 'https://github.com/yesodweb/yesod/pull/874' for details." #-}
+timeField = timeFieldTypeTime
 
 -- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
 -- 
@@ -175,6 +174,8 @@ timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Fie
 timeFieldTypeTime = timeFieldOfType "time"
 
 -- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
+--
+-- This function exists for backwards compatibility with the old implementation of 'timeField', which used to use @type="text"@. Consider using 'timeField' or 'timeFieldTypeTime' for improved UX and validation from the browser.
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
