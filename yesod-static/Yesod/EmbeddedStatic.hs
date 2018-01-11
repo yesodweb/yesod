@@ -81,7 +81,7 @@ import Yesod.EmbeddedStatic.Generators
 embeddedResourceR :: [T.Text] -> [(T.Text, T.Text)] -> Route EmbeddedStatic
 embeddedResourceR = EmbeddedResourceR
 
-instance YesodSubDispatch EmbeddedStatic (HandlerT master IO) where
+instance YesodSubDispatch EmbeddedStatic master where
     yesodSubDispatch YesodSubRunnerEnv {..} req = resp
         where
             master = yreSite ysreParentEnv

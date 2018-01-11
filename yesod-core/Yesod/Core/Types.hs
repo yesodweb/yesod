@@ -203,15 +203,15 @@ data YesodRunnerEnv site = YesodRunnerEnv
     , yreGetMaxExpires  :: IO Text
     }
 
-data YesodSubRunnerEnv sub parent parentMonad = YesodSubRunnerEnv
-    { ysreParentRunner  :: !(ParentRunner parent parentMonad)
+data YesodSubRunnerEnv sub parent = YesodSubRunnerEnv
+    { ysreParentRunner  :: !(ParentRunner parent)
     , ysreGetSub        :: !(parent -> sub)
     , ysreToParentRoute :: !(Route sub -> Route parent)
     , ysreParentEnv     :: !(YesodRunnerEnv parent) -- FIXME maybe get rid of this and remove YesodRunnerEnv in ParentRunner?
     }
 
-type ParentRunner parent m
-    = m TypedContent
+type ParentRunner parent
+    = HandlerFor parent TypedContent
    -> YesodRunnerEnv parent
    -> Maybe (Route parent)
    -> W.Application

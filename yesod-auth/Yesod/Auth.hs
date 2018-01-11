@@ -582,8 +582,7 @@ data AuthException = InvalidFacebookResponse
     deriving (Show, Typeable)
 instance Exception AuthException
 
--- FIXME HandlerSite m ~ SubHandlerSite m should be unnecessary
-instance (YesodAuth (HandlerSite m), HandlerSite m ~ SubHandlerSite m, MonadSubHandler m, MonadUnliftIO m) => YesodSubDispatch Auth m where
+instance YesodAuth master => YesodSubDispatch Auth master where
     yesodSubDispatch = $(mkYesodSubDispatch resourcesAuth)
 
 asHtml :: Html -> Html
