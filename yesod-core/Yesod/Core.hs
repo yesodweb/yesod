@@ -76,6 +76,9 @@ module Yesod.Core
     , getApprootText
       -- * Subsites
     , MonadSubHandler (..)
+    , getSubYesod
+    , getRouteToParent
+    , getSubCurrentRoute
     , SubsiteData
       -- * Misc
     , yesodVersion
@@ -96,8 +99,7 @@ module Yesod.Core
     , module Text.Blaze.Html
     , MonadTrans (..)
     , MonadIO (..)
-    , MonadBase (..)
-    , MonadBaseControl
+    , MonadUnliftIO (..)
     , MonadResource (..)
     , MonadLogger
       -- * Commonly referenced functions/datatypes
@@ -144,9 +146,7 @@ import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class
-import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Base (MonadBase (..))
-import Control.Monad.Trans.Control (MonadBaseControl (..))
+import Control.Monad.IO.Unlift (MonadIO (..), MonadUnliftIO (..))
 
 import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp

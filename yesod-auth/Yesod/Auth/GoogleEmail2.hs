@@ -65,7 +65,7 @@ import           Yesod.Core               (HandlerSite, MonadHandler,
                                            lookupSession, notFound, redirect,
                                            setSession, whamlet, (.:),
                                            addMessage, getYesod,
-                                           toHtml)
+                                           toHtml, liftSubHandler)
 
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
@@ -84,7 +84,7 @@ import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)
-import           Data.Conduit             (($$+-), ($$))
+import           Data.Conduit             (($$+-), ($$), (.|), runConduit)
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
 import           Data.Maybe               (fromMaybe)
@@ -262,7 +262,8 @@ authPlugin storeToken clientID clientSecret =
 
 makeHttpRequest :: Request -> AuthHandler site A.Value
 makeHttpRequest req =
-    runHttpRequest req $ \res -> bodyReaderSource (responseBody res) $$ sinkParser json'
+    liftSubHandler $ runHttpRequest req $ \res ->
+    runConduit $ bodyReaderSource (responseBody res) .| sinkParser json'
 
 -- | Allows to fetch information about a user from Google's API.
 --   In case of parsing error returns 'Nothing'.
@@ -270,7 +271,7 @@ makeHttpRequest req =
 --
 -- @since 1.4.3
 getPerson :: Manager -> Token -> AuthHandler site (Maybe Person)
-getPerson manager token = parseMaybe parseJSON <$> (do
+getPerson manager token = liftSubHandler $ parseMaybe parseJSON <$> (do
     req <- personValueRequest token
     res <- http req manager
     responseBody res $$+- sinkParser json'

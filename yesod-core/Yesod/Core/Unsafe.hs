@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 -- | This is designed to be used as
 --
--- > qualified import Yesod.Core.Unsafe as Unsafe
+-- > import qualified Yesod.Core.Unsafe as Unsafe
 --
 -- This serves as a reminder that the functions are unsafe to use in many situations.
 module Yesod.Core.Unsafe (runFakeHandler, fakeHandlerGetLogger) where

@@ -24,10 +24,8 @@ library
                      , websockets        >= 0.9
                      , transformers      >= 0.2
                      , yesod-core        >= 1.4
-                     , monad-control     >= 0.3
+                     , unliftio
                      , conduit           >= 1.0.15.1
-                     , async             >= 2.0.1.5
-                     , enclosed-exceptions >= 1.0
 
 source-repository head
   type:     git

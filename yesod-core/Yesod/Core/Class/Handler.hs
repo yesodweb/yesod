@@ -5,7 +5,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- Because of ErrorT
 module Yesod.Core.Class.Handler
     ( MonadHandler (..)
     , MonadWidget (..)
@@ -15,6 +14,7 @@ module Yesod.Core.Class.Handler
 
 import Yesod.Core.Types
 import Control.Monad.Logger (MonadLogger)
+import Control.Monad.IO.Unlift (liftIO, MonadUnliftIO, MonadIO)
 import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans.Class (lift)
 #if __GLASGOW_HASKELL__ < 710
@@ -25,7 +25,6 @@ import Data.Conduit.Internal (Pipe, ConduitM)
 import Control.Monad.Trans.Identity ( IdentityT)
 import Control.Monad.Trans.List     ( ListT    )
 import Control.Monad.Trans.Maybe    ( MaybeT   )
-import Control.Monad.Trans.Error    ( ErrorT, Error)
 import Control.Monad.Trans.Except   ( ExceptT  )
 import Control.Monad.Trans.Reader   ( ReaderT  )
 import Control.Monad.Trans.State    ( StateT   )
@@ -59,7 +58,6 @@ instance MonadHandler (WidgetFor site) where
 GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
-GOX(Error e, ErrorT e)
 GO(ExceptT e)
 GO(ReaderT r)
 GO(StateT s)
@@ -88,7 +86,6 @@ liftWidgetT = liftWidget
 GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
-GOX(Error e, ErrorT e)
 GO(ExceptT e)
 GO(ReaderT r)
 GO(StateT s)

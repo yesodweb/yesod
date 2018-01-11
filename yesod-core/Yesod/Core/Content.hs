@@ -53,20 +53,21 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
-import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
+import Data.Text.Encoding (encodeUtf8Builder)
+import qualified Data.Text.Lazy as TL
+import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 #if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mempty)
 #endif
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
-import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)
+import Data.Conduit (Flush (Chunk), ResumableSource, mapOutput)
 import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (ResourceT)
 import Data.Conduit.Internal (ResumableSource (ResumableSource))
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
-import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Text.Lazy.Builder (toLazyText)
 import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
@@ -93,15 +94,15 @@ instance ToContent Content where
 instance ToContent Builder where
     toContent = flip ContentBuilder Nothing
 instance ToContent B.ByteString where
-    toContent bs = ContentBuilder (fromByteString bs) $ Just $ B.length bs
+    toContent bs = ContentBuilder (byteString bs) $ Just $ B.length bs
 instance ToContent L.ByteString where
-    toContent = flip ContentBuilder Nothing . fromLazyByteString
+    toContent = flip ContentBuilder Nothing . lazyByteString
 instance ToContent T.Text where
-    toContent = toContent . Blaze.fromText
+    toContent = toContent . encodeUtf8Builder
 instance ToContent Text where
-    toContent = toContent . Blaze.fromLazyText
+    toContent = toContent . foldMap encodeUtf8Builder . TL.toChunks
 instance ToContent String where
-    toContent = toContent . Blaze.fromString
+    toContent = toContent . stringUtf8
 instance ToContent Html where
     toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
 instance ToContent () where
@@ -117,12 +118,12 @@ instance ToContent Javascript where
     toContent = toContent . toLazyText . unJavascript
 
 instance ToFlushBuilder builder => ToContent (CI.Pipe () () builder () (ResourceT IO) ()) where
-    toContent src = ContentSource $ CI.ConduitM (CI.mapOutput toFlushBuilder src >>=)
+    toContent src = ContentSource $ CI.ConduitT (CI.mapOutput toFlushBuilder src >>=)
 
-instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) where
+instance ToFlushBuilder builder => ToContent (CI.ConduitT () builder (ResourceT IO) ()) where
     toContent src = ContentSource $ mapOutput toFlushBuilder src
 instance ToFlushBuilder builder => ToContent (ResumableSource (ResourceT IO) builder) where
-    toContent (ResumableSource src _) = toContent src
+    toContent (ResumableSource src) = toContent src
 
 -- | A class for all data which can be sent in a streaming response. Note that
 -- for textual data, instances must use UTF-8 encoding.
@@ -131,16 +132,16 @@ instance ToFlushBuilder builder => ToContent (ResumableSource (ResourceT IO) bui
 class ToFlushBuilder a where toFlushBuilder :: a -> Flush Builder
 instance ToFlushBuilder (Flush Builder) where toFlushBuilder = id
 instance ToFlushBuilder Builder where toFlushBuilder = Chunk
-instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap fromByteString
-instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . fromByteString
-instance ToFlushBuilder (Flush L.ByteString) where toFlushBuilder = fmap fromLazyByteString
-instance ToFlushBuilder L.ByteString where toFlushBuilder = Chunk . fromLazyByteString
-instance ToFlushBuilder (Flush Text) where toFlushBuilder = fmap Blaze.fromLazyText
-instance ToFlushBuilder Text where toFlushBuilder = Chunk . Blaze.fromLazyText
-instance ToFlushBuilder (Flush T.Text) where toFlushBuilder = fmap Blaze.fromText
-instance ToFlushBuilder T.Text where toFlushBuilder = Chunk . Blaze.fromText
-instance ToFlushBuilder (Flush String) where toFlushBuilder = fmap Blaze.fromString
-instance ToFlushBuilder String where toFlushBuilder = Chunk . Blaze.fromString
+instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap byteString
+instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . byteString
+instance ToFlushBuilder (Flush L.ByteString) where toFlushBuilder = fmap lazyByteString
+instance ToFlushBuilder L.ByteString where toFlushBuilder = Chunk . lazyByteString
+instance ToFlushBuilder (Flush Text) where toFlushBuilder = fmap (foldMap encodeUtf8Builder . TL.toChunks)
+instance ToFlushBuilder Text where toFlushBuilder = Chunk . foldMap encodeUtf8Builder . TL.toChunks
+instance ToFlushBuilder (Flush T.Text) where toFlushBuilder = fmap encodeUtf8Builder
+instance ToFlushBuilder T.Text where toFlushBuilder = Chunk . encodeUtf8Builder
+instance ToFlushBuilder (Flush String) where toFlushBuilder = fmap stringUtf8
+instance ToFlushBuilder String where toFlushBuilder = Chunk . stringUtf8
 instance ToFlushBuilder (Flush Html) where toFlushBuilder = fmap renderHtmlBuilder
 instance ToFlushBuilder Html where toFlushBuilder = Chunk . renderHtmlBuilder
 

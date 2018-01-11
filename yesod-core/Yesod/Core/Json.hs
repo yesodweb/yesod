@@ -104,7 +104,7 @@ provideJson = provideRep . return . J.toEncoding
 -- @since 0.3.0
 parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
-    eValue <- rawRequestBody $$ runCatchC (sinkParser JP.value')
+    eValue <- runConduit $ rawRequestBody .| runCatchC (sinkParser JP.value')
     return $ case eValue of
         Left e -> J.Error $ show e
         Right value -> J.fromJSON value

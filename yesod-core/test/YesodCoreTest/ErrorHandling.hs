@@ -14,11 +14,13 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
 import Network.HTTP.Types (Status, mkStatus)
-import Blaze.ByteString.Builder (Builder, fromByteString, toLazyByteString)
+import Data.ByteString.Builder (Builder, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
-import qualified Control.Exception.Lifted as E
+import Control.Monad.Trans.State (StateT (..))
+import Control.Monad.Trans.Reader (ReaderT (..))
+import qualified UnliftIO.Exception as E
 
 data App = App
 
@@ -99,7 +101,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ fromByteString "This is a test\n"
+goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
@@ -217,6 +219,6 @@ caseGoodBuilder = runner $ do
 caseError :: Int -> IO ()
 caseError i = runner $ do
     res <- request defaultRequest { pathInfo = ["error", pack $ show i] }
-    assertStatus 500 res `E.catch` \e -> do
+    ReaderT $ \r -> StateT $ \s -> runStateT (runReaderT (assertStatus 500 res) r) s `E.catch` \e -> do
         liftIO $ print res
         E.throwIO (e :: E.SomeException)

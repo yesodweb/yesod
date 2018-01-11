@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE CPP#-}
+{-# LANGUAGE CPP #-}
 -- | A module providing a means of creating multiple input forms, such as a
 -- list of 0 or more recipients.
 module Yesod.Form.MassInput

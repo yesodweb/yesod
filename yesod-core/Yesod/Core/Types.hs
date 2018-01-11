@@ -10,8 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Yesod.Core.Types where
 
-import qualified Blaze.ByteString.Builder           as BBuilder
-import qualified Blaze.ByteString.Builder.Char.Utf8
+import qualified Data.ByteString.Builder            as BB
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative                (Applicative (..))
 import           Control.Applicative                ((<$>))
@@ -20,16 +19,13 @@ import           Data.Monoid                        (Monoid (..))
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (ap)
-import           Control.Monad.Base                 (MonadBase (liftBase))
-import           Control.Monad.Catch                (MonadMask (..), MonadCatch (..))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
-import           Control.Monad.Trans.Control        (MonadBaseControl (..))
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
-import           Data.Conduit                       (Flush, Source)
+import           Data.Conduit                       (Flush, ConduitT)
 import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
@@ -62,7 +58,6 @@ import           Control.Monad.Reader               (MonadReader (..))
 import           Data.Monoid                        ((<>))
 import Control.DeepSeq (NFData (rnf))
 import Control.DeepSeq.Generics (genericRnf)
-import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import Data.Semigroup (Semigroup)
@@ -137,13 +132,13 @@ type RequestBodyContents =
 data FileInfo = FileInfo
     { fileName        :: !Text
     , fileContentType :: !Text
-    , fileSourceRaw   :: !(Source (ResourceT IO) ByteString)
+    , fileSourceRaw   :: !(ConduitT () ByteString (ResourceT IO) ())
     , fileMove        :: !(FilePath -> IO ())
     }
 
 data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
                 | FileUploadDisk !(InternalState -> NWP.BackEnd FilePath)
-                | FileUploadSource !(NWP.BackEnd (Source (ResourceT IO) ByteString))
+                | FileUploadSource !(NWP.BackEnd (ConduitT () ByteString (ResourceT IO) ()))
 
 -- | How to determine the root of the application for constructing URLs.
 --
@@ -293,8 +288,8 @@ data PageContent url = PageContent
     , pageBody  :: HtmlUrl url
     }
 
-data Content = ContentBuilder !BBuilder.Builder !(Maybe Int) -- ^ The content and optional content length.
-             | ContentSource !(Source (ResourceT IO) (Flush BBuilder.Builder))
+data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and optional content length.
+             | ContentSource !(ConduitT () (Flush BB.Builder) (ResourceT IO) ())
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
@@ -417,14 +412,6 @@ instance Monad (WidgetFor site) where
         unWidgetFor (f a) wd
 instance MonadIO (WidgetFor site) where
     liftIO = WidgetFor . const
-instance b ~ IO => MonadBase b (WidgetFor site) where
-    liftBase = WidgetFor . const
-instance b ~ IO => MonadBaseControl b (WidgetFor site) where
-    type StM (WidgetFor site) a = a
-    liftBaseWith f = WidgetFor $ \wd ->
-        liftBaseWith $ \runInBase ->
-            f $ runInBase . (flip unWidgetFor wd)
-    restoreM = WidgetFor . const . return
 -- | @since 1.4.38
 instance MonadUnliftIO (WidgetFor site) where
   {-# INLINE askUnliftIO #-}
@@ -437,23 +424,6 @@ instance MonadReader (WidgetData site) (WidgetFor site) where
 instance MonadThrow (WidgetFor site) where
     throwM = liftIO . throwM
 
-instance MonadCatch (HandlerFor site) where
-  catch (HandlerFor m) c = HandlerFor $ \r -> m r `catch` \e -> unHandlerFor (c e) r
-instance MonadMask (HandlerFor site) where
-  mask a = HandlerFor $ \e -> mask $ \u -> unHandlerFor (a $ q u) e
-    where q u (HandlerFor b) = HandlerFor (u . b)
-  uninterruptibleMask a =
-    HandlerFor $ \e -> uninterruptibleMask $ \u -> unHandlerFor (a $ q u) e
-      where q u (HandlerFor b) = HandlerFor (u . b)
-instance MonadCatch (WidgetFor site) where
-  catch (WidgetFor m) c = WidgetFor $ \r -> m r `catch` \e -> unWidgetFor (c e) r
-instance MonadMask (WidgetFor site) where
-  mask a = WidgetFor $ \e -> mask $ \u -> unWidgetFor (a $ q u) e
-    where q u (WidgetFor b) = WidgetFor (u . b)
-  uninterruptibleMask a =
-    WidgetFor $ \e -> uninterruptibleMask $ \u -> unWidgetFor (a $ q u) e
-      where q u (WidgetFor b) = WidgetFor (u . b)
-
 instance MonadResource (WidgetFor site) where
     liftResourceT f = WidgetFor $ runInternalState f . handlerResource . wdHandler
 
@@ -464,12 +434,6 @@ instance MonadLogger (WidgetFor site) where
 instance MonadLoggerIO (WidgetFor site) where
     askLoggerIO = WidgetFor $ return . rheLog . handlerEnv . wdHandler
 
--- FIXME look at implementation of ResourceT
-instance MonadActive (WidgetFor site) where
-    monadActive = liftIO monadActive
-instance MonadActive (HandlerFor site) where
-    monadActive = liftIO monadActive
-
 -- Instances for HandlerT
 instance Applicative (HandlerFor site) where
     pure = HandlerFor . const . return
@@ -479,26 +443,10 @@ instance Monad (HandlerFor site) where
     HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
 instance MonadIO (HandlerFor site) where
     liftIO = HandlerFor . const
-instance b ~ IO => MonadBase b (HandlerFor site) where
-    liftBase = liftIO
 instance MonadReader (HandlerData site) (HandlerFor site) where
     ask = HandlerFor return
     local f (HandlerFor g) = HandlerFor $ g . f
 
--- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
--- @fork@ function is incompatible with the underlying @ResourceT@ system.
--- Instead, if you must fork a separate thread, you should use
--- @resourceForkIO@.
---
--- Using fork usually leads to an exception that says
--- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
--- after cleanup. Please contact the maintainers.\"
-instance b ~ IO => MonadBaseControl b (HandlerFor site) where
-    type StM (HandlerFor site) a = a
-    liftBaseWith f = HandlerFor $ \reader' ->
-        liftBaseWith $ \runInBase ->
-            f $ runInBase . (flip unHandlerFor reader')
-    restoreM = HandlerFor . const . return
 -- | @since 1.4.38
 instance MonadUnliftIO (HandlerFor site) where
   {-# INLINE askUnliftIO #-}
@@ -524,7 +472,7 @@ instance Monoid (UniqueList x) where
 instance Semigroup (UniqueList x)
 
 instance IsString Content where
-    fromString = flip ContentBuilder Nothing . Blaze.ByteString.Builder.Char.Utf8.fromString
+    fromString = flip ContentBuilder Nothing . BB.stringUtf8
 
 instance RenderRoute WaiSubsite where
     data Route WaiSubsite = WaiSubsiteRoute [Text] [(Text, Text)]

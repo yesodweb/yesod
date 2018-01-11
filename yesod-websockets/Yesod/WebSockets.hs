@@ -34,19 +34,14 @@ module Yesod.WebSockets
     , WS.ConnectionOptions (..)
     ) where
 
-import qualified Control.Concurrent.Async       as A
 import           Control.Monad                  (forever, void, when)
-import           Control.Monad.IO.Class         (MonadIO (liftIO))
-import           Control.Monad.Trans.Control    (control)
-import           Control.Monad.Trans.Control    (MonadBaseControl (liftBaseWith, restoreM))
 import           Control.Monad.Trans.Reader     (ReaderT (ReaderT, runReaderT))
 import qualified Data.Conduit                   as C
 import qualified Data.Conduit.List              as CL
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
-import           Control.Exception (SomeException)
-import           Control.Exception.Enclosed (tryAny)
+import           UnliftIO (SomeException, tryAny, MonadIO, liftIO, MonadUnliftIO, withRunInIO, race, race_, concurrently, concurrently_)
 
 -- | A transformer for a WebSockets handler.
 --
@@ -60,14 +55,14 @@ type WebSocketsT = ReaderT WS.Connection
 -- instead.
 --
 -- Since 0.1.0
-webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
+webSockets :: (Y.MonadUnliftIO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
 webSockets = webSocketsOptions WS.defaultConnectionOptions
 
 -- | Varient of 'webSockets' which allows you to specify
 -- the WS.ConnectionOptions setttings when upgrading to a websocket connection.
 --
 -- Since 0.2.5
-webSocketsOptions :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+webSocketsOptions :: (Y.MonadUnliftIO m, Y.MonadHandler m)
                => WS.ConnectionOptions
                -> WebSocketsT m ()
                -> m ()
@@ -81,7 +76,7 @@ webSocketsOptions opts = webSocketsOptionsWith opts $ const $ return $ Just $ WS
 -- setttings when upgrading to a websocket connection.
 --
 -- Since 0.2.4
-webSocketsWith :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+webSocketsWith :: (Y.MonadUnliftIO m, Y.MonadHandler m)
                => (WS.RequestHead -> m (Maybe WS.AcceptRequest))
                -- ^ A Nothing indicates that the websocket upgrade request should not happen
                -- and instead the rest of the handler will be called instead.  This allows
@@ -98,7 +93,7 @@ webSocketsWith = webSocketsOptionsWith WS.defaultConnectionOptions
 -- setttings when upgrading to a websocket connection.
 --
 -- Since 0.2.5
-webSocketsOptionsWith :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+webSocketsOptionsWith :: (Y.MonadUnliftIO m, Y.MonadHandler m)
                => WS.ConnectionOptions
                -- ^ Custom websockets options
                -> (WS.RequestHead -> m (Maybe WS.AcceptRequest))
@@ -119,7 +114,7 @@ webSocketsOptionsWith wsConnOpts buildAr inner = do
             Nothing -> return ()
             Just ar ->
                 Y.sendRawResponseNoConduit
-                  $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
+                  $ \src sink -> withRunInIO $ \runInIO -> WaiWS.runWebSockets
                     wsConnOpts
                     rhead
                     (\pconn -> do
@@ -227,35 +222,3 @@ sinkWSText = CL.mapM_ sendTextData
 -- Since 0.1.0
 sinkWSBinary :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebSocketsT m) ()
 sinkWSBinary = CL.mapM_ sendBinaryData
-
--- | Generalized version of 'A.race'.
---
--- Since 0.1.0
-race :: MonadBaseControl IO m => m a -> m b -> m (Either a b)
-race x y = liftBaseWith (\run -> A.race (run x) (run y))
-    >>= either (fmap Left . restoreM) (fmap Right . restoreM)
-
--- | Generalized version of 'A.race_'.
---
--- Since 0.1.0
-race_ :: MonadBaseControl IO m => m a -> m b -> m ()
-race_ x y = void $ race x y
-
--- | Generalized version of 'A.concurrently'. Note that if your underlying
--- monad has some kind of mutable state, the state from the second action will
--- overwrite the state from the first.
---
--- Since 0.1.0
-concurrently :: MonadBaseControl IO m => m a -> m b -> m (a, b)
-concurrently x y = do
-    (resX, resY) <- liftBaseWith $ \run -> A.concurrently (run x) (run y)
-    x' <- restoreM resX
-    y' <- restoreM resY
-    return (x', y')
-
--- | Run two actions concurrently (like 'A.concurrently'), but discard their
--- results and any modified monadic state.
---
--- Since 0.1.0
-concurrently_ :: MonadBaseControl IO m => m a -> m b -> m ()
-concurrently_ x y = void $ liftBaseWith $ \run -> A.concurrently (run x) (run y)

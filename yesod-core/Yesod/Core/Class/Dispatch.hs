@@ -45,32 +45,49 @@ data SubsiteData child parent = SubsiteData
 class MonadHandler m => MonadSubHandler m where
   type SubHandlerSite m
 
-  getSubYesod :: m (SubHandlerSite m)
-  getRouteToParent :: m (Route (SubHandlerSite m) -> Route (HandlerSite m))
-  getSubCurrentRoute :: m (Maybe (Route (SubHandlerSite m)))
+  liftSubHandler :: ReaderT (SubsiteData (SubHandlerSite m) (HandlerSite m)) (HandlerFor (HandlerSite m)) a -> m a
+
+getSubYesod :: MonadSubHandler m => m (SubHandlerSite m)
+getSubYesod = liftSubHandler $ ReaderT $ return . sdSubsiteData
+
+getRouteToParent :: MonadSubHandler m => m (Route (SubHandlerSite m) -> Route (HandlerSite m))
+getRouteToParent = liftSubHandler $ ReaderT $ return . sdRouteToParent
+
+getSubCurrentRoute :: MonadSubHandler m => m (Maybe (Route (SubHandlerSite m)))
+getSubCurrentRoute = liftSubHandler $ ReaderT $ return . sdCurrentRoute
 
 instance MonadSubHandler (HandlerFor site) where
   type SubHandlerSite (HandlerFor site) = site
 
-  getSubYesod = getYesod
-  getRouteToParent = return id
-  getSubCurrentRoute = getCurrentRoute
+  liftSubHandler (ReaderT x) = do
+    parent <- getYesod
+    currentRoute <- getCurrentRoute
+    x SubsiteData
+      { sdRouteToParent = id
+      , sdCurrentRoute = currentRoute
+      , sdSubsiteData = parent
+      }
 
 instance MonadSubHandler (WidgetFor site) where
   type SubHandlerSite (WidgetFor site) = site
 
-  getSubYesod = getYesod
-  getRouteToParent = return id
-  getSubCurrentRoute = getCurrentRoute
+  liftSubHandler (ReaderT x) = do
+    parent <- getYesod
+    currentRoute <- getCurrentRoute
+    liftHandler $ x SubsiteData
+      { sdRouteToParent = id
+      , sdCurrentRoute = currentRoute
+      , sdSubsiteData = parent
+      }
 
 instance (MonadSubHandler m, parent ~ SubHandlerSite m) => MonadSubHandler (ReaderT (SubsiteData child parent) m) where
   type SubHandlerSite (ReaderT (SubsiteData child parent) m) = child
 
-  getSubYesod = fmap sdSubsiteData ask
-  getSubCurrentRoute = fmap sdCurrentRoute ask
-  getRouteToParent = ReaderT $ \sd -> do
+  liftSubHandler (ReaderT f) = ReaderT $ \env -> do
     toParent' <- getRouteToParent
-    return $ toParent' . sdRouteToParent sd
+    liftHandler $ f env
+      { sdRouteToParent = toParent' . sdRouteToParent env
+      }
 
 subHelper
   :: (ToTypedContent content, MonadSubHandler m, master ~ HandlerSite m, parent ~ SubHandlerSite m)

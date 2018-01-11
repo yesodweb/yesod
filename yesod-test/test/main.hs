@@ -1,3 +1,6 @@
+-- Ignore warnings about using deprecated byLabel/fileByLabel functions
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
@@ -34,7 +37,7 @@ import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
 import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
-import UnliftIO (tryAny)
+import UnliftIO (tryAny, SomeException, try)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -215,6 +218,22 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl ("/labels" :: Text)
                     byLabel "Foo Bar" "yes"
+        ydescribe "labels2" $ do
+            yit "fails with \"More than one label contained\" error" $ do
+                get ("/labels2" :: Text)
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("labels2" :: Text)
+                    byLabel "hobby" "fishing")
+                assertEq "failure wasn't called" (isLeft bad) True
+            yit "byLabelExact performs an exact match over the given label name" $ do
+                get ("/labels2" :: Text)
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("labels2" :: Text)
+                    byLabelExact "hobby" "fishing")
+                assertEq "failure was called" (isRight bad) True
+
         ydescribe "Content-Type handling" $ do
             yit "can set a content-type" $ do
                 request $ do
@@ -362,6 +381,8 @@ app = liteApp $ do
         return ("<html><head><title>A link</title></head><body><a href=\"/html\" id=\"thelink\">Link!</a></body></html>" :: Text)
     onStatic "labels" $ dispatchTo $
         return ("<html><label><input type='checkbox' name='fooname' id='foobar'>Foo Bar</label></html>" :: Text)
+    onStatic "labels2" $ dispatchTo $
+        return ("<html><label for='hobby'>hobby</label><label for='hobby2'>hobby2</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
 
     onStatic "checkContentType" $ dispatchTo $ do
         headers <- requestHeaders <$> waiRequest

@@ -93,10 +93,7 @@ import Data.List (foldl')
 import qualified Data.ByteString as S
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
-import Data.Conduit
-import Data.Conduit.List (sourceList, consume)
-import Data.Conduit.Binary (sourceFile)
-import qualified Data.Conduit.Text as CT
+import Conduit
 import Data.Functor.Identity (runIdentity)
 import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
@@ -422,8 +419,8 @@ base64md5File = fmap (base64 . encode) . hashFile
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
             base64 $ encode
-          $ runIdentity
-          $ sourceList (L.toChunks lbs) $$ sinkHash
+          $ runConduitPure
+          $ Conduit.sourceLazy lbs .| sinkHash
   where
     encode d = ByteArray.convert (d :: Digest MD5)
 
@@ -458,8 +455,11 @@ combineStatics' :: CombineType
                 -> [Route Static] -- ^ files to combine
                 -> Q Exp
 combineStatics' combineType CombineSettings {..} routes = do
-    texts <- qRunIO $ runResourceT $ mapM_ yield fps $$ awaitForever readUTFFile =$ consume
-    ltext <- qRunIO $ preProcess $ TL.fromChunks texts
+    texts <- qRunIO $ runConduitRes
+                    $ yieldMany fps
+                   .| awaitForever readUTFFile
+                   .| sinkLazy
+    ltext <- qRunIO $ preProcess texts
     bs    <- qRunIO $ postProcess fps $ TLE.encodeUtf8 ltext
     let hash' = base64md5 bs
         suffix = csCombinedFolder </> hash' <.> extension
@@ -473,7 +473,7 @@ combineStatics' combineType CombineSettings {..} routes = do
     fps :: [FilePath]
     fps = map toFP routes
     toFP (StaticRoute pieces _) = csStaticDir </> F.joinPath (map T.unpack pieces)
-    readUTFFile fp = sourceFile fp =$= CT.decode CT.utf8
+    readUTFFile fp = sourceFile fp .| decodeUtf8C
     postProcess =
         case combineType of
             JS -> csJsPostProcess

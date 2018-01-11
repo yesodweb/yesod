@@ -14,7 +14,8 @@ import           Data.Monoid                  (Monoid, mempty)
 import           Control.Applicative          ((<$>))
 #endif
 import Yesod.Core.Internal.Response
-import           Blaze.ByteString.Builder     (toByteString)
+import           Data.ByteString.Builder      (toLazyByteString)
+import qualified Data.ByteString.Lazy         as BL
 import           Control.Exception            (fromException, evaluate)
 import qualified Control.Exception            as E
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
@@ -371,7 +372,7 @@ yesodRender :: Yesod y
             -> [(Text, Text)] -- ^ url query string
             -> Text
 yesodRender y ar url params =
-    decodeUtf8With lenientDecode $ toByteString $
+    decodeUtf8With lenientDecode $ BL.toStrict $ toLazyByteString $
     fromMaybe
         (joinPath y ar ps
           $ params ++ params')

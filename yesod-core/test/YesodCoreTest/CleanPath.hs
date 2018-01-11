@@ -22,7 +22,7 @@ import qualified Data.Text.Encoding as TE
 import Control.Arrow ((***))
 import Network.HTTP.Types (encodePath)
 import Data.Monoid (mappend)
-import Blaze.ByteString.Builder.Char.Utf8 (fromText)
+import Data.Text.Encoding (encodeUtf8Builder)
 
 data Subsite = Subsite
 
@@ -64,7 +64,7 @@ instance Yesod Y where
         corrected = filter (not . TS.null) s
 
     joinPath Y ar pieces' qs' =
-        fromText ar `Data.Monoid.mappend` encodePath pieces qs
+        encodeUtf8Builder ar `Data.Monoid.mappend` encodePath pieces qs
       where
         pieces = if null pieces' then [""] else pieces'
         qs = map (TE.encodeUtf8 *** go) qs'

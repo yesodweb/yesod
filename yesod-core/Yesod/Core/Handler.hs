@@ -194,12 +194,12 @@ import           Data.Monoid                   (mempty, mappend)
 #endif
 import           Control.Applicative           ((<|>))
 import           Control.Exception             (evaluate, SomeException, throwIO)
-import           Control.Exception.Lifted      (handle)
+import           Control.Exception             (handle)
 
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
-import           Control.Monad.IO.Class        (MonadIO, liftIO)
+import           Control.Monad.IO.Unlift       (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
@@ -233,21 +233,20 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
-import qualified Data.IORef.Lifted             as I
+import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
-import           Blaze.ByteString.Builder (Builder)
+import           Data.ByteString.Builder (Builder)
 import           Safe (headMay)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import           Control.Monad.Trans.Control (control, MonadBaseControl)
-import           Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer, Sink)
+import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
@@ -449,7 +448,8 @@ forkHandler :: (SomeException -> HandlerFor site ()) -- ^ error handler
               -> HandlerFor site ()
 forkHandler onErr handler = do
     yesRunner <- handlerToIO
-    void $ liftResourceT $ resourceForkIO $ yesRunner $ handle onErr handler
+    void $ liftResourceT $ resourceForkIO $
+      liftIO $ handle (yesRunner . onErr) (yesRunner handler)
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
@@ -666,10 +666,10 @@ sendWaiApplication = handlerError . HCWaiApp
 --
 -- @since 1.2.16
 sendRawResponseNoConduit
-    :: (MonadHandler m, MonadBaseControl IO m)
+    :: (MonadHandler m, MonadUnliftIO m)
     => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
     -> m a
-sendRawResponseNoConduit raw = control $ \runInIO ->
+sendRawResponseNoConduit raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO (raw src sink)
   where
@@ -681,10 +681,11 @@ sendRawResponseNoConduit raw = control $ \runInIO ->
 -- Warp).
 --
 -- @since 1.2.7
-sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
-                => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
-                -> m a
-sendRawResponse raw = control $ \runInIO ->
+sendRawResponse
+  :: (MonadHandler m, MonadUnliftIO m)
+  => (ConduitT () S8.ByteString IO () -> ConduitT S8.ByteString Void IO () -> m ())
+  -> m a
+sendRawResponse raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
   where
@@ -1339,7 +1340,7 @@ provideRepType ct handler =
 -- | Stream in the raw request body without any parsing.
 --
 -- @since 1.2.0
-rawRequestBody :: MonadHandler m => Source m S.ByteString
+rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
@@ -1351,7 +1352,7 @@ rawRequestBody = do
 
 -- | Stream the data from the file. Since Yesod 1.2, this has been generalized
 -- to work in any @MonadResource@.
-fileSource :: MonadResource m => FileInfo -> Source m S.ByteString
+fileSource :: MonadResource m => FileInfo -> ConduitT () S.ByteString m ()
 fileSource = transPipe liftResourceT . fileSourceRaw
 
 -- | Provide a pure value for the response body.
@@ -1372,7 +1373,7 @@ respond ct = return . TypedContent ct . toContent
 --
 -- @since 1.2.0
 respondSource :: ContentType
-              -> Source (HandlerFor site) (Flush Builder)
+              -> ConduitT () (Flush Builder) (HandlerFor site) ()
               -> HandlerFor site TypedContent
 respondSource ctype src = HandlerFor $ \hd ->
     -- Note that this implementation relies on the fact that the ResourceT
@@ -1385,44 +1386,44 @@ respondSource ctype src = HandlerFor $ \hd ->
 -- on most datatypes, such as @ByteString@ and @Html@.
 --
 -- @since 1.2.0
-sendChunk :: Monad m => ToFlushBuilder a => a -> Producer m (Flush Builder)
+sendChunk :: Monad m => ToFlushBuilder a => a -> ConduitT i (Flush Builder) m ()
 sendChunk = yield . toFlushBuilder
 
 -- | In a streaming response, send a flush command, causing all buffered data
 -- to be immediately sent to the client.
 --
 -- @since 1.2.0
-sendFlush :: Monad m => Producer m (Flush Builder)
+sendFlush :: Monad m => ConduitT i (Flush Builder) m ()
 sendFlush = yield Flush
 
 -- | Type-specialized version of 'sendChunk' for strict @ByteString@s.
 --
 -- @since 1.2.0
-sendChunkBS :: Monad m => S.ByteString -> Producer m (Flush Builder)
+sendChunkBS :: Monad m => S.ByteString -> ConduitT i (Flush Builder) m ()
 sendChunkBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @ByteString@s.
 --
 -- @since 1.2.0
-sendChunkLBS :: Monad m => L.ByteString -> Producer m (Flush Builder)
+sendChunkLBS :: Monad m => L.ByteString -> ConduitT i (Flush Builder) m ()
 sendChunkLBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for strict @Text@s.
 --
 -- @since 1.2.0
-sendChunkText :: Monad m => T.Text -> Producer m (Flush Builder)
+sendChunkText :: Monad m => T.Text -> ConduitT i (Flush Builder) m ()
 sendChunkText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @Text@s.
 --
 -- @since 1.2.0
-sendChunkLazyText :: Monad m => TL.Text -> Producer m (Flush Builder)
+sendChunkLazyText :: Monad m => TL.Text -> ConduitT i (Flush Builder) m ()
 sendChunkLazyText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for @Html@s.
 --
 -- @since 1.2.0
-sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
+sendChunkHtml :: Monad m => Html -> ConduitT i (Flush Builder) m ()
 sendChunkHtml = sendChunk
 
 -- $ajaxCSRFOverview
