@@ -277,7 +277,7 @@ getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
 getPerson manager token = parseMaybe parseJSON <$> (do
     req <- personValueRequest token
     res <- http req manager
-    responseBody res $$+- sinkParser json'
+    responseBody res $$ sinkParser json'
   )
 
 personValueRequest :: MonadIO m => Token -> m Request

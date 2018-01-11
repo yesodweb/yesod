@@ -61,10 +61,9 @@ import Data.Monoid (mempty)
 #endif
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
-import Data.Conduit (Flush (Chunk), ResumableSource, mapOutput)
+import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)
 import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (ResourceT)
-import Data.Conduit.Internal (ResumableSource (ResumableSource))
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
@@ -122,8 +121,8 @@ instance ToFlushBuilder builder => ToContent (CI.Pipe () () builder () (Resource
 
 instance ToFlushBuilder builder => ToContent (CI.ConduitT () builder (ResourceT IO) ()) where
     toContent src = ContentSource $ mapOutput toFlushBuilder src
-instance ToFlushBuilder builder => ToContent (ResumableSource (ResourceT IO) builder) where
-    toContent (ResumableSource src) = toContent src
+instance ToFlushBuilder builder => ToContent (SealedConduitT () builder (ResourceT IO) ()) where
+    toContent (CI.SealedConduitT src) = toContent src
 
 -- | A class for all data which can be sent in a streaming response. Note that
 -- for textual data, instances must use UTF-8 encoding.
