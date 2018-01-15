@@ -20,7 +20,7 @@ main :: IO ()
 main = defaultMain
     [ bench "bigTable html" $ nf bigTableHtml bigTableData
     , bench "bigTable hamlet" $ nf bigTableHamlet bigTableData
-    , bench "bigTable widget" $ nfIO (bigTableWidget bigTableData)
+    --, bench "bigTable widget" $ nfIO (bigTableWidget bigTableData)
     , bench "bigTable blaze" $ nf bigTableBlaze bigTableData
     ]
   where
@@ -49,6 +49,7 @@ bigTableHamlet rows = L.length $ Utf8.renderHtml $ ($ id) [hamlet|
                 <td>#{show cell}
 |]
 
+    {-
 bigTableWidget :: Show a => [[a]] -> IO Int64
 bigTableWidget rows = fmap (L.length . Utf8.renderHtml . ($ render)) (run [whamlet|
 <table>
@@ -62,6 +63,7 @@ bigTableWidget rows = fmap (L.length . Utf8.renderHtml . ($ render)) (run [whaml
   run (WidgetT w) = do
     (_, GWData { gwdBody = Body x }) <- w undefined
     return x
+    -}
 
 bigTableBlaze :: Show a => [[a]] -> Int64
 bigTableBlaze t = L.length $ Utf8.renderHtml $ table $ Data.Monoid.mconcat $ map row t
