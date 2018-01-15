@@ -204,7 +204,7 @@ benchmark widgets
     type: exitcode-stdio-1.0
     hs-source-dirs: bench
     build-depends:  base
-                  , criterion
+                  , gauge
                   , bytestring
                   , text
                   , transformers

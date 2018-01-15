@@ -5,7 +5,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Main where
 
-import Criterion.Main
+import Gauge.Main
 import Text.Hamlet
 import qualified Data.ByteString.Lazy as L
 import qualified Text.Blaze.Html.Renderer.Utf8 as Utf8
