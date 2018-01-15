@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
@@ -63,6 +64,7 @@ module Yesod.Test
     , addFile
     , setRequestBody
     , RequestBuilder
+    , SIO
     , setUrl
     , clickOn
 
@@ -135,7 +137,7 @@ import qualified Network.Socket.Internal as Sock
 import Data.CaseInsensitive (CI)
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.IORef
 import Control.Monad.IO.Class
 import System.IO
@@ -181,7 +183,7 @@ data YesodExampleData site = YesodExampleData
 -- | A single test case, to be run with 'yit'.
 --
 -- Since 1.2.0
-type YesodExample site = ReaderT (IORef (YesodExampleData site)) IO
+type YesodExample site = SIO (YesodExampleData site)
 
 -- | Mapping from cookie name to value.
 --
@@ -204,13 +206,13 @@ data YesodSpecTree site
 --
 -- Since 1.2.0
 getTestYesod :: YesodExample site site
-getTestYesod = fmap yedSite rsget
+getTestYesod = fmap yedSite getSIO
 
 -- | Get the most recently provided response value, if available.
 --
 -- Since 1.2.0
 getResponse :: YesodExample site (Maybe SResponse)
-getResponse = fmap yedResponse rsget
+getResponse = fmap yedResponse getSIO
 
 data RequestBuilderData site = RequestBuilderData
     { rbdPostData :: RBDPostData
@@ -233,7 +235,7 @@ data RequestPart
 -- | The 'RequestBuilder' state monad constructs a URL encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
 -- response to analyze the forms that the server is expecting to receive.
-type RequestBuilder site = ReaderT (IORef (RequestBuilderData site)) IO
+type RequestBuilder site = SIO (RequestBuilderData site)
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
@@ -250,7 +252,7 @@ yesodSpec site yspecs =
     unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
         app <- toWaiAppPlain site
-        rsevalStateT y YesodExampleData
+        evalSIO y YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
@@ -270,7 +272,7 @@ yesodSpecWithSiteGenerator getSiteAction yspecs =
       unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ do
         site <- getSiteAction'
         app <- toWaiAppPlain site
-        rsevalStateT y YesodExampleData
+        evalSIO y YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
@@ -291,7 +293,7 @@ yesodSpecApp site getApp yspecs =
     unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
         app <- getApp
-        rsevalStateT y YesodExampleData
+        evalSIO y YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
@@ -304,12 +306,11 @@ yit label example = tell [YesodSpecItem label example]
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
-withResponse' :: MonadIO m
-              => (state -> Maybe SResponse)
+withResponse' :: (state -> Maybe SResponse)
               -> [T.Text]
-              -> (SResponse -> ReaderT (IORef state) m a)
-              -> ReaderT (IORef state) m a
-withResponse' getter errTrace f = maybe err f . getter =<< rsget
+              -> (SResponse -> SIO state a)
+              -> SIO state a
+withResponse' getter errTrace f = maybe err f . getter =<< getSIO
  where err = failure msg
        msg = if null errTrace
              then "There was no response, you should make a request."
@@ -328,11 +329,10 @@ parseHTML :: HtmlLBS -> Cursor
 parseHTML html = fromDocument $ HD.parseLBS html
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
-htmlQuery' :: MonadIO m
-           => (state -> Maybe SResponse)
+htmlQuery' :: (state -> Maybe SResponse)
            -> [T.Text]
            -> Query
-           -> ReaderT (IORef state) m [HtmlLBS]
+           -> SIO state [HtmlLBS]
 htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQuery' in order to read HTML of a previous response." : errTrace) $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
@@ -497,14 +497,14 @@ printMatches query = do
 -- | Add a parameter with the given name and value to the request body.
 addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
-  rsmodify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
+  modifySIO $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
   where addPostData (BinaryPostData _) = error "Trying to add post param to binary content."
         addPostData (MultipleItemsPostData posts) =
           MultipleItemsPostData $ ReqKvPart name value : posts
 
 -- | Add a parameter with the given name and value to the query string.
 addGetParam :: T.Text -> T.Text -> RequestBuilder site ()
-addGetParam name value = rsmodify $ \rbd -> rbd
+addGetParam name value = modifySIO $ \rbd -> rbd
     { rbdGets = (TE.encodeUtf8 name, Just $ TE.encodeUtf8 value)
               : rbdGets rbd
     }
@@ -523,7 +523,7 @@ addFile :: T.Text -- ^ The parameter name for the file.
         -> RequestBuilder site ()
 addFile name path mimetype = do
   contents <- liftIO $ BSL8.readFile path
-  rsmodify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd) contents) }
+  modifySIO $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd) contents) }
     where addPostData (BinaryPostData _) _ = error "Trying to add file after setting binary content."
           addPostData (MultipleItemsPostData posts) contents =
             MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
@@ -532,7 +532,7 @@ addFile name path mimetype = do
 -- This looks up the name of a field based on the contents of the label pointing to it.
 genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericNameFromLabel match label = do
-  mres <- fmap rbdResponse rsget
+  mres <- fmap rbdResponse getSIO
   res <-
     case mres of
       Nothing -> failure "genericNameFromLabel: No response available"
@@ -799,7 +799,7 @@ addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
 -- Since 1.4.3.2
 getRequestCookies :: RequestBuilder site Cookies
 getRequestCookies = do
-  requestBuilderData <- rsget
+  requestBuilderData <- getSIO
   headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
                   Just h -> return h
                   Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
@@ -907,7 +907,7 @@ getLocation = do
 -- > request $ do
 -- >   setMethod methodPut
 setMethod :: H.Method -> RequestBuilder site ()
-setMethod m = rsmodify $ \rbd -> rbd { rbdMethod = m }
+setMethod m = modifySIO $ \rbd -> rbd { rbdMethod = m }
 
 -- | Sets the URL used by the request.
 --
@@ -922,7 +922,7 @@ setUrl :: (Yesod site, RedirectUrl site url)
        => url
        -> RequestBuilder site ()
 setUrl url' = do
-    site <- fmap rbdSite rsget
+    site <- fmap rbdSite getSIO
     eurl <- Yesod.Core.Unsafe.runFakeHandler
         M.empty
         (const $ error "Yesod.Test: No logger available")
@@ -930,7 +930,7 @@ setUrl url' = do
         (toTextUrl url')
     url <- either (error . show) return eurl
     let (urlPath, urlQuery) = T.break (== '?') url
-    rsmodify $ \rbd -> rbd
+    modifySIO $ \rbd -> rbd
         { rbdPath =
             case DL.filter (/="") $ H.decodePathSegments $ TE.encodeUtf8 urlPath of
                 ("http:":_:rest) -> rest
@@ -969,7 +969,7 @@ clickOn query = do
 -- > request $ do
 -- >   setRequestBody $ encode $ object ["age" .= (1 :: Integer)]
 setRequestBody :: BSL8.ByteString -> RequestBuilder site ()
-setRequestBody body = rsmodify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
+setRequestBody body = modifySIO $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
 -- | Adds the given header to the request; see "Network.HTTP.Types.Header" for creating 'Header's.
 --
@@ -979,7 +979,7 @@ setRequestBody body = rsmodify $ \rbd -> rbd { rbdPostData = BinaryPostData body
 -- > request $ do
 -- >   addRequestHeader (hUserAgent, "Chrome/41.0.2228.0")
 addRequestHeader :: H.Header -> RequestBuilder site ()
-addRequestHeader header = rsmodify $ \rbd -> rbd
+addRequestHeader header = modifySIO $ \rbd -> rbd
     { rbdHeaders = header : rbdHeaders rbd
     }
 
@@ -999,9 +999,9 @@ addRequestHeader header = rsmodify $ \rbd -> rbd
 request :: RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
-    YesodExampleData app site oldCookies mRes <- rsget
+    YesodExampleData app site oldCookies mRes <- getSIO
 
-    RequestBuilderData {..} <- liftIO $ rsexecStateT reqBuilder RequestBuilderData
+    RequestBuilderData {..} <- liftIO $ execSIO reqBuilder RequestBuilderData
       { rbdPostData = MultipleItemsPostData []
       , rbdResponse = mRes
       , rbdMethod = "GET"
@@ -1041,7 +1041,7 @@ request reqBuilder = do
         }) app
     let newCookies = parseSetCookies $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
-    rsput $ YesodExampleData app site cookies' (Just response)
+    putSIO $ YesodExampleData app site cookies' (Just response)
   where
     isFile (ReqFilePart _ _ _ _) = True
     isFile _ = False
@@ -1145,14 +1145,14 @@ testApp :: site -> Middleware -> TestApp site
 testApp site middleware = (site, middleware)
 type YSpec site = Hspec.SpecWith (TestApp site)
 
-instance YesodDispatch site => Hspec.Example (ReaderT (IORef (YesodExampleData site)) IO a) where
-    type Arg (ReaderT (IORef (YesodExampleData site)) IO a) = TestApp site
+instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) where
+    type Arg (SIO (YesodExampleData site) a) = TestApp site
 
     evaluateExample example params action =
         Hspec.evaluateExample
             (action $ \(site, middleware) -> do
                 app <- toWaiAppPlain site
-                _ <- rsevalStateT example YesodExampleData
+                _ <- evalSIO example YesodExampleData
                     { yedApp = middleware app
                     , yedSite = site
                     , yedCookies = M.empty
@@ -1162,28 +1162,26 @@ instance YesodDispatch site => Hspec.Example (ReaderT (IORef (YesodExampleData s
             params
             ($ ())
 
-rsget :: MonadIO m => ReaderT (IORef s) m s
-rsget = ReaderT $ liftIO . readIORef
+-- | State + IO
+--
+-- @since 1.6.0
+newtype SIO s a = SIO (ReaderT (IORef s) IO a)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
 
-rsput :: MonadIO m => s -> ReaderT (IORef s) m ()
-rsput s = ReaderT $ \ref -> liftIO $ writeIORef ref $! s
+getSIO :: SIO s s
+getSIO = SIO $ ReaderT readIORef
 
-rsmodify :: MonadIO m => (s -> s) -> ReaderT (IORef s) m ()
-rsmodify f = ReaderT $ \ref -> liftIO $ modifyIORef' ref f
+putSIO :: s -> SIO s ()
+putSIO s = SIO $ ReaderT $ \ref -> writeIORef ref $! s
 
-rsevalStateT
-  :: MonadIO m
-  => ReaderT (IORef s) m a
-  -> s
-  -> m a
-rsevalStateT (ReaderT f) s = liftIO (newIORef s) >>= f
+modifySIO :: (s -> s) -> SIO s ()
+modifySIO f = SIO $ ReaderT $ \ref -> modifyIORef' ref f
 
-rsexecStateT
-  :: MonadIO m
-  => ReaderT (IORef s) m ()
-  -> s
-  -> m s
-rsexecStateT (ReaderT f) s = do
-  ref <- liftIO $ newIORef s
+evalSIO :: SIO s a -> s -> IO a
+evalSIO (SIO (ReaderT f)) s = newIORef s >>= f
+
+execSIO :: SIO s () -> s -> IO s
+execSIO (SIO (ReaderT f)) s = do
+  ref <- newIORef s
   f ref
-  liftIO $ readIORef ref
+  readIORef ref
