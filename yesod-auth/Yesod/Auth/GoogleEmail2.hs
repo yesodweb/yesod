@@ -82,7 +82,7 @@ import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)
-import           Data.Conduit             (($$+-), ($$))
+import           Data.Conduit
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
 import           Data.Maybe               (fromMaybe)
@@ -266,7 +266,7 @@ makeHttpRequest
   => Request
   -> HandlerT Auth (HandlerT site IO) A.Value
 makeHttpRequest req = lift $
-    runHttpRequest req $ \res -> bodyReaderSource (responseBody res) $$ sinkParser json'
+    runHttpRequest req $ \res -> runConduit $ bodyReaderSource (responseBody res) .| sinkParser json'
 
 -- | Allows to fetch information about a user from Google's API.
 --   In case of parsing error returns 'Nothing'.
@@ -277,7 +277,7 @@ getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
 getPerson manager token = parseMaybe parseJSON <$> (do
     req <- personValueRequest token
     res <- http req manager
-    responseBody res $$ sinkParser json'
+    runConduit $ responseBody res .| sinkParser json'
   )
 
 personValueRequest :: MonadIO m => Token -> m Request

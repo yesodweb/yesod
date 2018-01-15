@@ -35,13 +35,11 @@ import Data.Text.Encoding (decodeUtf8With, decodeUtf8)
 import Data.Text.Encoding.Error (lenientDecode)
 import Conduit
 import Data.Word (Word8, Word64)
-import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Exception (throwIO)
 import Control.Monad ((<=<), liftM)
 import Yesod.Core.Types
 import qualified Data.Map as Map
 import Data.IORef
-import Control.Monad.Primitive (PrimMonad, PrimState)
 import qualified Data.Vector.Storable as V
 import Data.ByteString.Internal (ByteString (PS))
 import qualified Data.Word8 as Word8
@@ -181,10 +179,10 @@ mkFileInfoLBS name ct lbs =
     FileInfo name ct (sourceLazy lbs) (`L.writeFile` lbs)
 
 mkFileInfoFile :: Text -> Text -> FilePath -> FileInfo
-mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourceT $ sourceFile fp $$ sinkFile dst)
+mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runConduitRes $ sourceFile fp .| sinkFile dst)
 
-mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
-mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
+mkFileInfoSource :: Text -> Text -> ConduitT () ByteString (ResourceT IO) () -> FileInfo
+mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runConduitRes $ src .| sinkFile dst)
 
 tokenKey :: IsString a => a
 tokenKey = "_TOKEN"

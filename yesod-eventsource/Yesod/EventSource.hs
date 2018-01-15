@@ -13,7 +13,7 @@ import Control.Monad (when)
 import Data.Functor ((<$>))
 import Data.Monoid (Monoid (..))
 import Yesod.Core
-import qualified Data.Conduit as C
+import Data.Conduit
 import qualified Network.Wai as W
 import qualified Network.Wai.EventSource as ES
 import qualified Network.Wai.EventSource.EventStream as ES
@@ -32,17 +32,17 @@ prepareForEventSource = do
 
 
 -- | (Internal) Source with a event stream content-type.
-respondEventStream :: C.Source (HandlerT site IO) (C.Flush Builder)
+respondEventStream :: ConduitT () (Flush Builder) (HandlerT site IO) ()
                    -> HandlerT site IO TypedContent
 respondEventStream = respondSource "text/event-stream"
 
 
--- | Returns a Server-Sent Event stream from a 'C.Source' of
+-- | Returns a Server-Sent Event stream from a 'Source' of
 -- 'ES.ServerEvent'@s@.  The HTTP socket is flushed after every
--- event.  The connection is closed either when the 'C.Source'
+-- event.  The connection is closed either when the 'Source'
 -- finishes outputting data or a 'ES.CloseEvent' is outputted,
 -- whichever comes first.
-repEventSource :: (EventSourcePolyfill -> C.Source (HandlerT site IO) ES.ServerEvent)
+repEventSource :: (EventSourcePolyfill -> ConduitT () ES.ServerEvent (HandlerT site IO) ())
                -> HandlerT site IO TypedContent
 repEventSource src =
   prepareForEventSource >>=
@@ -50,14 +50,17 @@ repEventSource src =
 
 -- | Convert a ServerEvent source into a Builder source of serialized
 -- events.
-sourceToSource :: Monad m => C.Source m ES.ServerEvent -> C.Source m (C.Flush Builder)
+sourceToSource
+  :: Monad m
+  => ConduitT () ES.ServerEvent m ()
+  -> ConduitT () (Flush Builder) m ()
 sourceToSource src =
-    src C.$= C.awaitForever eventToFlushBuilder
+    src .| awaitForever eventToFlushBuilder
   where
     eventToFlushBuilder event =
         case ES.eventToBuilder event of
             Nothing -> return ()
-            Just x -> C.yield (C.Chunk x) >> C.yield C.Flush
+            Just x -> yield (Chunk x) >> yield Flush
 
 
 -- | Return a Server-Sent Event stream given a 'HandlerT' action
@@ -79,8 +82,8 @@ pollingEventSource initial act = do
           [] -> getEvents s'
           _  -> do
             let (builder, continue) = joinEvents evs mempty
-            C.yield (C.Chunk builder)
-            C.yield C.Flush
+            yield (Chunk builder)
+            yield Flush
             when continue (getEvents s')
 
       -- Join all events in a single Builder.  Returns @False@

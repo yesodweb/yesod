@@ -118,8 +118,8 @@ defaultGetDBRunner getPool = do
 --
 -- Since 1.2.0
 runDBSource :: YesodPersistRunner site
-            => Source (YesodDB site) a
-            -> Source (HandlerT site IO) a
+            => ConduitT () a (YesodDB site) ()
+            -> ConduitT () a (HandlerT site IO) ()
 runDBSource src = do
     (dbrunner, cleanup) <- lift getDBRunner
     transPipe (runDBRunner dbrunner) src
@@ -128,7 +128,7 @@ runDBSource src = do
 -- | Extends 'respondSource' to create a streaming database response body.
 respondSourceDB :: YesodPersistRunner site
                 => ContentType
-                -> Source (YesodDB site) (Flush Builder)
+                -> ConduitT () (Flush Builder) (YesodDB site) ()
                 -> HandlerT site IO TypedContent
 respondSourceDB ctype = respondSource ctype . runDBSource
 

@@ -3,7 +3,6 @@
 module HsFile (mkHsFile) where
 import Text.ProjectTemplate (createTemplate)
 import Conduit
-import Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString as BS
 import Control.Monad.IO.Class (liftIO)
 import Data.String (fromString)

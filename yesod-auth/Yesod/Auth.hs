@@ -72,7 +72,7 @@ import Yesod.Form (FormMessage)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Network.HTTP.Types (Status, internalServerError500, unauthorized401)
-import Control.Monad.Trans.Resource (MonadResourceBase)
+import Control.Monad.Trans.Resource (MonadUnliftIO)
 import qualified Control.Monad.Trans.Writer    as Writer
 import Control.Monad (void)
 
@@ -222,7 +222,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
 
     -- | Called on login error for HTTP requests. By default, calls
     -- @addMessage@ with "error" as status and redirects to @dest@.
-    onErrorHtml :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
+    onErrorHtml :: (MonadUnliftIO m) => Route master -> Text -> HandlerT master m Html
     onErrorHtml dest msg = do
         addMessage "error" $ toHtml msg
         fmap asHtml $ redirect dest
@@ -288,7 +288,7 @@ defaultLoginHandler = do
         mapM_ (flip apLogin tp) (authPlugins master)
 
 
-loginErrorMessageI :: (MonadResourceBase m, YesodAuth master)
+loginErrorMessageI :: (MonadUnliftIO m, YesodAuth master)
                    => Route child
                    -> AuthMessage
                    -> HandlerT child (HandlerT master m) TypedContent
@@ -297,7 +297,7 @@ loginErrorMessageI dest msg = do
   lift $ loginErrorMessageMasterI (toParent dest) msg
 
 
-loginErrorMessageMasterI :: (YesodAuth master, MonadResourceBase m, RenderMessage master AuthMessage)
+loginErrorMessageMasterI :: (YesodAuth master, MonadUnliftIO m, RenderMessage master AuthMessage)
          => Route master
          -> AuthMessage
          -> HandlerT master m TypedContent
@@ -307,19 +307,19 @@ loginErrorMessageMasterI dest msg = do
 
 -- | For HTML, set the message and redirect to the route.
 -- For JSON, send the message and a 401 status
-loginErrorMessage :: (YesodAuth master, MonadResourceBase m)
+loginErrorMessage :: (YesodAuth master, MonadUnliftIO m)
          => Route master
          -> Text
          -> HandlerT master m TypedContent
 loginErrorMessage dest msg = messageJson401 msg (onErrorHtml dest msg)
 
-messageJson401 :: MonadResourceBase m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
+messageJson401 :: MonadUnliftIO m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
 messageJson401 = messageJsonStatus unauthorized401
 
-messageJson500 :: MonadResourceBase m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
+messageJson500 :: MonadUnliftIO m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
 messageJson500 = messageJsonStatus internalServerError500
 
-messageJsonStatus :: MonadResourceBase m
+messageJsonStatus :: MonadUnliftIO m
                   => Status
                   -> Text
                   -> HandlerT master m Html

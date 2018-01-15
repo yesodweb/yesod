@@ -24,8 +24,7 @@ import qualified Data.ByteString.Lazy         as L
 import qualified Data.Map                     as Map
 import           Yesod.Core.Internal.Request  (tokenKey)
 import           Data.Text.Encoding           (encodeUtf8)
-import           Data.Conduit                 (Flush (..), ($$), transPipe)
-import qualified Data.Conduit.List            as CL
+import           Conduit
 
 yarToResponse :: YesodResponse
               -> (SessionMap -> IO [Header]) -- ^ save session
@@ -53,9 +52,9 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq _req is sendResponse
             sendResponse $ ResponseBuilder s hs' b
         go (ContentFile fp p) = sendResponse $ ResponseFile s finalHeaders fp p
         go (ContentSource body) = sendResponse $ responseStream s finalHeaders
-            $ \sendChunk flush ->
+            $ \sendChunk flush -> runConduit $
                 transPipe (`runInternalState` is) body
-                $$ CL.mapM_ (\mchunk ->
+                .| mapM_C (\mchunk ->
                     case mchunk of
                         Flush -> flush
                         Chunk builder -> sendChunk builder)

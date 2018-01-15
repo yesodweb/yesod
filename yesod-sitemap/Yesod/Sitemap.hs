@@ -74,13 +74,13 @@ robots smurl = do
 -- | Serve a stream of @SitemapUrl@s as a sitemap.
 --
 -- Since 1.2.0
-sitemap :: Source (HandlerT site IO) (SitemapUrl (Route site))
+sitemap :: ConduitT () (SitemapUrl (Route site)) (HandlerT site IO) ()
         -> HandlerT site IO TypedContent
 sitemap urls = do
     render <- getUrlRender
     respondSource typeXml $ do
         yield Flush
-        urls $= sitemapConduit render $= renderBuilder def $= CL.map Chunk
+        urls .| sitemapConduit render .| renderBuilder def .| CL.map Chunk
 
 -- | Convenience wrapper for @sitemap@ for the case when the input is an
 -- in-memory list.
@@ -97,7 +97,7 @@ sitemapList = sitemap . mapM_ yield
 -- Since 1.2.0
 sitemapConduit :: Monad m
                => (a -> Text)
-               -> Conduit (SitemapUrl a) m Event
+               -> ConduitT (SitemapUrl a) Event m ()
 sitemapConduit render = do
     yield EventBeginDocument
     element "urlset" [] $ awaitForever goUrl

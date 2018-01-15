@@ -12,8 +12,6 @@ import qualified Text.Blaze.Html.Renderer.Utf8 as Utf8
 import Data.Monoid (mconcat)
 import Text.Blaze.Html5 (table, tr, td)
 import Text.Blaze.Html (toHtml)
-import Yesod.Core.Widget
-import Yesod.Core.Types
 import Data.Int
 
 main :: IO ()
