@@ -28,6 +28,7 @@ library
                    , text                    >= 0.7
                    , yesod-form              >= 1.6       && < 1.7
                    , transformers            >= 0.2.2     && < 0.6
+                   , unliftio
     exposed-modules: Yesod.Auth.OAuth
     ghc-options:     -Wall
 

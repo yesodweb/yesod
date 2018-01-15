@@ -61,6 +61,7 @@ test-suite test
                           , text
                           , wai
                           , http-types
+                          , unliftio
 
 source-repository head
   type: git

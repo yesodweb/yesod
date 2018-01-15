@@ -12,7 +12,7 @@ module Yesod.Auth.OAuth
     ) where
 import           Control.Applicative      as A ((<$>), (<*>))
 import           Control.Arrow            ((***))
-import           Control.Exception.Lifted
+import           UnliftIO.Exception
 import           Control.Monad.IO.Class
 import           Data.ByteString          (ByteString)
 import           Data.Maybe
@@ -20,7 +20,6 @@ import           Data.Text                (Text)
 import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8With, encodeUtf8)
 import           Data.Text.Encoding.Error (lenientDecode)
-import           Data.Typeable
 import           Web.Authenticate.OAuth
 import           Yesod.Auth
 import           Yesod.Form
