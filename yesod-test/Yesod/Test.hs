@@ -138,6 +138,7 @@ import Data.CaseInsensitive (CI)
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import Control.Monad.Trans.Reader (ReaderT (..))
+import Conduit (MonadThrow)
 import Data.IORef
 import Control.Monad.IO.Class
 import System.IO
