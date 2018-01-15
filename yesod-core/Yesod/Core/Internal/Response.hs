@@ -8,7 +8,6 @@ import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.CaseInsensitive         (CI)
-import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
 import           Control.Monad                (mplus)
 import           Control.Monad.Trans.Resource (runInternalState, InternalState)
@@ -92,7 +91,7 @@ headerToPair (DeleteCookie key path) =
         , "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
         ]
     )
-headerToPair (Header key value) = (CI.mk key, value)
+headerToPair (Header key value) = (key, value)
 
 evaluateContent :: Content -> IO (Either ErrorResponse Content)
 evaluateContent (ContentBuilder b mlen) = handle f $ do

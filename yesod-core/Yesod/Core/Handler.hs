@@ -193,6 +193,7 @@ import           Control.Applicative           ((<$>))
 import           Data.Monoid                   (mempty, mappend)
 #endif
 import           Control.Applicative           ((<|>))
+import qualified Data.CaseInsensitive          as CI
 import           Control.Exception             (evaluate, SomeException, throwIO)
 import           Control.Exception             (handle)
 
@@ -779,7 +780,7 @@ setLanguage = setSession langKey
 --
 -- @since 1.2.0
 addHeader :: MonadHandler m => Text -> Text -> m ()
-addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
+addHeader a = addHeaderInternal . Header (CI.mk $ encodeUtf8 a) . encodeUtf8
 
 -- | Deprecated synonym for addHeader.
 setHeader :: MonadHandler m => Text -> Text -> m ()
@@ -797,10 +798,10 @@ replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
 replaceOrAddHeader a b =
   modify $ \g -> g {ghsHeaders = replaceHeader (ghsHeaders g)}
   where
-    repHeader = Header (encodeUtf8 a) (encodeUtf8 b)
+    repHeader = Header (CI.mk $ encodeUtf8 a) (encodeUtf8 b)
 
     sameHeaderName :: Header -> Header -> Bool
-    sameHeaderName (Header n1 _) (Header n2 _) = T.toLower (decodeUtf8 n1) == T.toLower (decodeUtf8 n2)
+    sameHeaderName (Header n1 _) (Header n2 _) = n1 == n2
     sameHeaderName _ _ = False
 
     replaceIndividualHeader :: [Header] -> [Header]

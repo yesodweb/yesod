@@ -24,6 +24,7 @@ import           Control.Monad.Logger               (LogLevel, LogSource,
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), throwM, ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
+import           Data.CaseInsensitive               (CI)
 import           Data.Conduit                       (Flush, ConduitT)
 import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)

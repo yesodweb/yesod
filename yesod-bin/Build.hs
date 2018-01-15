@@ -20,8 +20,7 @@ import           Data.Text.Encoding.Error (lenientDecode)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 
-import           Control.Exception (SomeException, try, IOException)
-import           Control.Exception.Lifted (handle)
+import           UnliftIO (SomeException, try, IOException, handle)
 import           Control.Monad (when, filterM, forM, forM_, (>=>))
 import           Control.Monad.Trans.State (StateT, get, put, execStateT)
 import           Control.Monad.Trans.Writer (WriterT, tell, execWriterT)
