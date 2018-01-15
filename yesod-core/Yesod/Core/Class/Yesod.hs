@@ -10,7 +10,7 @@ import           Yesod.Core.Handler
 
 import           Yesod.Routes.Class
 
-import           Data.ByteString.Builder            (Builder, toLazyByteString)
+import           Data.ByteString.Builder            (Builder)
 import           Data.Text.Encoding                 (encodeUtf8Builder)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
@@ -24,7 +24,6 @@ import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelO
 import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
-import qualified Data.ByteString.Lazy.Char8         as BL8
 import Data.Aeson (object, (.=))
 import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
@@ -37,7 +36,7 @@ import           Data.Text.Lazy.Builder             (toLazyText)
 import           Data.Text.Lazy.Encoding            (encodeUtf8)
 import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
-import           Network.HTTP.Types                 (encodePath, renderQueryText)
+import           Network.HTTP.Types                 (encodePath)
 import qualified Network.Wai                        as W
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
@@ -99,12 +98,6 @@ class RenderRoute site => Yesod site where
                     ^{pageBody p}
             |]
 
-    -- | Override the rendering function for a particular URL. One use case for
-    -- this is to offload static hosting to a different domain name to avoid
-    -- sending cookies.
-    urlRenderOverride :: site -> Route site -> Maybe Builder
-    urlRenderOverride _ _ = Nothing
-
     -- | Override the rendering function for a particular URL and query string
     -- parameters. One use case for this is to offload static hosting to a
     -- different domain name to avoid sending cookies.
@@ -117,15 +110,7 @@ class RenderRoute site => Yesod site where
                            -> Route site
                            -> [(T.Text, T.Text)] -- ^ query string
                            -> Maybe Builder
-    urlParamRenderOverride y route params = addParams params <$> urlRenderOverride y route
-      where
-        addParams [] routeBldr = routeBldr
-        addParams nonEmptyParams routeBldr =
-            let routeBS = toLazyByteString routeBldr
-                qsSeparator = if BL8.elem '?' routeBS then "&" else "?"
-                valueToMaybe t = if t == "" then Nothing else Just t
-                queryText = map (id *** valueToMaybe) nonEmptyParams
-            in routeBldr `mappend` qsSeparator `mappend` renderQueryText False queryText
+    urlParamRenderOverride _ _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
     --
@@ -276,22 +261,11 @@ class RenderRoute site => Yesod site where
 
     -- | Should we log the given log source/level combination.
     --
-    -- Default: the 'defaultShouldLog' function.
-    shouldLog :: site -> LogSource -> LogLevel -> Bool
-    shouldLog _ = defaultShouldLog
-
-    -- | Should we log the given log source/level combination.
-    --
-    -- Note that this is almost identical to @shouldLog@, except the result
-    -- lives in @IO@. This allows you to dynamically alter the logging level of
-    -- your application by having this result depend on, e.g., an @IORef@.
-    --
-    -- The default implementation simply uses @shouldLog@. Future versions of
-    -- Yesod will remove @shouldLog@ and use this method exclusively.
+    -- Default: the 'defaultShouldLogIO' function.
     --
     -- Since 1.2.4
     shouldLogIO :: site -> LogSource -> LogLevel -> IO Bool
-    shouldLogIO a b c = return (shouldLog a b c)
+    shouldLogIO _ = defaultShouldLogIO
 
     -- | A Yesod middleware, which will wrap every handler function. This
     -- allows you to run code before and after a normal handler.
@@ -328,7 +302,6 @@ class RenderRoute site => Yesod site where
                 <h1>#{title}
                 ^{body}
             |]
-{-# DEPRECATED urlRenderOverride "Use urlParamRenderOverride instead" #-}
 
 -- | Default implementation of 'makeLogger'. Sends to stdout and
 -- automatically flushes on each write.
@@ -365,15 +338,8 @@ defaultMessageLoggerSource ckLoggable logger loc source level msg = do
 -- above 'LevelInfo'.
 --
 -- Since 1.4.10
-defaultShouldLog :: LogSource -> LogLevel -> Bool
-defaultShouldLog _ level = level >= LevelInfo
-
--- | A default implementation of 'shouldLogIO' that can be used with
--- 'defaultMessageLoggerSource'. Just uses 'defaultShouldLog'.
---
--- Since 1.4.10
 defaultShouldLogIO :: LogSource -> LogLevel -> IO Bool
-defaultShouldLogIO a b = return $ defaultShouldLog a b
+defaultShouldLogIO _ level = return $ level >= LevelInfo
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.

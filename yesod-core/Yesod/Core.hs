@@ -31,7 +31,6 @@ module Yesod.Core
       -- * Logging
     , defaultMakeLogger
     , defaultMessageLoggerSource
-    , defaultShouldLog
     , defaultShouldLogIO
     , formatLogMessage
     , LogLevel (..)
