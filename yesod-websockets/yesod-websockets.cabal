@@ -21,11 +21,12 @@ library
                      , wai
 
                      , wai-websockets    >= 2.1
-                     , websockets        >= 0.9
+                     , websockets        >= 0.10
                      , transformers      >= 0.2
                      , yesod-core        >= 1.6
                      , unliftio
                      , conduit           >= 1.3
+                     , mtl
 
 source-repository head
   type:     git
