@@ -64,6 +64,7 @@ import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
 import Safe (readMay)
 import System.Environment (getEnvironment)
+import qualified System.Random as Random
 import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
 
@@ -79,7 +80,6 @@ import Control.Monad.Logger
 import Control.Monad (when)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
-import qualified System.Random.MWC as MWC
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This function will provide no middlewares; if you want commonly
@@ -88,15 +88,17 @@ toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
-    gen <- MWC.createSystemRandom
     getMaxExpires <- getGetMaxExpires
     return $ toWaiAppYre YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
-            , yreGen = gen
+            , yreGen = defaultGen
             , yreGetMaxExpires = getMaxExpires
             }
+
+defaultGen :: IO Int
+defaultGen = Random.getStdRandom Random.next
 
 -- | Pure low level function to construct WAI application. Usefull
 -- when you need not standard way to run your app, or want to embed it
@@ -152,13 +154,12 @@ toWaiApp site = do
 toWaiAppLogger :: YesodDispatch site => Logger -> site -> IO W.Application
 toWaiAppLogger logger site = do
     sb <- makeSessionBackend site
-    gen <- MWC.createSystemRandom
     getMaxExpires <- getGetMaxExpires
     let yre = YesodRunnerEnv
                 { yreLogger = logger
                 , yreSite = site
                 , yreSessionBackend = sb
-                , yreGen = gen
+                , yreGen = defaultGen
                 , yreGetMaxExpires = getMaxExpires
                 }
     messageLoggerSource

@@ -39,7 +39,6 @@ import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
 import           Network.HTTP.Types                 (encodePath, renderQueryText)
 import qualified Network.Wai                        as W
-import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
 import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
@@ -52,7 +51,7 @@ import           Text.Hamlet
 import           Text.Julius
 import qualified Web.ClientSession                  as CS
 import           Web.Cookie                         (SetCookie (..), parseCookies, sameSiteLax,
-                                                     sameSiteStrict, SameSiteOption)
+                                                     sameSiteStrict, SameSiteOption, defaultSetCookie)
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
@@ -865,7 +864,7 @@ loadClientSession key getCachedDate sessionName req = load
     save date sess' = do
       -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
-      return [AddCookie def
+      return [AddCookie defaultSetCookie
           { setCookieName = sessionName
           , setCookieValue = encodeClientSession key iv date host sess'
           , setCookiePath = Just "/"

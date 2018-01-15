@@ -228,7 +228,7 @@ import           Data.Monoid                   (Endo (..))
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
-import           Web.Cookie                    (SetCookie (..))
+import           Web.Cookie                    (SetCookie (..), defaultSetCookie)
 import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
@@ -250,7 +250,6 @@ import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
-import           Data.Default
 import           Control.Monad.Logger (MonadLogger, logWarnS)
 
 get :: MonadHandler m => m GHState
@@ -1474,7 +1473,10 @@ defaultCsrfCookieName = "XSRF-TOKEN"
 --
 -- @since 1.4.14
 setCsrfCookie :: MonadHandler m => m ()
-setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName, setCookiePath = Just "/" }
+setCsrfCookie = setCsrfCookieWithCookie defaultSetCookie
+  { setCookieName = defaultCsrfCookieName
+  , setCookiePath = Just "/"
+  }
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
 --
