@@ -1,5 +1,5 @@
 name:                yesod-websockets
-version:             0.2.6
+version:             0.3.0
 synopsis:            WebSockets support for Yesod
 description:         WebSockets support for Yesod
 homepage:            https://github.com/yesodweb/yesod
@@ -23,9 +23,9 @@ library
                      , wai-websockets    >= 2.1
                      , websockets        >= 0.9
                      , transformers      >= 0.2
-                     , yesod-core        >= 1.4
+                     , yesod-core        >= 1.6
                      , unliftio
-                     , conduit           >= 1.0.15.1
+                     , conduit           >= 1.3
 
 source-repository head
   type:     git

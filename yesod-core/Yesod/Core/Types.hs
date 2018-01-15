@@ -325,7 +325,7 @@ data Header =
       AddCookie !SetCookie
     | DeleteCookie !ByteString !ByteString
     -- ^ name and path
-    | Header !ByteString !ByteString
+    | Header !(CI ByteString) !ByteString
     -- ^ key and value
     deriving (Eq, Show)
 

@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.5.3
+version:         1.6.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -52,7 +52,6 @@ executable             yesod
                      , conduit-extra      >= 1.3
                      , resourcet          >= 1.2
                      , base64-bytestring
-                     , lifted-base
                      , http-reverse-proxy >= 0.4
                      , network            >= 2.5
                      , http-client-tls
