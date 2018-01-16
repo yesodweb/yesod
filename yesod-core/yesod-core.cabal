@@ -63,7 +63,7 @@ library
                    , auto-update
                    , semigroups
                    , byteable
-                   , unliftio-core
+                   , unliftio
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content

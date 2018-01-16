@@ -16,8 +16,6 @@ import           Control.Applicative          ((<$>))
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
 import qualified Data.ByteString.Lazy         as BL
-import           Control.Exception            (fromException, evaluate)
-import qualified Control.Exception            as E
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
@@ -45,38 +43,21 @@ import           Yesod.Core.Internal.Request  (parseWaiRequest,
 import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!), NFData)
+import           UnliftIO.Exception
 
--- | Catch all synchronous exceptions, ignoring asynchronous
--- exceptions.
---
--- Ideally we'd use this from a different library
-catchSync :: IO a -> (E.SomeException -> IO a) -> IO a
-catchSync thing after = thing `E.catch` \e ->
-    if isAsyncException e
-        then E.throwIO e
-        else after e
-
--- | Determine if an exception is asynchronous
---
--- Also worth being upstream
-isAsyncException :: E.SomeException -> Bool
-isAsyncException e =
-    case fromException e of
-        Just E.SomeAsyncException{} -> True
-        Nothing -> False
-
--- | Convert an exception into an ErrorResponse
-toErrorHandler :: E.SomeException -> IO ErrorResponse
-toErrorHandler e0 = flip catchSync errFromShow $
+-- | Convert a synchronous exception into an ErrorResponse
+toErrorHandler :: SomeException -> IO ErrorResponse
+toErrorHandler e0 = handleAny errFromShow $
     case fromException e0 of
         Just (HCError x) -> evaluate $!! x
-        _
-            | isAsyncException e0 -> E.throwIO e0
-            | otherwise -> errFromShow e0
+        _ -> errFromShow e0
 
 -- | Generate an @ErrorResponse@ based on the shown version of the exception
-errFromShow :: E.SomeException -> IO ErrorResponse
-errFromShow x = evaluate $!! InternalError $! T.pack $! show x
+errFromShow :: SomeException -> IO ErrorResponse
+errFromShow x = do
+  text <- evaluate (T.pack $ show x) `catchAny` \_ ->
+          return (T.pack "Yesod.Core.Internal.Run.errFromShow: show of an exception threw an exception")
+  return $ InternalError text
 
 -- | Do a basic run of a handler, getting some contents and the final
 -- @GHState@. The @GHState@ unfortunately may contain some impure
@@ -95,7 +76,7 @@ basicRunHandler rhe handler yreq resState = do
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
-    contents' <- catchSync
+    contents' <- catchAny
         (do
             res <- unHandlerT handler (hd istate)
             tc <- evaluate (toTypedContent res)
@@ -136,7 +117,7 @@ handleError :: RunHandlerEnv site
             -> IO YesodResponse
 handleError rhe yreq resState finalSession headers e0 = do
     -- Find any evil hidden impure exceptions
-    e <- (evaluate $!! e0) `catchSync` errFromShow
+    e <- (evaluate $!! e0) `catchAny` errFromShow
 
     -- Generate a response, leveraging the updated session and
     -- response headers
@@ -201,7 +182,7 @@ evalFallback :: (Monoid w, NFData w)
              => HandlerContents
              -> w
              -> IO (w, HandlerContents)
-evalFallback contents val = catchSync
+evalFallback contents val = catchAny
     (fmap (, contents) (evaluate $!! val))
     (fmap ((mempty, ) . HCError) . toErrorHandler)
 
@@ -219,13 +200,14 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
     -- propagating exceptions into the contents
     (finalSession, contents1) <- evalFallback contents0 (ghsSession state)
     (headers, contents2) <- evalFallback contents1 (appEndo (ghsHeaders state) [])
+    contents3 <- (evaluate contents2) `catchAny` (fmap HCError . toErrorHandler)
 
     -- Convert the HandlerContents into the final YesodResponse
     handleContents
         (handleError rhe yreq resState finalSession headers)
         finalSession
         headers
-        contents2
+        contents3
 
 safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
        -> ErrorResponse

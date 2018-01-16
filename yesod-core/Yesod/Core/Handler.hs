@@ -200,7 +200,7 @@ import           Control.Exception             (handle)
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
-import           Control.Monad.IO.Unlift       (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
+import           UnliftIO                      (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W

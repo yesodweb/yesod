@@ -61,7 +61,7 @@ import Control.DeepSeq.Generics (genericRnf)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import Data.Semigroup (Semigroup)
-import Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), withUnliftIO)
+import UnliftIO (MonadUnliftIO (..), UnliftIO (..), withUnliftIO)
 
 -- Sessions
 type SessionMap = Map Text ByteString

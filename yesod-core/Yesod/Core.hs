@@ -141,7 +141,7 @@ import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class
-import Control.Monad.IO.Unlift (MonadIO (..), MonadUnliftIO (..))
+import UnliftIO (MonadIO (..), MonadUnliftIO (..))
 
 import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp
