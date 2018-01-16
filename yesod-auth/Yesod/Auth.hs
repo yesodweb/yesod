@@ -440,10 +440,9 @@ getLoginR :: AuthHandler master Html
 getLoginR = setUltDestReferer' >> loginHandler
 
 getLogoutR :: AuthHandler master ()
-getLogoutR = setUltDestReferer' >> redirectToPost LogoutR
-
-postLogoutR :: AuthHandler master ()
-postLogoutR = lift $ clearCreds True
+getLogoutR = do
+    setUltDestReferer'
+    lift $ clearCreds True
 
 handlePluginR :: Text -> [Text] -> AuthHandler master TypedContent
 handlePluginR plugin pieces = do
