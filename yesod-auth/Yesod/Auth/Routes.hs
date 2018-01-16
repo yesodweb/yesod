@@ -16,6 +16,6 @@ data Auth = Auth
 mkYesodSubData "Auth" [parseRoutes|
 /check                 CheckR      GET
 /login                 LoginR      GET
-/logout                LogoutR     GET POST
+/logout                LogoutR     GET
 /page/#Text/*Texts     PluginR
 |]
