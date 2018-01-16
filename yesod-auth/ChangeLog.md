@@ -1,6 +1,6 @@
 ## unreleased
 
-* Avoid `redirectToPost` on logout
+* Avoid `redirectToPost` on logout [#1475](https://github.com/yesodweb/yesod/pull/1475)
 
 ## 1.4.21
 
