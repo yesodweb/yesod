@@ -37,7 +37,6 @@ import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
 import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
-import Yesod.Core.Class.Handler
 import Yesod.Core.Widget (WidgetFor)
 import Yesod.Routes.Class
 import qualified Data.Aeson as J

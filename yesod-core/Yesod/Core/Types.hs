@@ -11,23 +11,11 @@
 module Yesod.Core.Types where
 
 import qualified Data.ByteString.Builder            as BB
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative                (Applicative (..))
-import           Control.Applicative                ((<$>))
-import           Data.Monoid                        (Monoid (..))
-#endif
-import           Control.Arrow                      (first)
-import           Control.Exception                  (Exception)
-import           Control.Monad                      (ap)
-import           Control.Monad.IO.Class             (MonadIO (liftIO))
-import           Control.Monad.Logger               (LogLevel, LogSource,
-                                                     MonadLogger (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
+import           Control.Monad.Trans.Resource       (InternalState, ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.CaseInsensitive               (CI)
 import           Data.Conduit                       (Flush, ConduitT)
-import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
 import           Data.Monoid                        (Endo (..), Last (..))
@@ -40,28 +28,22 @@ import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
 import           Data.Typeable                      (Typeable)
 import           GHC.Generics                       (Generic)
-import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
 import           Network.Wai                        (FilePart,
                                                      RequestBodyLength)
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
-import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
-import           Network.Wai.Logger                 (DateCacheGetter)
 import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
-import           Control.Monad.Reader               (MonadReader (..))
 import           Data.Monoid                        ((<>))
 import Control.DeepSeq (NFData (rnf))
 import Control.DeepSeq.Generics (genericRnf)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
-import Control.Monad.Logger (MonadLoggerIO (..))
-import Data.Semigroup (Semigroup)
-import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
+import RIO hiding (LogStr) -- FIXME move over to the new logger stuff
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -180,7 +162,7 @@ data RunHandlerEnv site = RunHandlerEnv
     , rheRoute    :: !(Maybe (Route site))
     , rheSite     :: !site
     , rheUpload   :: !(RequestBodyLength -> FileUpload)
-    , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+    , rheLogFunc  :: !LogFunc
     , rheOnError  :: !(ErrorResponse -> YesodApp)
       -- ^ How to respond when an error is thrown internally.
       --
@@ -196,7 +178,7 @@ data HandlerData site = HandlerData
     }
 
 data YesodRunnerEnv site = YesodRunnerEnv
-    { yreLogger         :: !Logger
+    { yreLogFunc        :: !LogFunc
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
     , yreGen            :: !(IO Int)
@@ -217,12 +199,34 @@ type ParentRunner parent
    -> Maybe (Route parent)
    -> W.Application
 
+class (HasLogFunc env, HasResource env) => HasHandler env where
+  type HandlerSite env
+  handlerL :: Lens' env (HandlerData (HandlerSite env))
+class HasHandler env => HasWidget env where
+  widgetL :: Lens' env (WidgetData (HandlerSite env))
+
+instance HasResource (HandlerData site) where
+  resourceL = lens handlerResource (\x y -> x { handlerResource = y })
+instance HasLogFunc (HandlerData site) where
+  logFuncL = lens handlerEnv (\x y -> x { handlerEnv = y })
+           . lens rheLogFunc (\x y -> x { rheLogFunc = y })
+instance HasHandler (HandlerData site) where
+  type HandlerSite (HandlerData site) = site
+  handlerL = id
+
+instance HasResource (WidgetData site) where
+  resourceL = handlerL.resourceL
+instance HasLogFunc (WidgetData site) where
+  logFuncL = handlerL.logFuncL
+instance HasHandler (WidgetData site) where
+  type HandlerSite (WidgetData site) = site
+  handlerL = lens wdHandler (\x y -> x { wdHandler = y })
+instance HasWidget (WidgetData site) where
+  widgetL = id
+
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
-newtype HandlerFor site a = HandlerFor
-    { unHandlerFor :: HandlerData site -> IO a
-    }
-    deriving Functor
+type HandlerFor site = RIO (HandlerData site)
 
 data GHState = GHState
     { ghsSession :: !SessionMap
@@ -241,10 +245,7 @@ type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
-newtype WidgetFor site a = WidgetFor
-    { unWidgetFor :: WidgetData site -> IO a
-    }
-    deriving Functor
+type WidgetFor site = RIO (WidgetData site)
 
 data WidgetData site = WidgetData
   { wdRef :: {-# UNPACK #-} !(IORef (GWData (Route site)))
@@ -265,8 +266,10 @@ instance a ~ () => IsString (WidgetFor site a) where
     fromString = toWidget . toHtml . T.pack
       where toWidget x = tellWidget mempty { gwdBody = Body (const x) }
 
-tellWidget :: GWData (Route site) -> WidgetFor site ()
-tellWidget d = WidgetFor $ \wd -> modifyIORef' (wdRef wd) (<> d)
+tellWidget :: HasWidget env => GWData (Route (HandlerSite env)) -> RIO env ()
+tellWidget d = do
+  wd <- view widgetL
+  modifyIORef' (wdRef wd) (<> d)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
@@ -341,16 +344,16 @@ instance NFData Header where
     rnf (Header x y) = x `seq` y `seq` ()
 
 data Location url = Local !url | Remote !Text
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 -- | A diff list that does not directly enforce uniqueness.
 -- When creating a widget Yesod will use nub to make it unique.
 newtype UniqueList x = UniqueList ([x] -> [x])
 
 data Script url = Script { scriptLocation :: !(Location url), scriptAttributes :: ![(Text, Text)] }
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 data Stylesheet url = Stylesheet { styleLocation :: !(Location url), styleAttributes :: ![(Text, Text)] }
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 newtype Title = Title { unTitle :: Html }
 
 newtype Head url = Head (HtmlUrl url)
@@ -404,71 +407,6 @@ instance Show HandlerContents where
     show (HCWaiApp _) = "HCWaiApp"
 instance Exception HandlerContents
 
--- Instances for WidgetFor
-instance Applicative (WidgetFor site) where
-    pure = WidgetFor . const . pure
-    (<*>) = ap
-instance Monad (WidgetFor site) where
-    return = pure
-    WidgetFor x >>= f = WidgetFor $ \wd -> do
-        a <- x wd
-        unWidgetFor (f a) wd
-instance MonadIO (WidgetFor site) where
-    liftIO = WidgetFor . const
--- | @since 1.4.38
-instance MonadUnliftIO (WidgetFor site) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = WidgetFor $ \wd ->
-                return (UnliftIO (flip unWidgetFor wd))
-instance MonadReader (WidgetData site) (WidgetFor site) where
-    ask = WidgetFor return
-    local f (WidgetFor g) = WidgetFor $ g . f
-
-instance MonadThrow (WidgetFor site) where
-    throwM = liftIO . throwM
-
-instance MonadResource (WidgetFor site) where
-    liftResourceT f = WidgetFor $ runInternalState f . handlerResource . wdHandler
-
-instance MonadLogger (WidgetFor site) where
-    monadLoggerLog a b c d = WidgetFor $ \wd ->
-        rheLog (handlerEnv $ wdHandler wd) a b c (toLogStr d)
-
-instance MonadLoggerIO (WidgetFor site) where
-    askLoggerIO = WidgetFor $ return . rheLog . handlerEnv . wdHandler
-
--- Instances for HandlerT
-instance Applicative (HandlerFor site) where
-    pure = HandlerFor . const . return
-    (<*>) = ap
-instance Monad (HandlerFor site) where
-    return = pure
-    HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
-instance MonadIO (HandlerFor site) where
-    liftIO = HandlerFor . const
-instance MonadReader (HandlerData site) (HandlerFor site) where
-    ask = HandlerFor return
-    local f (HandlerFor g) = HandlerFor $ g . f
-
--- | @since 1.4.38
-instance MonadUnliftIO (HandlerFor site) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = HandlerFor $ \r ->
-                return (UnliftIO (flip unHandlerFor r))
-
-instance MonadThrow (HandlerFor site) where
-    throwM = liftIO . throwM
-
-instance MonadResource (HandlerFor site) where
-    liftResourceT f = HandlerFor $ runInternalState f . handlerResource
-
-instance MonadLogger (HandlerFor site) where
-    monadLoggerLog a b c d = HandlerFor $ \hd ->
-        rheLog (handlerEnv hd) a b c (toLogStr d)
-
-instance MonadLoggerIO (HandlerFor site) where
-    askLoggerIO = HandlerFor $ \hd -> return (rheLog (handlerEnv hd))
-
 instance Monoid (UniqueList x) where
     mempty = UniqueList id
     UniqueList x `mappend` UniqueList y = UniqueList $ x . y
@@ -491,11 +429,3 @@ instance RenderRoute WaiSubsiteWithAuth where
 
 instance ParseRoute WaiSubsiteWithAuth where
   parseRoute (x, y) = Just $ WaiSubsiteWithAuthRoute x y
-
-data Logger = Logger
-    { loggerSet :: !LoggerSet
-    , loggerDate :: !DateCacheGetter
-    }
-
-loggerPutStr :: Logger -> LogStr -> IO ()
-loggerPutStr (Logger ls _) = pushLogStr ls

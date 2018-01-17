@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE GADTs             #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -13,14 +14,8 @@ import           Yesod.Routes.Class
 import           Data.ByteString.Builder            (Builder)
 import           Data.Text.Encoding                 (encodeUtf8Builder)
 import           Control.Arrow                      ((***), second)
-import           Control.Exception                  (bracket)
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative                ((<$>))
-#endif
 import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
-import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
-                                                     LogSource, logErrorS)
 import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
@@ -35,13 +30,10 @@ import qualified Data.Text.Encoding.Error           as TEE
 import           Data.Text.Lazy.Builder             (toLazyText)
 import           Data.Text.Lazy.Encoding            (encodeUtf8)
 import           Data.Word                          (Word64)
-import           Language.Haskell.TH.Syntax         (Loc (..))
 import           Network.HTTP.Types                 (encodePath)
 import qualified Network.Wai                        as W
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
-import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
-import           System.Log.FastLogger
 import           Text.Blaze                         (customAttribute, textTag,
                                                      toValue, (!),
                                                      preEscapedToMarkup)
@@ -56,7 +48,7 @@ import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
-import Data.IORef
+import RIO hiding (encodeUtf8)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -80,7 +72,7 @@ class RenderRoute site => Yesod site where
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: WidgetFor site () -> HandlerFor site Html
+    defaultLayout :: (HasHandler env, HandlerSite env ~ site) => WidgetFor site () -> RIO env Html
     defaultLayout w = do
         p <- widgetToPageContent w
         msgs <- getMessages
@@ -116,9 +108,10 @@ class RenderRoute site => Yesod site where
     -- Return 'Authorized' if the request is authorized,
     -- 'Unauthorized' a message if unauthorized.
     -- If authentication is required, return 'AuthenticationRequired'.
-    isAuthorized :: Route site
+    isAuthorized :: (HasHandler env, HandlerSite env ~ site)
+                 => Route site
                  -> Bool -- ^ is this a write request?
-                 -> HandlerFor site AuthResult
+                 -> RIO env AuthResult
     isAuthorized _ _ = return Authorized
 
     -- | Determines whether the current request is a write request. By default,
@@ -128,7 +121,7 @@ class RenderRoute site => Yesod site where
     --
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
-    isWriteRequest :: Route site -> HandlerFor site Bool
+    isWriteRequest :: (HasHandler env, HandlerSite env ~ site) => Route site -> RIO env Bool
     isWriteRequest _ = do
         wai <- waiRequest
         return $ W.requestMethod wai `notElem`
@@ -191,10 +184,11 @@ class RenderRoute site => Yesod site where
     -- file, whereas a 'Just' 'Right' gives the type-safe URL. The former is
     -- necessary when you are serving the content outside the context of a
     -- Yesod application, such as via memcached.
-    addStaticContent :: Text -- ^ filename extension
+    addStaticContent :: (HasHandler env, HandlerSite env ~ site)
+                     => Text -- ^ filename extension
                      -> Text -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> HandlerFor site (Maybe (Either Text (Route site, [(Text, Text)])))
+                     -> RIO env (Maybe (Either Text (Route site, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
@@ -205,29 +199,12 @@ class RenderRoute site => Yesod site where
     maximumContentLength :: site -> Maybe (Route site) -> Maybe Word64
     maximumContentLength _ _ = Just $ 2 * 1024 * 1024 -- 2 megabytes
 
-    -- | Creates a @Logger@ to use for log messages.
+    -- | Create a logging function.
     --
-    -- Note that a common technique (endorsed by the scaffolding) is to create
-    -- a @Logger@ value and place it in your foundation datatype, and have this
-    -- method return that already created value. That way, you can use that
-    -- same @Logger@ for printing messages during app initialization.
-    --
-    -- Default: the 'defaultMakeLogger' function.
-    makeLogger :: site -> IO Logger
-    makeLogger _ = defaultMakeLogger
-
-    -- | Send a message to the @Logger@ provided by @getLogger@.
-    --
-    -- Default: the 'defaultMessageLoggerSource' function, using
+    -- Default: the 'defaultMakeLogFunc" function, using
     -- 'shouldLogIO' to check whether we should log.
-    messageLoggerSource :: site
-                        -> Logger
-                        -> Loc -- ^ position in source code
-                        -> LogSource
-                        -> LogLevel
-                        -> LogStr -- ^ message
-                        -> IO ()
-    messageLoggerSource site = defaultMessageLoggerSource $ shouldLogIO site
+    makeLogFunc :: site -> IO LogFunc
+    makeLogFunc = defaultMakeLogFunc . shouldLogIO
 
     -- | Where to Load sripts from. We recommend the default value,
     -- 'BottomOfBody'.
@@ -302,36 +279,23 @@ class RenderRoute site => Yesod site where
                 ^{body}
             |]
 
--- | Default implementation of 'makeLogger'. Sends to stdout and
--- automatically flushes on each write.
---
--- Since 1.4.10
-defaultMakeLogger :: IO Logger
-defaultMakeLogger = do
-    loggerSet' <- newStdoutLoggerSet defaultBufSize
-    (getter, _) <- clockDateCacher
-    return $! Logger loggerSet' getter
-
--- | Default implementation of 'messageLoggerSource'. Checks if the
+-- | Default implementation of 'makeLogFunc'. Checks if the
 -- message should be logged using the provided function, and if so,
 -- formats using 'formatLogMessage'. You can use 'defaultShouldLogIO'
 -- as the provided function.
 --
 -- Since 1.4.10
-defaultMessageLoggerSource ::
-       (LogSource -> LogLevel -> IO Bool) -- ^ Check whether we should
+defaultMakeLogFunc
+    :: (LogSource -> LogLevel -> IO Bool) -- ^ Check whether we should
                                           -- log this
-    -> Logger
-    -> Loc -- ^ position in source code
-    -> LogSource
-    -> LogLevel
-    -> LogStr -- ^ message
-    -> IO ()
-defaultMessageLoggerSource ckLoggable logger loc source level msg = do
+    -> IO LogFunc
+defaultMakeLogFunc ckLoggable = do
+  getZonedDate <- makeZonedDateGetter
+  return $ \loc source level msg -> do
     loggable <- ckLoggable source level
-    when loggable $
-        formatLogMessage (loggerDate logger) loc source level msg >>=
-        loggerPutStr logger
+    when loggable $ do
+      zonedDate <- getZonedDate
+      hPutBuilder stdout $ getUtf8Builder $ formatLogMessage zonedDate loc source level msg
 
 -- | Default implementation of 'shouldLog'. Logs everything at or
 -- above 'LevelInfo'.
@@ -406,10 +370,10 @@ sameSiteSession s = (fmap . fmap) secureSessionCookies
 sslOnlyMiddleware :: Int -- ^ minutes
                   -> HandlerFor site res
                   -> HandlerFor site res
-sslOnlyMiddleware timeout handler = do
+sslOnlyMiddleware timeout' handler = do
     addHeader "Strict-Transport-Security"
               $ T.pack $ concat [ "max-age="
-                                , show $ timeout * 60
+                                , show $ timeout' * 60
                                 , "; includeSubDomains"
                                 ]
     handler
@@ -505,22 +469,23 @@ defaultCsrfMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site re
 defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
 
 -- | Convert a widget to a 'PageContent'.
-widgetToPageContent :: Yesod site
-                    => WidgetFor site ()
-                    -> HandlerFor site (PageContent (Route site))
-widgetToPageContent w = HandlerFor $ \hd -> do
-  master <- unHandlerFor getYesod hd
-  ref <- newIORef mempty
-  unWidgetFor w WidgetData
-    { wdRef = ref
-    , wdHandler = hd
-    }
-  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
-  let title = maybe mempty unTitle mTitle
-      scripts = runUniqueList scripts'
-      stylesheets = runUniqueList stylesheets'
+widgetToPageContent
+  :: (HasHandler env, Yesod (HandlerSite env))
+  => WidgetFor (HandlerSite env) ()
+  -> RIO env (PageContent (Route (HandlerSite env)))
+widgetToPageContent w = do
+    master <- getYesod
+    hd <- view handlerL
+    ref <- newIORef mempty
+    runRIO WidgetData
+      { wdRef = ref
+      , wdHandler = hd
+      } w
+    GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
+    let title = maybe mempty unTitle mTitle
+        scripts = runUniqueList scripts'
+        stylesheets = runUniqueList stylesheets'
 
-  flip unHandlerFor hd $ do
     render <- getUrlRenderParams
     let renderLoc x =
             case x of
@@ -656,7 +621,7 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
         |]
     provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
 defaultErrorHandler (InternalError e) = do
-    $logErrorS "yesod-core" e
+    logErrorS "yesod-core" $ display e
     selectRep $ do
         provideRep $ defaultLayout $ defaultMessageWidget
             "Internal Server Error"
@@ -691,6 +656,11 @@ asyncHelper render scripts jscript jsLoc =
                     Nothing -> Nothing
                     Just j -> Just $ jelper j
 
+type ZonedDate = DisplayBuilder
+
+makeZonedDateGetter :: IO (IO ZonedDate)
+makeZonedDateGetter = error "makeZonedDateGetter"
+
 -- | Default formatting for log messages. When you use
 -- the template haskell logging functions for to log with information
 -- about the source location, that information will be appended to
@@ -701,32 +671,27 @@ asyncHelper render scripts jscript jsLoc =
 -- but it removes some of the visual clutter from non-TH logs.
 --
 -- Since 1.4.10
-formatLogMessage :: IO ZonedDate
-                 -> Loc
+formatLogMessage :: ZonedDate
+                 -> CallStack
                  -> LogSource
                  -> LogLevel
                  -> LogStr -- ^ message
-                 -> IO LogStr
-formatLogMessage getdate loc src level msg = do
-    now <- getdate
-    return $ mempty
-        `mappend` toLogStr now
-        `mappend` " ["
-        `mappend` (case level of
-            LevelOther t -> toLogStr t
-            _ -> toLogStr $ drop 5 $ show level)
-        `mappend` (if T.null src
-            then mempty
-            else "#" `mappend` toLogStr src)
-        `mappend` "] "
-        `mappend` msg
-        `mappend` sourceSuffix
-        `mappend` "\n"
-    where
-    sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
-        `mappend` " @("
-        `mappend` toLogStr (fileLocationToString loc)
-        `mappend` ")"
+                 -> DisplayBuilder
+formatLogMessage now loc src level msg =
+  now <>
+  " [" <>
+  displayLevel level <>
+  (if T.null src then mempty else "#" <> display src) <>
+  "] " <>
+  msg <>
+  displayCallStack loc <>
+  "\n"
+  where
+    displayLevel LevelDebug = "DEBUG"
+    displayLevel LevelInfo = "INFO"
+    displayLevel LevelWarn = "WARN"
+    displayLevel LevelError = "ERROR"
+    displayLevel (LevelOther x) = display x
 
 -- | Customize the cookies used by the session backend.  You may
 -- use this function on your definition of 'makeSessionBackend'.
@@ -842,22 +807,6 @@ loadClientSession key getCachedDate sessionName req = load
           }]
         where
           host = "" -- fixme, properly lock sessions to client address
-
--- taken from file-location package
--- turn the TH Loc loaction information into a human readable string
--- leaving out the loc_end parameter
-fileLocationToString :: Loc -> String
-fileLocationToString loc =
-    concat
-      [ loc_package loc
-      , ':' : loc_module loc
-      , ' ' : loc_filename loc
-      , ':' : line loc
-      , ':' : char loc
-      ]
-  where
-    line = show . fst . loc_start
-    char = show . snd . loc_start
 
 -- | Guess the approot based on request headers. For more information, see
 -- "Network.Wai.Middleware.Approot"
