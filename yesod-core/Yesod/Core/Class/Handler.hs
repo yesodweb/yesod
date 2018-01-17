@@ -14,7 +14,6 @@ module Yesod.Core.Class.Handler
 
 import Yesod.Core.Types
 import Control.Monad.Logger (MonadLogger)
-import Control.Monad.IO.Unlift (liftIO, MonadUnliftIO, MonadIO)
 import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans.Class (lift)
 #if __GLASGOW_HASKELL__ < 710

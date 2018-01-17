@@ -1,13 +1,15 @@
-## 1.5.0
+## 1.6.0
 
-* Overhaul of `HandlerT`/`WidgetT` to no longer be transformers.
-
-## 1.4.38
-
+* Upgrade to conduit 1.3.0
+* Switch to `MonadUnliftIO`
+* Drop `mwc-random` and `blaze-builder` dependencies
+* Strictify some internal data structures
+* Add `CI` wrapper to first field in `Header` data constructor
+  [#1418](https://github.com/yesodweb/yesod/issues/1418)
 * Internal only change, users of stable API are unaffected: `WidgetT`
   holds its data in an `IORef` so that it is isomorphic to `ReaderT`,
   avoiding state-loss issues..
-* Instances for `MonadUnliftIO`
+* Overhaul of `HandlerT`/`WidgetT` to no longer be transformers.
 
 ## 1.4.37.2
 

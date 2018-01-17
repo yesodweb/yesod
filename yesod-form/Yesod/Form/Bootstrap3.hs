@@ -186,7 +186,7 @@ renderBootstrap3 formLayout aform fragment = do
 
 
 -- | (Internal) Render a help widget for tooltips and errors.
-helpWidget :: FieldView site -> WidgetT site IO ()
+helpWidget :: FieldView site -> WidgetFor site ()
 helpWidget view = [whamlet|
     $maybe tt <- fvTooltip view
       <span .help-block>#{tt}

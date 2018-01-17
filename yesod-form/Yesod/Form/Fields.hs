@@ -161,10 +161,9 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | An alias for 'timeFieldTypeText'.
+-- | An alias for 'timeFieldTypeTime'.
 timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
-timeField = timeFieldTypeText
-{-# DEPRECATED timeField "'timeField' currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See 'https://github.com/yesodweb/yesod/pull/874' for details." #-}
+timeField = timeFieldTypeTime
 
 -- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
 -- 
@@ -175,6 +174,8 @@ timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Fie
 timeFieldTypeTime = timeFieldOfType "time"
 
 -- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
+--
+-- This function exists for backwards compatibility with the old implementation of 'timeField', which used to use @type="text"@. Consider using 'timeField' or 'timeFieldTypeTime' for improved UX and validation from the browser.
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
@@ -420,15 +421,15 @@ urlField = Field
 -- > areq (selectFieldList [("Value 1" :: Text, "value1"),("Value 2", "value2")]) "Which value?" Nothing
 selectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                 => [(msg, a)]
-                -> Field (HandlerT site IO) a
+                -> Field (HandlerFor site) a
 selectFieldList = selectField . optionsPairs
 
 -- | Creates a @\<select>@ tag for selecting one option. Example usage:
 --
 -- > areq (selectField $ optionsPairs [(MsgValue1, "value1"),(MsgValue2, "value2")]) "Which value?" Nothing
 selectField :: (Eq a, RenderMessage site FormMessage)
-            => HandlerT site IO (OptionList a)
-            -> Field (HandlerT site IO) a
+            => HandlerFor site (OptionList a)
+            -> Field (HandlerFor site) a
 selectField = selectFieldHelper
     (\theId name attrs inside -> [whamlet|
 $newline never
@@ -446,13 +447,13 @@ $newline never
 -- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectFieldList :: (Eq a, RenderMessage site msg)
                      => [(msg, a)]
-                     -> Field (HandlerT site IO) [a]
+                     -> Field (HandlerFor site) [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
 -- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectField :: Eq a
-                 => HandlerT site IO (OptionList a)
-                 -> Field (HandlerT site IO) [a]
+                 => HandlerFor site (OptionList a)
+                 -> Field (HandlerFor site) [a]
 multiSelectField ioptlist =
     Field parse view UrlEncoded
   where
@@ -478,18 +479,18 @@ multiSelectField ioptlist =
 -- | Creates an input with @type="radio"@ for selecting one option.
 radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                => [(msg, a)]
-               -> Field (HandlerT site IO) a
+               -> Field (HandlerFor site) a
 radioFieldList = radioField . optionsPairs
 
 -- | Creates an input with @type="checkbox"@ for selecting multiple options.
 checkboxesFieldList :: (Eq a, RenderMessage site msg) => [(msg, a)]
-                     -> Field (HandlerT site IO) [a]
+                     -> Field (HandlerFor site) [a]
 checkboxesFieldList = checkboxesField . optionsPairs
 
 -- | Creates an input with @type="checkbox"@ for selecting multiple options.
 checkboxesField :: Eq a
-                 => HandlerT site IO (OptionList a)
-                 -> Field (HandlerT site IO) [a]
+                 => HandlerFor site (OptionList a)
+                 -> Field (HandlerFor site) [a]
 checkboxesField ioptlist = (multiSelectField ioptlist)
     { fieldView =
         \theId name attrs val _isReq -> do
@@ -506,8 +507,8 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
     }
 -- | Creates an input with @type="radio"@ for selecting one option.
 radioField :: (Eq a, RenderMessage site FormMessage)
-           => HandlerT site IO (OptionList a)
-           -> Field (HandlerT site IO) a
+           => HandlerFor site (OptionList a)
+           -> Field (HandlerFor site) a
 radioField = selectFieldHelper
     (\theId _name _attrs inside -> [whamlet|
 $newline never
@@ -663,7 +664,7 @@ optionsPersist :: ( YesodPersist site
                => [Filter a]
                -> [SelectOpt a]
                -> (a -> msg)
-               -> HandlerT site IO (OptionList (Entity a))
+               -> HandlerFor site (OptionList (Entity a))
 #else
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (PersistEntityBackend a)
@@ -674,7 +675,7 @@ optionsPersist :: ( YesodPersist site, PersistEntity a
                => [Filter a]
                -> [SelectOpt a]
                -> (a -> msg)
-               -> HandlerT site IO (OptionList (Entity a))
+               -> HandlerFor site (OptionList (Entity a))
 #endif
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
@@ -701,7 +702,7 @@ optionsPersistKey
   => [Filter a]
   -> [SelectOpt a]
   -> (a -> msg)
-  -> HandlerT site IO (OptionList (Key a))
+  -> HandlerFor site (OptionList (Key a))
 #else
 optionsPersistKey
   :: (YesodPersist site
@@ -714,7 +715,7 @@ optionsPersistKey
   => [Filter a]
   -> [SelectOpt a]
   -> (a -> msg)
-  -> HandlerT site IO (OptionList (Key a))
+  -> HandlerFor site (OptionList (Key a))
 #endif
 
 optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
@@ -728,11 +729,11 @@ optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
 
 selectFieldHelper
         :: (Eq a, RenderMessage site FormMessage)
-        => (Text -> Text -> [(Text, Text)] -> WidgetT site IO () -> WidgetT site IO ())
-        -> (Text -> Text -> Bool -> WidgetT site IO ())
-        -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> WidgetT site IO ())
-        -> HandlerT site IO (OptionList a)
-        -> Field (HandlerT site IO) a
+        => (Text -> Text -> [(Text, Text)] -> WidgetFor site () -> WidgetFor site ())
+        -> (Text -> Text -> Bool -> WidgetFor site ())
+        -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> WidgetFor site ())
+        -> HandlerFor site (OptionList a)
+        -> Field (HandlerFor site) a
 selectFieldHelper outside onOpt inside opts' = Field
     { fieldParse = \x _ -> do
         opts <- opts'

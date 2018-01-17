@@ -50,7 +50,7 @@ module Yesod.Auth
 
 import Control.Monad                 (when)
 import Control.Monad.Trans.Maybe
-import Control.Monad.IO.Unlift       (withRunInIO, MonadUnliftIO)
+import UnliftIO                      (withRunInIO, MonadUnliftIO)
 
 import Yesod.Auth.Routes
 import Data.Aeson hiding (json)
@@ -314,8 +314,8 @@ loginErrorMessageMasterI dest msg = do
 
 -- | For HTML, set the message and redirect to the route.
 -- For JSON, send the message and a 401 status
-loginErrorMessage :: YesodAuth master
-         => Route master
+loginErrorMessage
+         :: Route master
          -> Text
          -> AuthHandler master TypedContent
 loginErrorMessage dest msg = messageJson401 msg (onErrorHtml dest msg)

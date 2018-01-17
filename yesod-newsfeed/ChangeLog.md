@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1
+
+* Upgrade to yesod-core 1.6.0
+
 ## 1.6
 
 * Create new datatype `EntryEnclosure` for self-documentation of `feedEntryEnclosure`.

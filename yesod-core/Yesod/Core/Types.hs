@@ -25,6 +25,7 @@ import           Control.Monad.Logger               (LogLevel, LogSource,
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
+import           Data.CaseInsensitive               (CI)
 import           Data.Conduit                       (Flush, ConduitT)
 import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
@@ -46,7 +47,6 @@ import           Network.Wai                        (FilePart,
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
-import qualified System.Random.MWC                  as MWC
 import           Network.Wai.Logger                 (DateCacheGetter)
 import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
@@ -61,7 +61,7 @@ import Control.DeepSeq.Generics (genericRnf)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import Data.Semigroup (Semigroup)
-import Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..))
+import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -74,7 +74,7 @@ newtype SessionBackend = SessionBackend
                     -> IO (SessionMap, SaveSession) -- ^ Return the session data and a function to save the session
     }
 
-data SessionCookie = SessionCookie (Either UTCTime ByteString) ByteString SessionMap
+data SessionCookie = SessionCookie !(Either UTCTime ByteString) !ByteString !SessionMap
     deriving (Show, Read)
 instance Serialize SessionCookie where
     put (SessionCookie a b c) = do
@@ -152,13 +152,13 @@ data Approot master = ApprootRelative -- ^ No application root.
 
 type ResolvedApproot = Text
 
-data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
+data AuthResult = Authorized | AuthenticationRequired | Unauthorized !Text
     deriving (Eq, Show, Read)
 
 data ScriptLoadPosition master
     = BottomOfBody
     | BottomOfHeadBlocking
-    | BottomOfHeadAsync (BottomOfHeadAsync master)
+    | BottomOfHeadAsync !(BottomOfHeadAsync master)
 
 type BottomOfHeadAsync master
        = [Text] -- ^ urls to load asynchronously
@@ -171,7 +171,7 @@ type Texts = [Text]
 newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 
 -- | Like 'WaiSubsite', but applies parent site's middleware and isAuthorized.
--- 
+--
 -- @since 1.4.34
 newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
 
@@ -199,8 +199,9 @@ data YesodRunnerEnv site = YesodRunnerEnv
     { yreLogger         :: !Logger
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
-    , yreGen            :: !MWC.GenIO
-    , yreGetMaxExpires  :: IO Text
+    , yreGen            :: !(IO Int)
+    -- ^ Generate a random number
+    , yreGetMaxExpires  :: !(IO Text)
     }
 
 data YesodSubRunnerEnv sub parent = YesodSubRunnerEnv
@@ -225,11 +226,11 @@ newtype HandlerFor site a = HandlerFor
 
 data GHState = GHState
     { ghsSession :: !SessionMap
-    , ghsRBC     :: Maybe RequestBodyContents
-    , ghsIdent   :: Int
-    , ghsCache   :: TypeMap
-    , ghsCacheBy :: KeyedTypeMap
-    , ghsHeaders :: Endo [Header]
+    , ghsRBC     :: !(Maybe RequestBodyContents)
+    , ghsIdent   :: !Int
+    , ghsCache   :: !TypeMap
+    , ghsCacheBy :: !KeyedTypeMap
+    , ghsHeaders :: !(Endo [Header])
     }
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
@@ -283,9 +284,9 @@ newtype CssBuilder = CssBuilder { unCssBuilder :: TBuilder.Builder }
 --
 -- > PageContent url -> HtmlUrl url
 data PageContent url = PageContent
-    { pageTitle :: Html
-    , pageHead  :: HtmlUrl url
-    , pageBody  :: HtmlUrl url
+    { pageTitle :: !Html
+    , pageHead  :: !(HtmlUrl url)
+    , pageBody  :: !(HtmlUrl url)
     }
 
 data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and optional content length.
@@ -312,11 +313,11 @@ newtype DontFullyEvaluate a = DontFullyEvaluate { unDontFullyEvaluate :: a }
 -- | Responses to indicate some form of an error occurred.
 data ErrorResponse =
       NotFound
-    | InternalError Text
-    | InvalidArgs [Text]
+    | InternalError !Text
+    | InvalidArgs ![Text]
     | NotAuthenticated
-    | PermissionDenied Text
-    | BadMethod H.Method
+    | PermissionDenied !Text
+    | BadMethod !H.Method
     deriving (Show, Eq, Typeable, Generic)
 instance NFData ErrorResponse where
     rnf = genericRnf
@@ -324,9 +325,11 @@ instance NFData ErrorResponse where
 ----- header stuff
 -- | Headers to be added to a 'Result'.
 data Header =
-      AddCookie SetCookie
-    | DeleteCookie ByteString ByteString
-    | Header ByteString ByteString
+      AddCookie !SetCookie
+    | DeleteCookie !ByteString !ByteString
+    -- ^ name and path
+    | Header !(CI ByteString) !ByteString
+    -- ^ key and value
     deriving (Eq, Show)
 
 -- FIXME In the next major version bump, let's just add strictness annotations
@@ -337,16 +340,16 @@ instance NFData Header where
     rnf (DeleteCookie x y) = x `seq` y `seq` ()
     rnf (Header x y) = x `seq` y `seq` ()
 
-data Location url = Local url | Remote Text
+data Location url = Local !url | Remote !Text
     deriving (Show, Eq)
 
 -- | A diff list that does not directly enforce uniqueness.
 -- When creating a widget Yesod will use nub to make it unique.
 newtype UniqueList x = UniqueList ([x] -> [x])
 
-data Script url = Script { scriptLocation :: Location url, scriptAttributes :: [(Text, Text)] }
+data Script url = Script { scriptLocation :: !(Location url), scriptAttributes :: ![(Text, Text)] }
     deriving (Show, Eq)
-data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttributes :: [(Text, Text)] }
+data Stylesheet url = Stylesheet { styleLocation :: !(Location url), styleAttributes :: ![(Text, Text)] }
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
 
@@ -382,13 +385,13 @@ instance Monoid (GWData a) where
 instance Semigroup (GWData a)
 
 data HandlerContents =
-      HCContent H.Status !TypedContent
-    | HCError ErrorResponse
-    | HCSendFile ContentType FilePath (Maybe FilePart)
-    | HCRedirect H.Status Text
-    | HCCreated Text
-    | HCWai W.Response
-    | HCWaiApp W.Application
+      HCContent !H.Status !TypedContent
+    | HCError !ErrorResponse
+    | HCSendFile !ContentType !FilePath !(Maybe FilePart)
+    | HCRedirect !H.Status !Text
+    | HCCreated !Text
+    | HCWai !W.Response
+    | HCWaiApp !W.Application
     deriving Typeable
 
 instance Show HandlerContents where

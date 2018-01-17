@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.4.38
+version:         1.6.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -52,22 +52,18 @@ library
                    , resourcet             >= 1.2
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.7.1
-                   -- FIXME remove!
-                   , data-default
                    , safe
                    , warp                  >= 3.0.2
                    , unix-compat
                    , conduit-extra
                    , deepseq               >= 1.3
                    , deepseq-generics
-                   -- FIXME remove
-                   , mwc-random
                    , primitive
                    , word8
                    , auto-update
                    , semigroups
                    , byteable
-                   , unliftio-core
+                   , unliftio
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
@@ -199,7 +195,6 @@ test-suite tests
                   , shakespeare
                   , streaming-commons
                   , wai-extra
-                  , mwc-random
                   , cookie >= 0.4.1    && < 0.5
                   , unliftio
     ghc-options:     -Wall
@@ -209,7 +204,7 @@ benchmark widgets
     type: exitcode-stdio-1.0
     hs-source-dirs: bench
     build-depends:  base
-                  , criterion
+                  , gauge
                   , bytestring
                   , text
                   , transformers

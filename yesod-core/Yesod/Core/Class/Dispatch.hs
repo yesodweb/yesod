@@ -12,7 +12,7 @@ import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Handler (sendWaiApplication, getYesod, getCurrentRoute)
 import Yesod.Core.Class.Handler
 import Yesod.Core.Class.Yesod
-import Control.Monad.Trans.Reader (ReaderT (..), ask)
+import Control.Monad.Trans.Reader (ReaderT (..))
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.

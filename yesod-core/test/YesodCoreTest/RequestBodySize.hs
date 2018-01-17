@@ -42,11 +42,11 @@ postPostR = do
     return $ RepPlain $ toContent $ T.concat val
 
 postConsumeR = do
-    body <- rawRequestBody $$ consume
+    body <- runConduit $ rawRequestBody .| consume
     return $ RepPlain $ toContent $ S.concat body
 
 postPartialConsumeR = do
-    body <- rawRequestBody $$ isolate 5 =$ consume
+    body <- runConduit $ rawRequestBody .| isolate 5 .| consume
     return $ RepPlain $ toContent $ S.concat body
 
 postUnusedR = return $ RepPlain ""

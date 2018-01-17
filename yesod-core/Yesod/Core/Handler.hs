@@ -193,13 +193,14 @@ import           Control.Applicative           ((<$>))
 import           Data.Monoid                   (mempty, mappend)
 #endif
 import           Control.Applicative           ((<|>))
+import qualified Data.CaseInsensitive          as CI
 import           Control.Exception             (evaluate, SomeException, throwIO)
 import           Control.Exception             (handle)
 
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
-import           Control.Monad.IO.Unlift       (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
+import           UnliftIO                      (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
@@ -228,7 +229,7 @@ import           Data.Monoid                   (Endo (..))
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
-import           Web.Cookie                    (SetCookie (..))
+import           Web.Cookie                    (SetCookie (..), defaultSetCookie)
 import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
@@ -250,7 +251,6 @@ import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
-import           Data.Default
 import           Control.Monad.Logger (MonadLogger, logWarnS)
 
 type HandlerT site (m :: * -> *) = HandlerFor site
@@ -782,7 +782,7 @@ setLanguage = setSession langKey
 --
 -- @since 1.2.0
 addHeader :: MonadHandler m => Text -> Text -> m ()
-addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
+addHeader a = addHeaderInternal . Header (CI.mk $ encodeUtf8 a) . encodeUtf8
 
 -- | Deprecated synonym for addHeader.
 setHeader :: MonadHandler m => Text -> Text -> m ()
@@ -800,10 +800,10 @@ replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
 replaceOrAddHeader a b =
   modify $ \g -> g {ghsHeaders = replaceHeader (ghsHeaders g)}
   where
-    repHeader = Header (encodeUtf8 a) (encodeUtf8 b)
+    repHeader = Header (CI.mk $ encodeUtf8 a) (encodeUtf8 b)
 
     sameHeaderName :: Header -> Header -> Bool
-    sameHeaderName (Header n1 _) (Header n2 _) = T.toLower (decodeUtf8 n1) == T.toLower (decodeUtf8 n2)
+    sameHeaderName (Header n1 _) (Header n2 _) = n1 == n2
     sameHeaderName _ _ = False
 
     replaceIndividualHeader :: [Header] -> [Header]
@@ -1457,7 +1457,10 @@ defaultCsrfCookieName = "XSRF-TOKEN"
 --
 -- @since 1.4.14
 setCsrfCookie :: MonadHandler m => m ()
-setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName, setCookiePath = Just "/" }
+setCsrfCookie = setCsrfCookieWithCookie defaultSetCookie
+  { setCookieName = defaultCsrfCookieName
+  , setCookiePath = Just "/"
+  }
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
 --

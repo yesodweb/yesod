@@ -37,7 +37,7 @@ import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
 import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
-import UnliftIO (tryAny, SomeException, try)
+import UnliftIO.Exception (tryAny, SomeException, try)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery

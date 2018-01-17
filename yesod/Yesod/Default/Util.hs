@@ -40,7 +40,7 @@ addStaticContentExternal
     -> Text -- ^ filename extension
     -> Text -- ^ mime type
     -> L.ByteString -- ^ file contents
-    -> HandlerT master IO (Maybe (Either Text (Route master, [(Text, Text)])))
+    -> HandlerFor master (Maybe (Either Text (Route master, [(Text, Text)])))
 addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
     liftIO $ createDirectoryIfMissing True statictmp
     exists <- liftIO $ doesFileExist fn'

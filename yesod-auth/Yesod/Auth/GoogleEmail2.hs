@@ -84,7 +84,7 @@ import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)
-import           Data.Conduit             (($$+-), ($$), (.|), runConduit)
+import           Data.Conduit
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
 import           Data.Maybe               (fromMaybe)
@@ -274,7 +274,7 @@ getPerson :: Manager -> Token -> AuthHandler site (Maybe Person)
 getPerson manager token = liftSubHandler $ parseMaybe parseJSON <$> (do
     req <- personValueRequest token
     res <- http req manager
-    responseBody res $$+- sinkParser json'
+    runConduit $ responseBody res .| sinkParser json'
   )
 
 personValueRequest :: MonadIO m => Token -> m Request

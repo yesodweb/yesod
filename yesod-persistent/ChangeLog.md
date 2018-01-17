@@ -1,3 +1,7 @@
+## 1.6.0
+
+* Upgrade to yesod-core 1.6.0
+
 ## 1.4.3
 
 * Fix overly powerful constraints on get404 and getBy404.

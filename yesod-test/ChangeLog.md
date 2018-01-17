@@ -1,3 +1,7 @@
+## 1.6.0
+
+* Upgrade to yesod-core 1.6.0
+
 ## 1.5.9.1
 
 * Fixes a Haddock syntax error in 1.5.9 [#1473](https://github.com/yesodweb/yesod/pull/1473)

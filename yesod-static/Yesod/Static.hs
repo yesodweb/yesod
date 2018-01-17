@@ -68,7 +68,6 @@ import qualified System.FilePath as FP
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
-import Control.Monad.Trans.Resource (runResourceT)
 import Yesod.Core
 import Yesod.Core.Types
 
@@ -94,7 +93,6 @@ import qualified Data.ByteString as S
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
 import Conduit
-import Data.Functor.Identity (runIdentity)
 import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
 import qualified Data.Text.Lazy as TL

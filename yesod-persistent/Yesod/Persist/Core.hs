@@ -37,11 +37,11 @@ import qualified Database.Persist.Sql as SQL
 unSqlPersistT :: a -> a
 unSqlPersistT = id
 
-type YesodDB site = ReaderT (YesodPersistBackend site) (HandlerT site IO)
+type YesodDB site = ReaderT (YesodPersistBackend site) (HandlerFor site)
 
 class Monad (YesodDB site) => YesodPersist site where
     type YesodPersistBackend site
-    runDB :: YesodDB site a -> HandlerT site IO a
+    runDB :: YesodDB site a -> HandlerFor site a
 
 -- | Helper for creating 'runDB'.
 --
@@ -49,8 +49,8 @@ class Monad (YesodDB site) => YesodPersist site where
 defaultRunDB :: PersistConfig c
              => (site -> c)
              -> (site -> PersistConfigPool c)
-             -> PersistConfigBackend c (HandlerT site IO) a
-             -> HandlerT site IO a
+             -> PersistConfigBackend c (HandlerFor site) a
+             -> HandlerFor site a
 defaultRunDB getConfig getPool f = do
     master <- getYesod
     Database.Persist.runPool
@@ -74,10 +74,10 @@ class YesodPersist site => YesodPersistRunner site where
     -- least, a rollback will be used instead.
     --
     -- Since 1.2.0
-    getDBRunner :: HandlerT site IO (DBRunner site, HandlerT site IO ())
+    getDBRunner :: HandlerFor site (DBRunner site, HandlerFor site ())
 
 newtype DBRunner site = DBRunner
-    { runDBRunner :: forall a. YesodDB site a -> HandlerT site IO a
+    { runDBRunner :: forall a. YesodDB site a -> HandlerFor site a
     }
 
 -- | Helper for implementing 'getDBRunner'.
@@ -86,11 +86,11 @@ newtype DBRunner site = DBRunner
 #if MIN_VERSION_persistent(2,5,0)
 defaultGetDBRunner :: (SQL.IsSqlBackend backend, YesodPersistBackend site ~ backend)
                    => (site -> Pool backend)
-                   -> HandlerT site IO (DBRunner site, HandlerT site IO ())
+                   -> HandlerFor site (DBRunner site, HandlerFor site ())
 #else
 defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
                    => (site -> Pool SQL.SqlBackend)
-                   -> HandlerT site IO (DBRunner site, HandlerT site IO ())
+                   -> HandlerFor site (DBRunner site, HandlerFor site ())
 #endif
 defaultGetDBRunner getPool = do
     pool <- fmap getPool getYesod
@@ -118,8 +118,8 @@ defaultGetDBRunner getPool = do
 --
 -- Since 1.2.0
 runDBSource :: YesodPersistRunner site
-            => Source (YesodDB site) a
-            -> Source (HandlerT site IO) a
+            => ConduitT () a (YesodDB site) ()
+            -> ConduitT () a (HandlerFor site) ()
 runDBSource src = do
     (dbrunner, cleanup) <- lift getDBRunner
     transPipe (runDBRunner dbrunner) src
@@ -128,8 +128,8 @@ runDBSource src = do
 -- | Extends 'respondSource' to create a streaming database response body.
 respondSourceDB :: YesodPersistRunner site
                 => ContentType
-                -> Source (YesodDB site) (Flush Builder)
-                -> HandlerT site IO TypedContent
+                -> ConduitT () (Flush Builder) (YesodDB site) ()
+                -> HandlerFor site TypedContent
 respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.

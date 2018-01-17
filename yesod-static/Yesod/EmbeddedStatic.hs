@@ -57,10 +57,7 @@ import Network.HTTP.Types.Status (status404)
 import Network.Wai (responseLBS, pathInfo)
 import Network.Wai.Application.Static (staticApp)
 import System.IO.Unsafe (unsafePerformIO)
-import Yesod.Core
-          ( HandlerT
-          , YesodSubDispatch(..)
-          )
+import Yesod.Core (YesodSubDispatch(..))
 import Yesod.Core.Types
           ( YesodSubRunnerEnv(..)
           , YesodRunnerEnv(..)

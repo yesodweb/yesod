@@ -35,14 +35,11 @@ import Data.Text.Encoding (decodeUtf8With, decodeUtf8)
 import Data.Text.Encoding.Error (lenientDecode)
 import Conduit
 import Data.Word (Word8, Word64)
-import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Exception (throwIO)
 import Control.Monad ((<=<), liftM)
 import Yesod.Core.Types
 import qualified Data.Map as Map
 import Data.IORef
-import qualified System.Random.MWC as MWC
-import Control.Monad.Primitive (PrimMonad, PrimState)
 import qualified Data.Vector.Storable as V
 import Data.ByteString.Internal (ByteString (PS))
 import qualified Data.Word8 as Word8
@@ -74,7 +71,7 @@ parseWaiRequest :: W.Request
                 -> SessionMap
                 -> Bool
                 -> Maybe Word64 -- ^ max body size
-                -> Either (IO YesodRequest) (MWC.GenIO -> IO YesodRequest)
+                -> Either (IO YesodRequest) (IO Int -> IO YesodRequest)
 parseWaiRequest env session useToken mmaxBodySize =
     -- In most cases, we won't need to generate any random values. Therefore,
     -- we split our results: if we need a random generator, return a Right
@@ -154,16 +151,21 @@ addTwoLetters (toAdd, exist) (l:ls) =
 -- | Generate a random String of alphanumerical characters
 -- (a-z, A-Z, and 0-9) of the given length using the given
 -- random number generator.
-randomString :: PrimMonad m => Int -> MWC.Gen (PrimState m) -> m Text
+randomString :: Monad m => Int -> m Int -> m Text
 randomString len gen =
     liftM (decodeUtf8 . fromByteVector) $ V.replicateM len asciiChar
   where
-    asciiChar = liftM toAscii $ MWC.uniformR (0, 61) gen
-
-    toAscii i
-        | i < 26 = i + Word8._A
-        | i < 52 = i + Word8._a - 26
-        | otherwise = i + Word8._0 - 52
+    asciiChar =
+      let loop = do
+            x <- gen
+            let y = fromIntegral $ x `mod` 64
+            case () of
+              ()
+                | y < 26 -> return $ y + Word8._A
+                | y < 52 -> return $ y + Word8._a - 26
+                | y < 62 -> return $ y + Word8._0 - 52
+                | otherwise -> loop
+       in loop
 
 fromByteVector :: V.Vector Word8 -> ByteString
 fromByteVector v =
@@ -177,10 +179,10 @@ mkFileInfoLBS name ct lbs =
     FileInfo name ct (sourceLazy lbs) (`L.writeFile` lbs)
 
 mkFileInfoFile :: Text -> Text -> FilePath -> FileInfo
-mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourceT $ sourceFile fp $$ sinkFile dst)
+mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runConduitRes $ sourceFile fp .| sinkFile dst)
 
-mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
-mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
+mkFileInfoSource :: Text -> Text -> ConduitT () ByteString (ResourceT IO) () -> FileInfo
+mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runConduitRes $ src .| sinkFile dst)
 
 tokenKey :: IsString a => a
 tokenKey = "_TOKEN"

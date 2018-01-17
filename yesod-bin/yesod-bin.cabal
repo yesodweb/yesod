@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.5.3
+version:         1.6.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -68,13 +68,11 @@ executable             yesod
                      , data-default-class
                      , streaming-commons
                      , warp-tls           >= 3.0.1
-                     , async
-                     , deepseq
+                     , unliftio
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
     other-modules:     Devel
-                       Build
                        Keter
                        AddHandler
                        Paths_yesod_bin

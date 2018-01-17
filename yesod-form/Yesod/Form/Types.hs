@@ -189,7 +189,7 @@ data FieldView site = FieldView
     { fvLabel :: Html
     , fvTooltip :: Maybe Html
     , fvId :: Text
-    , fvInput :: WidgetT site IO ()
+    , fvInput :: WidgetFor site ()
     , fvErrors :: Maybe Html
     , fvRequired :: Bool
     }
@@ -200,7 +200,7 @@ type FieldViewFunc m a
    -> [(Text, Text)] -- ^ Attributes
    -> Either Text a -- ^ Either (invalid text) or (legitimate result)
    -> Bool -- ^ Required?
-   -> WidgetT (HandlerSite m) IO ()
+   -> WidgetFor (HandlerSite m) ()
 
 data Field m a = Field
     { fieldParse :: [Text] -> [FileInfo] -> m (Either (SomeMessage (HandlerSite m)) (Maybe a))
