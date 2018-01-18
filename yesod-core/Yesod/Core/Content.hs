@@ -78,6 +78,7 @@ import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
 import Text.Julius (Javascript, unJavascript)
 import Data.Word8 (_semicolon, _slash)
+import Control.Arrow (second)
 
 -- | Zero-length enumerator.
 emptyContent :: Content
@@ -228,13 +229,13 @@ typeOctet = "application/octet-stream"
 simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.break (== _semicolon)
 
--- Give just the media types as a pair.
+-- | Give just the media types as a pair.
+--
 -- For example, \"text/html; charset=utf-8\" returns ("text", "html")
 contentTypeTypes :: ContentType -> (B.ByteString, B.ByteString)
-contentTypeTypes ct = (main, fst $ B.break (== _semicolon) (tailEmpty sub))
+contentTypeTypes = second tailEmpty . B.break (== _slash) . simpleContentType
   where
     tailEmpty x = if B.null x then "" else B.tail x
-    (main, sub) = B.break (== _slash) ct
 
 instance HasContentType a => HasContentType (DontFullyEvaluate a) where
     getContentType = getContentType . liftM unDontFullyEvaluate
