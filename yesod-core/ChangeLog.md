@@ -10,6 +10,7 @@
   holds its data in an `IORef` so that it is isomorphic to `ReaderT`,
   avoiding state-loss issues..
 * Overhaul of `HandlerT`/`WidgetT` to no longer be transformers.
+* Fix Haddock comment & simplify implementation for `contentTypeTypes` [#1476](https://github.com/yesodweb/yesod/issues/1476)
 
 ## 1.4.37.2
 
