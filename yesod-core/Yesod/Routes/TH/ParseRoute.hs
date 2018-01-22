@@ -3,7 +3,6 @@
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
       mkParseRouteInstance
-    , mkParseRouteInstance'
     ) where
 
 import Yesod.Routes.TH.Types
@@ -12,11 +11,8 @@ import Data.Text (Text)
 import Yesod.Routes.Class
 import Yesod.Routes.TH.Dispatch
 
-mkParseRouteInstance :: Type -> [ResourceTree a] -> Q Dec
-mkParseRouteInstance = mkParseRouteInstance' []
-
-mkParseRouteInstance' :: Cxt -> Type -> [ResourceTree a] -> Q Dec
-mkParseRouteInstance' cxt typ ress = do
+mkParseRouteInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
+mkParseRouteInstance cxt typ ress = do
     cls <- mkDispatchClause
         MkDispatchSettings
             { mdsRunHandler = [|\_ _ x _ -> x|]

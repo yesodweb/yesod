@@ -113,9 +113,9 @@ do
 --  /#Int TrailingIntR GET
 |]
 
-    rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
-    rainst <- mkRouteAttrsInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
-    prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
+    rrinst <- mkRenderRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
+    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
+    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]

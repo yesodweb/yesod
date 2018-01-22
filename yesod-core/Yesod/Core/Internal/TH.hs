@@ -44,11 +44,13 @@ mkYesod :: String -- ^ name of the argument datatype
         -> Q [Dec]
 mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] False return
 
-mkYesodWith :: String
-            -> [Either String [String]]
+{-# DEPRECATED mkYesodWith "Contexts and type variables are now parsed from the name. (https://github.com/yesodweb/yesod/pull/1366)" #-}
+mkYesodWith :: [[String]]
+            -> String
+            -> [String]
             -> [ResourceTree String]
             -> Q [Dec]
-mkYesodWith name args = fmap (uncurry (++)) . mkYesodGeneral name args False return
+mkYesodWith cxts name args = fmap (uncurry (++)) . mkYesodGeneral' cxts name args False return
 
 -- | Sometimes, you will want to declare your routes in one file and define
 -- your handlers elsewhere. For example, this is the only way to break up a
@@ -65,7 +67,7 @@ mkYesodDataGeneral name isSub res = do
     let (name', rest, cxt) = case parse parseName "" name of
             Left err -> error $ show err
             Right a -> a
-    fst <$> mkYesodGeneral' cxt name' (fmap Left rest) isSub return res
+    fst <$> mkYesodGeneral' cxt name' rest isSub return res
 
     where
         parseName = do
@@ -114,7 +116,7 @@ masterTypeSyns vs site =
 --   indicates a polymorphic type, and provides the list of classes
 --   the type must be instance of.
 mkYesodGeneral :: String                    -- ^ foundation type
-               -> [Either String [String]]  -- ^ arguments for the type
+               -> [String]                  -- ^ arguments for the type
                -> Bool                      -- ^ is this a subsite
                -> (Exp -> Q Exp)            -- ^ unwrap handler
                -> [ResourceTree String]
@@ -123,12 +125,12 @@ mkYesodGeneral = mkYesodGeneral' []
 
 mkYesodGeneral' :: [[String]]               -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                -> String                    -- ^ foundation type
-               -> [Either String [String]]  -- ^ arguments for the type
+               -> [String]                  -- ^ arguments for the type
                -> Bool                      -- ^ is this a subsite
                -> (Exp -> Q Exp)            -- ^ unwrap handler
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
-mkYesodGeneral' appCxt' namestr args isSub f resS = do
+mkYesodGeneral' appCxt' namestr mtys isSub f resS = do
     let appCxt = fmap (\(c:rest) -> 
 #if MIN_VERSION_template_haskell(2,10,0)
             foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
@@ -151,36 +153,21 @@ mkYesodGeneral' appCxt' namestr args isSub f resS = do
                          DataD _ _ vs _ _ -> length vs
                          NewtypeD _ _ vs _ _ -> length vs
 #endif
+                         TySynD _ vs _ -> length vs
                          _ -> 0
                      _ -> 0
                _ -> return 0
     let name = mkName namestr
-        (mtys,_) = partitionEithers args
     -- Generate as many variable names as the arity indicates
     vns <- replicateM (arity - length mtys) $ newName "t"
         -- Base type (site type with variables)
-    let (argtypes,cxt) = (\(ns,r,cs) -> (ns ++ fmap VarT r, cs)) $
-          foldr (\arg (xs,vns',cs) ->
-                   case arg of
-                     Left  t  -> 
-                                 ( nameToType t:xs, vns', cs )
-                     Right ts -> 
-                                 let (n, ns) = maybe (error "mkYesodGeneral: Should be unreachable.") id $ uncons vns' in
-                                 ( VarT n : xs, ns
-                                 , fmap (\t ->
-#if MIN_VERSION_template_haskell(2,10,0)
-                                               AppT (ConT $ mkName t) (VarT n)
-#else
-                                               ClassP (mkName t) [VarT n]
-#endif
-                                          ) ts ++ cs )
-                 ) ([],vns,[]) args
+    let argtypes = fmap nameToType mtys ++ fmap VarT vns
         site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
-    renderRouteDec <- mkRenderRouteInstance' appCxt site res
-    routeAttrsDec  <- mkRouteAttrsInstance' appCxt site res
-    dispatchDec    <- mkDispatchInstance site cxt f res
-    parseRoute <- mkParseRouteInstance' appCxt site res
+    renderRouteDec <- mkRenderRouteInstance appCxt site res
+    routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
+    dispatchDec    <- mkDispatchInstance site appCxt f res
+    parseRoute <- mkParseRouteInstance appCxt site res
     let rname = mkName $ "resources" ++ namestr
     eres <- lift resS
     let resourcesDec =

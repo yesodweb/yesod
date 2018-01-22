@@ -3,7 +3,6 @@
 {-# LANGUAGE RecordWildCards #-}
 module Yesod.Routes.TH.RouteAttrs
     ( mkRouteAttrsInstance
-    , mkRouteAttrsInstance'
     ) where
 
 import Yesod.Routes.TH.Types
@@ -15,11 +14,8 @@ import Data.Text (pack)
 import Control.Applicative ((<$>))
 #endif
 
-mkRouteAttrsInstance :: Type -> [ResourceTree a] -> Q Dec
-mkRouteAttrsInstance = mkRouteAttrsInstance' []
-
-mkRouteAttrsInstance' :: Cxt -> Type -> [ResourceTree a] -> Q Dec
-mkRouteAttrsInstance' cxt typ ress = do
+mkRouteAttrsInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
+mkRouteAttrsInstance cxt typ ress = do
     clauses <- mapM (goTree id) ress
     return $ instanceD cxt (ConT ''RouteAttrs `AppT` typ)
         [ FunD 'routeAttrs $ concat clauses

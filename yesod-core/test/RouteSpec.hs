@@ -80,9 +80,9 @@ do
             [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"] True
             ]
         ress = resParent : resLeaves
-    rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
-    rainst <- mkRouteAttrsInstance (ConT ''MyApp) ress
-    prinst <- mkParseRouteInstance (ConT ''MyApp) ress
+    rrinst <- mkRenderRouteInstance [] (ConT ''MyApp) ress
+    rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
+    prinst <- mkParseRouteInstance [] (ConT ''MyApp) ress
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
