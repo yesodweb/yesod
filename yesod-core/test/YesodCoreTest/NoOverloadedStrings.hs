@@ -21,13 +21,13 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 getSubsite :: a -> Subsite
 getSubsite _ = Subsite $(mkYesodSubDispatch resourcesSubsite)
 
-getBarR :: MonadSubHandler m => m T.Text
+getBarR :: MonadHandler m => m T.Text
 getBarR = return $ T.pack "BarR"
 
-getBazR :: (MonadSubHandler m, Yesod (HandlerSite m)) => m Html
+getBazR :: (MonadHandler m, Yesod (HandlerSite m)) => m Html
 getBazR = liftHandler $ defaultLayout [whamlet|Used Default Layout|]
 
-getBinR :: (MonadSubHandler m, Yesod (HandlerSite m), SubHandlerSite m ~ Subsite) => m Html
+getBinR :: (MonadHandler m, Yesod (HandlerSite m), SubHandlerSite m ~ Subsite) => m Html
 getBinR = do
     routeToParent <- getRouteToParent
     liftHandler $ defaultLayout [whamlet|

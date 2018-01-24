@@ -78,7 +78,7 @@ import Control.Monad (void)
 
 type AuthRoute = Route Auth
 
-type MonadAuthHandler master m = (MonadSubHandler m, YesodAuth master, master ~ HandlerSite m, Auth ~ SubHandlerSite m, MonadUnliftIO m)
+type MonadAuthHandler master m = (MonadHandler m, YesodAuth master, master ~ HandlerSite m, Auth ~ SubHandlerSite m, MonadUnliftIO m)
 type AuthHandler master a = forall m. MonadAuthHandler master m => m a
 
 type Method = Text

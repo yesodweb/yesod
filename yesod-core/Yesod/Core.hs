@@ -73,12 +73,6 @@ module Yesod.Core
     , guessApproot
     , guessApprootOr
     , getApprootText
-      -- * Subsites
-    , MonadSubHandler (..)
-    , getSubYesod
-    , getRouteToParent
-    , getSubCurrentRoute
-    , SubsiteData
       -- * Misc
     , yesodVersion
     , yesodRender

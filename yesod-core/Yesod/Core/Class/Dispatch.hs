@@ -9,10 +9,8 @@ module Yesod.Core.Class.Dispatch where
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
-import Yesod.Core.Handler (sendWaiApplication, getYesod, getCurrentRoute)
-import Yesod.Core.Class.Handler
+import Yesod.Core.Handler (sendWaiApplication)
 import Yesod.Core.Class.Yesod
-import Control.Monad.Trans.Reader (ReaderT (..))
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -35,72 +33,20 @@ instance YesodSubDispatch WaiSubsiteWithAuth master where
       WaiSubsiteWithAuth set = ysreGetSub $ yreSite $ ysreParentEnv
       handlert = sendWaiApplication set
 
-data SubsiteData child parent = SubsiteData
-  { sdRouteToParent :: !(Route child -> Route parent)
-  , sdCurrentRoute :: !(Maybe (Route child))
-  , sdSubsiteData :: !child
-  }
-
-class MonadHandler m => MonadSubHandler m where
-  type SubHandlerSite m
-
-  liftSubHandler :: ReaderT (SubsiteData (SubHandlerSite m) (HandlerSite m)) (HandlerFor (HandlerSite m)) a -> m a
-
-getSubYesod :: MonadSubHandler m => m (SubHandlerSite m)
-getSubYesod = liftSubHandler $ ReaderT $ return . sdSubsiteData
-
-getRouteToParent :: MonadSubHandler m => m (Route (SubHandlerSite m) -> Route (HandlerSite m))
-getRouteToParent = liftSubHandler $ ReaderT $ return . sdRouteToParent
-
-getSubCurrentRoute :: MonadSubHandler m => m (Maybe (Route (SubHandlerSite m)))
-getSubCurrentRoute = liftSubHandler $ ReaderT $ return . sdCurrentRoute
-
-instance MonadSubHandler (HandlerFor site) where
-  type SubHandlerSite (HandlerFor site) = site
-
-  liftSubHandler (ReaderT x) = do
-    parent <- getYesod
-    currentRoute <- getCurrentRoute
-    x SubsiteData
-      { sdRouteToParent = id
-      , sdCurrentRoute = currentRoute
-      , sdSubsiteData = parent
-      }
-
-instance MonadSubHandler (WidgetFor site) where
-  type SubHandlerSite (WidgetFor site) = site
-
-  liftSubHandler (ReaderT x) = do
-    parent <- getYesod
-    currentRoute <- getCurrentRoute
-    liftHandler $ x SubsiteData
-      { sdRouteToParent = id
-      , sdCurrentRoute = currentRoute
-      , sdSubsiteData = parent
-      }
-
-instance (MonadSubHandler m, parent ~ SubHandlerSite m) => MonadSubHandler (ReaderT (SubsiteData child parent) m) where
-  type SubHandlerSite (ReaderT (SubsiteData child parent) m) = child
-
-  liftSubHandler (ReaderT f) = ReaderT $ \env -> do
-    toParent' <- getRouteToParent
-    liftHandler $ f env
-      { sdRouteToParent = toParent' . sdRouteToParent env
-      }
-
 subHelper
   :: ToTypedContent content
-  => ReaderT (SubsiteData child master) (HandlerFor master) content
+  => SubHandlerFor child master content
   -> YesodSubRunnerEnv child master
   -> Maybe (Route child)
   -> W.Application
-subHelper (ReaderT f) YesodSubRunnerEnv {..} mroute =
+subHelper (SubHandlerFor f) YesodSubRunnerEnv {..} mroute =
     ysreParentRunner handler ysreParentEnv (fmap ysreToParentRoute mroute)
   where
-    handler = fmap toTypedContent $ do
-      tm <- getRouteToParent
-      liftHandler $ f SubsiteData
-        { sdRouteToParent = tm . ysreToParentRoute
-        , sdCurrentRoute = mroute
-        , sdSubsiteData = ysreGetSub $ yreSite ysreParentEnv
-        }
+    handler = fmap toTypedContent $ HandlerFor $ \hd ->
+      let rhe = handlerEnv hd
+          rhe' = rhe
+            { rheRoute = mroute
+            , rheChild = ysreGetSub $ yreSite ysreParentEnv
+            , rheRouteToMaster = ysreToParentRoute
+            }
+       in f hd { handlerEnv = rhe' }

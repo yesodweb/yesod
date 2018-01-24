@@ -64,7 +64,7 @@ errFromShow x = do
 -- exceptions, but all other synchronous exceptions will be caught and
 -- represented by the @HandlerContents@.
 basicRunHandler :: ToTypedContent c
-                => RunHandlerEnv site
+                => RunHandlerEnv site site
                 -> HandlerFor site c
                 -> YesodRequest
                 -> InternalState
@@ -107,7 +107,7 @@ basicRunHandler rhe handler yreq resState = do
         }
 
 -- | Convert an @ErrorResponse@ into a @YesodResponse@
-handleError :: RunHandlerEnv site
+handleError :: RunHandlerEnv sub site
             -> YesodRequest
             -> InternalState
             -> Map.Map Text S8.ByteString
@@ -188,7 +188,7 @@ evalFallback contents val = catchAny
 -- | Function used internally by Yesod in the process of converting a
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
-           => RunHandlerEnv site
+           => RunHandlerEnv site site
            -> HandlerFor site c
            -> YesodApp
 runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> do
@@ -255,6 +255,8 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
          RunHandlerEnv
             { rheRender = yesodRender site $ resolveApproot site fakeWaiRequest
             , rheRoute = Nothing
+            , rheRouteToMaster = id
+            , rheChild = site
             , rheSite = site
             , rheUpload = fileUpload site
             , rheLog = messageLoggerSource site $ logger site
@@ -329,6 +331,8 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
         rheSafe = RunHandlerEnv
             { rheRender = yesodRender yreSite ra
             , rheRoute = route
+            , rheRouteToMaster = id
+            , rheChild = yreSite
             , rheSite = yreSite
             , rheUpload = fileUpload yreSite
             , rheLog = log'

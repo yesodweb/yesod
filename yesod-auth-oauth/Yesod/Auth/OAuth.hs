@@ -52,7 +52,7 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
     oauthSessionName = "__oauth_token_secret"
 
     dispatch
-      :: ( MonadSubHandler m
+      :: ( MonadHandler m
          , master ~ HandlerSite m
          , Auth ~ SubHandlerSite m
          , MonadUnliftIO m

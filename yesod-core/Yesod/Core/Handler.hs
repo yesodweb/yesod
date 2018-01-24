@@ -147,6 +147,10 @@ module Yesod.Core.Handler
     , setMessage
     , setMessageI
     , getMessage
+      -- * Subsites
+    , getSubYesod
+    , getRouteToParent
+    , getSubCurrentRoute
       -- * Helpers for specific content
       -- ** Hamlet
     , hamletToRepHtml
@@ -321,7 +325,7 @@ rbHelper' backend mkFI req =
             | otherwise = a'
     go = decodeUtf8With lenientDecode
 
-askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m))
+askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m) (HandlerSite m))
 askHandlerEnv = liftHandler $ HandlerFor $ return . handlerEnv
 
 -- | Get the master site application argument.
@@ -1593,3 +1597,12 @@ csrfErrorMessage expectedLocations = T.intercalate "\n"
         formatValue maybeText = case maybeText of
           Nothing -> "(which is not currently set)"
           Just t -> T.concat ["(which has the current, incorrect value: '", t, "')"]
+
+getSubYesod :: MonadHandler m => m (SubHandlerSite m)
+getSubYesod = liftSubHandler $ SubHandlerFor $ return . rheChild . handlerEnv
+
+getRouteToParent :: MonadHandler m => m (Route (SubHandlerSite m) -> Route (HandlerSite m))
+getRouteToParent = liftSubHandler $ SubHandlerFor $ return . rheRouteToMaster . handlerEnv
+
+getSubCurrentRoute :: MonadHandler m => m (Maybe (Route (SubHandlerSite m)))
+getSubCurrentRoute = liftSubHandler $ SubHandlerFor $ return . rheRoute . handlerEnv

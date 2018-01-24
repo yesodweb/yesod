@@ -175,10 +175,12 @@ newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 -- @since 1.4.34
 newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
 
-data RunHandlerEnv site = RunHandlerEnv
+data RunHandlerEnv child site = RunHandlerEnv
     { rheRender   :: !(Route site -> [(Text, Text)] -> Text)
-    , rheRoute    :: !(Maybe (Route site))
+    , rheRoute    :: !(Maybe (Route child))
+    , rheRouteToMaster :: !(Route child -> Route site)
     , rheSite     :: !site
+    , rheChild    :: !child
     , rheUpload   :: !(RequestBodyLength -> FileUpload)
     , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
     , rheOnError  :: !(ErrorResponse -> YesodApp)
@@ -188,9 +190,9 @@ data RunHandlerEnv site = RunHandlerEnv
     , rheMaxExpires :: !Text
     }
 
-data HandlerData site = HandlerData
+data HandlerData child site = HandlerData
     { handlerRequest  :: !YesodRequest
-    , handlerEnv      :: !(RunHandlerEnv site)
+    , handlerEnv      :: !(RunHandlerEnv child site)
     , handlerState    :: !(IORef GHState)
     , handlerResource :: !InternalState
     }
@@ -220,7 +222,7 @@ type ParentRunner parent
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
 newtype HandlerFor site a = HandlerFor
-    { unHandlerFor :: HandlerData site -> IO a
+    { unHandlerFor :: HandlerData site site -> IO a
     }
     deriving Functor
 
@@ -248,7 +250,7 @@ newtype WidgetFor site a = WidgetFor
 
 data WidgetData site = WidgetData
   { wdRef :: {-# UNPACK #-} !(IORef (GWData (Route site)))
-  , wdHandler :: {-# UNPACK #-} !(HandlerData site)
+  , wdHandler :: {-# UNPACK #-} !(HandlerData site site)
   }
 
 instance a ~ () => Monoid (WidgetFor site a) where
@@ -446,7 +448,7 @@ instance Monad (HandlerFor site) where
     HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
 instance MonadIO (HandlerFor site) where
     liftIO = HandlerFor . const
-instance MonadReader (HandlerData site) (HandlerFor site) where
+instance MonadReader (HandlerData site site) (HandlerFor site) where
     ask = HandlerFor return
     local f (HandlerFor g) = HandlerFor $ g . f
 
@@ -499,3 +501,42 @@ data Logger = Logger
 
 loggerPutStr :: Logger -> LogStr -> IO ()
 loggerPutStr (Logger ls _) = pushLogStr ls
+
+-- | A handler monad for subsite
+--
+-- @since 1.6.0
+newtype SubHandlerFor sub master a = SubHandlerFor
+    { unSubHandlerFor :: HandlerData sub master -> IO a
+    }
+    deriving Functor
+
+instance Applicative (SubHandlerFor child master) where
+    pure = SubHandlerFor . const . return
+    (<*>) = ap
+instance Monad (SubHandlerFor child master) where
+    return = pure
+    SubHandlerFor x >>= f = SubHandlerFor $ \r -> x r >>= \x' -> unSubHandlerFor (f x') r
+instance MonadIO (SubHandlerFor child master) where
+    liftIO = SubHandlerFor . const
+instance MonadReader (HandlerData child master) (SubHandlerFor child master) where
+    ask = SubHandlerFor return
+    local f (SubHandlerFor g) = SubHandlerFor $ g . f
+
+-- | @since 1.4.38
+instance MonadUnliftIO (SubHandlerFor child master) where
+  {-# INLINE askUnliftIO #-}
+  askUnliftIO = SubHandlerFor $ \r ->
+                return (UnliftIO (flip unSubHandlerFor r))
+
+instance MonadThrow (SubHandlerFor child master) where
+    throwM = liftIO . throwM
+
+instance MonadResource (SubHandlerFor child master) where
+    liftResourceT f = SubHandlerFor $ runInternalState f . handlerResource
+
+instance MonadLogger (SubHandlerFor child master) where
+    monadLoggerLog a b c d = SubHandlerFor $ \sd ->
+        rheLog (handlerEnv sd) a b c (toLogStr d)
+
+instance MonadLoggerIO (SubHandlerFor child master) where
+    askLoggerIO = SubHandlerFor $ return . rheLog . handlerEnv
