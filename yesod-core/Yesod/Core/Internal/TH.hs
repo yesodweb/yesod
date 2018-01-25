@@ -32,17 +32,23 @@ import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
--- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
+-- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.
+--
+-- Contexts and type variables in the name of the datatype are parsed. 
+-- For example, a datatype @App a@ with typeclass constraint @MyClass a@ can be written as @\"(MyClass a) => App a\"@.
 mkYesod :: String -- ^ name of the argument datatype
         -> [ResourceTree String]
         -> Q [Dec]
 mkYesod name = fmap (uncurry (++)) . mkYesodWithParser name False return
 
-{-# DEPRECATED mkYesodWith "Contexts and type variables are now parsed from the name. (https://github.com/yesodweb/yesod/pull/1366)" #-}
-mkYesodWith :: [[String]]
-            -> String
-            -> [String]
+{-# DEPRECATED mkYesodWith "Contexts and type variables are now parsed from the name in `mkYesod`. <https://github.com/yesodweb/yesod/pull/1366>" #-}
+-- | Similar to 'mkYesod', except contexts and type variables are not parsed. 
+-- Instead, they are explicitly provided. 
+-- You can write @(MyClass a) => App a@ with @mkYesodWith [[\"MyClass\",\"a\"]] \"App\" [\"a\"] ...@.
+mkYesodWith :: [[String]] -- ^ list of contexts
+            -> String -- ^ name of the argument datatype
+            -> [String] -- ^ list of type variables
             -> [ResourceTree String]
             -> Q [Dec]
 mkYesodWith cxts name args = fmap (uncurry (++)) . mkYesodGeneral cxts name args False return
