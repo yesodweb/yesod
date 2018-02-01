@@ -12,6 +12,10 @@
 * Overhaul of `HandlerT`/`WidgetT` to no longer be transformers.
 * Fix Haddock comment & simplify implementation for `contentTypeTypes` [#1476](https://github.com/yesodweb/yesod/issues/1476)
 
+## 1.4.37.3
+
+* Improve error message when request body is too large [#1477](https://github.com/yesodweb/yesod/pull/1477)
+
 ## 1.4.37.2
 
 * Improve error messages for the CSRF checking functions [#1455](https://github.com/yesodweb/yesod/issues/1455)

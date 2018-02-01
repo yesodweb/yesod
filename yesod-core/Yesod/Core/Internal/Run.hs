@@ -311,7 +311,7 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> Maybe (Route site)
             -> Application
 yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
-  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = sendResponse tooLargeResponse
+  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = sendResponse (tooLargeResponse maxLen len)
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $

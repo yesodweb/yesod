@@ -25,6 +25,7 @@ import qualified Network.Wai as W
 import Web.Cookie (parseCookiesText)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy.Char8 as LS8
 import Data.Text (Text, pack)
 import Network.HTTP.Types (queryToQueryText, Status (Status))
 import Data.Maybe (fromMaybe, catMaybes)
@@ -55,17 +56,23 @@ limitRequestBody maxLen req = do
             let len = fromIntegral $ S8.length bs
                 remaining' = remaining - len
             if remaining < len
-                then throwIO $ HCWai tooLargeResponse
+                then throwIO $ HCWai $ tooLargeResponse maxLen len
                 else do
                     writeIORef ref remaining'
                     return bs
         }
 
-tooLargeResponse :: W.Response
-tooLargeResponse = W.responseLBS
+tooLargeResponse :: Word64 -> Word64 -> W.Response
+tooLargeResponse maxLen bodyLen = W.responseLBS
     (Status 413 "Too Large")
     [("Content-Type", "text/plain")]
-    "Request body too large to be processed."
+    (L.concat 
+        [ "Request body too large to be processed. The maximum size is "
+        , (LS8.pack (show maxLen))
+        , " bytes; your request body was "
+        , (LS8.pack (show bodyLen))
+        , " bytes. If you're the developer of this site, you can configure the maximum length with the `maximumContentLength` function on the Yesod typeclass."
+        ])
 
 parseWaiRequest :: W.Request
                 -> SessionMap

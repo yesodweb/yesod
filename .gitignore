@@ -21,3 +21,6 @@ tarballs/
 .ghc
 .stackage
 .bash_history
+
+# OS X
+.DS_Store
