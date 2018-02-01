@@ -32,3 +32,5 @@ extra-deps:
 - http-conduit-2.3.0
 - persistent-sqlite-2.8.0
 - cookie-0.4.3
+- gauge-0.2.1
+- basement-0.0.6
