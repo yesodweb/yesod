@@ -34,6 +34,7 @@ module Yesod.Test
       yesodSpec
     , YesodSpec
     , yesodSpecWithSiteGenerator
+    , yesodSpecWithSiteGenerator'
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
@@ -282,6 +283,24 @@ yesodSpecWithSiteGenerator getSiteAction yspecs =
         site <- getSiteAction'
         app <- toWaiAppPlain site
         evalSIO y YesodExampleData
+            { yedApp = app
+            , yedSite = site
+            , yedCookies = M.empty
+            , yedResponse = Nothing
+            }
+
+yesodSpecWithSiteGenerator' :: YesodDispatch site
+                           => (a -> IO site)
+                           -> YesodSpec site
+                           -> Hspec.SpecWith a
+yesodSpecWithSiteGenerator' getSiteAction yspecs =
+    Hspec.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
+    where
+      unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
+      unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ \a -> do
+        site <- getSiteAction' a
+        app <- toWaiAppPlain site
+        ST.evalStateT y YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
