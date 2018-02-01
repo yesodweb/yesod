@@ -36,7 +36,7 @@ test-suite test
                  , hspec
                  , wai-extra
                  , yesod-core
-                 , persistent-sqlite
+                 , persistent-sqlite >= 2.8
                  , yesod-persistent
                  , conduit
                  , blaze-builder

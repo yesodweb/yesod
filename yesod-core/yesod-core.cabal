@@ -38,7 +38,7 @@ library
                    , old-locale            >= 1.0.0.2  && < 1.1
                    , containers            >= 0.2
                    , unordered-containers  >= 0.2
-                   , cookie                >= 0.4.2    && < 0.5
+                   , cookie                >= 0.4.3    && < 0.5
                    , http-types            >= 0.7
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
