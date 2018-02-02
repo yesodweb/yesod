@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TypeFamilies      #-}
 -- | Use an email address as an identifier via Google's login system.
 --
 -- Note that this is a replacement for "Yesod.Auth.GoogleEmail", which depends
@@ -54,16 +56,16 @@ import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
                                            AuthRoute, Creds (Creds),
                                            Route (PluginR), YesodAuth,
                                            runHttpRequest, setCredsRedirect,
-                                           logoutDest)
+                                           logoutDest, AuthHandler)
 import qualified Yesod.Auth.Message       as Msg
-import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
+import           Yesod.Core               (HandlerSite, MonadHandler,
                                            TypedContent, getRouteToParent,
                                            getUrlRender, invalidArgs,
-                                           lift, liftIO, lookupGetParam,
+                                           liftIO, lookupGetParam,
                                            lookupSession, notFound, redirect,
                                            setSession, whamlet, (.:),
                                            addMessage, getYesod,
-                                           toHtml)
+                                           toHtml, liftSubHandler)
 
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
@@ -82,7 +84,7 @@ import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)
-import           Data.Conduit             (($$+-), ($$))
+import           Data.Conduit
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
 import           Data.Maybe               (fromMaybe)
@@ -187,10 +189,10 @@ authPlugin storeToken clientID clientSecret =
     dispatch :: YesodAuth site
              => Text
              -> [Text]
-             -> HandlerT Auth (HandlerT site IO) TypedContent
+             -> AuthHandler site TypedContent
     dispatch "GET" ["forward"] = do
         tm <- getRouteToParent
-        lift (getDest tm) >>= redirect
+        getDest tm >>= redirect
 
     dispatch "GET" ["complete"] = do
         mstate <- lookupGetParam "state"
@@ -207,30 +209,27 @@ authPlugin storeToken clientID clientSecret =
                     case merr of
                         Nothing -> invalidArgs ["Missing code paramter"]
                         Just err -> do
-                            master <- lift getYesod
+                            master <- getYesod
                             let msg =
                                     case err of
                                         "access_denied" -> "Access denied"
                                         _ -> "Unknown error occurred: " `T.append` err
                             addMessage "error" $ toHtml msg
-                            lift $ redirect $ logoutDest master
+                            redirect $ logoutDest master
                 Just c -> return c
 
         render <- getUrlRender
+        tm <- getRouteToParent
 
         req' <- liftIO $
-#if MIN_VERSION_http_client(0,4,30)
             HTTP.parseUrlThrow
-#else
-            HTTP.parseUrl
-#endif
             "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
         let req =
                 urlEncodedBody
                     [ ("code", encodeUtf8 code)
                     , ("client_id", encodeUtf8 clientID)
                     , ("client_secret", encodeUtf8 clientSecret)
-                    , ("redirect_uri", encodeUtf8 $ render complete)
+                    , ("redirect_uri", encodeUtf8 $ render $ tm complete)
                     , ("grant_type", "authorization_code")
                     ]
                     req'
@@ -257,38 +256,31 @@ authPlugin storeToken clientID clientSecret =
                 [e] -> return e
                 [] -> error "No account email"
                 x -> error $ "Too many account emails: " ++ show x
-        lift $ setCredsRedirect $ Creds pid email $ allPersonInfo personValue
+        setCredsRedirect $ Creds pid email $ allPersonInfo personValue
 
     dispatch _ _ = notFound
 
-makeHttpRequest
-  :: (YesodAuth site)
-  => Request
-  -> HandlerT Auth (HandlerT site IO) A.Value
-makeHttpRequest req = lift $
-    runHttpRequest req $ \res -> bodyReaderSource (responseBody res) $$ sinkParser json'
+makeHttpRequest :: Request -> AuthHandler site A.Value
+makeHttpRequest req =
+    liftSubHandler $ runHttpRequest req $ \res ->
+    runConduit $ bodyReaderSource (responseBody res) .| sinkParser json'
 
 -- | Allows to fetch information about a user from Google's API.
 --   In case of parsing error returns 'Nothing'.
 --   Will throw 'HttpException' in case of network problems or error response code.
 --
 -- @since 1.4.3
-getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
-getPerson manager token = parseMaybe parseJSON <$> (do
+getPerson :: Manager -> Token -> AuthHandler site (Maybe Person)
+getPerson manager token = liftSubHandler $ parseMaybe parseJSON <$> (do
     req <- personValueRequest token
     res <- http req manager
-    responseBody res $$+- sinkParser json'
+    runConduit $ responseBody res .| sinkParser json'
   )
 
 personValueRequest :: MonadIO m => Token -> m Request
 personValueRequest token = do
-    req2' <- liftIO $
-#if MIN_VERSION_http_client(0,4,30)
-            HTTP.parseUrlThrow
-#else
-            HTTP.parseUrl
-#endif
-        "https://www.googleapis.com/plus/v1/people/me"
+    req2' <- liftIO
+           $ HTTP.parseUrlThrow "https://www.googleapis.com/plus/v1/people/me"
     return req2'
             { requestHeaders =
                 [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken token)

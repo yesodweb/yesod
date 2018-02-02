@@ -186,29 +186,29 @@ class ( YesodAuth site
     -- has not yet been verified.
     --
     -- @since 1.1.0
-    addUnverified :: Email -> VerKey -> HandlerT site IO (AuthEmailId site)
+    addUnverified :: Email -> VerKey -> AuthHandler site (AuthEmailId site)
 
     -- | Send an email to the given address to verify ownership.
     --
     -- @since 1.1.0
-    sendVerifyEmail :: Email -> VerKey -> VerUrl -> HandlerT site IO ()
+    sendVerifyEmail :: Email -> VerKey -> VerUrl -> AuthHandler site ()
 
     -- | Get the verification key for the given email ID.
     --
     -- @since 1.1.0
-    getVerifyKey :: AuthEmailId site -> HandlerT site IO (Maybe VerKey)
+    getVerifyKey :: AuthEmailId site -> AuthHandler site (Maybe VerKey)
 
     -- | Set the verification key for the given email ID.
     --
     -- @since 1.1.0
-    setVerifyKey :: AuthEmailId site -> VerKey -> HandlerT site IO ()
+    setVerifyKey :: AuthEmailId site -> VerKey -> AuthHandler site ()
 
     -- | Hash and salt a password
     --
     -- Default: 'saltPass'.
     --
     -- @since 1.4.20
-    hashAndSaltPassword :: Text -> HandlerT site IO SaltedPass
+    hashAndSaltPassword :: Text -> AuthHandler site SaltedPass
     hashAndSaltPassword = liftIO . saltPass
 
     -- | Verify a password matches the stored password for the given account.
@@ -216,7 +216,7 @@ class ( YesodAuth site
     -- Default: Fetch a password with 'getPassword' and match using 'Yesod.Auth.Util.PasswordStore.verifyPassword'.
     --
     -- @since 1.4.20
-    verifyPassword :: Text -> SaltedPass -> HandlerT site IO Bool
+    verifyPassword :: Text -> SaltedPass -> AuthHandler site Bool
     verifyPassword plain salted = return $ isValidPass plain salted
 
     -- | Verify the email address on the given account.
@@ -228,28 +228,28 @@ class ( YesodAuth site
     -- See <https://github.com/yesodweb/yesod/issues/1222>.
     --
     -- @since 1.1.0
-    verifyAccount :: AuthEmailId site -> HandlerT site IO (Maybe (AuthId site))
+    verifyAccount :: AuthEmailId site -> AuthHandler site (Maybe (AuthId site))
 
     -- | Get the salted password for the given account.
     --
     -- @since 1.1.0
-    getPassword :: AuthId site -> HandlerT site IO (Maybe SaltedPass)
+    getPassword :: AuthId site -> AuthHandler site (Maybe SaltedPass)
 
     -- | Set the salted password for the given account.
     --
     -- @since 1.1.0
-    setPassword :: AuthId site -> SaltedPass -> HandlerT site IO ()
+    setPassword :: AuthId site -> SaltedPass -> AuthHandler site ()
 
     -- | Get the credentials for the given @Identifier@, which may be either an
     -- email address or some other identification (e.g., username).
     --
     -- @since 1.2.0
-    getEmailCreds :: Identifier -> HandlerT site IO (Maybe (EmailCreds site))
+    getEmailCreds :: Identifier -> AuthHandler site (Maybe (EmailCreds site))
 
     -- | Get the email address for the given email ID.
     --
     -- @since 1.1.0
-    getEmail :: AuthEmailId site -> HandlerT site IO (Maybe Email)
+    getEmail :: AuthEmailId site -> AuthHandler site (Maybe Email)
 
     -- | Generate a random alphanumeric string.
     --
@@ -268,7 +268,7 @@ class ( YesodAuth site
     -- Default: if the user logged in via an email link do not require a password.
     --
     -- @since 1.2.1
-    needOldPassword :: AuthId site -> HandlerT site IO Bool
+    needOldPassword :: AuthId site -> AuthHandler site Bool
     needOldPassword aid' = do
         mkey <- lookupSession loginLinkKey
         case mkey >>= readMay . TS.unpack of
@@ -280,7 +280,7 @@ class ( YesodAuth site
     -- | Check that the given plain-text password meets minimum security standards.
     --
     -- Default: password is at least three characters.
-    checkPasswordSecurity :: AuthId site -> Text -> HandlerT site IO (Either Text ())
+    checkPasswordSecurity :: AuthId site -> Text -> AuthHandler site (Either Text ())
     checkPasswordSecurity _ x
         | TS.length x >= 3 = return $ Right ()
         | otherwise = return $ Left "Password must be at least three characters"
@@ -288,7 +288,7 @@ class ( YesodAuth site
     -- | Response after sending a confirmation email.
     --
     -- @since 1.2.2
-    confirmationEmailSentResponse :: Text -> HandlerT site IO TypedContent
+    confirmationEmailSentResponse :: Text -> AuthHandler site TypedContent
     confirmationEmailSentResponse identifier = do
         mr <- getMessageRender
         selectRep $ do
@@ -314,7 +314,7 @@ class ( YesodAuth site
     -- Default: 'defaultEmailLoginHandler'.
     --
     -- @since 1.4.17
-    emailLoginHandler :: (Route Auth -> Route site) -> WidgetT site IO ()
+    emailLoginHandler :: (Route Auth -> Route site) -> WidgetFor site ()
     emailLoginHandler = defaultEmailLoginHandler
 
 
@@ -325,7 +325,7 @@ class ( YesodAuth site
     -- Default: 'defaultRegisterHandler'.
     --
     -- @since: 1.2.6
-    registerHandler :: HandlerT Auth (HandlerT site IO) Html
+    registerHandler :: AuthHandler site Html
     registerHandler = defaultRegisterHandler
 
     -- | Handler called to render the \"forgot password\" page.
@@ -335,7 +335,7 @@ class ( YesodAuth site
     -- Default: 'defaultForgotPasswordHandler'.
     --
     -- @since: 1.2.6
-    forgotPasswordHandler :: HandlerT Auth (HandlerT site IO) Html
+    forgotPasswordHandler :: AuthHandler site Html
     forgotPasswordHandler = defaultForgotPasswordHandler
 
     -- | Handler called to render the \"set password\" page.  The
@@ -351,7 +351,7 @@ class ( YesodAuth site
          -- field for the old password should be presented.
          -- Otherwise, just two fields for the new password are
          -- needed.
-      -> HandlerT Auth (HandlerT site IO) TypedContent
+      -> AuthHandler site TypedContent
     setPasswordHandler = defaultSetPasswordHandler
 
 authEmail :: (YesodAuthEmail m) => AuthPlugin m
@@ -371,15 +371,18 @@ authEmail =
     dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
     dispatch _ _ = notFound
 
-getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
+getRegisterR :: YesodAuthEmail master => AuthHandler master Html
 getRegisterR = registerHandler
 
 -- | Default implementation of 'emailLoginHandler'.
 --
 -- @since 1.4.17
-defaultEmailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+defaultEmailLoginHandler
+  :: YesodAuthEmail master
+  => (Route Auth -> Route master)
+  -> WidgetFor master ()
 defaultEmailLoginHandler toParent = do
-        (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
+        (widget, enctype) <- generateFormPost loginForm
 
         [whamlet|
             <form method="post" action="@{toParent loginR}", enctype=#{enctype}>
@@ -437,11 +440,11 @@ defaultEmailLoginHandler toParent = do
 -- | Default implementation of 'registerHandler'.
 --
 -- @since 1.2.6
-defaultRegisterHandler :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
+defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
-    (widget, enctype) <- lift $ generateFormPost registrationForm
+    (widget, enctype) <- generateFormPost registrationForm
     toParentRoute <- getRouteToParent
-    lift $ authLayout $ do
+    authLayout $ do
         setTitleI Msg.RegisterLong
         [whamlet|
             <p>_{Msg.EnterEmail}
@@ -480,14 +483,14 @@ parseEmail = withObject "email" (\obj -> do
 registerHelper :: YesodAuthEmail master
                => Bool -- ^ allow usernames?
                -> Route Auth
-               -> HandlerT Auth (HandlerT master IO) TypedContent
+               -> AuthHandler master TypedContent
 registerHelper allowUsername dest = do
-    y <- lift getYesod
+    y <- getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
     pidentifier <- lookupPostParam "email"
     midentifier <- case pidentifier of
                      Nothing -> do
-                       (jidentifier :: Result Value) <- lift parseCheckJsonBody
+                       (jidentifier :: Result Value) <- parseCheckJsonBody
                        case jidentifier of
                          Error _ -> return Nothing
                          Success val -> return $ parseMaybe parseEmail val
@@ -502,43 +505,44 @@ registerHelper allowUsername dest = do
     case eidentifier of
       Left route -> loginErrorMessageI dest route
       Right identifier -> do
-            mecreds <- lift $ getEmailCreds identifier
+            mecreds <- getEmailCreds identifier
             registerCreds <-
                 case mecreds of
                     Just (EmailCreds lid _ _ (Just key) email) -> return $ Just (lid, key, email)
                     Just (EmailCreds lid _ _ Nothing email) -> do
                         key <- liftIO $ randomKey y
-                        lift $ setVerifyKey lid key
+                        setVerifyKey lid key
                         return $ Just (lid, key, email)
                     Nothing
                         | allowUsername -> return Nothing
                         | otherwise -> do
                             key <- liftIO $ randomKey y
-                            lid <- lift $ addUnverified identifier key
+                            lid <- addUnverified identifier key
                             return $ Just (lid, key, identifier)
 
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
                 Just (lid, verKey, email) -> do
                     render <- getUrlRender
-                    let verUrl = render $ verifyR (toPathPiece lid) verKey
-                    lift $ sendVerifyEmail email verKey verUrl
-                    lift $ confirmationEmailSentResponse identifier
+                    tp <- getRouteToParent
+                    let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey
+                    sendVerifyEmail email verKey verUrl
+                    confirmationEmailSentResponse identifier
 
-postRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
+postRegisterR :: YesodAuthEmail master => AuthHandler master TypedContent
 postRegisterR = registerHelper False registerR
 
-getForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
+getForgotPasswordR :: YesodAuthEmail master => AuthHandler master Html
 getForgotPasswordR = forgotPasswordHandler
 
 -- | Default implementation of 'forgotPasswordHandler'.
 --
 -- @since 1.2.6
-defaultForgotPasswordHandler :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
+defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
-    (widget, enctype) <- lift $ generateFormPost forgotPasswordForm
+    (widget, enctype) <- generateFormPost forgotPasswordForm
     toParent <- getRouteToParent
-    lift $ authLayout $ do
+    authLayout $ do
         setTitleI Msg.PasswordResetTitle
         [whamlet|
             <p>_{Msg.PasswordResetPrompt}
@@ -569,35 +573,36 @@ defaultForgotPasswordHandler = do
             fsAttrs = [("autofocus", "")]
         }
 
-postForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
+postForgotPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
 postForgotPasswordR = registerHelper True forgotPasswordR
 
 getVerifyR :: YesodAuthEmail site
            => AuthEmailId site
            -> Text
-           -> HandlerT Auth (HandlerT site IO) TypedContent
+           -> AuthHandler site TypedContent
 getVerifyR lid key = do
-    realKey <- lift $ getVerifyKey lid
-    memail <- lift $ getEmail lid
-    mr <- lift getMessageRender
+    realKey <- getVerifyKey lid
+    memail <- getEmail lid
+    mr <- getMessageRender
     case (realKey == Just key, memail) of
         (True, Just email) -> do
-            muid <- lift $ verifyAccount lid
+            muid <- verifyAccount lid
             case muid of
                 Nothing -> invalidKey mr
                 Just uid -> do
-                    lift $ setCreds False $ Creds "email-verify" email [("verifiedEmail", email)] -- FIXME uid?
-                    lift $ setLoginLinkKey uid
+                    setCreds False $ Creds "email-verify" email [("verifiedEmail", email)] -- FIXME uid?
+                    setLoginLinkKey uid
                     let msgAv = Msg.AddressVerified
                     selectRep $ do
                       provideRep $ do
-                        lift $ addMessageI "success" msgAv
-                        fmap asHtml $ redirect setpassR
+                        addMessageI "success" msgAv
+                        tp <- getRouteToParent
+                        fmap asHtml $ redirect $ tp setpassR
                       provideJsonMessage $ mr msgAv
         _ -> invalidKey mr
   where
     msgIk = Msg.InvalidKey
-    invalidKey mr = messageJson401 (mr msgIk) $ lift $ authLayout $ do
+    invalidKey mr = messageJson401 (mr msgIk) $ authLayout $ do
         setTitleI msgIk
         [whamlet|
 $newline never
@@ -612,16 +617,16 @@ parseCreds = withObject "creds" (\obj -> do
                                    return (email', pass))
 
 
-postLoginR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
+postLoginR :: YesodAuthEmail master => AuthHandler master TypedContent
 postLoginR = do
-    result <- lift $ runInputPostResult $ (,)
+    result <- runInputPostResult $ (,)
         <$> ireq textField "email"
         <*> ireq textField "password"
 
     midentifier <- case result of
                      FormSuccess (iden, pass) -> return $ Just (iden, pass)
                      _ -> do
-                       (creds :: Result Value) <- lift parseCheckJsonBody
+                       (creds :: Result Value) <- parseCheckJsonBody
                        case creds of
                          Error _ -> return Nothing
                          Success val -> return $ parseMaybe parseCreds val
@@ -629,18 +634,18 @@ postLoginR = do
     case midentifier of
       Nothing -> loginErrorMessageI LoginR Msg.NoIdentifierProvided
       Just (identifier, pass) -> do
-          mecreds <- lift $ getEmailCreds identifier
+          mecreds <- getEmailCreds identifier
           maid <-
               case ( mecreds >>= emailCredsAuthId
                    , emailCredsEmail <$> mecreds
                    , emailCredsStatus <$> mecreds
                    ) of
                 (Just aid, Just email', Just True) -> do
-                      mrealpass <- lift $ getPassword aid
+                      mrealpass <- getPassword aid
                       case mrealpass of
                         Nothing -> return Nothing
                         Just realpass -> do
-                            passValid <- lift $ verifyPassword pass realpass 
+                            passValid <- verifyPassword pass realpass
                             return $ if passValid
                                     then Just email'
                                     else Nothing
@@ -648,7 +653,7 @@ postLoginR = do
           let isEmail = Text.Email.Validate.isValid $ encodeUtf8 identifier
           case maid of
             Just email' ->
-                lift $ setCredsRedirect $ Creds
+                setCredsRedirect $ Creds
                          (if isEmail then "email" else "username")
                          email'
                          [("verifiedEmail", email')]
@@ -658,26 +663,26 @@ postLoginR = do
                                    then Msg.InvalidEmailPass
                                    else Msg.InvalidUsernamePass
 
-getPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
+getPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
 getPasswordR = do
-    maid <- lift maybeAuthId
+    maid <- maybeAuthId
     case maid of
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
         Just _ -> do
-            needOld <- maybe (return True) (lift . needOldPassword) maid
+            needOld <- maybe (return True) needOldPassword maid
             setPasswordHandler needOld
 
 -- | Default implementation of 'setPasswordHandler'.
 --
 -- @since 1.2.6
-defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> HandlerT Auth (HandlerT master IO) TypedContent
+defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> AuthHandler master TypedContent
 defaultSetPasswordHandler needOld = do
-    messageRender <- lift getMessageRender
+    messageRender <- getMessageRender
     toParent <- getRouteToParent
     selectRep $ do
         provideJsonMessage $ messageRender Msg.SetPass
-        provideRep $ lift $ authLayout $ do
-            (widget, enctype) <- liftWidgetT $ generateFormPost setPasswordForm
+        provideRep $ authLayout $ do
+            (widget, enctype) <- generateFormPost setPasswordForm
             setTitleI Msg.SetPassTitle
             [whamlet|
                 <h3>_{Msg.SetPass}
@@ -749,10 +754,10 @@ parsePassword = withObject "password" (\obj -> do
                                          curr <- obj .:? "current"
                                          return (email', pass, curr))
 
-postPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
+postPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
 postPasswordR = do
-    maid <- lift maybeAuthId
-    (creds :: Result Value) <- lift parseCheckJsonBody
+    maid <- maybeAuthId
+    (creds :: Result Value) <- parseCheckJsonBody
     let jcreds = case creds of
                    Error _ -> Nothing
                    Success val -> parseMaybe parsePassword val
@@ -761,26 +766,26 @@ postPasswordR = do
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
         Just aid -> do
             tm <- getRouteToParent
-            needOld <- lift $ needOldPassword aid
+            needOld <- needOldPassword aid
             if not needOld then confirmPassword aid tm jcreds else do
-                res <- lift $ runInputPostResult $ ireq textField "current"
+                res <- runInputPostResult $ ireq textField "current"
                 let fcurrent = case res of
                                  FormSuccess currentPass -> Just currentPass
                                  _ -> Nothing
                 let current = if doJsonParsing
                               then getThird jcreds
                               else fcurrent
-                mrealpass <- lift $ getPassword aid
+                mrealpass <- getPassword aid
                 case (mrealpass, current) of
                     (Nothing, _) ->
-                        lift $ loginErrorMessage (tm setpassR) "You do not currently have a password set on your account"
+                        loginErrorMessage (tm setpassR) "You do not currently have a password set on your account"
                     (_, Nothing) ->
                         loginErrorMessageI LoginR Msg.BadSetPass
                     (Just realpass, Just current') -> do
-                        passValid <- lift $ verifyPassword current' realpass
+                        passValid <- verifyPassword current' realpass
                         if passValid
                           then confirmPassword aid tm jcreds
-                          else lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
+                          else loginErrorMessage (tm setpassR) "Invalid current password, please try again"
 
   where
     msgOk = Msg.PassUpdated
@@ -789,7 +794,7 @@ postPasswordR = do
     getNewConfirm (Just (a,b,_)) = Just (a,b)
     getNewConfirm _ = Nothing
     confirmPassword aid tm jcreds = do
-        res <- lift $ runInputPostResult $ (,)
+        res <- runInputPostResult $ (,)
             <$> ireq textField "new"
             <*> ireq textField "confirm"
         let creds = if (isJust jcreds)
@@ -803,21 +808,21 @@ postPasswordR = do
               if new /= confirm
               then loginErrorMessageI setpassR Msg.PassMismatch
               else do
-                isSecure <- lift $ checkPasswordSecurity aid new
+                isSecure <- checkPasswordSecurity aid new
                 case isSecure of
-                  Left e -> lift $ loginErrorMessage (tm setpassR) e
+                  Left e -> loginErrorMessage (tm setpassR) e
                   Right () -> do
-                     salted <- lift $ hashAndSaltPassword new
-                     y <- lift $ do
+                     salted <- hashAndSaltPassword new
+                     y <- do
                                 setPassword aid salted
                                 deleteSession loginLinkKey
                                 addMessageI "success" msgOk
                                 getYesod
 
-                     mr <- lift getMessageRender
+                     mr <- getMessageRender
                      selectRep $ do
                          provideRep $ 
-                            fmap asHtml $ lift $ redirect $ afterPasswordRoute y
+                            fmap asHtml $ redirect $ afterPasswordRoute y
                          provideJsonMessage (mr msgOk)
 
 saltLength :: Int

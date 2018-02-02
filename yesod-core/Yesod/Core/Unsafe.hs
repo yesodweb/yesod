@@ -19,7 +19,10 @@ import Control.Monad.IO.Class (MonadIO)
 --
 -- > unsafeHandler = Unsafe.fakeHandlerGetLogger appLogger
 fakeHandlerGetLogger :: (Yesod site, MonadIO m)
-                     => (site -> Logger) -> site -> HandlerT site IO a -> m a
+                     => (site -> Logger)
+                     -> site
+                     -> HandlerFor site a
+                     -> m a
 fakeHandlerGetLogger getLogger app f =
      runFakeHandler mempty getLogger app f
  >>= either (error . ("runFakeHandler issue: " `mappend`) . show)

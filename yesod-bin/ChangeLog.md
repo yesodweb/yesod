@@ -1,3 +1,8 @@
+## 1.6.0
+
+* Upgrade to conduit 1.3.0
+* Remove configure, build, touch, and test commands
+
 ## 1.5.3
 
 * Support typed-process-0.2.0.0

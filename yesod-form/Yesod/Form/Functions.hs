@@ -385,8 +385,8 @@ getHelper form env = do
 identifyForm
   :: Monad m
   => Text -- ^ Form identification string.
-  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
-  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+  -> (Html -> MForm m (FormResult a, WidgetFor (HandlerSite m) ()))
+  -> (Html -> MForm m (FormResult a, WidgetFor (HandlerSite m) ()))
 identifyForm identVal form = \fragment -> do
     -- Create hidden <input>.
     let fragment' =
@@ -418,7 +418,7 @@ identifyFormKey = "_formid"
 type FormRender m a =
        AForm m a
     -> Html
-    -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ())
+    -> MForm m (FormResult a, WidgetFor (HandlerSite m) ())
 
 renderTable, renderDivs, renderDivsNoLabels :: Monad m => FormRender m a
 -- | Render a form into a series of tr tags. Note that, in order to allow

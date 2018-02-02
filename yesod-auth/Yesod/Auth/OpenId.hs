@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GADTs #-}
 module Yesod.Auth.OpenId
     ( authOpenId
     , forwardUrl
@@ -19,7 +20,7 @@ import Yesod.Form
 import Yesod.Core
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
-import Control.Exception.Lifted (SomeException, try)
+import UnliftIO.Exception (tryAny)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
@@ -36,7 +37,10 @@ authOpenId idType extensionFields =
     AuthPlugin "openid" dispatch login
   where
     complete = PluginR "openid" ["complete"]
+
+    name :: Text
     name = "openid_identifier"
+
     login tm = do
         ident <- newIdent
         -- FIXME this is a hack to get GHC 7.6's type checker to allow the
@@ -57,19 +61,19 @@ $newline never
     <input id="#{ident}" type="text" name="#{name}" value="http://">
     <input type="submit" value="_{Msg.LoginOpenID}">
 |]
+
+    dispatch :: Text -> [Text] -> AuthHandler master TypedContent
     dispatch "GET" ["forward"] = do
-        roid <- lift $ runInputGet $ iopt textField name
+        roid <- runInputGet $ iopt textField name
         case roid of
             Just oid -> do
+                tm <- getRouteToParent
                 render <- getUrlRender
-                let complete' = render complete
-                master <- lift getYesod
-                eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing extensionFields (authHttpManager master)
+                let complete' = render $ tm complete
+                manager <- authHttpManager
+                eres <- tryAny $ OpenId.getForwardUrl oid complete' Nothing extensionFields manager
                 case eres of
-                    Left err -> do
-                        tm <- getRouteToParent
-                        lift $ loginErrorMessage (tm LoginR) $ T.pack $
-                                show (err :: SomeException)
+                    Left err -> loginErrorMessage (tm LoginR) $ T.pack $ show err
                     Right x -> redirect x
             Nothing -> loginErrorMessageI LoginR Msg.NoOpenID
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
@@ -84,14 +88,13 @@ $newline never
 
 completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master TypedContent
 completeHelper idType gets' = do
-    master <- lift getYesod
-    eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
+    manager <- authHttpManager
+    eres <- tryAny $ OpenId.authenticateClaimed gets' manager
     either onFailure onSuccess eres
   where
     onFailure err = do
         tm <- getRouteToParent
-        lift $ loginErrorMessage (tm LoginR) $ T.pack $
-                show (err :: SomeException)
+        loginErrorMessage (tm LoginR) $ T.pack $ show err
     onSuccess oir = do
             let claimed =
                     case OpenId.oirClaimed oir of
@@ -105,7 +108,7 @@ completeHelper idType gets' = do
                         case idType of
                             OPLocal -> OpenId.oirOpLocal oir
                             Claimed -> fromMaybe (OpenId.oirOpLocal oir) $ OpenId.oirClaimed oir
-            lift $ setCredsRedirect $ Creds "openid" i gets''
+            setCredsRedirect $ Creds "openid" i gets''
 
 -- | The main identifier provided by the OpenID authentication plugin is the
 -- \"OP-local identifier\". There is also sometimes a \"claimed\" identifier

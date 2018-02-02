@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
 module AddHandler (addHandler) where
 
@@ -8,7 +9,11 @@ import Data.List  (isPrefixOf, isSuffixOf, stripPrefix)
 import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+#if MIN_VERSION_Cabal(2, 0, 0)
+import Distribution.PackageDescription.Parse (readGenericPackageDescription)
+#else
 import Distribution.PackageDescription.Parse (readPackageDescription)
+#endif
 import Distribution.PackageDescription.Configuration (flattenPackageDescription)
 import Distribution.PackageDescription (allBuildInfo, hsSourceDirs)
 import Distribution.Verbosity (normal)
@@ -224,7 +229,11 @@ uncapitalize "" = ""
 
 getSrcDir :: FilePath -> IO FilePath
 getSrcDir cabal = do
+#if MIN_VERSION_Cabal(2, 0, 0)
+    pd <- flattenPackageDescription <$> readGenericPackageDescription normal cabal
+#else
     pd <- flattenPackageDescription <$> readPackageDescription normal cabal
+#endif
     let buildInfo = allBuildInfo pd
         srcDirs = concatMap hsSourceDirs buildInfo
     return $ fromMaybe "." $ listToMaybe srcDirs

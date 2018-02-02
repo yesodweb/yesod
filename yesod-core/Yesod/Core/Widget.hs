@@ -14,6 +14,7 @@
 module Yesod.Core.Widget
     ( -- * Datatype
       WidgetT
+    , WidgetFor
     , PageContent (..)
       -- * Special Hamlet quasiquoter/TH for Widgets
     , whamlet
@@ -43,7 +44,6 @@ module Yesod.Core.Widget
     , addScriptRemoteAttrs
     , addScriptEither
       -- * Subsites
-    , widgetToParentWidget
     , handlerToWidget
       -- * Internal
     , whamletFileWithSettings
@@ -60,8 +60,6 @@ import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
-import Control.Monad (liftM)
-import Control.Monad.IO.Class (MonadIO, liftIO)
 import Text.Shakespeare.I18N (RenderMessage)
 import Data.Text (Text)
 import qualified Data.Map as Map
@@ -76,6 +74,9 @@ import qualified Data.Text.Lazy.Builder as TB
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
+
+type WidgetT site (m :: * -> *) = WidgetFor site
+{-# DEPRECATED WidgetT "Use WidgetFor directly" #-}
 
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
@@ -97,8 +98,8 @@ instance render ~ RY site => ToWidget site (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 instance ToWidget site Javascript where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just $ const x) mempty
-instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) where
-    toWidget = liftWidgetT
+instance (site' ~ site, a ~ ()) => ToWidget site' (WidgetFor site a) where
+    toWidget = liftWidget
 instance ToWidget site Html where
     toWidget = toWidget . const
 -- | @since 1.4.28
@@ -268,45 +269,10 @@ ihamletToHtml ih = do
     return $ ih (toHtml . mrender) urender
 
 tell :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
-tell w = liftWidgetT $ WidgetT $ const $ return ((), w)
+tell = liftWidget . tellWidget
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
 
-handlerToWidget :: Monad m => HandlerT site m a -> WidgetT site m a
-handlerToWidget (HandlerT f) = WidgetT $ liftM (, mempty) . f
-
-widgetToParentWidget :: MonadIO m
-                     => WidgetT child IO a
-                     -> HandlerT child (HandlerT parent m) (WidgetT parent m a)
-widgetToParentWidget (WidgetT f) = HandlerT $ \hd -> do
-    (a, gwd) <- liftIO $ f hd { handlerToParent = const () }
-    return $ WidgetT $ const $ return (a, liftGWD (handlerToParent hd) gwd)
-
-liftGWD :: (child -> parent) -> GWData child -> GWData parent
-liftGWD tp gwd = GWData
-    { gwdBody        = fixBody $ gwdBody gwd
-    , gwdTitle       = gwdTitle gwd
-    , gwdScripts     = fixUnique fixScript $ gwdScripts gwd
-    , gwdStylesheets = fixUnique fixStyle $ gwdStylesheets gwd
-    , gwdCss         = fixCss <$> gwdCss gwd
-    , gwdJavascript  = fixJS <$> gwdJavascript gwd
-    , gwdHead        = fixHead $ gwdHead gwd
-    }
-  where
-    fixRender f route = f (tp route)
-
-    fixBody (Body h) = Body $ h . fixRender
-    fixHead (Head h) = Head $ h . fixRender
-
-    fixUnique go (UniqueList f) = UniqueList (map go (f []) ++)
-
-    fixScript (Script loc attrs) = Script (fixLoc loc) attrs
-    fixStyle (Stylesheet loc attrs) = Stylesheet (fixLoc loc) attrs
-
-    fixLoc (Local url) = Local $ tp url
-    fixLoc (Remote t) = Remote t
-
-    fixCss f = f . fixRender
-
-    fixJS f = f . fixRender
+handlerToWidget :: HandlerFor site a -> WidgetFor site a
+handlerToWidget (HandlerFor f) = WidgetFor $ f . wdHandler

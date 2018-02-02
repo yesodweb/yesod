@@ -1,3 +1,7 @@
+## 1.6.0
+
+* Upgrade to yesod-core 1.6.0
+
 ## 1.4.21
 
 * Add redirectToCurrent to Yesod.Auth module for controlling setUltDestCurrent in redirectLogin [#1461](https://github.com/yesodweb/yesod/pull/1461)

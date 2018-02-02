@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.5.9.1
+version:            1.6.0
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -27,7 +27,6 @@ library
                    , hspec-core                == 2.*
                    , html-conduit              >= 0.1
                    , http-types                >= 0.7
-                   , monad-control
                    , network                   >= 2.2
                    , persistent                >= 1.0
                    , pretty-show               >= 1.6
@@ -38,7 +37,8 @@ library
                    , wai-extra
                    , xml-conduit               >= 1.0
                    , xml-types                 >= 0.3
-                   , yesod-core                >= 1.4.14
+                   , yesod-core                >= 1.6
+                   , conduit
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
@@ -58,11 +58,11 @@ test-suite test
                           , containers
                           , html-conduit
                           , yesod-core
-                          , yesod-form >= 1.4.14
+                          , yesod-form >= 1.6
                           , text
                           , wai
-                          , lifted-base
                           , http-types
+                          , unliftio
 
 source-repository head
   type: git

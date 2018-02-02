@@ -57,10 +57,7 @@ import Network.HTTP.Types.Status (status404)
 import Network.Wai (responseLBS, pathInfo)
 import Network.Wai.Application.Static (staticApp)
 import System.IO.Unsafe (unsafePerformIO)
-import Yesod.Core
-          ( HandlerT
-          , YesodSubDispatch(..)
-          )
+import Yesod.Core (YesodSubDispatch(..))
 import Yesod.Core.Types
           ( YesodSubRunnerEnv(..)
           , YesodRunnerEnv(..)
@@ -81,7 +78,7 @@ import Yesod.EmbeddedStatic.Generators
 embeddedResourceR :: [T.Text] -> [(T.Text, T.Text)] -> Route EmbeddedStatic
 embeddedResourceR = EmbeddedResourceR
 
-instance YesodSubDispatch EmbeddedStatic (HandlerT master IO) where
+instance YesodSubDispatch EmbeddedStatic master where
     yesodSubDispatch YesodSubRunnerEnv {..} req = resp
         where
             master = yreSite ysreParentEnv

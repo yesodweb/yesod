@@ -25,7 +25,7 @@ import Network.Wai
 import Network.Wai.Application.Static (defaultWebAppSettings, staticApp)
 import WaiAppStatic.Types
 import Yesod.Core
-          ( HandlerT
+          ( HandlerFor
           , ParseRoute(..)
           , RenderRoute(..)
           , getYesod
@@ -136,7 +136,7 @@ develApp settings extra req sendResponse = do
 
 -- | The type of 'addStaticContent'
 type AddStaticContent site = T.Text -> T.Text -> BL.ByteString
-                          -> HandlerT site IO (Maybe (Either T.Text (Route site, [(T.Text, T.Text)])))
+                          -> HandlerFor site (Maybe (Either T.Text (Route site, [(T.Text, T.Text)])))
 
 -- | Helper for embedStaticContent and embedLicensedStaticContent.
 staticContentHelper :: (site -> EmbeddedStatic)

@@ -53,16 +53,16 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerT site IO) Day
+jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerFor site) Day
 jqueryDayField = flip jqueryDayField' "date"
 
 -- | Use jQuery's datepicker as the underlying implementation.
 --
 -- Since 1.4.3
-jqueryDatePickerDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerT site IO) Day
+jqueryDatePickerDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerFor site) Day
 jqueryDatePickerDayField = flip jqueryDayField' "text"
 
-jqueryDayField' :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Text -> Field (HandlerT site IO) Day
+jqueryDayField' :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Text -> Field (HandlerFor site) Day
 jqueryDayField' jds inputType = Field
     { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
@@ -107,13 +107,13 @@ $(function(){
         ]
 
 jqueryAutocompleteField :: (RenderMessage site FormMessage, YesodJquery site)
-                        => Route site -> Field (HandlerT site IO) Text
+                        => Route site -> Field (HandlerFor site) Text
 jqueryAutocompleteField = jqueryAutocompleteField' 2
 
 jqueryAutocompleteField' :: (RenderMessage site FormMessage, YesodJquery site)
                          => Int -- ^ autocomplete minimum length
                          -> Route site
-                         -> Field (HandlerT site IO) Text
+                         -> Field (HandlerFor site) Text
 jqueryAutocompleteField' minLen src = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do

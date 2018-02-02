@@ -2,37 +2,18 @@
 {-# LANGUAGE RecordWildCards             #-}
 module Main (main) where
 
-import           Control.Monad          (unless)
 import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
-import           System.Environment     (getEnvironment)
-import           System.Exit            (ExitCode (ExitSuccess), exitWith, exitFailure)
-import           System.Process         (rawSystem)
+import           System.Exit            (exitFailure)
 
 import           AddHandler             (addHandler)
 import           Devel                  (DevelOpts (..), devel, develSignal)
 import           Keter                  (keter)
 import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
-import           System.IO              (hPutStrLn, stderr)
 
 import           HsFile                 (mkHsFile)
-#ifndef WINDOWS
-import           Build                  (touch)
-
-touch' :: IO ()
-touch' = touch
-
-windowsWarning :: String
-windowsWarning = ""
-#else
-touch' :: IO ()
-touch'  = return ()
-
-windowsWarning :: String
-windowsWarning = " (does not work on Windows)"
-#endif
 
 data CabalPgm = Cabal | CabalDev deriving (Show, Eq)
 
@@ -91,17 +72,16 @@ main = do
                     c -> c
                 })
          ] optParser'
-  let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
     Init _          -> initErrorMsg
     HsFiles         -> mkHsFile
-    Configure       -> cabal ["configure"]
-    Build es        -> touch' >> cabal ("build":es)
-    Touch           -> touch'
+    Configure       -> cabalErrorMsg
+    Build _         -> cabalErrorMsg
+    Touch           -> cabalErrorMsg
     Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo _keterBuildArgs
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
-    Test            -> cabalTest cabal
+    Test            -> cabalErrorMsg
     Devel{..}       -> devel DevelOpts
                              { verbose      = optVerbose o
                              , successHook  = develSuccessHook
@@ -113,19 +93,6 @@ main = do
                              } develExtraArgs
     DevelSignal     -> develSignal
   where
-    cabalTest cabal = do
-        env <- getEnvironment
-        case lookup "STACK_EXE" env of
-            Nothing -> do
-                touch'
-                _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
-                _ <- cabal ["build"]
-                cabal ["test"]
-            Just _ -> do
-                hPutStrLn stderr "'yesod test' is no longer needed with Stack"
-                hPutStrLn stderr "Instead, please just run 'stack test'"
-                exitFailure
-
     initErrorMsg = do
         mapM_ putStrLn
             [ "The init command has been removed."
@@ -133,6 +100,13 @@ main = do
             , "available templates can be found by running 'stack templates'. For"
             , "a Yesod based application you should probably choose one of the"
             , "pre-canned Yesod templates."
+            ]
+        exitFailure
+
+    cabalErrorMsg = do
+        mapM_ putStrLn
+            [ "The configure, build, touch, and test commands have been removed."
+            , "Please use 'stack' for building your project."
             ]
         exitFailure
 
@@ -148,17 +122,17 @@ optParser = Options
                       <> command "hsfiles" (info (pure HsFiles)
                             (progDesc "Create a hsfiles file for the current folder"))
                       <> command "configure" (info (pure Configure)
-                            (progDesc "Configure a project for building"))
+                            (progDesc "DEPRECATED"))
                       <> command "build"     (info (helper <*> (Build <$> extraCabalArgs))
-                            (progDesc $ "Build project (performs TH dependency analysis)" ++ windowsWarning))
+                            (progDesc "DEPRECATED"))
                       <> command "touch"     (info (pure Touch)
-                            (progDesc $ "Touch any files with altered TH dependencies but do not build" ++ windowsWarning))
+                            (progDesc "DEPRECATED"))
                       <> command "devel"     (info (helper <*> develOptions)
                             (progDesc "Run project with the devel server"))
                       <> command "devel-signal"     (info (helper <*> pure DevelSignal)
                             (progDesc "Used internally by the devel command"))
                       <> command "test"      (info (pure Test)
-                            (progDesc "Build and run the integration tests"))
+                            (progDesc "DEPRECATED"))
                       <> command "add-handler" (info (helper <*> addHandlerOptions)
                             (progDesc ("Add a new handler and module to the project."
                             ++ " Interactively asks for input if you do not specify arguments.")))
@@ -217,10 +191,3 @@ addHandlerOptions = AddHandler
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m = option (Just <$> str) $ value Nothing <> m
-
--- | Like @rawSystem@, but exits if it receives a non-success result.
-rawSystem' :: String -> [String] -> IO ()
-rawSystem' x y = do
-    res <- rawSystem x y
-    unless (res == ExitSuccess) $ exitWith res
-

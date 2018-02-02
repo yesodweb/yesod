@@ -31,7 +31,6 @@ module Yesod.Core
       -- * Logging
     , defaultMakeLogger
     , defaultMessageLoggerSource
-    , defaultShouldLog
     , defaultShouldLogIO
     , formatLogMessage
     , LogLevel (..)
@@ -67,11 +66,9 @@ module Yesod.Core
     -- * JS loaders
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
-      -- * Subsites
+    -- * Generalizing type classes
     , MonadHandler (..)
     , MonadWidget (..)
-    , getRouteToParent
-    , defaultLayoutSub
       -- * Approot
     , guessApproot
     , guessApprootOr
@@ -95,8 +92,7 @@ module Yesod.Core
     , module Text.Blaze.Html
     , MonadTrans (..)
     , MonadIO (..)
-    , MonadBase (..)
-    , MonadBaseControl
+    , MonadUnliftIO (..)
     , MonadResource (..)
     , MonadLogger
       -- * Commonly referenced functions/datatypes
@@ -143,9 +139,7 @@ import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class
-import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Base (MonadBase (..))
-import Control.Monad.Trans.Control (MonadBaseControl (..))
+import UnliftIO (MonadIO (..), MonadUnliftIO (..))
 
 import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp
@@ -184,14 +178,6 @@ maybeAuthorized :: Yesod site
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
-
-getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
-getRouteToParent = HandlerT $ return . handlerToParent
-
-defaultLayoutSub :: Yesod parent
-                 => WidgetT child IO ()
-                 -> HandlerT child (HandlerT parent IO) Html
-defaultLayoutSub cwidget = widgetToParentWidget cwidget >>= lift . defaultLayout
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)

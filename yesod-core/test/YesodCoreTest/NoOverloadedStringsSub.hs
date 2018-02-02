@@ -10,7 +10,7 @@ module YesodCoreTest.NoOverloadedStringsSub where
 import Yesod.Core
 import Yesod.Core.Types
 
-data Subsite = Subsite (forall master. Yesod master => YesodSubRunnerEnv Subsite master (HandlerT master IO) -> Application)
+data Subsite = Subsite (forall master. Yesod master => YesodSubRunnerEnv Subsite master -> Application)
 
 mkYesodSubData "Subsite" [parseRoutes|
 /bar BarR GET
@@ -21,7 +21,7 @@ mkYesodSubData "Subsite" [parseRoutes|
 /has-three-pieces/#Int/#Int/#Int ThreePiecesR GET
 |]
 
-instance Yesod master => YesodSubDispatch Subsite (HandlerT master IO) where
+instance Yesod master => YesodSubDispatch Subsite master where
     yesodSubDispatch ysre =
         f ysre
       where

@@ -44,17 +44,17 @@ up i = do
 
 -- | Generate a form that accepts 0 or more values from the user, allowing the
 -- user to specify that a new row is necessary.
-inputList :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)
+inputList :: (xml ~ WidgetFor site (), RenderMessage site FormMessage)
           => Html
           -- ^ label for the form
           -> ([[FieldView site]] -> xml)
           -- ^ how to display the rows, usually either 'massDivs' or 'massTable'
-          -> (Maybe a -> AForm (HandlerT site IO) a)
+          -> (Maybe a -> AForm (HandlerFor site) a)
           -- ^ display a single row of the form, where @Maybe a@ gives the
           -- previously submitted value
           -> Maybe [a]
           -- ^ default initial values for the form
-          -> AForm (HandlerT site IO) [a]
+          -> AForm (HandlerFor site) [a]
 inputList label fixXml single mdef = formToAForm $ do
     theId <- lift newIdent
     down 1
@@ -94,9 +94,9 @@ $newline never
         , fvRequired = False
         }])
 
-withDelete :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)
-           => AForm (HandlerT site IO) a
-           -> MForm (HandlerT site IO) (Either xml (FormResult a, [FieldView site]))
+withDelete :: (xml ~ WidgetFor site (), RenderMessage site FormMessage)
+           => AForm (HandlerFor site) a
+           -> MForm (HandlerFor site) (Either xml (FormResult a, [FieldView site]))
 withDelete af = do
     down 1
     deleteName <- newFormIdent
@@ -129,7 +129,7 @@ fixme eithers =
 
 massDivs, massTable
          :: [[FieldView site]]
-         -> WidgetT site IO ()
+         -> WidgetFor site ()
 massDivs viewss = [whamlet|
 $newline never
 $forall views <- viewss

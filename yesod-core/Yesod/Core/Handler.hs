@@ -27,6 +27,7 @@
 module Yesod.Core.Handler
     ( -- * Handler monad
       HandlerT
+    , HandlerFor
       -- ** Read information from handler
     , getYesod
     , getsYesod
@@ -146,6 +147,10 @@ module Yesod.Core.Handler
     , setMessage
     , setMessageI
     , getMessage
+      -- * Subsites
+    , getSubYesod
+    , getRouteToParent
+    , getSubCurrentRoute
       -- * Helpers for specific content
       -- ** Hamlet
     , hamletToRepHtml
@@ -161,7 +166,6 @@ module Yesod.Core.Handler
       -- * Per-request caching
     , cached
     , cachedBy
-    , stripHandlerT
       -- * AJAX CSRF protection
 
       -- $ajaxCSRFOverview
@@ -193,13 +197,14 @@ import           Control.Applicative           ((<$>))
 import           Data.Monoid                   (mempty, mappend)
 #endif
 import           Control.Applicative           ((<|>))
+import qualified Data.CaseInsensitive          as CI
 import           Control.Exception             (evaluate, SomeException, throwIO)
-import           Control.Exception.Lifted      (handle)
+import           Control.Exception             (handle)
 
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
-import           Control.Monad.IO.Class        (MonadIO, liftIO)
+import           UnliftIO                      (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
@@ -228,40 +233,41 @@ import           Data.Monoid                   (Endo (..))
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
-import           Web.Cookie                    (SetCookie (..))
+import           Web.Cookie                    (SetCookie (..), defaultSetCookie)
 import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
-import qualified Data.IORef.Lifted             as I
+import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
-import           Blaze.ByteString.Builder (Builder)
+import           Data.ByteString.Builder (Builder)
 import           Safe (headMay)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import           Control.Monad.Trans.Control (control, MonadBaseControl)
-import           Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer, Sink)
+import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
-import           Data.Default
 import           Control.Monad.Logger (MonadLogger, logWarnS)
 
+type HandlerT site (m :: * -> *) = HandlerFor site
+{-# DEPRECATED HandlerT "Use HandlerFor directly" #-}
+
 get :: MonadHandler m => m GHState
-get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
+get = liftHandler $ HandlerFor $ I.readIORef . handlerState
 
 put :: MonadHandler m => GHState -> m ()
-put x = liftHandlerT $ HandlerT $ flip I.writeIORef x . handlerState
+put x = liftHandler $ HandlerFor $ flip I.writeIORef x . handlerState
 
 modify :: MonadHandler m => (GHState -> GHState) -> m ()
-modify f = liftHandlerT $ HandlerT $ flip I.modifyIORef f . handlerState
+modify f = liftHandler $ HandlerFor $ flip I.modifyIORef f . handlerState
 
 tell :: MonadHandler m => Endo [Header] -> m ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
@@ -273,14 +279,14 @@ hcError :: MonadHandler m => ErrorResponse -> m a
 hcError = handlerError . HCError
 
 getRequest :: MonadHandler m => m YesodRequest
-getRequest = liftHandlerT $ HandlerT $ return . handlerRequest
+getRequest = liftHandler $ HandlerFor $ return . handlerRequest
 
 runRequestBody :: MonadHandler m => m RequestBodyContents
 runRequestBody = do
     HandlerData
         { handlerEnv = RunHandlerEnv {..}
         , handlerRequest = req
-        } <- liftHandlerT $ HandlerT return
+        } <- liftHandler $ HandlerFor return
     let len = W.requestBodyLength $ reqWaiRequest req
         upload = rheUpload len
     x <- get
@@ -319,8 +325,8 @@ rbHelper' backend mkFI req =
             | otherwise = a'
     go = decodeUtf8With lenientDecode
 
-askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m))
-askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
+askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m) (HandlerSite m))
+askHandlerEnv = liftHandler $ HandlerFor $ return . handlerEnv
 
 -- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
@@ -396,9 +402,9 @@ getCurrentRoute = rheRoute <$> askHandlerEnv
 -- This allows the inner 'GHandler' to outlive the outer
 -- 'GHandler' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
-handlerToIO :: (MonadIO m1, MonadIO m2) => HandlerT site m1 (HandlerT site IO a -> m2 a)
+handlerToIO :: MonadIO m => HandlerFor site (HandlerFor site a -> m a)
 handlerToIO =
-  HandlerT $ \oldHandlerData -> do
+  HandlerFor $ \oldHandlerData -> do
     -- Take just the bits we need from oldHandlerData.
     let newReq = oldReq { reqWaiRequest = newWaiReq }
           where
@@ -420,7 +426,7 @@ handlerToIO =
     liftIO $ evaluate (newReq `seq` oldEnv `seq` newState `seq` ())
 
     -- Return GHandler running function.
-    return $ \(HandlerT f) ->
+    return $ \(HandlerFor f) ->
       liftIO $
       runResourceT $ withInternalState $ \resState -> do
         -- The state IORef needs to be created here, otherwise it
@@ -431,7 +437,6 @@ handlerToIO =
                 { handlerRequest  = newReq
                 , handlerEnv      = oldEnv
                 , handlerState    = newStateIORef
-                , handlerToParent = const ()
                 , handlerResource = resState
                 }
         liftIO (f newHandlerData)
@@ -442,12 +447,13 @@ handlerToIO =
 -- for correctness and efficiency
 --
 -- @since 1.2.8
-forkHandler :: (SomeException -> HandlerT site IO ()) -- ^ error handler
-              -> HandlerT site IO ()
-              -> HandlerT site IO ()
+forkHandler :: (SomeException -> HandlerFor site ()) -- ^ error handler
+              -> HandlerFor site ()
+              -> HandlerFor site ()
 forkHandler onErr handler = do
     yesRunner <- handlerToIO
-    void $ liftResourceT $ resourceForkIO $ yesRunner $ handle onErr handler
+    void $ liftResourceT $ resourceForkIO $
+      liftIO $ handle (yesRunner . onErr) (yesRunner handler)
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
@@ -635,11 +641,7 @@ sendResponseStatus s = handlerError . HCContent s . toTypedContent
 --
 -- @since 1.4.18
 sendStatusJSON :: (MonadHandler m, ToJSON c) => H.Status -> c -> m a
-#if MIN_VERSION_aeson(0, 11, 0)
 sendStatusJSON s v = sendResponseStatus s (toEncoding v)
-#else
-sendStatusJSON s v = sendResponseStatus s (toJSON v)
-#endif
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
@@ -668,10 +670,10 @@ sendWaiApplication = handlerError . HCWaiApp
 --
 -- @since 1.2.16
 sendRawResponseNoConduit
-    :: (MonadHandler m, MonadBaseControl IO m)
+    :: (MonadHandler m, MonadUnliftIO m)
     => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
     -> m a
-sendRawResponseNoConduit raw = control $ \runInIO ->
+sendRawResponseNoConduit raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO (raw src sink)
   where
@@ -683,10 +685,11 @@ sendRawResponseNoConduit raw = control $ \runInIO ->
 -- Warp).
 --
 -- @since 1.2.7
-sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
-                => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
-                -> m a
-sendRawResponse raw = control $ \runInIO ->
+sendRawResponse
+  :: (MonadHandler m, MonadUnliftIO m)
+  => (ConduitT () S8.ByteString IO () -> ConduitT S8.ByteString Void IO () -> m ())
+  -> m a
+sendRawResponse raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
   where
@@ -783,7 +786,7 @@ setLanguage = setSession langKey
 --
 -- @since 1.2.0
 addHeader :: MonadHandler m => Text -> Text -> m ()
-addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
+addHeader a = addHeaderInternal . Header (CI.mk $ encodeUtf8 a) . encodeUtf8
 
 -- | Deprecated synonym for addHeader.
 setHeader :: MonadHandler m => Text -> Text -> m ()
@@ -801,10 +804,10 @@ replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
 replaceOrAddHeader a b =
   modify $ \g -> g {ghsHeaders = replaceHeader (ghsHeaders g)}
   where
-    repHeader = Header (encodeUtf8 a) (encodeUtf8 b)
+    repHeader = Header (CI.mk $ encodeUtf8 a) (encodeUtf8 b)
 
     sameHeaderName :: Header -> Header -> Bool
-    sameHeaderName (Header n1 _) (Header n2 _) = T.toLower (decodeUtf8 n1) == T.toLower (decodeUtf8 n2)
+    sameHeaderName (Header n1 _) (Header n2 _) = n1 == n2
     sameHeaderName _ _ = False
 
     replaceIndividualHeader :: [Header] -> [Header]
@@ -1341,7 +1344,7 @@ provideRepType ct handler =
 -- | Stream in the raw request body without any parsing.
 --
 -- @since 1.2.0
-rawRequestBody :: MonadHandler m => Source m S.ByteString
+rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
@@ -1353,7 +1356,7 @@ rawRequestBody = do
 
 -- | Stream the data from the file. Since Yesod 1.2, this has been generalized
 -- to work in any @MonadResource@.
-fileSource :: MonadResource m => FileInfo -> Source m S.ByteString
+fileSource :: MonadResource m => FileInfo -> ConduitT () S.ByteString m ()
 fileSource = transPipe liftResourceT . fileSourceRaw
 
 -- | Provide a pure value for the response body.
@@ -1374,77 +1377,58 @@ respond ct = return . TypedContent ct . toContent
 --
 -- @since 1.2.0
 respondSource :: ContentType
-              -> Source (HandlerT site IO) (Flush Builder)
-              -> HandlerT site IO TypedContent
-respondSource ctype src = HandlerT $ \hd ->
+              -> ConduitT () (Flush Builder) (HandlerFor site) ()
+              -> HandlerFor site TypedContent
+respondSource ctype src = HandlerFor $ \hd ->
     -- Note that this implementation relies on the fact that the ResourceT
     -- environment provided by the server is the same one used in HandlerT.
     -- This is a safe assumption assuming the HandlerT is run correctly.
     return $ TypedContent ctype $ ContentSource
-           $ transPipe (lift . flip unHandlerT hd) src
+           $ transPipe (lift . flip unHandlerFor hd) src
 
 -- | In a streaming response, send a single chunk of data. This function works
 -- on most datatypes, such as @ByteString@ and @Html@.
 --
 -- @since 1.2.0
-sendChunk :: Monad m => ToFlushBuilder a => a -> Producer m (Flush Builder)
+sendChunk :: Monad m => ToFlushBuilder a => a -> ConduitT i (Flush Builder) m ()
 sendChunk = yield . toFlushBuilder
 
 -- | In a streaming response, send a flush command, causing all buffered data
 -- to be immediately sent to the client.
 --
 -- @since 1.2.0
-sendFlush :: Monad m => Producer m (Flush Builder)
+sendFlush :: Monad m => ConduitT i (Flush Builder) m ()
 sendFlush = yield Flush
 
 -- | Type-specialized version of 'sendChunk' for strict @ByteString@s.
 --
 -- @since 1.2.0
-sendChunkBS :: Monad m => S.ByteString -> Producer m (Flush Builder)
+sendChunkBS :: Monad m => S.ByteString -> ConduitT i (Flush Builder) m ()
 sendChunkBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @ByteString@s.
 --
 -- @since 1.2.0
-sendChunkLBS :: Monad m => L.ByteString -> Producer m (Flush Builder)
+sendChunkLBS :: Monad m => L.ByteString -> ConduitT i (Flush Builder) m ()
 sendChunkLBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for strict @Text@s.
 --
 -- @since 1.2.0
-sendChunkText :: Monad m => T.Text -> Producer m (Flush Builder)
+sendChunkText :: Monad m => T.Text -> ConduitT i (Flush Builder) m ()
 sendChunkText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @Text@s.
 --
 -- @since 1.2.0
-sendChunkLazyText :: Monad m => TL.Text -> Producer m (Flush Builder)
+sendChunkLazyText :: Monad m => TL.Text -> ConduitT i (Flush Builder) m ()
 sendChunkLazyText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for @Html@s.
 --
 -- @since 1.2.0
-sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
+sendChunkHtml :: Monad m => Html -> ConduitT i (Flush Builder) m ()
 sendChunkHtml = sendChunk
-
--- | Converts a child handler to a parent handler
---
--- Exported since 1.4.11
-stripHandlerT :: HandlerT child (HandlerT parent m) a
-              -> (parent -> child)
-              -> (Route child -> Route parent)
-              -> Maybe (Route child)
-              -> HandlerT parent m a
-stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
-    let env = handlerEnv hd
-    ($ hd) $ unHandlerT $ f hd
-        { handlerEnv = env
-            { rheSite = getSub $ rheSite env
-            , rheRoute = newRoute
-            , rheRender = \url params -> rheRender env (toMaster url) params
-            }
-        , handlerToParent = toMaster
-        }
 
 -- $ajaxCSRFOverview
 -- When a user has authenticated with your site, all requests made from the browser to your server will include the session information that you use to verify that the user is logged in.
@@ -1494,7 +1478,10 @@ defaultCsrfCookieName = "XSRF-TOKEN"
 --
 -- @since 1.4.14
 setCsrfCookie :: MonadHandler m => m ()
-setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName, setCookiePath = Just "/" }
+setCsrfCookie = setCsrfCookieWithCookie defaultSetCookie
+  { setCookieName = defaultCsrfCookieName
+  , setCookiePath = Just "/"
+  }
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
 --
@@ -1610,3 +1597,12 @@ csrfErrorMessage expectedLocations = T.intercalate "\n"
         formatValue maybeText = case maybeText of
           Nothing -> "(which is not currently set)"
           Just t -> T.concat ["(which has the current, incorrect value: '", t, "')"]
+
+getSubYesod :: MonadHandler m => m (SubHandlerSite m)
+getSubYesod = liftSubHandler $ SubHandlerFor $ return . rheChild . handlerEnv
+
+getRouteToParent :: MonadHandler m => m (Route (SubHandlerSite m) -> Route (HandlerSite m))
+getRouteToParent = liftSubHandler $ SubHandlerFor $ return . rheRouteToMaster . handlerEnv
+
+getSubCurrentRoute :: MonadHandler m => m (Maybe (Route (SubHandlerSite m)))
+getSubCurrentRoute = liftSubHandler $ SubHandlerFor $ return . rheRoute . handlerEnv

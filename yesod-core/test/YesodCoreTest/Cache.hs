@@ -15,7 +15,7 @@ import Network.Wai
 import Network.Wai.Test
 
 import Yesod.Core
-import Data.IORef.Lifted
+import UnliftIO.IORef
 import Data.Typeable (Typeable)
 import qualified Data.ByteString.Lazy.Char8 as L8
 

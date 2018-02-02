@@ -14,9 +14,8 @@ import           Data.Monoid                  (Monoid, mempty)
 import           Control.Applicative          ((<$>))
 #endif
 import Yesod.Core.Internal.Response
-import           Blaze.ByteString.Builder     (toByteString)
-import           Control.Exception            (fromException, evaluate)
-import qualified Control.Exception            as E
+import           Data.ByteString.Builder      (toLazyByteString)
+import qualified Data.ByteString.Lazy         as BL
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
@@ -44,46 +43,29 @@ import           Yesod.Core.Internal.Request  (parseWaiRequest,
 import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!), NFData)
+import           UnliftIO.Exception
 
--- | Catch all synchronous exceptions, ignoring asynchronous
--- exceptions.
---
--- Ideally we'd use this from a different library
-catchSync :: IO a -> (E.SomeException -> IO a) -> IO a
-catchSync thing after = thing `E.catch` \e ->
-    if isAsyncException e
-        then E.throwIO e
-        else after e
-
--- | Determine if an exception is asynchronous
---
--- Also worth being upstream
-isAsyncException :: E.SomeException -> Bool
-isAsyncException e =
-    case fromException e of
-        Just E.SomeAsyncException{} -> True
-        Nothing -> False
-
--- | Convert an exception into an ErrorResponse
-toErrorHandler :: E.SomeException -> IO ErrorResponse
-toErrorHandler e0 = flip catchSync errFromShow $
+-- | Convert a synchronous exception into an ErrorResponse
+toErrorHandler :: SomeException -> IO ErrorResponse
+toErrorHandler e0 = handleAny errFromShow $
     case fromException e0 of
         Just (HCError x) -> evaluate $!! x
-        _
-            | isAsyncException e0 -> E.throwIO e0
-            | otherwise -> errFromShow e0
+        _ -> errFromShow e0
 
 -- | Generate an @ErrorResponse@ based on the shown version of the exception
-errFromShow :: E.SomeException -> IO ErrorResponse
-errFromShow x = evaluate $!! InternalError $! T.pack $! show x
+errFromShow :: SomeException -> IO ErrorResponse
+errFromShow x = do
+  text <- evaluate (T.pack $ show x) `catchAny` \_ ->
+          return (T.pack "Yesod.Core.Internal.Run.errFromShow: show of an exception threw an exception")
+  return $ InternalError text
 
 -- | Do a basic run of a handler, getting some contents and the final
 -- @GHState@. The @GHState@ unfortunately may contain some impure
 -- exceptions, but all other synchronous exceptions will be caught and
 -- represented by the @HandlerContents@.
 basicRunHandler :: ToTypedContent c
-                => RunHandlerEnv site
-                -> HandlerT site IO c
+                => RunHandlerEnv site site
+                -> HandlerFor site c
                 -> YesodRequest
                 -> InternalState
                 -> IO (GHState, HandlerContents)
@@ -94,9 +76,9 @@ basicRunHandler rhe handler yreq resState = do
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
-    contents' <- catchSync
+    contents' <- catchAny
         (do
-            res <- unHandlerT handler (hd istate)
+            res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
             -- Success! Wrap it up in an @HCContent@
             return (HCContent defaultStatus tc))
@@ -121,12 +103,11 @@ basicRunHandler rhe handler yreq resState = do
         { handlerRequest = yreq
         , handlerEnv     = rhe
         , handlerState   = istate
-        , handlerToParent = const ()
         , handlerResource = resState
         }
 
 -- | Convert an @ErrorResponse@ into a @YesodResponse@
-handleError :: RunHandlerEnv site
+handleError :: RunHandlerEnv sub site
             -> YesodRequest
             -> InternalState
             -> Map.Map Text S8.ByteString
@@ -135,7 +116,7 @@ handleError :: RunHandlerEnv site
             -> IO YesodResponse
 handleError rhe yreq resState finalSession headers e0 = do
     -- Find any evil hidden impure exceptions
-    e <- (evaluate $!! e0) `catchSync` errFromShow
+    e <- (evaluate $!! e0) `catchAny` errFromShow
 
     -- Generate a response, leveraging the updated session and
     -- response headers
@@ -200,15 +181,15 @@ evalFallback :: (Monoid w, NFData w)
              => HandlerContents
              -> w
              -> IO (w, HandlerContents)
-evalFallback contents val = catchSync
+evalFallback contents val = catchAny
     (fmap (, contents) (evaluate $!! val))
     (fmap ((mempty, ) . HCError) . toErrorHandler)
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
-           => RunHandlerEnv site
-           -> HandlerT site IO c
+           => RunHandlerEnv site site
+           -> HandlerFor site c
            -> YesodApp
 runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> do
     -- Get the raw state and original contents
@@ -218,13 +199,14 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
     -- propagating exceptions into the contents
     (finalSession, contents1) <- evalFallback contents0 (ghsSession state)
     (headers, contents2) <- evalFallback contents1 (appEndo (ghsHeaders state) [])
+    contents3 <- (evaluate contents2) `catchAny` (fmap HCError . toErrorHandler)
 
     -- Convert the HandlerContents into the final YesodResponse
     handleContents
         (handleError rhe yreq resState finalSession headers)
         finalSession
         headers
-        contents2
+        contents3
 
 safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
        -> ErrorResponse
@@ -263,7 +245,7 @@ runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
                -> (site -> Logger)
                -> site
-               -> HandlerT site IO a
+               -> HandlerFor site a
                -> m (Either ErrorResponse a)
 runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
@@ -273,6 +255,8 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
          RunHandlerEnv
             { rheRender = yesodRender site $ resolveApproot site fakeWaiRequest
             , rheRoute = Nothing
+            , rheRouteToMaster = id
+            , rheChild = site
             , rheSite = site
             , rheUpload = fileUpload site
             , rheLog = messageLoggerSource site $ logger site
@@ -322,7 +306,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   I.readIORef ret
 
 yesodRunner :: (ToTypedContent res, Yesod site)
-            => HandlerT site IO res
+            => HandlerFor site res
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
@@ -347,6 +331,8 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
         rheSafe = RunHandlerEnv
             { rheRender = yesodRender yreSite ra
             , rheRoute = route
+            , rheRouteToMaster = id
+            , rheChild = yreSite
             , rheSite = yreSite
             , rheUpload = fileUpload yreSite
             , rheLog = log'
@@ -372,7 +358,7 @@ yesodRender :: Yesod y
             -> [(Text, Text)] -- ^ url query string
             -> Text
 yesodRender y ar url params =
-    decodeUtf8With lenientDecode $ toByteString $
+    decodeUtf8With lenientDecode $ BL.toStrict $ toLazyByteString $
     fromMaybe
         (joinPath y ar ps
           $ params ++ params')

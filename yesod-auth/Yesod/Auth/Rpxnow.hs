@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 module Yesod.Auth.Rpxnow
     ( authRpxnow
     ) where
@@ -17,10 +18,10 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Control.Arrow ((***))
 import Network.HTTP.Types (renderQuery)
 
-authRpxnow :: YesodAuth m
+authRpxnow :: YesodAuth master
            => String -- ^ app name
            -> String -- ^ key
-           -> AuthPlugin m
+           -> AuthPlugin master
 authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
@@ -32,14 +33,16 @@ authRpxnow app apiKey =
 $newline never
 <iframe src="http://#{app}.rpxnow.com/openid/embed#{queryString}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
 |]
+
+    dispatch :: a -> [b] -> AuthHandler master TypedContent
     dispatch _ [] = do
         token1 <- lookupGetParams "token"
         token2 <- lookupPostParams "token"
         token <- case token1 ++ token2 of
                         [] -> invalidArgs ["token: Value not supplied"]
                         x:_ -> return $ unpack x
-        master <- lift getYesod
-        Rpxnow.Identifier ident extra <- lift $ Rpxnow.authenticate apiKey token (authHttpManager master)
+        manager <- authHttpManager
+        Rpxnow.Identifier ident extra <- Rpxnow.authenticate apiKey token manager
         let creds =
                 Creds "rpxnow" ident
                 $ maybe id (\x -> (:) ("verifiedEmail", x))
@@ -47,7 +50,7 @@ $newline never
                 $ maybe id (\x -> (:) ("displayName", x))
                     (fmap pack $ getDisplayName $ map (unpack *** unpack) extra)
                   []
-        lift $ setCredsRedirect creds
+        setCredsRedirect creds
     dispatch _ _ = notFound
 
 -- | Get some form of a display name.

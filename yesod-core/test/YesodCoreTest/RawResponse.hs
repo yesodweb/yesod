@@ -22,7 +22,6 @@ import Control.Monad.Trans.Resource (register)
 import Data.IORef
 import Data.Streaming.Network (bindPortTCP)
 import Network.HTTP.Types (status200)
-import Blaze.ByteString.Builder (fromByteString)
 
 mkYesod "App" [parseRoutes|
 / HomeR GET
@@ -40,22 +39,22 @@ getHomeR = do
     _ <- register $ writeIORef ref 1
     sendRawResponse $ \src sink -> liftIO $ do
         val <- readIORef ref
-        yield (S8.pack $ show val) $$ sink
-        src $$ CL.map (S8.map toUpper) =$ sink
+        runConduit $ yield (S8.pack $ show val) .| sink
+        runConduit $ src .| CL.map (S8.map toUpper) .| sink
 
 getWaiStreamR :: Handler ()
 getWaiStreamR = sendWaiResponse $ responseStream status200 [] $ \send flush -> do
     flush
-    send $ fromByteString "hello"
+    send "hello"
     flush
-    send $ fromByteString " world"
+    send " world"
 
 getWaiAppStreamR :: Handler ()
 getWaiAppStreamR = sendWaiApplication $ \_ f -> f $ responseStream status200 [] $ \send flush -> do
     flush
-    send $ fromByteString "hello"
+    send "hello"
     flush
-    send $ fromByteString " world"
+    send " world"
 
 getFreePort :: IO Int
 getFreePort = do
@@ -77,18 +76,18 @@ specs = do
             withAsync (warp port App) $ \_ -> do
                 threadDelay 100000
                 runTCPClient (clientSettings port "127.0.0.1") $ \ad -> do
-                    yield "GET / HTTP/1.1\r\n\r\nhello" $$ appSink ad
-                    (appSource ad $$ CB.take 6) >>= (`shouldBe` "0HELLO")
-                    yield "WORLd" $$ appSink ad
-                    (appSource ad $$ await) >>= (`shouldBe` Just "WORLD")
+                    runConduit $ yield "GET / HTTP/1.1\r\n\r\nhello" .| appSink ad
+                    runConduit (appSource ad .| CB.take 6) >>= (`shouldBe` "0HELLO")
+                    runConduit $ yield "WORLd" .| appSink ad
+                    runConduit (appSource ad .| await) >>= (`shouldBe` Just "WORLD")
 
     let body req = do
             port <- getFreePort
             withAsync (warp port App) $ \_ -> do
                 threadDelay 100000
                 runTCPClient (clientSettings port "127.0.0.1") $ \ad -> do
-                    yield req $$ appSink ad
-                    appSource ad $$ CB.lines =$ do
+                    runConduit $ yield req .| appSink ad
+                    runConduit $ appSource ad .| CB.lines .| do
                         let loop = do
                                 x <- await
                                 case x of

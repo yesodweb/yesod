@@ -6,29 +6,24 @@ module Yesod.Core.Internal.Response where
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
+import qualified Data.ByteString.Lazy         as BL
 import           Data.CaseInsensitive         (CI)
-import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
 import           Control.Monad                (mplus)
 import           Control.Monad.Trans.Resource (runInternalState, InternalState)
 import           Network.Wai.Internal
-#if !MIN_VERSION_base(4, 6, 0)
-import           Prelude                      hiding (catch)
-#endif
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
 import           Yesod.Core.Types
 import qualified Network.HTTP.Types           as H
 import qualified Data.Text                    as T
 import           Control.Exception            (SomeException, handle)
-import           Blaze.ByteString.Builder     (fromLazyByteString,
-                                               toLazyByteString, toByteString)
+import           Data.ByteString.Builder      (lazyByteString, toLazyByteString)
 import qualified Data.ByteString.Lazy         as L
 import qualified Data.Map                     as Map
 import           Yesod.Core.Internal.Request  (tokenKey)
 import           Data.Text.Encoding           (encodeUtf8)
-import           Data.Conduit                 (Flush (..), ($$), transPipe)
-import qualified Data.Conduit.List            as CL
+import           Conduit
 
 yarToResponse :: YesodResponse
               -> (SessionMap -> IO [Header]) -- ^ save session
@@ -56,9 +51,9 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq _req is sendResponse
             sendResponse $ ResponseBuilder s hs' b
         go (ContentFile fp p) = sendResponse $ ResponseFile s finalHeaders fp p
         go (ContentSource body) = sendResponse $ responseStream s finalHeaders
-            $ \sendChunk flush ->
+            $ \sendChunk flush -> runConduit $
                 transPipe (`runInternalState` is) body
-                $$ CL.mapM_ (\mchunk ->
+                .| mapM_C (\mchunk ->
                     case mchunk of
                         Flush -> flush
                         Chunk builder -> sendChunk builder)
@@ -86,7 +81,7 @@ defaultStatus = H.mkStatus (-1) "INVALID DEFAULT STATUS"
 headerToPair :: Header
              -> (CI ByteString, ByteString)
 headerToPair (AddCookie sc) =
-    ("Set-Cookie", toByteString $ renderSetCookie sc)
+    ("Set-Cookie", BL.toStrict $ toLazyByteString $ renderSetCookie sc)
 headerToPair (DeleteCookie key path) =
     ( "Set-Cookie"
     , S.concat
@@ -96,14 +91,14 @@ headerToPair (DeleteCookie key path) =
         , "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
         ]
     )
-headerToPair (Header key value) = (CI.mk key, value)
+headerToPair (Header key value) = (key, value)
 
 evaluateContent :: Content -> IO (Either ErrorResponse Content)
 evaluateContent (ContentBuilder b mlen) = handle f $ do
     let lbs = toLazyByteString b
         len = L.length lbs
         mlen' = mlen `mplus` Just (fromIntegral len)
-    len `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen')
+    len `seq` return (Right $ ContentBuilder (lazyByteString lbs) mlen')
   where
     f :: SomeException -> IO (Either ErrorResponse Content)
     f = return . Left . InternalError . T.pack . show

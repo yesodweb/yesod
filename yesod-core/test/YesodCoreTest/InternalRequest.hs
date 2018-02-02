@@ -10,9 +10,11 @@ import Data.Map (singleton)
 import Yesod.Core
 import Data.Word (Word64)
 import System.IO.Unsafe (unsafePerformIO)
-import qualified System.Random.MWC as MWC
-import Control.Monad.ST
 import Control.Monad (replicateM)
+import System.Random
+
+gen :: IO Int
+gen = getStdRandom next
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
@@ -21,21 +23,19 @@ randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
 
 -- NOTE: this testcase may break on other systems/architectures if
 -- mkStdGen is not identical everywhere (is it?).
-_looksRandom :: Bool
-_looksRandom = runST $ do
-    gen <- MWC.create
+_looksRandom :: IO ()
+_looksRandom = do
     s <- randomString 20 gen
-    return $ s == "VH9SkhtptqPs6GqtofVg"
+    s `shouldBe` "VH9SkhtptqPs6GqtofVg"
 
-noRepeat :: Int -> Int -> Bool
-noRepeat len n = runST $ do
-    gen <- MWC.create
+noRepeat :: Int -> Int -> IO ()
+noRepeat len n = do
     ss <- replicateM n $ randomString len gen
-    return $ length (nub ss) == n
+    length (nub ss) `shouldBe` n
 
 
 -- For convenience instead of "(undefined :: StdGen)".
-g :: MWC.GenIO
+g :: IO Int
 g = error "test/YesodCoreTest/InternalRequest.g"
 
 parseWaiRequest' :: Request

@@ -1,5 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | Provides a dummy authentication module that simply lets a user specify
 -- his/her identifier. This is not intended for real world use, just for
 -- testing.
@@ -16,8 +18,8 @@ authDummy =
     AuthPlugin "dummy" dispatch login
   where
     dispatch "POST" [] = do
-        ident <- lift $ runInputPost $ ireq textField "ident"
-        lift $ setCredsRedirect $ Creds "dummy" ident []
+        ident <- runInputPost $ ireq textField "ident"
+        setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster = do

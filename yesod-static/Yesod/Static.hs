@@ -68,7 +68,6 @@ import qualified System.FilePath as FP
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
-import Control.Monad.Trans.Resource (runResourceT)
 import Yesod.Core
 import Yesod.Core.Types
 
@@ -78,7 +77,6 @@ import Language.Haskell.TH.Syntax as TH
 
 import Crypto.Hash.Conduit (hashFile, sinkHash)
 import Crypto.Hash (MD5, Digest)
-import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.State
 
 import qualified Data.ByteArray as ByteArray
@@ -94,11 +92,7 @@ import Data.List (foldl')
 import qualified Data.ByteString as S
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
-import Data.Conduit
-import Data.Conduit.List (sourceList, consume)
-import Data.Conduit.Binary (sourceFile)
-import qualified Data.Conduit.Text as CT
-import Data.Functor.Identity (runIdentity)
+import Conduit
 import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
 import qualified Data.Text.Lazy as TL
@@ -175,12 +169,10 @@ instance RenderRoute Static where
 instance ParseRoute Static where
     parseRoute (x, y) = Just $ StaticRoute x y
 
-instance (MonadThrow m, MonadIO m, MonadBaseControl IO m)
-  => YesodSubDispatch Static (HandlerT master m) where
+instance YesodSubDispatch Static master where
     yesodSubDispatch YesodSubRunnerEnv {..} req =
-        ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route) req
+        ysreParentRunner handlert ysreParentEnv (fmap ysreToParentRoute route) req
       where
-        base = stripHandlerT handlert ysreGetSub ysreToParentRoute route
         route = Just $ StaticRoute (pathInfo req) []
 
         Static set = ysreGetSub $ yreSite $ ysreParentEnv
@@ -425,8 +417,8 @@ base64md5File = fmap (base64 . encode) . hashFile
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
             base64 $ encode
-          $ runIdentity
-          $ sourceList (L.toChunks lbs) $$ sinkHash
+          $ runConduitPure
+          $ Conduit.sourceLazy lbs .| sinkHash
   where
     encode d = ByteArray.convert (d :: Digest MD5)
 
@@ -461,8 +453,11 @@ combineStatics' :: CombineType
                 -> [Route Static] -- ^ files to combine
                 -> Q Exp
 combineStatics' combineType CombineSettings {..} routes = do
-    texts <- qRunIO $ runResourceT $ mapM_ yield fps $$ awaitForever readUTFFile =$ consume
-    ltext <- qRunIO $ preProcess $ TL.fromChunks texts
+    texts <- qRunIO $ runConduitRes
+                    $ yieldMany fps
+                   .| awaitForever readUTFFile
+                   .| sinkLazy
+    ltext <- qRunIO $ preProcess texts
     bs    <- qRunIO $ postProcess fps $ TLE.encodeUtf8 ltext
     let hash' = base64md5 bs
         suffix = csCombinedFolder </> hash' <.> extension
@@ -476,7 +471,7 @@ combineStatics' combineType CombineSettings {..} routes = do
     fps :: [FilePath]
     fps = map toFP routes
     toFP (StaticRoute pieces _) = csStaticDir </> F.joinPath (map T.unpack pieces)
-    readUTFFile fp = sourceFile fp =$= CT.decode CT.utf8
+    readUTFFile fp = sourceFile fp .| decodeUtf8C
     postProcess =
         case combineType of
             JS -> csJsPostProcess

@@ -37,7 +37,7 @@ import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
 import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
-import Control.Exception.Lifted(SomeException, try)
+import UnliftIO.Exception (tryAny, SomeException, try)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -192,7 +192,7 @@ main = hspec $ do
               bodyEquals "<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>"
 
               get ("/htmlWithLink" :: Text)
-              (bad :: Either SomeException ()) <- try (clickOn "a#nonexistentlink")
+              bad <- tryAny (clickOn "a#nonexistentlink")
               assertEq "bad link" (isLeft bad) True
 
 

@@ -10,9 +10,8 @@ import           Yesod.Core.Handler
 
 import           Yesod.Routes.Class
 
-import           Blaze.ByteString.Builder           (Builder, toByteString)
-import           Blaze.ByteString.Builder.ByteString (copyByteString)
-import           Blaze.ByteString.Builder.Char.Utf8 (fromText, fromChar)
+import           Data.ByteString.Builder            (Builder)
+import           Data.Text.Encoding                 (encodeUtf8Builder)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
 #if __GLASGOW_HASKELL__ < 710
@@ -37,9 +36,8 @@ import           Data.Text.Lazy.Builder             (toLazyText)
 import           Data.Text.Lazy.Encoding            (encodeUtf8)
 import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
-import           Network.HTTP.Types                 (encodePath, renderQueryText)
+import           Network.HTTP.Types                 (encodePath)
 import qualified Network.Wai                        as W
-import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
 import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
@@ -52,13 +50,13 @@ import           Text.Hamlet
 import           Text.Julius
 import qualified Web.ClientSession                  as CS
 import           Web.Cookie                         (SetCookie (..), parseCookies, sameSiteLax,
-                                                     sameSiteStrict, SameSiteOption)
+                                                     sameSiteStrict, SameSiteOption, defaultSetCookie)
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
-import Control.Monad.Trans.Class (lift)
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
+import Data.IORef
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -66,27 +64,23 @@ class RenderRoute site => Yesod site where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
-    -- Default value: 'ApprootRelative'. This is valid under the following
-    -- conditions:
+    -- Default value: 'guessApproot'. If you know your application root
+    -- statically, it will be more efficient and more reliable to instead use
+    -- 'ApprootStatic' or 'ApprootMaster'. If you do not need full absolute
+    -- URLs, you can use 'ApprootRelative' instead.
     --
-    -- * Your application is served from the root of the domain.
-    --
-    -- * You do not use any features that require absolute URLs, such as Atom
-    -- feeds and XML sitemaps.
-    --
-    -- If this is not true, you should override with a different
-    -- implementation.
+    -- Note: Prior to yesod-core 1.5, the default value was 'ApprootRelative'.
     approot :: Approot site
-    approot = ApprootRelative
+    approot = guessApproot
 
     -- | Output error response pages.
     --
     -- Default value: 'defaultErrorHandler'.
-    errorHandler :: ErrorResponse -> HandlerT site IO TypedContent
+    errorHandler :: ErrorResponse -> HandlerFor site TypedContent
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
+    defaultLayout :: WidgetFor site () -> HandlerFor site Html
     defaultLayout w = do
         p <- widgetToPageContent w
         msgs <- getMessages
@@ -103,33 +97,19 @@ class RenderRoute site => Yesod site where
                     ^{pageBody p}
             |]
 
-    -- | Override the rendering function for a particular URL. One use case for
-    -- this is to offload static hosting to a different domain name to avoid
-    -- sending cookies.
-    urlRenderOverride :: site -> Route site -> Maybe Builder
-    urlRenderOverride _ _ = Nothing
-
     -- | Override the rendering function for a particular URL and query string
     -- parameters. One use case for this is to offload static hosting to a
     -- different domain name to avoid sending cookies.
-    -- 
+    --
     -- For backward compatibility default implementation is in terms of
     -- 'urlRenderOverride', probably ineffective
-    -- 
+    --
     -- Since 1.4.23
     urlParamRenderOverride :: site
                            -> Route site
                            -> [(T.Text, T.Text)] -- ^ query string
                            -> Maybe Builder
-    urlParamRenderOverride y route params = addParams params <$> urlRenderOverride y route
-      where
-        addParams [] routeBldr = routeBldr
-        addParams nonEmptyParams routeBldr =
-            let routeBS = toByteString routeBldr
-                qsSeparator = fromChar $ if S8.elem '?' routeBS then '&' else '?'
-                valueToMaybe t = if t == "" then Nothing else Just t
-                queryText = map (id *** valueToMaybe) nonEmptyParams
-            in copyByteString routeBS `mappend` qsSeparator `mappend` renderQueryText False queryText
+    urlParamRenderOverride _ _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
     --
@@ -138,7 +118,7 @@ class RenderRoute site => Yesod site where
     -- If authentication is required, return 'AuthenticationRequired'.
     isAuthorized :: Route site
                  -> Bool -- ^ is this a write request?
-                 -> HandlerT site IO AuthResult
+                 -> HandlerFor site AuthResult
     isAuthorized _ _ = return Authorized
 
     -- | Determines whether the current request is a write request. By default,
@@ -148,7 +128,7 @@ class RenderRoute site => Yesod site where
     --
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
-    isWriteRequest :: Route site -> HandlerT site IO Bool
+    isWriteRequest :: Route site -> HandlerFor site Bool
     isWriteRequest _ = do
         wai <- waiRequest
         return $ W.requestMethod wai `notElem`
@@ -191,7 +171,7 @@ class RenderRoute site => Yesod site where
              -> [(T.Text, T.Text)] -- ^ query string
              -> Builder
     joinPath _ ar pieces' qs' =
-        fromText ar `mappend` encodePath pieces qs
+        encodeUtf8Builder ar `mappend` encodePath pieces qs
       where
         pieces = if null pieces' then [""] else map addDash pieces'
         qs = map (TE.encodeUtf8 *** go) qs'
@@ -214,7 +194,7 @@ class RenderRoute site => Yesod site where
     addStaticContent :: Text -- ^ filename extension
                      -> Text -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
+                     -> HandlerFor site (Maybe (Either Text (Route site, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
@@ -280,22 +260,11 @@ class RenderRoute site => Yesod site where
 
     -- | Should we log the given log source/level combination.
     --
-    -- Default: the 'defaultShouldLog' function.
-    shouldLog :: site -> LogSource -> LogLevel -> Bool
-    shouldLog _ = defaultShouldLog
-
-    -- | Should we log the given log source/level combination.
-    --
-    -- Note that this is almost identical to @shouldLog@, except the result
-    -- lives in @IO@. This allows you to dynamically alter the logging level of
-    -- your application by having this result depend on, e.g., an @IORef@.
-    --
-    -- The default implementation simply uses @shouldLog@. Future versions of
-    -- Yesod will remove @shouldLog@ and use this method exclusively.
+    -- Default: the 'defaultShouldLogIO' function.
     --
     -- Since 1.2.4
     shouldLogIO :: site -> LogSource -> LogLevel -> IO Bool
-    shouldLogIO a b c = return (shouldLog a b c)
+    shouldLogIO _ = defaultShouldLogIO
 
     -- | A Yesod middleware, which will wrap every handler function. This
     -- allows you to run code before and after a normal handler.
@@ -303,7 +272,7 @@ class RenderRoute site => Yesod site where
     -- Default: the 'defaultYesodMiddleware' function.
     --
     -- Since: 1.1.6
-    yesodMiddleware :: ToTypedContent res => HandlerT site IO res -> HandlerT site IO res
+    yesodMiddleware :: ToTypedContent res => HandlerFor site res -> HandlerFor site res
     yesodMiddleware = defaultYesodMiddleware
 
     -- | How to allocate an @InternalState@ for each request.
@@ -324,7 +293,7 @@ class RenderRoute site => Yesod site where
     -- primarily for wrapping up error messages for better display.
     --
     -- @since 1.4.30
-    defaultMessageWidget :: Html -> HtmlUrl (Route site) -> WidgetT site IO ()
+    defaultMessageWidget :: Html -> HtmlUrl (Route site) -> WidgetFor site ()
     defaultMessageWidget title body = do
         setTitle title
         toWidget
@@ -332,7 +301,6 @@ class RenderRoute site => Yesod site where
                 <h1>#{title}
                 ^{body}
             |]
-{-# DEPRECATED urlRenderOverride "Use urlParamRenderOverride instead" #-}
 
 -- | Default implementation of 'makeLogger'. Sends to stdout and
 -- automatically flushes on each write.
@@ -369,21 +337,14 @@ defaultMessageLoggerSource ckLoggable logger loc source level msg = do
 -- above 'LevelInfo'.
 --
 -- Since 1.4.10
-defaultShouldLog :: LogSource -> LogLevel -> Bool
-defaultShouldLog _ level = level >= LevelInfo
-
--- | A default implementation of 'shouldLogIO' that can be used with
--- 'defaultMessageLoggerSource'. Just uses 'defaultShouldLog'.
---
--- Since 1.4.10
 defaultShouldLogIO :: LogSource -> LogLevel -> IO Bool
-defaultShouldLogIO a b = return $ defaultShouldLog a b
+defaultShouldLogIO _ level = return $ level >= LevelInfo
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.
 --
 -- Since 1.2.0
-defaultYesodMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultYesodMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultYesodMiddleware handler = do
     addHeader "Vary" "Accept, Accept-Language"
     authorizationCheck
@@ -443,8 +404,8 @@ sameSiteSession s = (fmap . fmap) secureSessionCookies
 --
 -- Since 1.4.7
 sslOnlyMiddleware :: Int -- ^ minutes
-                  -> HandlerT site IO res
-                  -> HandlerT site IO res
+                  -> HandlerFor site res
+                  -> HandlerFor site res
 sslOnlyMiddleware timeout handler = do
     addHeader "Strict-Transport-Security"
               $ T.pack $ concat [ "max-age="
@@ -457,7 +418,7 @@ sslOnlyMiddleware timeout handler = do
 -- 'isWriteRequest'.
 --
 -- Since 1.2.0
-authorizationCheck :: Yesod site => HandlerT site IO ()
+authorizationCheck :: Yesod site => HandlerFor site ()
 authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
   where
     checkUrl url = do
@@ -481,7 +442,7 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
 --
 -- Since 1.4.14
-defaultCsrfCheckMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfCheckMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultCsrfCheckMiddleware handler =
     csrfCheckMiddleware
         handler
@@ -495,11 +456,11 @@ defaultCsrfCheckMiddleware handler =
 -- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
-csrfCheckMiddleware :: HandlerT site IO res
-                    -> HandlerT site IO Bool -- ^ Whether or not to perform the CSRF check.
+csrfCheckMiddleware :: HandlerFor site res
+                    -> HandlerFor site Bool -- ^ Whether or not to perform the CSRF check.
                     -> CI S8.ByteString -- ^ The header name to lookup the CSRF token from.
                     -> Text -- ^ The POST parameter name to lookup the CSRF token from.
-                    -> HandlerT site IO res
+                    -> HandlerFor site res
 csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
     shouldCheck <- shouldCheckFn
     when shouldCheck (checkCsrfHeaderOrParam headerName paramName)
@@ -510,7 +471,7 @@ csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
 -- The cookie's path is set to @/@, making it valid for your whole website.
 --
 -- Since 1.4.14
-defaultCsrfSetCookieMiddleware :: HandlerT site IO res -> HandlerT site IO res
+defaultCsrfSetCookieMiddleware :: HandlerFor site res -> HandlerFor site res
 defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
@@ -520,7 +481,7 @@ defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 -- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
 --
 -- Since 1.4.14
-csrfSetCookieMiddleware :: HandlerT site IO res -> SetCookie -> HandlerT site IO res
+csrfSetCookieMiddleware :: HandlerFor site res -> SetCookie -> HandlerFor site res
 csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
 
 -- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'.
@@ -540,21 +501,26 @@ csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handl
 -- @
 --
 -- Since 1.4.14
-defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
 
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: Yesod site
-                    => WidgetT site IO ()
-                    -> HandlerT site IO (PageContent (Route site))
-widgetToPageContent w = do
-    master <- getYesod
-    hd <- HandlerT return
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
-    let title = maybe mempty unTitle mTitle
-        scripts = runUniqueList scripts'
-        stylesheets = runUniqueList stylesheets'
+                    => WidgetFor site ()
+                    -> HandlerFor site (PageContent (Route site))
+widgetToPageContent w = HandlerFor $ \hd -> do
+  master <- unHandlerFor getYesod hd
+  ref <- newIORef mempty
+  unWidgetFor w WidgetData
+    { wdRef = ref
+    , wdHandler = hd
+    }
+  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
+  let title = maybe mempty unTitle mTitle
+      scripts = runUniqueList scripts'
+      stylesheets = runUniqueList stylesheets'
 
+  flip unHandlerFor hd $ do
     render <- getUrlRenderParams
     let renderLoc x =
             case x of
@@ -642,7 +608,7 @@ widgetToPageContent w = do
     runUniqueList (UniqueList x) = nub $ x []
 
 -- | The default error handler for 'errorHandler'.
-defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerT site IO TypedContent
+defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerFor site TypedContent
 defaultErrorHandler NotFound = selectRep $ do
     provideRep $ defaultLayout $ do
         r <- waiRequest
@@ -866,7 +832,7 @@ loadClientSession key getCachedDate sessionName req = load
     save date sess' = do
       -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
-      return [AddCookie def
+      return [AddCookie defaultSetCookie
           { setCookieName = sessionName
           , setCookieValue = encodeClientSession key iv date host sess'
           , setCookiePath = Just "/"

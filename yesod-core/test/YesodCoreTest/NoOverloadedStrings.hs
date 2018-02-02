@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-} -- the module name is a lie!!!
 module YesodCoreTest.NoOverloadedStrings
     ( noOverloadedTest
@@ -20,19 +21,19 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 getSubsite :: a -> Subsite
 getSubsite _ = Subsite $(mkYesodSubDispatch resourcesSubsite)
 
-getBarR :: Monad m => m T.Text
+getBarR :: MonadHandler m => m T.Text
 getBarR = return $ T.pack "BarR"
 
-getBazR :: Yesod master => HandlerT Subsite (HandlerT master IO) Html
-getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
+getBazR :: (MonadHandler m, Yesod (HandlerSite m)) => m Html
+getBazR = liftHandler $ defaultLayout [whamlet|Used Default Layout|]
 
-getBinR :: Yesod master => HandlerT Subsite (HandlerT master IO) Html
+getBinR :: (MonadHandler m, Yesod (HandlerSite m), SubHandlerSite m ~ Subsite) => m Html
 getBinR = do
-    widget <- widgetToParentWidget [whamlet|
+    routeToParent <- getRouteToParent
+    liftHandler $ defaultLayout [whamlet|
         <p>Used defaultLayoutT
-        <a href=@{BazR}>Baz
+        <a href=@{routeToParent BazR}>Baz
     |]
-    lift $ defaultLayout widget
 
 getOnePiecesR :: Monad m => Int -> m ()
 getOnePiecesR _ = return ()

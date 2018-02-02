@@ -46,8 +46,8 @@ instance Monoid LiteApp where
     mempty = LiteApp $ \_ _ -> Nothing
     mappend (LiteApp x) (LiteApp y) = LiteApp $ \m ps -> x m ps <|> y m ps
 
-type LiteHandler = HandlerT LiteApp IO
-type LiteWidget = WidgetT LiteApp IO
+type LiteHandler = HandlerFor LiteApp
+type LiteWidget = WidgetFor LiteApp
 
 liteApp :: Writer LiteApp () -> LiteApp
 liteApp = execWriter
