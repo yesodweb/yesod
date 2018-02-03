@@ -61,6 +61,7 @@ test-suite test
                           , yesod-form >= 1.6
                           , text
                           , wai
+                          , wai-extra
                           , http-types
                           , unliftio
 

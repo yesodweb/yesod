@@ -76,6 +76,9 @@ module Yesod.Test
     -- on currently displayed label names.
     , byLabel
     , byLabelExact
+    , byLabelContain
+    , byLabelPrefix
+    , byLabelSuffix
     , fileByLabel
     , fileByLabelExact
 
@@ -660,6 +663,39 @@ byLabelExact :: T.Text -- ^ The text in the @\<label>@.
              -> T.Text -- ^ The value to set the parameter to.
              -> RequestBuilder site ()
 byLabelExact = byLabelWithMatch (==)
+
+-- |
+-- Contain version of 'byLabelExact'
+--
+-- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.1
+byLabelContain :: T.Text -- ^ The text in the @\<label>@.
+               -> T.Text -- ^ The value to set the parameter to.
+               -> RequestBuilder site ()
+byLabelContain = byLabelWithMatch T.isInfixOf
+
+-- |
+-- Prefix version of 'byLabelExact'
+--
+-- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.1
+byLabelPrefix :: T.Text -- ^ The text in the @\<label>@.
+              -> T.Text -- ^ The value to set the parameter to.
+              -> RequestBuilder site ()
+byLabelPrefix = byLabelWithMatch T.isPrefixOf
+
+-- |
+-- Suffix version of 'byLabelExact'
+--
+-- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.1
+byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
+              -> T.Text -- ^ The value to set the parameter to.
+              -> RequestBuilder site ()
+byLabelSuffix = byLabelWithMatch T.isSuffixOf
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
