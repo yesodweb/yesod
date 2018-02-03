@@ -81,6 +81,9 @@ module Yesod.Test
     , byLabelSuffix
     , fileByLabel
     , fileByLabelExact
+    , fileByLabelContain
+    , fileByLabelPrefix
+    , fileByLabelSuffix
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -765,6 +768,42 @@ fileByLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                  -> RequestBuilder site ()
 fileByLabelExact = fileByLabelWithMatch (==)
+
+-- |
+-- Contain version of 'fileByLabelExact'
+--
+-- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.1
+fileByLabelContain :: T.Text -- ^ The text contained in the @\<label>@.
+                   -> FilePath -- ^ The path to the file.
+                   -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                   -> RequestBuilder site ()
+fileByLabelContain = fileByLabelWithMatch T.isInfixOf
+
+-- |
+-- Prefix version of 'fileByLabelExact'
+--
+-- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.1
+fileByLabelPrefix :: T.Text -- ^ The text contained in the @\<label>@.
+                  -> FilePath -- ^ The path to the file.
+                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                  -> RequestBuilder site ()
+fileByLabelPrefix = fileByLabelWithMatch T.isPrefixOf
+
+-- |
+-- Suffix version of 'fileByLabelExact'
+--
+-- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.1
+fileByLabelSuffix :: T.Text -- ^ The text contained in the @\<label>@.
+                  -> FilePath -- ^ The path to the file.
+                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                  -> RequestBuilder site ()
+fileByLabelSuffix = fileByLabelWithMatch T.isSuffixOf
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the token.
