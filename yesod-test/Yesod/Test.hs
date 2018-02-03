@@ -697,6 +697,15 @@ byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
               -> RequestBuilder site ()
 byLabelSuffix = byLabelWithMatch T.isSuffixOf
 
+fileByLabelWithMatch  :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+                      -> T.Text                     -- ^ The text contained in the @\<label>@.
+                      -> FilePath                   -- ^ The path to the file.
+                      -> T.Text                     -- ^ The MIME type of the file, e.g. "image/png".
+                      -> RequestBuilder site ()
+fileByLabelWithMatch match label path mime = do
+  name <- genericNameFromLabel match label
+  addFile name path mime
+
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
 -- ==== __Examples__
@@ -725,9 +734,7 @@ fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
             -> FilePath -- ^ The path to the file.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
             -> RequestBuilder site ()
-fileByLabel label path mime = do
-  name <- genericNameFromLabel T.isInfixOf label
-  addFile name path mime
+fileByLabel = fileByLabelWithMatch T.isInfixOf
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
@@ -757,9 +764,7 @@ fileByLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
                  -> FilePath -- ^ The path to the file.
                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                  -> RequestBuilder site ()
-fileByLabelExact label path mime = do
-  name <- genericNameFromLabel (==) label
-  addFile name path mime
+fileByLabelExact = fileByLabelWithMatch (==)
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the token.
