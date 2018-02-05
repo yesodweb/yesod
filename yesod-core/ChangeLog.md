@@ -1,3 +1,9 @@
+## 1.6.1
+
+* Add a `Semigroup LiteApp` instance, and explicitly define `(<>)` in the
+  already existing `Semigroup` instances for `WidgetFor`, `Head`, `Body`,
+  `GWData`, and `UniqueList`.
+
 ## 1.6.0
 
 * Upgrade to conduit 1.3.0
