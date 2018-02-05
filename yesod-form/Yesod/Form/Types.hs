@@ -104,9 +104,12 @@ instance ToValue Enctype where
     toValue Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
-    mappend UrlEncoded UrlEncoded = UrlEncoded
-    mappend _ _ = Multipart
-instance Semigroup Enctype
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
+instance Semigroup Enctype where
+    UrlEncoded <> UrlEncoded = UrlEncoded
+    _          <> _          = Multipart
 
 data Ints = IntCons Int Ints | IntSingle Int
 instance Show Ints where

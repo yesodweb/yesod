@@ -4,6 +4,9 @@ module Yesod.Core.Internal.LiteApp where
 #if __GLASGOW_HASKELL__ < 710
 import Data.Monoid
 #endif
+#if !(MIN_VERSION_base(4,11,0))
+import Data.Semigroup (Semigroup(..))
+#endif
 import Yesod.Routes.Class
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
@@ -42,9 +45,14 @@ instance RenderRoute LiteApp where
 instance ParseRoute LiteApp where
     parseRoute (x, _) = Just $ LiteAppRoute x
 
+instance Semigroup LiteApp where
+    LiteApp x <> LiteApp y = LiteApp $ \m ps -> x m ps <|> y m ps
+
 instance Monoid LiteApp where
     mempty = LiteApp $ \_ _ -> Nothing
-    mappend (LiteApp x) (LiteApp y) = LiteApp $ \m ps -> x m ps <|> y m ps
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
 
 type LiteHandler = HandlerFor LiteApp
 type LiteWidget = WidgetFor LiteApp

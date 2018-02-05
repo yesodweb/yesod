@@ -31,6 +31,7 @@ import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
 import           Data.Monoid                        (Endo (..), Last (..))
+import           Data.Semigroup                     (Semigroup(..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
@@ -55,12 +56,10 @@ import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
-import           Data.Monoid                        ((<>))
 import Control.DeepSeq (NFData (rnf))
 import Control.DeepSeq.Generics (genericRnf)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
-import Data.Semigroup (Semigroup)
 import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
 
 -- Sessions
@@ -255,8 +254,11 @@ data WidgetData site = WidgetData
 
 instance a ~ () => Monoid (WidgetFor site a) where
     mempty = return ()
-    mappend x y = x >> y
-instance a ~ () => Semigroup (WidgetFor site a)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
+instance a ~ () => Semigroup (WidgetFor site a) where
+    x <> y = x >> y
 
 -- | A 'String' can be trivially promoted to a widget.
 --
@@ -357,10 +359,12 @@ newtype Title = Title { unTitle :: Html }
 
 newtype Head url = Head (HtmlUrl url)
     deriving Monoid
-instance Semigroup (Head a)
+instance Semigroup (Head url) where
+  (<>) = mappend
 newtype Body url = Body (HtmlUrl url)
     deriving Monoid
-instance Semigroup (Body a)
+instance Semigroup (Body url) where
+  (<>) = mappend
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 
@@ -375,16 +379,19 @@ data GWData a = GWData
     }
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty
-    mappend (GWData a1 a2 a3 a4 a5 a6 a7)
-            (GWData b1 b2 b3 b4 b5 b6 b7) = GWData
-        (a1 `mappend` b1)
-        (a2 `mappend` b2)
-        (a3 `mappend` b3)
-        (a4 `mappend` b4)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
+instance Semigroup (GWData a) where
+    GWData a1 a2 a3 a4 a5 a6 a7 <>
+      GWData b1 b2 b3 b4 b5 b6 b7 = GWData
+        (mappend a1 b1)
+        (mappend a2 b2)
+        (mappend a3 b3)
+        (mappend a4 b4)
         (unionWith mappend a5 b5)
-        (a6 `mappend` b6)
-        (a7 `mappend` b7)
-instance Semigroup (GWData a)
+        (mappend a6 b6)
+        (mappend a7 b7)
 
 data HandlerContents =
       HCContent !H.Status !TypedContent
@@ -473,8 +480,11 @@ instance MonadLoggerIO (HandlerFor site) where
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id
-    UniqueList x `mappend` UniqueList y = UniqueList $ x . y
-instance Semigroup (UniqueList x)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
+instance Semigroup (UniqueList x) where
+    UniqueList x <> UniqueList y = UniqueList $ x . y
 
 instance IsString Content where
     fromString = flip ContentBuilder Nothing . BB.stringUtf8

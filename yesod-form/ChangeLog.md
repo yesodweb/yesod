@@ -1,3 +1,7 @@
+## 1.6.1
+
+* Explicitly define `(<>)` in the `Semigroup` instance for `Enctype`
+
 ## 1.6.0
 
 * Upgrade to yesod-core 1.6.0
