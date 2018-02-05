@@ -358,9 +358,13 @@ data Stylesheet url = Stylesheet { styleLocation :: !(Location url), styleAttrib
 newtype Title = Title { unTitle :: Html }
 
 newtype Head url = Head (HtmlUrl url)
-    deriving (Semigroup, Monoid)
+    deriving Monoid
+instance Semigroup (Head url) where
+  (<>) = mappend
 newtype Body url = Body (HtmlUrl url)
-    deriving (Semigroup, Monoid)
+    deriving Monoid
+instance Semigroup (Body url) where
+  (<>) = mappend
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 
@@ -381,13 +385,13 @@ instance Monoid (GWData a) where
 instance Semigroup (GWData a) where
     GWData a1 a2 a3 a4 a5 a6 a7 <>
       GWData b1 b2 b3 b4 b5 b6 b7 = GWData
-        (a1 <> b1)
-        (a2 <> b2)
-        (a3 <> b3)
-        (a4 <> b4)
+        (mappend a1 b1)
+        (mappend a2 b2)
+        (mappend a3 b3)
+        (mappend a4 b4)
         (unionWith mappend a5 b5)
-        (a6 <> b6)
-        (a7 <> b7)
+        (mappend a6 b6)
+        (mappend a7 b7)
 
 data HandlerContents =
       HCContent !H.Status !TypedContent
