@@ -672,7 +672,7 @@ byLabelExact = byLabelWithMatch (==)
 --
 -- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
 --
--- @since 1.6.1
+-- @since 1.6.2
 byLabelContain :: T.Text -- ^ The text in the @\<label>@.
                -> T.Text -- ^ The value to set the parameter to.
                -> RequestBuilder site ()
@@ -683,7 +683,7 @@ byLabelContain = byLabelWithMatch T.isInfixOf
 --
 -- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
 --
--- @since 1.6.1
+-- @since 1.6.2
 byLabelPrefix :: T.Text -- ^ The text in the @\<label>@.
               -> T.Text -- ^ The value to set the parameter to.
               -> RequestBuilder site ()
@@ -694,7 +694,7 @@ byLabelPrefix = byLabelWithMatch T.isPrefixOf
 --
 -- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
 --
--- @since 1.6.1
+-- @since 1.6.2
 byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
               -> T.Text -- ^ The value to set the parameter to.
               -> RequestBuilder site ()
@@ -774,7 +774,7 @@ fileByLabelExact = fileByLabelWithMatch (==)
 --
 -- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
 --
--- @since 1.6.1
+-- @since 1.6.2
 fileByLabelContain :: T.Text -- ^ The text contained in the @\<label>@.
                    -> FilePath -- ^ The path to the file.
                    -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
@@ -786,7 +786,7 @@ fileByLabelContain = fileByLabelWithMatch T.isInfixOf
 --
 -- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
 --
--- @since 1.6.1
+-- @since 1.6.2
 fileByLabelPrefix :: T.Text -- ^ The text contained in the @\<label>@.
                   -> FilePath -- ^ The path to the file.
                   -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
@@ -798,7 +798,7 @@ fileByLabelPrefix = fileByLabelWithMatch T.isPrefixOf
 --
 -- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
 --
--- @since 1.6.1
+-- @since 1.6.2
 fileByLabelSuffix :: T.Text -- ^ The text contained in the @\<label>@.
                   -> FilePath -- ^ The path to the file.
                   -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
