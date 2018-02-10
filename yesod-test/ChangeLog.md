@@ -3,6 +3,10 @@
 * Add byLabel-related functions like byLabelContain
 [#1482](https://github.com/yesodweb/yesod/pull/1482)
 
+## 1.6.1
+
+* Fix the build with `base-4.11` (GHC 8.4).
+
 ## 1.6.0
 
 * Upgrade to yesod-core 1.6.0

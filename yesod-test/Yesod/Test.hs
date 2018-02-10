@@ -164,6 +164,7 @@ import Data.Time.Clock (getCurrentTime)
 import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
 import Data.Monoid (mempty)
+import Data.Semigroup (Semigroup(..))
 #if MIN_VERSION_base(4,9,0)
 import GHC.Stack (HasCallStack)
 #elif MIN_VERSION_base(4,8,1)
@@ -575,9 +576,6 @@ genericNameFromLabel match label = do
         [] -> failure $ "No label contained: " <> label
         name:_ -> return name
     _ -> failure $ "More than one label contained " <> label
-
-(<>) :: T.Text -> T.Text -> T.Text
-(<>) = T.append
 
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.

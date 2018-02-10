@@ -30,6 +30,7 @@ library
                    , network                   >= 2.2
                    , persistent                >= 1.0
                    , pretty-show               >= 1.6
+                   , semigroups
                    , text
                    , time
                    , transformers              >= 0.2.2

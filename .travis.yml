@@ -76,9 +76,10 @@ matrix:
     compiler: ": #stack default osx"
     os: osx
 
-  - env: BUILD=stack ARGS="--resolver lts-7"
-    compiler: ": #stack 8.0.1 osx"
-    os: osx
+  # malformed mach-o: load commands size (34184) > 32768)
+  #- env: BUILD=stack ARGS="--resolver lts-7"
+  #  compiler: ": #stack 8.0.1 osx"
+  #  os: osx
 
   - env: BUILD=stack ARGS="--resolver lts-9"
     compiler: ": #stack 8.0.2 osx"
