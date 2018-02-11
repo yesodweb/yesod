@@ -76,8 +76,14 @@ module Yesod.Test
     -- on currently displayed label names.
     , byLabel
     , byLabelExact
+    , byLabelContain
+    , byLabelPrefix
+    , byLabelSuffix
     , fileByLabel
     , fileByLabelExact
+    , fileByLabelContain
+    , fileByLabelPrefix
+    , fileByLabelSuffix
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -169,8 +175,8 @@ import GHC.Exts (Constraint)
 type HasCallStack = (() :: Constraint)
 #endif
 
-{-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact instead" #-}
-{-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact instead" #-}
+{-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
+{-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
 
 -- | The state used in a single test case defined using 'yit'
 --
@@ -659,6 +665,48 @@ byLabelExact :: T.Text -- ^ The text in the @\<label>@.
              -> RequestBuilder site ()
 byLabelExact = byLabelWithMatch (==)
 
+-- |
+-- Contain version of 'byLabelExact'
+--
+-- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.2
+byLabelContain :: T.Text -- ^ The text in the @\<label>@.
+               -> T.Text -- ^ The value to set the parameter to.
+               -> RequestBuilder site ()
+byLabelContain = byLabelWithMatch T.isInfixOf
+
+-- |
+-- Prefix version of 'byLabelExact'
+--
+-- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.2
+byLabelPrefix :: T.Text -- ^ The text in the @\<label>@.
+              -> T.Text -- ^ The value to set the parameter to.
+              -> RequestBuilder site ()
+byLabelPrefix = byLabelWithMatch T.isPrefixOf
+
+-- |
+-- Suffix version of 'byLabelExact'
+--
+-- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.2
+byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
+              -> T.Text -- ^ The value to set the parameter to.
+              -> RequestBuilder site ()
+byLabelSuffix = byLabelWithMatch T.isSuffixOf
+
+fileByLabelWithMatch  :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+                      -> T.Text                     -- ^ The text contained in the @\<label>@.
+                      -> FilePath                   -- ^ The path to the file.
+                      -> T.Text                     -- ^ The MIME type of the file, e.g. "image/png".
+                      -> RequestBuilder site ()
+fileByLabelWithMatch match label path mime = do
+  name <- genericNameFromLabel match label
+  addFile name path mime
+
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
 -- ==== __Examples__
@@ -687,9 +735,7 @@ fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
             -> FilePath -- ^ The path to the file.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
             -> RequestBuilder site ()
-fileByLabel label path mime = do
-  name <- genericNameFromLabel T.isInfixOf label
-  addFile name path mime
+fileByLabel = fileByLabelWithMatch T.isInfixOf
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
@@ -719,9 +765,43 @@ fileByLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
                  -> FilePath -- ^ The path to the file.
                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                  -> RequestBuilder site ()
-fileByLabelExact label path mime = do
-  name <- genericNameFromLabel (==) label
-  addFile name path mime
+fileByLabelExact = fileByLabelWithMatch (==)
+
+-- |
+-- Contain version of 'fileByLabelExact'
+--
+-- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.2
+fileByLabelContain :: T.Text -- ^ The text contained in the @\<label>@.
+                   -> FilePath -- ^ The path to the file.
+                   -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                   -> RequestBuilder site ()
+fileByLabelContain = fileByLabelWithMatch T.isInfixOf
+
+-- |
+-- Prefix version of 'fileByLabelExact'
+--
+-- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.2
+fileByLabelPrefix :: T.Text -- ^ The text contained in the @\<label>@.
+                  -> FilePath -- ^ The path to the file.
+                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                  -> RequestBuilder site ()
+fileByLabelPrefix = fileByLabelWithMatch T.isPrefixOf
+
+-- |
+-- Suffix version of 'fileByLabelExact'
+--
+-- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
+--
+-- @since 1.6.2
+fileByLabelSuffix :: T.Text -- ^ The text contained in the @\<label>@.
+                  -> FilePath -- ^ The path to the file.
+                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                  -> RequestBuilder site ()
+fileByLabelSuffix = fileByLabelWithMatch T.isSuffixOf
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the token.

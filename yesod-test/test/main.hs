@@ -30,6 +30,7 @@ import Data.Text (Text, pack)
 import Data.Monoid ((<>))
 import Control.Applicative
 import Network.Wai (pathInfo, requestHeaders)
+import Network.Wai.Test (SResponse(simpleBody))
 import Data.Maybe (fromMaybe)
 import Data.Either (isLeft, isRight)
 
@@ -218,7 +219,7 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl ("/labels" :: Text)
                     byLabel "Foo Bar" "yes"
-        ydescribe "labels2" $ do
+        ydescribe "byLabel-related tests" $ do
             yit "fails with \"More than one label contained\" error" $ do
                 get ("/labels2" :: Text)
                 (bad :: Either SomeException ()) <- try (request $ do
@@ -233,7 +234,48 @@ main = hspec $ do
                     setUrl ("labels2" :: Text)
                     byLabelExact "hobby" "fishing")
                 assertEq "failure was called" (isRight bad) True
-
+            yit "byLabelContain looks for the labels which contain the given label name" $ do
+                get ("/label-contain" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    byLabelContain "hobby" "fishing"
+                res <- maybe "Couldn't get response" simpleBody <$> getResponse
+                assertEq "hobby isn't set" res "fishing"
+            yit "byLabelContain throws an error if it finds multiple labels" $ do
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("label-contain-error" :: Text)
+                    byLabelContain "hobby" "fishing")
+                assertEq "failure wasn't called" (isLeft bad) True
+            yit "byLabelPrefix matches over the prefix of the labels" $ do
+                get ("/label-prefix" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    byLabelPrefix "hobby" "fishing"
+                res <- maybe "Couldn't get response" simpleBody <$> getResponse
+                assertEq "hobby isn't set" res "fishing"
+            yit "byLabelPrefix throws an error if it finds multiple labels" $ do
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("label-prefix-error" :: Text)
+                    byLabelPrefix "hobby" "fishing")
+                assertEq "failure wasn't called" (isLeft bad) True
+            yit "byLabelSuffix matches over the suffix of the labels" $ do
+                get ("/label-suffix" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    byLabelSuffix "hobby" "fishing"
+                res <- maybe "Couldn't get response" simpleBody <$> getResponse
+                assertEq "hobby isn't set" res "fishing"
+            yit "byLabelSuffix throws an error if it finds multiple labels" $ do
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("label-suffix-error" :: Text)
+                    byLabelSuffix "hobby" "fishing")
+                assertEq "failure wasn't called" (isLeft bad) True
         ydescribe "Content-Type handling" $ do
             yit "can set a content-type" $ do
                 request $ do
@@ -383,6 +425,21 @@ app = liteApp $ do
         return ("<html><label><input type='checkbox' name='fooname' id='foobar'>Foo Bar</label></html>" :: Text)
     onStatic "labels2" $ dispatchTo $
         return ("<html><label for='hobby'>hobby</label><label for='hobby2'>hobby2</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "label-contain" $ dispatchTo $
+        return ("<html><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
+    onStatic "label-contain-error" $ dispatchTo $
+        return ("<html><label for='hobby'>XXXhobbyXXX</label><label for='hobby2'>XXXhobby2XXX</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "label-prefix" $ dispatchTo $
+        return ("<html><label for='hobby'>hobbyXXX</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
+    onStatic "label-prefix-error" $ dispatchTo $
+        return ("<html><label for='hobby'>hobbyXXX</label><label for='hobby2'>hobby2XXX</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "label-suffix" $ dispatchTo $
+        return ("<html><label for='hobby'>XXXhobby</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
+    onStatic "label-suffix-error" $ dispatchTo $
+        return ("<html><label for='hobby'>XXXhobby</label><label for='hobby2'>XXXneo-hobby</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "check-hobby" $ dispatchTo $ do
+        hobby <- lookupPostParam "hobby"
+        return $ fromMaybe "No hobby" hobby
 
     onStatic "checkContentType" $ dispatchTo $ do
         headers <- requestHeaders <$> waiRequest

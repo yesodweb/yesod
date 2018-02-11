@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.6.1
+version:            1.6.2
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -62,6 +62,7 @@ test-suite test
                           , yesod-form >= 1.6
                           , text
                           , wai
+                          , wai-extra
                           , http-types
                           , unliftio
 
