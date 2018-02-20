@@ -1,3 +1,7 @@
+## 1.6.1
+
+* Relax a number of type signatures [#1488](https://github.com/yesodweb/yesod/issues/1488)
+
 ## 1.6.0
 
 * Upgrade to yesod-core 1.6.0
