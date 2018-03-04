@@ -1,3 +1,7 @@
+## 1.6.2
+
+* Remove MINIMAL praggma for authHttpManager [#1489](https://github.com/yesodweb/yesod/issues/1489)
+
 ## 1.6.1
 
 * Relax a number of type signatures [#1488](https://github.com/yesodweb/yesod/issues/1488)
