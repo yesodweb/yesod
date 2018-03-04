@@ -243,7 +243,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
       man <- authHttpManager
       withRunInIO $ \run -> withResponse req man $ run . inner
 
-    {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins, authHttpManager #-}
+    {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins #-}
 
 {-# DEPRECATED getAuthId "Define 'authenticate' instead; 'getAuthId' will be removed in the next major version" #-}
 
