@@ -1,3 +1,8 @@
+## 1.6.2
+
+* Derive a `Show` instance for `ResourceTree` and `FlatResource` [#1492](https://github.com/yesodweb/yesod/pull/1492)
+	* Some third party packages, like `yesod-routes-flow` derive their own `Show` instance, and this will break those packages.
+
 ## 1.6.1
 
 * Add a `Semigroup LiteApp` instance, and explicitly define `(<>)` in the
