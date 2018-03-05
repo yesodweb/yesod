@@ -21,7 +21,7 @@ import Language.Haskell.TH.Syntax
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
     | ResourceParent String CheckOverlap [Piece typ] [ResourceTree typ]
-    deriving Functor
+    deriving (Show, Functor)
 
 resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
@@ -90,7 +90,7 @@ data FlatResource a = FlatResource
     , frPieces :: [Piece a]
     , frDispatch :: Dispatch a
     , frCheck :: Bool
-    }
+    } deriving (Show)
 
 flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
