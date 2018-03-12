@@ -251,6 +251,12 @@ instance HasContentType J.Value where
 instance HasContentType J.Encoding where
     getContentType _ = typeJson
 
+instance ToContent (JSONResponse a) where
+  toContent (JSONResponse a) = toContent $ toEncoding a
+
+instance HasContentType (JSONResponse a) where
+    getContentType _ = typeJson
+
 instance HasContentType Html where
     getContentType _ = typeHtml
 
@@ -288,6 +294,8 @@ instance ToTypedContent J.Value where
     toTypedContent v = TypedContent typeJson (toContent v)
 instance ToTypedContent J.Encoding where
     toTypedContent e = TypedContent typeJson (toContent e)
+instance ToTypedContent (JSONResponse a) where
+  toTypedContent c = TypedContent typeJson (toContent c)
 instance ToTypedContent Html where
     toTypedContent h = TypedContent typeHtml (toContent h)
 instance ToTypedContent T.Text where

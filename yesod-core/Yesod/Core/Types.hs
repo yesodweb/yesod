@@ -308,6 +308,18 @@ newtype RepXml = RepXml Content
 
 type ContentType = ByteString -- FIXME Text?
 
+-- | Wrapper around types so that Handlers can be typed them, encoded as JSON.
+-- Example usage in a type signature:
+-- 
+-- > postSignupR :: Handler (JSONResponse CreateUserResponse)
+--
+-- And in the implementation:
+--
+-- > return $ JSONResponse $ CreateUserResponse userId
+--
+-- @since 1.6.3 
+data JSONResponse a = ToJSON a => JSONResponse a
+
 -- | Prevents a response body from being fully evaluated before sending the
 -- request.
 --

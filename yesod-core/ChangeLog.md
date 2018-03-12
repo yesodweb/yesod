@@ -1,3 +1,7 @@
+## 1.6.3
+
+* Add a type `JSONResponse a` that can be used to type a Handler as returning some value `a`, which should be encoded as JSON. [#1481](https://github.com/yesodweb/yesod/issues/1481)
+
 ## 1.6.2
 
 * Derive a `Show` instance for `ResourceTree` and `FlatResource` [#1492](https://github.com/yesodweb/yesod/pull/1492)
