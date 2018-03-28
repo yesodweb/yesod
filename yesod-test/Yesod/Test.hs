@@ -102,6 +102,7 @@ module Yesod.Test
     , assertNotEq
     , assertEqualNoShow
     , assertEq
+    , assertFailure
 
     , assertHeader
     , assertNoHeader
@@ -382,6 +383,12 @@ assertEqual = assertEqualNoShow
 -- @since 1.5.2
 assertEqualNoShow :: (HasCallStack, Eq a) => String -> a -> a -> YesodExample site ()
 assertEqualNoShow msg a b = liftIO $ HUnit.assertBool msg (a == b)
+
+-- | Unconditionally signals that a failure has occured.
+--
+-- @since 1.6.3
+assertFailure :: HasCallStack => String -> YesodExample site ()
+assertFailure = liftIO . HUnit.assertFailure
 
 -- | Assert the last response status is as expected.
 statusIs :: HasCallStack => Int -> YesodExample site ()
