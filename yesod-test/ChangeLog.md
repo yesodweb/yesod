@@ -1,3 +1,8 @@
+## 1.6.3
+
+* Add assertFailure
+[#1499](https://github.com/yesodweb/yesod/pull/1499)
+
 ## 1.6.2
 
 * Add byLabel-related functions like byLabelContain
