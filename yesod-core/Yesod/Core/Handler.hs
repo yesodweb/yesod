@@ -148,6 +148,7 @@ module Yesod.Core.Handler
     , setMessageI
     , getMessage
       -- * Subsites
+    , SubHandlerFor
     , getSubYesod
     , getRouteToParent
     , getSubCurrentRoute

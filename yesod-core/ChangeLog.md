@@ -1,3 +1,7 @@
+## 1.6.3
+
+* Add missing export for `SubHandlerFor`
+
 ## 1.6.2
 
 * Derive a `Show` instance for `ResourceTree` and `FlatResource` [#1492](https://github.com/yesodweb/yesod/pull/1492)
