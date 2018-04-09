@@ -270,7 +270,7 @@ makeHttpRequest req =
 --   Will throw 'HttpException' in case of network problems or error response code.
 --
 -- @since 1.4.3
-getPerson :: Manager -> Token -> AuthHandler site (Maybe Person)
+getPerson :: MonadHandler m => Manager -> Token -> m (Maybe Person)
 getPerson manager token = liftSubHandler $ parseMaybe parseJSON <$> (do
     req <- personValueRequest token
     res <- http req manager
