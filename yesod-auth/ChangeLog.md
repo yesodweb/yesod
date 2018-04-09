@@ -1,3 +1,7 @@
+## 1.6.3
+
+* Generalize GoogleEmail2.getPerson [#1501](https://github.com/yesodweb/yesod/pull/1501)
+
 ## 1.6.2
 
 * Remove MINIMAL praggma for authHttpManager [#1489](https://github.com/yesodweb/yesod/issues/1489)
