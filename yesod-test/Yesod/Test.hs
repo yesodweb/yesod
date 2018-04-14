@@ -54,6 +54,7 @@ module Yesod.Test
     , get
     , post
     , postBody
+    , performMethod
     , followRedirect
     , getLocation
     , request
@@ -928,6 +929,21 @@ get :: (Yesod site, RedirectUrl site url)
 get url = request $ do
     setMethod "GET"
     setUrl url
+
+-- | Perform a request using a given method to @url@.
+--
+-- @since 1.6.3
+--
+-- ==== __Examples__
+--
+-- > performMethod "GET" HomeR
+performMethod :: (Yesod site, RedirectUrl site url)
+          => ByteString
+          -> url
+          -> YesodExample site ()
+performMethod method url = request $ do
+  setMethod method
+  setUrl url
 
 -- | Follow a redirect, if the last response was a redirect.
 -- (We consider a request a redirect if the status is
