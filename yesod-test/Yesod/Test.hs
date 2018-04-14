@@ -932,7 +932,7 @@ get = performMethod "GET"
 --
 -- ==== __Examples__
 --
--- > performMethod "GET" HomeR
+-- > performMethod "DELETE" HomeR
 performMethod :: (Yesod site, RedirectUrl site url)
           => ByteString
           -> url
