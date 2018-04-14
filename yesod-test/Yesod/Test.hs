@@ -895,9 +895,7 @@ getRequestCookies = do
 post :: (Yesod site, RedirectUrl site url)
      => url
      -> YesodExample site ()
-post url = request $ do
-  setMethod "POST"
-  setUrl url
+post = performMethod "POST"
 
 -- | Perform a POST request to @url@ with the given body.
 --
@@ -926,9 +924,7 @@ postBody url body = request $ do
 get :: (Yesod site, RedirectUrl site url)
     => url
     -> YesodExample site ()
-get url = request $ do
-    setMethod "GET"
-    setUrl url
+get = performMethod "GET"
 
 -- | Perform a request using a given method to @url@.
 --
