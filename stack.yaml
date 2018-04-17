@@ -43,3 +43,4 @@ extra-deps:
 - websockets-0.12.3.1
 - th-abstraction-0.2.6.0
 - persistent-template-2.5.3.1
+- th-lift-instances-0.1.11
