@@ -118,6 +118,7 @@ module Yesod.Core.Handler
     , setHeader
     , replaceOrAddHeader
     , setLanguage
+    , addContentDispositionFileName
       -- ** Content caching and expiration
     , cacheSeconds
     , neverExpires
@@ -779,6 +780,14 @@ deleteCookie a = addHeaderInternal . DeleteCookie (encodeUtf8 a) . encodeUtf8
 -- next request.
 setLanguage :: MonadHandler m => Text -> m ()
 setLanguage = setSession langKey
+
+-- | Set attachment file name.
+--
+-- allow UTF-8 character.
+addContentDispositionFileName :: MonadHandler m => T.Text -> m ()
+addContentDispositionFileName name
+    = addHeader "Content-Disposition" $
+      "attachment; filename*=UTF-8''" `mappend` decodeUtf8 (H.urlEncode True (encodeUtf8 name))
 
 -- | Set an arbitrary response header.
 --
