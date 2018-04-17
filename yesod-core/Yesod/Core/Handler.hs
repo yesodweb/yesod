@@ -783,11 +783,21 @@ setLanguage = setSession langKey
 
 -- | Set attachment file name.
 --
--- allow UTF-8 character.
+-- Allows Unicode characters by encoding to UTF-8.
+-- Some modurn browser parse UTF-8 characters with out encoding setting.
+-- But, for example IE9 can't parse UTF-8 characters.
+-- This function use
+-- <https://tools.ietf.org/html/rfc6266 RFC 6266>(<https://tools.ietf.org/html/rfc5987 RFC 5987>)
 addContentDispositionFileName :: MonadHandler m => T.Text -> m ()
-addContentDispositionFileName name
-    = addHeader "Content-Disposition" $
-      "attachment; filename*=UTF-8''" `mappend` decodeUtf8 (H.urlEncode True (encodeUtf8 name))
+addContentDispositionFileName fileName
+    = addHeader "Content-Disposition" $ rfc6266Utf8FileName fileName
+
+-- | <https://tools.ietf.org/html/rfc6266 RFC 6266> Unicode attachment filename.
+--
+-- > rfc6266Utf8FileName (Data.Text.pack "€")
+-- "attachment; filename*=UTF-8''%E2%82%AC"
+rfc6266Utf8FileName :: T.Text -> T.Text
+rfc6266Utf8FileName fileName = "attachment; filename*=UTF-8''" `mappend` decodeUtf8 (H.urlEncode True (encodeUtf8 fileName))
 
 -- | Set an arbitrary response header.
 --
