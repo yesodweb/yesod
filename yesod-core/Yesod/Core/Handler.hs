@@ -47,6 +47,7 @@ module Yesod.Core.Handler
     , fileName
     , fileContentType
     , fileSource
+    , fileSourceByteString
     , fileMove
       -- *** Convenience functions
     , languages
@@ -252,7 +253,7 @@ import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
+import           Data.Conduit (ConduitT, connect, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
@@ -1359,6 +1360,16 @@ rawRequestBody = do
 -- to work in any @MonadResource@.
 fileSource :: MonadResource m => FileInfo -> ConduitT () S.ByteString m ()
 fileSource = transPipe liftResourceT . fileSourceRaw
+
+-- | Strict `ByteString` body from `FileInfo`.
+-- This function blocking while read file.
+--
+-- > do
+-- >     fileByteString <- fileSourceByteString fileInfo
+--
+-- @since 1.6.4
+fileSourceByteString :: MonadResource m => FileInfo -> m S.ByteString
+fileSourceByteString fileInfo = fileSource fileInfo `connect` CL.foldMap id
 
 -- | Provide a pure value for the response body.
 --
