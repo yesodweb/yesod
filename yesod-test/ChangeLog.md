@@ -1,3 +1,7 @@
+## 1.6.3
+Add performMethod
+[#1502](https://github.com/yesodweb/yesod/pull/1502)
+
 ## 1.6.2
 
 * Add byLabel-related functions like byLabelContain

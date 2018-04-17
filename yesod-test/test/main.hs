@@ -124,6 +124,9 @@ main = hspec $ do
             yit "tests1b" $ do
                 get ("/foo" :: Text)
                 statusIs 404
+            yit "tests1c" $ do
+                performMethod "DELETE" ("/" :: Text)
+                statusIs 200
         ydescribe "tests2" $ do
             yit "type-safe URLs" $ do
                 get $ LiteAppRoute []
