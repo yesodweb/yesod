@@ -788,6 +788,8 @@ setLanguage = setSession langKey
 -- But, for example IE9 can't parse UTF-8 characters.
 -- This function use
 -- <https://tools.ietf.org/html/rfc6266 RFC 6266>(<https://tools.ietf.org/html/rfc5987 RFC 5987>)
+--
+-- @since 1.6.4
 addContentDispositionFileName :: MonadHandler m => T.Text -> m ()
 addContentDispositionFileName fileName
     = addHeader "Content-Disposition" $ rfc6266Utf8FileName fileName
