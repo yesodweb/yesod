@@ -1,3 +1,7 @@
+## 1.6.4
+
+* Add `fileSourceByteString` [#1503](https://github.com/yesodweb/yesod/pull/1503)
+
 ## 1.6.3
 
 * Add missing export for `SubHandlerFor`
