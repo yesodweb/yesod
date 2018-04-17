@@ -1362,8 +1362,9 @@ rawRequestBody = do
 fileSource :: MonadResource m => FileInfo -> ConduitT () S.ByteString m ()
 fileSource = transPipe liftResourceT . fileSourceRaw
 
--- | Strict `ByteString` body from `FileInfo`.
--- This function blocking while read file.
+-- | Extract a strict `ByteString` body from a `FileInfo`.
+--
+-- This function will block while reading the file.
 --
 -- > do
 -- >     fileByteString <- fileSourceByteString fileInfo
