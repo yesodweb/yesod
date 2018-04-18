@@ -1,3 +1,7 @@
+## 1.6.4
+
+* Add `addContentDispositionFileName` [#1504](https://github.com/yesodweb/yesod/pull/1504)
+
 ## 1.6.3
 
 * Add missing export for `SubHandlerFor`
