@@ -34,7 +34,7 @@ module Yesod.Test
       yesodSpec
     , YesodSpec
     , yesodSpecWithSiteGenerator
-    , yesodSpecWithSiteGenerator'
+    , yesodSpecWithSiteGeneratorAndArgument
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
@@ -275,32 +275,25 @@ yesodSpecWithSiteGenerator :: YesodDispatch site
                            => IO site
                            -> YesodSpec site
                            -> Hspec.Spec
-yesodSpecWithSiteGenerator getSiteAction yspecs =
-    Hspec.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
-    where
-      unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
-      unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ do
-        site <- getSiteAction'
-        app <- toWaiAppPlain site
-        evalSIO y YesodExampleData
-            { yedApp = app
-            , yedSite = site
-            , yedCookies = M.empty
-            , yedResponse = Nothing
-            }
+yesodSpecWithSiteGenerator getSiteAction =
+    yesodSpecWithSiteGeneratorAndArgument (const getSiteAction)
 
-yesodSpecWithSiteGenerator' :: YesodDispatch site
+-- | Same as yesodSpecWithSiteGenerator, but also takes an argument to build the site
+-- and makes that argument available to the tests.
+--
+-- @since 1.6.4
+yesodSpecWithSiteGeneratorAndArgument :: YesodDispatch site
                            => (a -> IO site)
                            -> YesodSpec site
                            -> Hspec.SpecWith a
-yesodSpecWithSiteGenerator' getSiteAction yspecs =
+yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
     Hspec.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
     where
       unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
       unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ \a -> do
         site <- getSiteAction' a
         app <- toWaiAppPlain site
-        ST.evalStateT y YesodExampleData
+        evalSIO y YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty

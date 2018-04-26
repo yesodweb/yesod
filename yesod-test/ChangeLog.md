@@ -1,3 +1,7 @@
+## 1.6.4
+Add yesodSpecWithSiteGeneratorAndArgument
+[#1485](https://github.com/yesodweb/yesod/pull/1485)
+
 ## 1.6.3
 Add performMethod
 [#1502](https://github.com/yesodweb/yesod/pull/1502)
