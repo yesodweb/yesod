@@ -1,3 +1,7 @@
+## 1.6.0.1
+
+* Support for http-reverse-proxy 0.6
+
 ## 1.6.0
 
 * Upgrade to conduit 1.3.0

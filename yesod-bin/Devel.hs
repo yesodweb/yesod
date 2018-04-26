@@ -18,7 +18,6 @@ import           Control.Monad                         (forever, unless, void,
 import Data.ByteString (ByteString, isInfixOf)
 import qualified Data.ByteString.Lazy                  as LB
 import           Conduit
-import           Data.Default.Class                    (def)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (isJust)
@@ -38,7 +37,8 @@ import           Network.HTTP.Client                   (managerSetProxy,
 import           Network.HTTP.Client.TLS               (tlsManagerSettings)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings,
-                                                        wpsOnExc, wpsTimeout)
+                                                        wpsOnExc, wpsTimeout,
+                                                        defaultWaiProxySettings)
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
 import           Network.HTTP.Types                    (status200, status503)
 import qualified Network.Socket
@@ -147,7 +147,7 @@ reverseProxy opts appPortVar = do
                     return $
                         ReverseProxy.WPRProxyDest
                         $ ProxyDest "127.0.0.1" appPort)
-                def
+                defaultWaiProxySettings
                     { wpsOnExc = \e req f -> onExc e req >>= f
                     , wpsTimeout =
                         if proxyTimeout opts == 0
