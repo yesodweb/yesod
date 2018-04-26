@@ -1,3 +1,7 @@
+## 1.6.0.2
+
+* Fix broken support for older http-reverse-proxy
+
 ## 1.6.0.1
 
 * Support for http-reverse-proxy 0.6

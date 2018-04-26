@@ -38,7 +38,12 @@ import           Network.HTTP.Client.TLS               (tlsManagerSettings)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings,
                                                         wpsOnExc, wpsTimeout,
-                                                        defaultWaiProxySettings)
+#if MIN_VERSION_http_reverse_proxy(0, 6, 0)
+                                                        defaultWaiProxySettings
+#else
+                                                        def
+#endif
+                                                        )
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
 import           Network.HTTP.Types                    (status200, status503)
 import qualified Network.Socket
@@ -147,7 +152,11 @@ reverseProxy opts appPortVar = do
                     return $
                         ReverseProxy.WPRProxyDest
                         $ ProxyDest "127.0.0.1" appPort)
+#if MIN_VERSION_http_reverse_proxy(0, 6, 0)
                 defaultWaiProxySettings
+#else
+                def
+#endif
                     { wpsOnExc = \e req f -> onExc e req >>= f
                     , wpsTimeout =
                         if proxyTimeout opts == 0
