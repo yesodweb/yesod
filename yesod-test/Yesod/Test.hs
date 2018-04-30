@@ -34,6 +34,7 @@ module Yesod.Test
       yesodSpec
     , YesodSpec
     , yesodSpecWithSiteGenerator
+    , yesodSpecWithSiteGeneratorAndArgument
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
@@ -274,12 +275,23 @@ yesodSpecWithSiteGenerator :: YesodDispatch site
                            => IO site
                            -> YesodSpec site
                            -> Hspec.Spec
-yesodSpecWithSiteGenerator getSiteAction yspecs =
+yesodSpecWithSiteGenerator getSiteAction =
+    yesodSpecWithSiteGeneratorAndArgument (const getSiteAction)
+
+-- | Same as yesodSpecWithSiteGenerator, but also takes an argument to build the site
+-- and makes that argument available to the tests.
+--
+-- @since 1.6.4
+yesodSpecWithSiteGeneratorAndArgument :: YesodDispatch site
+                           => (a -> IO site)
+                           -> YesodSpec site
+                           -> Hspec.SpecWith a
+yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
     Hspec.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
     where
       unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
-      unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ do
-        site <- getSiteAction'
+      unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ \a -> do
+        site <- getSiteAction' a
         app <- toWaiAppPlain site
         evalSIO y YesodExampleData
             { yedApp = app
