@@ -254,7 +254,7 @@ import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import           Conduit ((.|), runConduit, foldC)
+import           Conduit ((.|), runConduit, sinkLazy)
 import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
@@ -1392,7 +1392,7 @@ fileSource = transPipe liftResourceT . fileSourceRaw
 --
 -- @since 1.6.5
 fileSourceByteString :: MonadResource m => FileInfo -> m S.ByteString
-fileSourceByteString fileInfo = runConduit $ fileSource fileInfo .| foldC
+fileSourceByteString fileInfo = runConduit (L.toStrict <$> (fileSource fileInfo .| sinkLazy))
 
 -- | Provide a pure value for the response body.
 --
