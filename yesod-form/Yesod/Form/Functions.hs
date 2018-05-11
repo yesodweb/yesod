@@ -620,6 +620,8 @@ convertField to from (Field fParse fView fEnctype) = let
   in Field fParse' fView' fEnctype
 
 -- | Removes a CSS class from the 'fsAttrs' in a 'FieldSettings'.
+--
+-- @since 1.6.2
 removeClass :: Text -- ^ The class to remove
             -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
             -> [(Text, Text)]
@@ -628,6 +630,8 @@ removeClass klass (("class", old):rest) = ("class"::Text, T.replace klass " " ol
 removeClass klass (other         :rest) = other : removeClass klass rest
 
 -- | Adds a CSS class to the 'fsAttrs' in a 'FieldSettings'.
+--
+-- @since 1.6.2
 addClass :: Text -- ^ The class to add
          -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
          -> [(Text, Text)]
