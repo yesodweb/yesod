@@ -1,7 +1,7 @@
 ## 1.6.2
 
-* Move `addClass` from private/undocumented in `Yesod.Form.Bootstrap3` to `Yesod.Form.Functions`
-* Add `Yesod.Form.Functions.removeClass`
+* Move `addClass` from private/undocumented in `Yesod.Form.Bootstrap3` to `Yesod.Form.Functions` [#1510](https://github.com/yesodweb/yesod/pull/1510)
+* Add `Yesod.Form.Functions.removeClass` [#1510](https://github.com/yesodweb/yesod/pull/1510)
 
 ## 1.6.1
 
