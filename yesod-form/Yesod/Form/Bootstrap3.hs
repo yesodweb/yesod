@@ -33,9 +33,6 @@ import Control.Monad (liftM)
 import Data.Text (Text)
 import Data.String (IsString(..))
 import Yesod.Core
-
-import qualified Data.Text as T
-
 import Yesod.Form.Types
 import Yesod.Form.Functions
 
@@ -80,12 +77,6 @@ withLargeInput fs = fs { fsAttrs = newAttrs }
 withSmallInput :: FieldSettings site -> FieldSettings site
 withSmallInput fs = fs { fsAttrs = newAttrs }
     where newAttrs = addClass "input-sm" (fsAttrs fs)
-
-
-addClass :: Text -> [(Text, Text)] -> [(Text, Text)]
-addClass klass []                    = [("class", klass)]
-addClass klass (("class", old):rest) = ("class", T.concat [old, " ", klass]) : rest
-addClass klass (other         :rest) = other : addClass klass rest
 
 
 -- | How many bootstrap grid columns should be taken (see
