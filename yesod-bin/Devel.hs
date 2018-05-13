@@ -28,7 +28,11 @@ import           Data.String                           (fromString)
 import           Data.Time                             (getCurrentTime)
 import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
+#if MIN_VERSION_Cabal(2, 2, 0)
+import qualified Distribution.PackageDescription.Parsec as D
+#else
 import qualified Distribution.PackageDescription.Parse as D
+#endif
 import qualified Distribution.Simple.Utils             as D
 import qualified Distribution.Verbosity                as D
 import           Network.HTTP.Client                   (newManager)

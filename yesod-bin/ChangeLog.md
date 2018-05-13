@@ -1,3 +1,7 @@
+## 1.6.0.3
+
+* Support Cabal 2.2 [#1151](https://github.com/yesodweb/yesod/issues/1511)
+
 ## 1.6.0.2
 
 * Fix broken support for older http-reverse-proxy

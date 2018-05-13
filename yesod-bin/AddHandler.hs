@@ -9,7 +9,9 @@ import Data.List  (isPrefixOf, isSuffixOf, stripPrefix)
 import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-#if MIN_VERSION_Cabal(2, 0, 0)
+#if MIN_VERSION_Cabal(2, 2, 0)
+import Distribution.PackageDescription.Parsec (readGenericPackageDescription)
+#elif MIN_VERSION_Cabal(2, 0, 0)
 import Distribution.PackageDescription.Parse (readGenericPackageDescription)
 #else
 import Distribution.PackageDescription.Parse (readPackageDescription)
