@@ -621,6 +621,12 @@ convertField to from (Field fParse fView fEnctype) = let
 
 -- | Removes a CSS class from the 'fsAttrs' in a 'FieldSettings'.
 --
+-- ==== __Examples__
+--
+-- > removeFormControl :: FieldSettings site -> FieldSettings site
+-- > removeFormControl fs = fs { fsAttrs = newAttrs }
+-- >   where newAttrs = removeClass "form-control" (fsAttrs fs)
+--
 -- @since 1.6.2
 removeClass :: Text -- ^ The class to remove
             -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
@@ -630,6 +636,12 @@ removeClass klass (("class", old):rest) = ("class"::Text, T.replace klass " " ol
 removeClass klass (other         :rest) = other : removeClass klass rest
 
 -- | Adds a CSS class to the 'fsAttrs' in a 'FieldSettings'.
+--
+-- ==== __Examples__
+--
+-- > withLargeInput :: FieldSettings site -> FieldSettings site
+-- > withLargeInput fs = fs { fsAttrs = newAttrs }
+-- >    where newAttrs = addClass "input-lg" (fsAttrs fs)
 --
 -- @since 1.6.2
 addClass :: Text -- ^ The class to add
