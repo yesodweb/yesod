@@ -623,9 +623,8 @@ convertField to from (Field fParse fView fEnctype) = let
 --
 -- ==== __Examples__
 --
--- > removeFormControl :: FieldSettings site -> FieldSettings site
--- > removeFormControl fs = fs { fsAttrs = newAttrs }
--- >   where newAttrs = removeClass "form-control" (fsAttrs fs)
+-- >>> removeClass "form-control" [("class","form-control login-form"),("id","home-login")]
+-- [("class","  login-form"),("id","home-login")]
 --
 -- @since 1.6.2
 removeClass :: Text -- ^ The class to remove
@@ -639,9 +638,8 @@ removeClass klass (other         :rest) = other : removeClass klass rest
 --
 -- ==== __Examples__
 --
--- > withLargeInput :: FieldSettings site -> FieldSettings site
--- > withLargeInput fs = fs { fsAttrs = newAttrs }
--- >    where newAttrs = addClass "input-lg" (fsAttrs fs)
+-- >>> addClass "login-form" [("class", "form-control"), ("id", "home-login")]
+-- [("class","form-control login-form"),("id","home-login")]
 --
 -- @since 1.6.2
 addClass :: Text -- ^ The class to add
