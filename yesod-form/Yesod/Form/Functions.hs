@@ -631,7 +631,7 @@ removeClass :: Text -- ^ The class to remove
             -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
             -> [(Text, Text)]
 removeClass _     []                    = []
-removeClass klass (("class", old):rest) = ("class"::Text, T.replace klass " " old) : rest
+removeClass klass (("class", old):rest) = ("class", T.replace klass " " old) : rest
 removeClass klass (other         :rest) = other : removeClass klass rest
 
 -- | Adds a CSS class to the 'fsAttrs' in a 'FieldSettings'.
@@ -645,6 +645,6 @@ removeClass klass (other         :rest) = other : removeClass klass rest
 addClass :: Text -- ^ The class to add
          -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
          -> [(Text, Text)]
-addClass klass []                    = [("class"::Text, klass)]
+addClass klass []                    = [("class", klass)]
 addClass klass (("class", old):rest) = ("class", T.concat [old, " ", klass]) : rest
 addClass klass (other         :rest) = other : addClass klass rest
