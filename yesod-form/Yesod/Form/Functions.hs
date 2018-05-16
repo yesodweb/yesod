@@ -51,10 +51,13 @@ module Yesod.Form.Functions
     , parseHelper
     , parseHelperGen
     , convertField
+    , addClass
+    , removeClass
     ) where
 
 import Yesod.Form.Types
 import Data.Text (Text, pack)
+import qualified Data.Text as T
 import Control.Arrow (second)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local, mapRWST)
@@ -615,3 +618,33 @@ convertField to from (Field fParse fView fEnctype) = let
   fParse' ts = fmap (fmap (fmap to)) . fParse ts
   fView' ti tn at ei = fView ti tn at (fmap from ei)
   in Field fParse' fView' fEnctype
+
+-- | Removes a CSS class from the 'fsAttrs' in a 'FieldSettings'.
+--
+-- ==== __Examples__
+--
+-- >>> removeClass "form-control" [("class","form-control login-form"),("id","home-login")]
+-- [("class","  login-form"),("id","home-login")]
+--
+-- @since 1.6.2
+removeClass :: Text -- ^ The class to remove
+            -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
+            -> [(Text, Text)]
+removeClass _     []                    = []
+removeClass klass (("class", old):rest) = ("class", T.replace klass " " old) : rest
+removeClass klass (other         :rest) = other : removeClass klass rest
+
+-- | Adds a CSS class to the 'fsAttrs' in a 'FieldSettings'.
+--
+-- ==== __Examples__
+--
+-- >>> addClass "login-form" [("class", "form-control"), ("id", "home-login")]
+-- [("class","form-control login-form"),("id","home-login")]
+--
+-- @since 1.6.2
+addClass :: Text -- ^ The class to add
+         -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
+         -> [(Text, Text)]
+addClass klass []                    = [("class", klass)]
+addClass klass (("class", old):rest) = ("class", T.concat [old, " ", klass]) : rest
+addClass klass (other         :rest) = other : addClass klass rest
