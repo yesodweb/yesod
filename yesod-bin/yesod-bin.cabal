@@ -45,7 +45,7 @@ executable             yesod
                      , unordered-containers
                      , yaml               >= 0.8          && < 0.9
                      , optparse-applicative >= 0.11
-                     , fsnotify           >= 0.0          && < 0.3
+                     , fsnotify           >= 0.0          && < 0.4
                      , split              >= 0.2          && < 0.3
                      , file-embed
                      , conduit            >= 1.3
