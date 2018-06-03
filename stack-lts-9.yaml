@@ -22,6 +22,7 @@ extra-deps:
 - monad-logger-0.3.28.5@rev:0
 - mono-traversable-1.0.8.1@rev:0
 - persistent-2.8.2@rev:0
+- persistent-sqlite-2.8.1.2@rev:0
 - project-template-0.2.0.1@rev:0
 - resourcet-1.2.1@rev:0
 - streaming-commons-0.2.0.0@rev:0
