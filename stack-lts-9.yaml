@@ -1,0 +1,32 @@
+resolver: lts-9.21
+packages:
+- ./yesod-core
+- ./yesod-static
+- ./yesod-persistent
+- ./yesod-newsfeed
+- ./yesod-form
+- ./yesod-auth
+- ./yesod-auth-oauth
+- ./yesod-sitemap
+- ./yesod-test
+- ./yesod-bin
+- ./yesod
+- ./yesod-eventsource
+- ./yesod-websockets
+extra-deps:
+- conduit-1.3.0.2@rev:0
+- conduit-extra-1.3.0@rev:0
+- html-conduit-1.3.0@rev:0
+- http-client-0.5.12.1@rev:0
+- http-conduit-2.3.1@rev:0
+- monad-logger-0.3.28.5@rev:0
+- mono-traversable-1.0.8.1@rev:0
+- persistent-2.8.2@rev:0
+- project-template-0.2.0.1@rev:0
+- resourcet-1.2.1@rev:0
+- streaming-commons-0.2.0.0@rev:0
+- typed-process-0.2.2.0@rev:0
+- wai-extra-3.0.22.1@rev:0
+- wai-logger-2.3.2@rev:0
+- xml-conduit-1.8.0@rev:0
+- yaml-0.8.30@rev:0

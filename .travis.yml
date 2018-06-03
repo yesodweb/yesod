@@ -57,15 +57,11 @@ matrix:
     compiler: ": #stack default"
     addons: {apt: {packages: [libgmp-dev]}}
 
-  - env: BUILD=stack ARGS="--resolver lts-7"
-    compiler: ": #stack 8.0.1"
-    addons: {apt: {packages: [libgmp-dev]}}
-
-  - env: BUILD=stack ARGS="--resolver lts-9"
+  - env: BUILD=stack ARGS="--stack-yaml stack-lts-9.yaml --resolver lts-9"
     compiler: ": #stack 8.0.2"
     addons: {apt: {packages: [libgmp-dev]}}
 
-  - env: BUILD=stack ARGS="--resolver lts-11"
+  - env: BUILD=stack ARGS="--stack-yaml stack-lts-11.yaml --resolver lts-11"
     compiler: ": #stack 8.2.2"
     addons: {apt: {packages: [libgmp-dev]}}
 
@@ -79,16 +75,11 @@ matrix:
     compiler: ": #stack default osx"
     os: osx
 
-  # malformed mach-o: load commands size (34184) > 32768)
-  #- env: BUILD=stack ARGS="--resolver lts-7"
-  #  compiler: ": #stack 8.0.1 osx"
-  #  os: osx
-
-  - env: BUILD=stack ARGS="--resolver lts-9"
+  - env: BUILD=stack ARGS="--stack-yaml stack-lts-9.yaml --resolver lts-9"
     compiler: ": #stack 8.0.2 osx"
     os: osx
 
-  - env: BUILD=stack ARGS="--resolver lts-11"
+  - env: BUILD=stack ARGS="--stack-yaml stack-lts-11.yaml --resolver lts-11"
     compiler: ": #stack 8.2.2 osx"
     os: osx
 
