@@ -106,6 +106,8 @@ import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput,
 
 import Yesod.Persist.Core
 
+import Data.String (IsString)
+
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
 #endif
@@ -217,7 +219,7 @@ $newline never
 -- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
 -- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON)
+    deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON, IsString)
 instance PersistFieldSql Textarea where
     sqlType _ = SqlString
 instance ToHtml Textarea where
