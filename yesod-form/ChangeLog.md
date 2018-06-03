@@ -1,3 +1,7 @@
+## 1.6.3
+
+* Changed `Textarea` to derive `IsString` [#1514](https://github.com/yesodweb/yesod/pull/1514)
+
 ## 1.6.2
 
 * Move `addClass` from private/undocumented in `Yesod.Form.Bootstrap3` to `Yesod.Form.Functions` [#1510](https://github.com/yesodweb/yesod/pull/1510)
