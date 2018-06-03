@@ -28,6 +28,8 @@ extra-deps:
 - resourcet-1.2.1@rev:0
 - streaming-commons-0.2.0.0@rev:0
 - typed-process-0.2.2.0@rev:0
+- unliftio-0.2.7.0@rev:0
+- unliftio-core-0.1.1.0@rev:0
 - wai-extra-3.0.22.1@rev:0
 - wai-logger-2.3.2@rev:0
 - warp-3.2.22@rev:0
