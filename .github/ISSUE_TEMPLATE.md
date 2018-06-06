@@ -15,7 +15,7 @@ command -v sw_vers && sw_vers # OS X only
 command -v uname && uname -a # Kernel version
 command -v stack && stack --version
 command -v stack && stack ghc -- --version
-command -v stack && stack list-dependencies
+command -v stack && stack ls dependencies
 command -v yesod && yesod version
 ```
 
