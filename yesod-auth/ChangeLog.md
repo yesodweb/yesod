@@ -1,3 +1,7 @@
+## 1.6.4
+
+* Make `registerHelper` configurable [#1524](https://github.com/yesodweb/yesod/issues/1524)
+
 ## 1.6.3
 
 * Generalize GoogleEmail2.getPerson [#1501](https://github.com/yesodweb/yesod/pull/1501)
