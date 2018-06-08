@@ -615,6 +615,7 @@ defaultErrorHandler NotFound = selectRep $ do
         let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
         defaultMessageWidget "Not Found" [hamlet|<p>#{path'}|]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
+    provideRep $ return $ ("Not Found" :: Text)
 
 -- For API requests.
 -- For a user with a browser,
@@ -638,6 +639,7 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
         let apair u = ["authentication_url" .= rend u]
             content = maybe [] apair (authRoute site)
         return $ object $ ("message" .= ("Not logged in"::Text)):content
+    provideRep $ return $ ("Not logged in" :: Text)
 
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ defaultMessageWidget
@@ -645,6 +647,7 @@ defaultErrorHandler (PermissionDenied msg) = selectRep $ do
         [hamlet|<p>#{msg}|]
     provideRep $
         return $ object ["message" .= ("Permission Denied. " <> msg)]
+    provideRep $ return $ "Permission Denied. " <> msg
 
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ defaultMessageWidget
@@ -655,6 +658,8 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
                     <li>#{msg}
         |]
     provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
+    provideRep $ return $ ("Invalid Arguments: " <> T.intercalate " " ia)
+
 defaultErrorHandler (InternalError e) = do
     $logErrorS "yesod-core" e
     selectRep $ do
@@ -662,11 +667,14 @@ defaultErrorHandler (InternalError e) = do
             "Internal Server Error"
             [hamlet|<pre>#{e}|]
         provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
+        provideRep $ return $ "Internal Server Error: " <> e
+
 defaultErrorHandler (BadMethod m) = selectRep $ do
     provideRep $ defaultLayout $ defaultMessageWidget
         "Method Not Supported"
         [hamlet|<p>Method <code>#{S8.unpack m}</code> not supported|]
     provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
+    provideRep $ return $ "Bad Method " <> TE.decodeUtf8With TEE.lenientDecode m
 
 asyncHelper :: (url -> [x] -> Text)
          -> [Script url]

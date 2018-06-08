@@ -1,3 +1,7 @@
+## 1.6.6
+
+* `defaultErrorHandler` handles text/plain requests [#1522](https://github.com/yesodweb/yesod/pull/1520)
+
 ## 1.6.5
 
 * Add `fileSourceByteString` [#1503](https://github.com/yesodweb/yesod/pull/1503)
