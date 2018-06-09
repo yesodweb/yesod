@@ -25,50 +25,41 @@ executable             yesod
         ld-options:      -Wl,-zwxneeded
 
     build-depends:     base               >= 4.3          && < 5
-                     , parsec             >= 2.1          && < 4
-                     , text               >= 0.11
-                     , shakespeare        >= 2.0
-                     , bytestring         >= 0.9.1.4
-                     , time               >= 1.1.4
-                     , template-haskell
-                     , directory          >= 1.2.1
                      , Cabal              >= 1.18
-                     , unix-compat        >= 0.2
-                     , containers         >= 0.2
-                     , attoparsec         >= 0.10
-                     , http-types         >= 0.7
-                     , blaze-builder      >= 0.2.1.4      && < 0.5
-                     , filepath           >= 1.1
-                     , process
-                     , zlib               >= 0.5
-                     , tar                >= 0.4          && < 0.6
-                     , unordered-containers
-                     , yaml               >= 0.8          && < 0.9
-                     , optparse-applicative >= 0.11
-                     , fsnotify           >= 0.0          && < 0.4
-                     , split              >= 0.2          && < 0.3
-                     , file-embed
+                     , bytestring         >= 0.9.1.4
                      , conduit            >= 1.3
                      , conduit-extra      >= 1.3
-                     , resourcet          >= 1.2
-                     , base64-bytestring
-                     , http-reverse-proxy >= 0.4
-                     , network            >= 2.5
-                     , http-client-tls
+                     , containers         >= 0.2
+                     , data-default-class
+                     , directory          >= 1.2.1
+                     , file-embed
+                     , filepath           >= 1.1
+                     , fsnotify           >= 0.0          && < 0.4
                      , http-client        >= 0.4.7
+                     , http-client-tls
+                     , http-reverse-proxy >= 0.4
+                     , http-types         >= 0.7
+                     , network            >= 2.5
+                     , optparse-applicative >= 0.11
+                     , process
                      , project-template   >= 0.1.1
-                     , unliftio
                      , say
+                     , split              >= 0.2          && < 0.3
                      , stm
+                     , streaming-commons
+                     , tar                >= 0.4          && < 0.6
+                     , text               >= 0.11
+                     , time               >= 1.1.4
                      , transformers
                      , transformers-compat
-                     , warp               >= 1.3.7.5
+                     , unliftio
+                     , unordered-containers
                      , wai                >= 2.0
                      , wai-extra
-                     , data-default-class
-                     , streaming-commons
+                     , warp               >= 1.3.7.5
                      , warp-tls           >= 3.0.1
-                     , unliftio
+                     , yaml               >= 0.8          && < 0.9
+                     , zlib               >= 0.5
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs

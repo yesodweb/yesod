@@ -22,48 +22,45 @@ extra-source-files:
 
 library
     build-depends:   base                  >= 4.9      && < 5
-                   , time                  >= 1.5
-                   , wai                   >= 3.0
-                   , wai-extra             >= 3.0.7
-                   , bytestring            >= 0.10.2
-                   , text                  >= 0.7
-                   , template-haskell
-                   , path-pieces           >= 0.1.2    && < 0.3
-                   , shakespeare           >= 2.0
-                   , transformers          >= 0.4
-                   , mtl
-                   , clientsession         >= 0.9.1    && < 0.10
-                   , random                >= 1.0.0.2  && < 1.2
-                   , cereal                >= 0.3
-                   , old-locale            >= 1.0.0.2  && < 1.1
-                   , containers            >= 0.2
-                   , unordered-containers  >= 0.2
-                   , cookie                >= 0.4.3    && < 0.5
-                   , http-types            >= 0.7
-                   , case-insensitive      >= 0.2
-                   , parsec                >= 2        && < 3.2
-                   , directory             >= 1
-                   , vector                >= 0.9      && < 0.13
                    , aeson                 >= 1.0
-                   , fast-logger           >= 2.2
-                   , wai-logger            >= 0.2
-                   , monad-logger          >= 0.3.10   && < 0.4
-                   , conduit               >= 1.3
-                   , resourcet             >= 1.2
+                   , auto-update
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.7.1
-                   , safe
-                   , warp                  >= 3.0.2
-                   , unix-compat
+                   , byteable
+                   , bytestring            >= 0.10.2
+                   , case-insensitive      >= 0.2
+                   , cereal                >= 0.3
+                   , clientsession         >= 0.9.1    && < 0.10
+                   , conduit               >= 1.3
                    , conduit-extra
+                   , containers            >= 0.2
+                   , cookie                >= 0.4.3    && < 0.5
                    , deepseq               >= 1.3
                    , deepseq-generics
-                   , primitive
-                   , word8
-                   , auto-update
+                   , fast-logger           >= 2.2
+                   , http-types            >= 0.7
+                   , monad-logger          >= 0.3.10   && < 0.4
+                   , mtl
+                   , parsec                >= 2        && < 3.2
+                   , path-pieces           >= 0.1.2    && < 0.3
+                   , random                >= 1.0.0.2  && < 1.2
+                   , resourcet             >= 1.2
+                   , safe
                    , semigroups
-                   , byteable
+                   , shakespeare           >= 2.0
+                   , template-haskell
+                   , text                  >= 0.7
+                   , time                  >= 1.5
+                   , transformers          >= 0.4
+                   , unix-compat
                    , unliftio
+                   , unordered-containers  >= 0.2
+                   , vector                >= 0.9      && < 0.13
+                   , wai                   >= 3.0
+                   , wai-extra             >= 3.0.7
+                   , wai-logger            >= 0.2
+                   , warp                  >= 3.0.2
+                   , word8
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
@@ -173,30 +170,28 @@ test-suite tests
                    YesodCoreTest.YesodTest
 
     cpp-options:   -DTEST
-    build-depends: base
-                  ,hspec >= 1.3
-                  ,hspec-expectations
-                  ,clientsession
-                  ,wai >= 3.0
-                  ,yesod-core
-                  ,bytestring
-                  ,text
-                  ,http-types
-                  , random
-                  ,HUnit
-                  ,QuickCheck >= 2 && < 3
-                  ,transformers
-                  , conduit
-                  , containers
-                  , resourcet
-                  , network
+    build-depends:  base
                   , async
+                  , bytestring
+                  , clientsession
+                  , conduit
                   , conduit-extra
+                  , containers
+                  , cookie >= 0.4.1    && < 0.5
+                  , hspec >= 1.3
+                  , hspec-expectations
+                  , http-types
+                  , network
+                  , random
+                  , resourcet
                   , shakespeare
                   , streaming-commons
-                  , wai-extra
-                  , cookie >= 0.4.1    && < 0.5
+                  , text
+                  , transformers
                   , unliftio
+                  , wai >= 3.0
+                  , wai-extra
+                  , yesod-core
     ghc-options:     -Wall
     extensions: TemplateHaskell
 
@@ -204,13 +199,11 @@ benchmark widgets
     type: exitcode-stdio-1.0
     hs-source-dirs: bench
     build-depends:  base
-                  , gauge
-                  , bytestring
-                  , text
-                  , transformers
-                  , yesod-core
                   , blaze-html
+                  , bytestring
+                  , gauge
                   , shakespeare
+                  , text
     main-is:        widget.hs
     ghc-options:    -Wall -O2
 

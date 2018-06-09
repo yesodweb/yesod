@@ -18,31 +18,27 @@ library
         cpp-options: -DWINDOWS
 
     build-depends:   base                      >= 4.6      && < 5
-                   , yesod-core                >= 1.6      && < 1.7
-                   , yesod-persistent          >= 1.6      && < 1.7
-                   , yesod-form                >= 1.6      && < 1.7
-                   , transformers              >= 0.2.2
-                   , wai                       >= 1.3
-                   , wai-extra                 >= 1.3
-                   , warp                      >= 1.3
-                   , blaze-html                >= 0.5
-                   , blaze-markup              >= 0.5.1
                    , aeson
-                   , data-default-class
-                   , unordered-containers
-                   , yaml                      >= 0.8.17
-                   , text
-                   , directory
-                   , template-haskell
                    , bytestring
-                   , monad-logger
-                   , fast-logger
                    , conduit                   >= 1.3
-                   , resourcet
+                   , data-default-class
+                   , directory
+                   , fast-logger
+                   , monad-logger
+                   , semigroups
                    , shakespeare
                    , streaming-commons
+                   , template-haskell
+                   , text
+                   , unordered-containers
+                   , wai                       >= 1.3
+                   , wai-extra                 >= 1.3
                    , wai-logger
-                   , semigroups
+                   , warp                      >= 1.3
+                   , yaml                      >= 0.8.17
+                   , yesod-core                >= 1.6      && < 1.7
+                   , yesod-form                >= 1.6      && < 1.7
+                   , yesod-persistent          >= 1.6      && < 1.7
 
     exposed-modules: Yesod
                    , Yesod.Default.Config

@@ -15,13 +15,12 @@ extra-source-files: README.md ChangeLog.md
 
 library
     build-depends:   base                  >= 4        && < 5
-                   , yesod-core            == 1.6.*
-                   , conduit               >= 1.3
-                   , wai                   >= 1.3
-                   , wai-eventsource       >= 1.3
-                   , wai-extra
                    , blaze-builder
+                   , conduit               >= 1.3
                    , transformers
+                   , wai                   >= 1.3
+                   , wai-extra
+                   , yesod-core            == 1.6.*
     exposed-modules: Yesod.EventSource
     ghc-options:     -Wall
 
