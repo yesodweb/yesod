@@ -19,16 +19,15 @@ library
                    , base                      >= 4.3      && < 5
                    , blaze-builder
                    , blaze-html                >= 0.5
-                   , blaze-markup              >= 0.5.1
                    , bytestring                >= 0.9
                    , case-insensitive          >= 0.2
+                   , conduit
                    , containers
                    , cookie
                    , hspec-core                == 2.*
                    , html-conduit              >= 0.1
                    , http-types                >= 0.7
                    , network                   >= 2.2
-                   , persistent                >= 1.0
                    , pretty-show               >= 1.6
                    , semigroups
                    , text
@@ -39,7 +38,6 @@ library
                    , xml-conduit               >= 1.0
                    , xml-types                 >= 0.3
                    , yesod-core                >= 1.6
-                   , conduit
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery

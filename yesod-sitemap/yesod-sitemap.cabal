@@ -15,14 +15,13 @@ extra-source-files: README.md ChangeLog.md
 
 library
     build-depends:   base                      >= 4        && < 5
-                   , yesod-core                >= 1.6      && < 1.7
+                   , conduit
+                   , data-default
+                   , text
                    , time                      >= 1.1.4
                    , xml-conduit               >= 1.0
-                   , text
-                   , containers
-                   , data-default
-                   , conduit
                    , xml-types
+                   , yesod-core                >= 1.6      && < 1.7
     exposed-modules: Yesod.Sitemap
     ghc-options:     -Wall
 

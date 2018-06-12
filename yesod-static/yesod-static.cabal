@@ -27,39 +27,34 @@ extra-source-files:
 
 library
     build-depends:   base                  >= 4        && < 5
-                   , containers            >= 0.2
-                   , old-time              >= 1.0
-                   , yesod-core            >= 1.6      && < 1.7
-                   , base64-bytestring     >= 0.1.0.1
-                   , byteable              >= 0.1
-                   , bytestring            >= 0.9.1.4
-                   , template-haskell
-                   , directory             >= 1.0
-                   , transformers          >= 0.2.2
-                   , wai-app-static        >= 3.1
-                   , wai                   >= 1.3
-                   , text                  >= 0.9
-                   , file-embed            >= 0.0.4.1  && < 0.5
-                   , http-types            >= 0.7
-                   , unix-compat           >= 0.2
-                   , conduit               >= 1.3
-                   , cryptonite-conduit    >= 0.1
-                   , cryptonite            >= 0.11
-                   , memory
-                   , data-default
-                   , mime-types            >= 0.1
-                   , hjsmin
-                   , filepath              >= 1.3
-                   , resourcet             >= 0.4
-                   , unordered-containers  >= 0.2
-                   , process
                    , async
-
                    , attoparsec            >= 0.10
+                   , base64-bytestring     >= 0.1.0.1
                    , blaze-builder         >= 0.3
+                   , bytestring            >= 0.9.1.4
+                   , conduit               >= 1.3
+                   , containers            >= 0.2
+                   , cryptonite            >= 0.11
+                   , cryptonite-conduit    >= 0.1
                    , css-text              >= 0.1.2
+                   , data-default
+                   , directory             >= 1.0
+                   , file-embed            >= 0.0.4.1  && < 0.5
+                   , filepath              >= 1.3
                    , hashable              >= 1.1
-                   , exceptions
+                   , hjsmin
+                   , http-types            >= 0.7
+                   , memory
+                   , mime-types            >= 0.1
+                   , process
+                   , template-haskell
+                   , text                  >= 0.9
+                   , transformers          >= 0.2.2
+                   , unix-compat           >= 0.2
+                   , unordered-containers  >= 0.2
+                   , wai                   >= 1.3
+                   , wai-app-static        >= 3.1
+                   , yesod-core            >= 1.6      && < 1.7
 
     exposed-modules: Yesod.Static
                      Yesod.EmbeddedStatic
@@ -96,34 +91,30 @@ test-suite tests
                    , HUnit
 
                    -- copy from above
-                   , containers
-                   , old-time
-                   , yesod-core
+                   , async
                    , base64-bytestring
                    , bytestring
-                   , byteable
-                   , template-haskell
-                   , directory
-                   , transformers
-                   , wai-app-static
-                   , wai
-                   , text
-                   , file-embed
-                   , http-types
-                   , unix-compat
                    , conduit
-                   , cryptonite-conduit
+                   , containers
                    , cryptonite
-                   , memory
+                   , cryptonite-conduit
                    , data-default
-                   , mime-types
-                   , hjsmin
+                   , directory
+                   , file-embed
                    , filepath
-                   , resourcet
-                   , unordered-containers
-                   , async
+                   , hjsmin
+                   , http-types
+                   , memory
+                   , mime-types
                    , process
-                   , exceptions
+                   , template-haskell
+                   , text
+                   , transformers
+                   , unix-compat
+                   , unordered-containers
+                   , wai
+                   , wai-app-static
+                   , yesod-core
 
     ghc-options:     -Wall -threaded
     extensions: TemplateHaskell

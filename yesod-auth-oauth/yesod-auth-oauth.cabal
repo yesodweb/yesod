@@ -23,12 +23,11 @@ library
         build-depends:   base                >= 4         && < 4.3
     build-depends:   authenticate-oauth      >= 1.5       && < 1.7
                    , bytestring              >= 0.9.1.4
-                   , yesod-core              >= 1.6       && < 1.7
-                   , yesod-auth              >= 1.6       && < 1.7
                    , text                    >= 0.7
-                   , yesod-form              >= 1.6       && < 1.7
-                   , transformers            >= 0.2.2     && < 0.6
                    , unliftio
+                   , yesod-auth              >= 1.6       && < 1.7
+                   , yesod-core              >= 1.6       && < 1.7
+                   , yesod-form              >= 1.6       && < 1.7
     exposed-modules: Yesod.Auth.OAuth
     ghc-options:     -Wall
 
