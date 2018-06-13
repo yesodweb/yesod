@@ -1,3 +1,7 @@
+## 1.6.4
+
+* Add support for persistent 2.9 [#1516](https://github.com/yesodweb/yesod/pull/1516)
+
 ## 1.6.3
 
 * Generalize GoogleEmail2.getPerson [#1501](https://github.com/yesodweb/yesod/pull/1501)
