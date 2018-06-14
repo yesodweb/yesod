@@ -138,6 +138,7 @@ import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TErr
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Test.HUnit as HUnit
 import qualified Network.HTTP.Types as H
@@ -153,7 +154,7 @@ import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
 import qualified Data.Text.Lazy as TL
-import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
+import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8, decodeUtf8With)
 import Text.XML.Cursor hiding (element)
 import qualified Text.XML.Cursor as C
 import qualified Text.HTML.DOM as HD
@@ -439,9 +440,14 @@ assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
 -- | Assert the last response is exactly equal to the given text. This is
 -- useful for testing API responses.
 bodyEquals :: HasCallStack => String -> YesodExample site ()
-bodyEquals text = withResponse $ \ res ->
-  liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
-    (simpleBody res) == encodeUtf8 (TL.pack text)
+bodyEquals text = withResponse $ \ res -> do
+  let actual = simpleBody res
+      msg    = concat [ "Expected body to equal:\n\t"
+                      , text ++ "\n"
+                      , "Actual is:\n\t"
+                      , TL.unpack $ decodeUtf8With TErr.lenientDecode actual
+                      ]
+  liftIO $ HUnit.assertBool msg $ actual == encodeUtf8 (TL.pack text)
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
