@@ -1,3 +1,7 @@
+## 1.6.5
+bodyEquals prints out actual body in addition to expected body in failure msg
+[#1525](https://github.com/yesodweb/yesod/pull/1525)
+
 ## 1.6.4
 Add yesodSpecWithSiteGeneratorAndArgument
 [#1485](https://github.com/yesodweb/yesod/pull/1485)
