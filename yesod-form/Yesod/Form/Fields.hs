@@ -42,6 +42,7 @@ module Yesod.Form.Fields
     , fileAFormOpt
       -- * Options
       -- $optionsOverview
+    , selectFieldHelper
     , selectField
     , selectFieldList
     , radioField
@@ -729,11 +730,15 @@ optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
         , optionExternalValue = toPathPiece key
         }) pairs
 
+-- |
+-- A helper function for constucting 'selectField's. You may want to use this when you define your custom 'selectField's or 'radioField's.
+--
+-- Since 1.6.4
 selectFieldHelper
         :: (Eq a, RenderMessage site FormMessage)
-        => (Text -> Text -> [(Text, Text)] -> WidgetFor site () -> WidgetFor site ())
-        -> (Text -> Text -> Bool -> WidgetFor site ())
-        -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> WidgetFor site ())
+        => (Text -> Text -> [(Text, Text)] -> WidgetFor site () -> WidgetFor site ()) -- ^ Outermost part of the field
+        -> (Text -> Text -> Bool -> WidgetFor site ()) -- ^ An option for None if the field is optional
+        -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> WidgetFor site ()) -- ^ Other options
         -> HandlerFor site (OptionList a)
         -> Field (HandlerFor site) a
 selectFieldHelper outside onOpt inside opts' = Field
