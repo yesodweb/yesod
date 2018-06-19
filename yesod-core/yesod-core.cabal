@@ -191,8 +191,9 @@ test-suite tests
                   , unliftio
                   , wai >= 3.0
                   , wai-extra
+                  , warp
                   , yesod-core
-    ghc-options:     -Wall
+    ghc-options:     -Wall -threaded
     extensions: TemplateHaskell
 
 benchmark widgets
