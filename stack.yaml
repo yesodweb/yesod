@@ -13,5 +13,3 @@ packages:
 - ./yesod
 - ./yesod-eventsource
 - ./yesod-websockets
-extra-deps:
-- network-2.6.3.3
