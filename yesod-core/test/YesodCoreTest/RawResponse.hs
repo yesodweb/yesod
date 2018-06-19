@@ -13,15 +13,13 @@ import qualified Data.ByteString.Char8 as S8
 import Data.Conduit
 import qualified Data.Conduit.Binary as CB
 import Data.Char (toUpper)
-import Control.Exception (try, IOException)
 import Data.Conduit.Network
-import Network.Socket (close)
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (withAsync)
+import Control.Concurrent.Async (race)
 import Control.Monad.Trans.Resource (register)
 import Data.IORef
-import Data.Streaming.Network (bindPortTCP)
 import Network.HTTP.Types (status200)
+import Network.Wai.Handler.Warp (testWithApplication)
 
 mkYesod "App" [parseRoutes|
 / HomeR GET
@@ -56,53 +54,38 @@ getWaiAppStreamR = sendWaiApplication $ \_ f -> f $ responseStream status200 [] 
     flush
     send " world"
 
-getFreePort :: IO Int
-getFreePort = do
-    loop 43124
-  where
-    loop port = do
-        esocket <- try $ bindPortTCP port "*"
-        case esocket of
-            Left (_ :: IOException) -> loop (succ port)
-            Right socket -> do
-                close socket
-                return port
+allowFiveSeconds :: IO a -> IO a
+allowFiveSeconds = fmap (either id id) . race (threadDelay 5000000 >> error "timed out")
 
 specs :: Spec
 specs = do
     describe "RawResponse" $ do
-        it "works" $ do
-            port <- getFreePort
-            withAsync (warp port App) $ \_ -> do
-                threadDelay 100000
-                runTCPClient (clientSettings port "127.0.0.1") $ \ad -> do
-                    runConduit $ yield "GET / HTTP/1.1\r\n\r\nhello" .| appSink ad
-                    runConduit (appSource ad .| CB.take 6) >>= (`shouldBe` "0HELLO")
-                    runConduit $ yield "WORLd" .| appSink ad
-                    runConduit (appSource ad .| await) >>= (`shouldBe` Just "WORLD")
+        it "works" $ allowFiveSeconds $ testWithApplication (toWaiApp App) $ \port -> do
+            runTCPClient (clientSettings port "127.0.0.1") $ \ad -> do
+                runConduit $ yield "GET / HTTP/1.1\r\n\r\nhello" .| appSink ad
+                runConduit (appSource ad .| CB.take 6) >>= (`shouldBe` "0HELLO")
+                runConduit $ yield "WORLd" .| appSink ad
+                runConduit (appSource ad .| await) >>= (`shouldBe` Just "WORLD")
 
-    let body req = do
-            port <- getFreePort
-            withAsync (warp port App) $ \_ -> do
-                threadDelay 100000
-                runTCPClient (clientSettings port "127.0.0.1") $ \ad -> do
-                    runConduit $ yield req .| appSink ad
-                    runConduit $ appSource ad .| CB.lines .| do
-                        let loop = do
-                                x <- await
-                                case x of
-                                    Nothing -> return ()
-                                    Just "\r" -> return ()
-                                    _ -> loop
-                        loop
+    let body req = allowFiveSeconds $ testWithApplication (toWaiApp App) $ \port -> do
+            runTCPClient (clientSettings port "127.0.0.1") $ \ad -> do
+                runConduit $ yield req .| appSink ad
+                runConduit $ appSource ad .| CB.lines .| do
+                    let loop = do
+                            x <- await
+                            case x of
+                                Nothing -> return ()
+                                Just "\r" -> return ()
+                                _ -> loop
+                    loop
 
-                        Just "0005\r" <- await
-                        Just "hello\r" <- await
+                    Just "0005\r" <- await
+                    Just "hello\r" <- await
 
-                        Just "0006\r" <- await
-                        Just " world\r" <- await
+                    Just "0006\r" <- await
+                    Just " world\r" <- await
 
-                        return ()
+                    return ()
     it "sendWaiResponse + responseStream" $ do
         body "GET /wai-stream HTTP/1.1\r\n\r\n"
     it "sendWaiApplication + responseStream" $ do

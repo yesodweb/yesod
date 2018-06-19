@@ -16,7 +16,12 @@ import qualified YesodCoreTest.Redirect as Redirect
 import qualified YesodCoreTest.JsLoader as JsLoader
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
+
+-- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
+#if !WINDOWS
 import qualified YesodCoreTest.RawResponse as RawResponse
+#endif
+
 import qualified YesodCoreTest.Streaming as Streaming
 import qualified YesodCoreTest.Reps as Reps
 import qualified YesodCoreTest.Auth as Auth
@@ -43,7 +48,9 @@ specs = do
       JsLoader.specs
       RequestBodySize.specs
       Json.specs
+#if !WINDOWS
       RawResponse.specs
+#endif
       Streaming.specs
       Reps.specs
       Auth.specs
