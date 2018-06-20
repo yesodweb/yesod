@@ -1,3 +1,9 @@
+## 1.6.7
+
+* If no matches are found, `selectRep` chooses first representation regardless
+    of the presence or absence of a `Content-Type` header in the request
+    [#1540](https://github.com/yesodweb/yesod/pull/1540)
+
 ## 1.6.6
 
 * `defaultErrorHandler` handles text/plain requests [#1522](https://github.com/yesodweb/yesod/pull/1520)

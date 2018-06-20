@@ -85,7 +85,6 @@ specs = do
     test "text/html" "HTML"
     test specialHtml "HTMLSPECIAL"
     testRequest 200 (acceptRequest "application/json") { pathInfo = ["json"] } "{\"message\":\"Invalid Login\"}"
-    testRequest 406 (acceptRequest "text/foo") "no match found for accept header"
     test "text/*" "HTML"
     test "*/*" "HTML"
   describe "routeAttrs" $ do
