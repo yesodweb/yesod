@@ -1,3 +1,7 @@
+## 1.6.4
+
+* Expose `selectFieldHelper` [#1530](https://github.com/yesodweb/yesod/pull/1530)
+
 ## 1.6.3
 
 * Changed `Textarea` to derive `IsString` [#1514](https://github.com/yesodweb/yesod/pull/1514)
