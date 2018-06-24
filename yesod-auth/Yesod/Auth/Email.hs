@@ -299,6 +299,14 @@ class ( YesodAuth site
       where
         msg = Msg.ConfirmationEmailSent identifier
 
+    -- | If a response is set, it will be used when an already-verified email
+    -- tries to re-register. Otherwise, `confirmationEmailSentResponse` will be
+    -- used.
+    --
+    -- @since 1.6.4
+    emailPreviouslyRegisteredResponse :: MonadAuthHandler site m => Text -> Maybe (m TypedContent)
+    emailPreviouslyRegisteredResponse _ = Nothing
+
     -- | Additional normalization of email addresses, besides standard canonicalization.
     --
     -- Default: Lower case the email address.
@@ -508,26 +516,31 @@ registerHelper allowUsername dest = do
             mecreds <- getEmailCreds identifier
             registerCreds <-
                 case mecreds of
-                    Just (EmailCreds lid _ _ (Just key) email) -> return $ Just (lid, key, email)
-                    Just (EmailCreds lid _ _ Nothing email) -> do
+                    Just (EmailCreds lid _ verStatus (Just key) email) -> return $ Just (lid, verStatus, key, email)
+                    Just (EmailCreds lid _ verStatus Nothing email) -> do
                         key <- liftIO $ randomKey y
                         setVerifyKey lid key
-                        return $ Just (lid, key, email)
+                        return $ Just (lid, verStatus, key, email)
                     Nothing
                         | allowUsername -> return Nothing
                         | otherwise -> do
                             key <- liftIO $ randomKey y
                             lid <- addUnverified identifier key
-                            return $ Just (lid, key, identifier)
-
+                            return $ Just (lid, False, key, identifier)
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
-                Just (lid, verKey, email) -> do
-                    render <- getUrlRender
-                    tp <- getRouteToParent
-                    let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey
-                    sendVerifyEmail email verKey verUrl
-                    confirmationEmailSentResponse identifier
+                Just creds@(_, False, _, _) -> sendConfirmationEmail creds
+                Just creds@(_, True, _, _) -> do
+                  case emailPreviouslyRegisteredResponse identifier of
+                    Just response -> response
+                    Nothing -> sendConfirmationEmail creds
+              where sendConfirmationEmail (lid, _, verKey, email) = do
+                      render <- getUrlRender
+                      tp <- getRouteToParent
+                      let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey
+                      sendVerifyEmail email verKey verUrl
+                      confirmationEmailSentResponse identifier
+
 
 postRegisterR :: YesodAuthEmail master => AuthHandler master TypedContent
 postRegisterR = registerHelper False registerR
