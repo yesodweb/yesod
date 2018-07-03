@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
@@ -45,8 +44,4 @@ mkParseRouteInstance cxt typ ress = do
     fixDispatch x = x
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
-#if MIN_VERSION_template_haskell(2,11,0)
 instanceD = InstanceD Nothing
-#else
-instanceD = InstanceD
-#endif

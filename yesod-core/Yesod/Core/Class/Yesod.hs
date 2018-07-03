@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE CPP               #-}
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -14,9 +13,6 @@ import           Data.ByteString.Builder            (Builder)
 import           Data.Text.Encoding                 (encodeUtf8Builder)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative                ((<$>))
-#endif
 import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),

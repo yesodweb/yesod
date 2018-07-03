@@ -3,7 +3,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Core.Internal.TH where
 
@@ -17,9 +16,6 @@ import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>))
-#endif
 import Control.Monad (replicateM, void)
 import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
@@ -126,11 +122,7 @@ mkYesodGeneral :: [[String]]                -- ^ Appliction context. Used in Ren
                -> Q([Dec],[Dec])
 mkYesodGeneral appCxt' namestr mtys isSub f resS = do
     let appCxt = fmap (\(c:rest) -> 
-#if MIN_VERSION_template_haskell(2,10,0)
             foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
-#else
-            ClassP (mkName c) $ fmap nameToType rest
-#endif
           ) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of
@@ -140,13 +132,8 @@ mkYesodGeneral appCxt' namestr mtys isSub f resS = do
                    case info of
                      TyConI dec ->
                        case dec of
-#if MIN_VERSION_template_haskell(2,11,0)
                          DataD _ _ vs _ _ _ -> length vs
                          NewtypeD _ _ vs _ _ _ -> length vs
-#else
-                         DataD _ _ vs _ _ -> length vs
-                         NewtypeD _ _ vs _ _ -> length vs
-#endif
                          TySynD _ vs _ -> length vs
                          _ -> 0
                      _ -> 0
@@ -230,8 +217,4 @@ mkYesodSubDispatch res = do
     return $ LetE [fun] (VarE helper)
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
-#if MIN_VERSION_template_haskell(2,11,0)
 instanceD = InstanceD Nothing
-#else
-instanceD = InstanceD
-#endif

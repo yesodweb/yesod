@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -195,10 +194,6 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
 
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative           ((<$>))
-import           Data.Monoid                   (mempty, mappend)
-#endif
 import           Control.Applicative           ((<|>))
 import qualified Data.CaseInsensitive          as CI
 import           Control.Exception             (evaluate, SomeException, throwIO)

@@ -4,7 +4,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 module Yesod.Core.Content
     ( -- * Content
       Content (..)
@@ -56,9 +55,6 @@ import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8Builder)
 import qualified Data.Text.Lazy as TL
 import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
-#if __GLASGOW_HASKELL__ < 710
-import Data.Monoid (mempty)
-#endif
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)

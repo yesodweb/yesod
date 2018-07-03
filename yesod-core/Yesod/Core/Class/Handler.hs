@@ -16,9 +16,6 @@ import Yesod.Core.Types
 import Control.Monad.Logger (MonadLogger)
 import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans.Class (lift)
-#if __GLASGOW_HASKELL__ < 710
-import Data.Monoid (Monoid)
-#endif
 import Data.Conduit.Internal (Pipe, ConduitM)
 
 import Control.Monad.Trans.Identity ( IdentityT)

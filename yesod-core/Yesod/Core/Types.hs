@@ -11,11 +11,6 @@
 module Yesod.Core.Types where
 
 import qualified Data.ByteString.Builder            as BB
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative                (Applicative (..))
-import           Control.Applicative                ((<$>))
-import           Data.Monoid                        (Monoid (..))
-#endif
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (ap)

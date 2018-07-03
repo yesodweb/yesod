@@ -48,7 +48,7 @@ library
                    , safe
                    , semigroups
                    , shakespeare           >= 2.0
-                   , template-haskell
+                   , template-haskell      >= 2.11
                    , text                  >= 0.7
                    , time                  >= 1.5
                    , transformers          >= 0.4
@@ -56,7 +56,7 @@ library
                    , unliftio
                    , unordered-containers  >= 0.2
                    , vector                >= 0.9      && < 0.13
-                   , wai                   >= 3.0
+                   , wai                   >= 3.2
                    , wai-extra             >= 3.0.7
                    , wai-logger            >= 0.2
                    , warp                  >= 3.0.2

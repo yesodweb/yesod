@@ -7,22 +7,14 @@ module Yesod.Routes.TH.RenderRoute
     ) where
 
 import Yesod.Routes.TH.Types
-#if MIN_VERSION_template_haskell(2,11,0)
 import Language.Haskell.TH (conT)
-#endif
 import Language.Haskell.TH.Syntax
-#if MIN_VERSION_template_haskell(2,11,0)
 import Data.Bits (xor)
-#endif
 import Data.Maybe (maybeToList)
 import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>))
-import Data.Monoid (mconcat)
-#endif
 
 -- | Generate the constructors of a route data type.
 mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
@@ -50,10 +42,8 @@ mkRouteCons rttypes =
         (cons, decs) <- mkRouteCons children
 #if MIN_VERSION_template_haskell(2,12,0)
         dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT [''Show, ''Read, ''Eq])
-#elif MIN_VERSION_template_haskell(2,11,0)
-        dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Read, ''Eq]
 #else
-        let dec = DataD [] (mkName name) [] cons [''Show, ''Read, ''Eq]
+        dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Read, ''Eq]
 #endif
         return ([con], dec : decs)
       where
@@ -154,12 +144,9 @@ mkRenderRouteInstance cxt typ ress = do
 #if MIN_VERSION_template_haskell(2,12,0)
     did <- DataInstD [] ''Route [typ] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
     let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
-#elif MIN_VERSION_template_haskell(2,11,0)
+#else
     did <- DataInstD [] ''Route [typ] Nothing cons <$> mapM conT (clazzes False)
     let sds = fmap (\t -> StandaloneDerivD cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
-#else
-    let did = DataInstD [] ''Route [typ] cons clazzes'
-    let sds = []
 #endif
     return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
         [ did
@@ -167,25 +154,14 @@ mkRenderRouteInstance cxt typ ress = do
         ]
         : sds ++ decs
   where
-#if MIN_VERSION_template_haskell(2,11,0)
     clazzes standalone = if standalone `xor` null cxt then
           clazzes'
         else
           []
-#endif
     clazzes' = [''Show, ''Eq, ''Read]
 
-#if MIN_VERSION_template_haskell(2,11,0)
 notStrict :: Bang
 notStrict = Bang NoSourceUnpackedness NoSourceStrictness
-#else
-notStrict :: Strict
-notStrict = NotStrict
-#endif
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
-#if MIN_VERSION_template_haskell(2,11,0)
 instanceD = InstanceD Nothing
-#else
-instanceD = InstanceD
-#endif

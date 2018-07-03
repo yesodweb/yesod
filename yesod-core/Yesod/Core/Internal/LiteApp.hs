@@ -1,9 +1,6 @@
 {-# LANGUAGE TypeFamilies, PatternGuards, CPP #-}
 module Yesod.Core.Internal.LiteApp where
 
-#if __GLASGOW_HASKELL__ < 710
-import Data.Monoid
-#endif
 #if !(MIN_VERSION_base(4,11,0))
 import Data.Semigroup (Semigroup(..))
 #endif
