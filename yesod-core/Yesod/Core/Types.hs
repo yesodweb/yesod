@@ -52,7 +52,6 @@ import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
 import Control.DeepSeq (NFData (rnf))
-import Control.DeepSeq.Generics (genericRnf)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
@@ -318,8 +317,7 @@ data ErrorResponse =
     | PermissionDenied !Text
     | BadMethod !H.Method
     deriving (Show, Eq, Typeable, Generic)
-instance NFData ErrorResponse where
-    rnf = genericRnf
+instance NFData ErrorResponse
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.

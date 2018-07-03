@@ -36,7 +36,6 @@ library
                    , containers            >= 0.2
                    , cookie                >= 0.4.3    && < 0.5
                    , deepseq               >= 1.3
-                   , deepseq-generics
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
                    , monad-logger          >= 0.3.10   && < 0.4
@@ -45,8 +44,7 @@ library
                    , path-pieces           >= 0.1.2    && < 0.3
                    , random                >= 1.0.0.2  && < 1.2
                    , resourcet             >= 1.2
-                   , safe
-                   , semigroups
+                   , rio
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11
                    , text                  >= 0.7

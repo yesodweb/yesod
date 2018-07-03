@@ -57,7 +57,7 @@ import Yesod.Core.Types
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
-import Safe (readMay)
+import Text.Read (readMaybe)
 import System.Environment (getEnvironment)
 import qualified System.Random as Random
 import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
@@ -239,7 +239,7 @@ warpEnv site = do
     case lookup "PORT" env of
         Nothing -> error "warpEnv: no PORT environment variable found"
         Just portS ->
-            case readMay portS of
+            case readMaybe portS of
                 Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS
                 Just port -> warp port site
 
