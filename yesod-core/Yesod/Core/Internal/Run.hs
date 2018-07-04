@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -9,10 +8,6 @@
 module Yesod.Core.Internal.Run where
 
 
-#if __GLASGOW_HASKELL__ < 710
-import           Data.Monoid                  (Monoid, mempty)
-import           Control.Applicative          ((<$>))
-#endif
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
 import qualified Data.ByteString.Lazy         as BL
@@ -287,10 +282,8 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           , requestHeaderRange = Nothing
-#if MIN_VERSION_wai(3,2,0)
           , requestHeaderReferer = Nothing
           , requestHeaderUserAgent = Nothing
-#endif
           }
       fakeRequest =
         YesodRequest

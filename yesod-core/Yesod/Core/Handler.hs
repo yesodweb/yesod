@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -195,10 +194,6 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
 
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative           ((<$>))
-import           Data.Monoid                   (mempty, mappend)
-#endif
 import           Control.Applicative           ((<|>))
 import qualified Data.CaseInsensitive          as CI
 import           Control.Exception             (evaluate, SomeException, throwIO)
@@ -249,7 +244,6 @@ import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 import           Data.ByteString.Builder (Builder)
-import           Safe (headMay)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
@@ -606,7 +600,7 @@ setMessageI = addMessageI ""
 -- | Gets just the last message in the user's session,
 -- discards the rest and the status
 getMessage :: MonadHandler m => m (Maybe Html)
-getMessage = fmap (fmap snd . headMay) getMessages
+getMessage = fmap (fmap snd . listToMaybe) getMessages
 
 -- | Bypass remaining handler code and output the given file.
 --
@@ -1322,7 +1316,7 @@ selectRep w = do
     tryAccept ct =
         if subType == "*"
           then if mainType == "*"
-                 then headMay reps
+                 then listToMaybe reps
                  else Map.lookup mainType mainTypeMap
           else lookupAccept ct
         where

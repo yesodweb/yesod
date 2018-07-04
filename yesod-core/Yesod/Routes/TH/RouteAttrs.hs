@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
 module Yesod.Routes.TH.RouteAttrs
@@ -10,9 +9,6 @@ import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import Data.Set (fromList)
 import Data.Text (pack)
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>))
-#endif
 
 mkRouteAttrsInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
 mkRouteAttrsInstance cxt typ ress = do
@@ -42,8 +38,4 @@ goRes front Resource {..} =
     toText s = VarE 'pack `AppE` LitE (StringL s)
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
-#if MIN_VERSION_template_haskell(2,11,0)
 instanceD = InstanceD Nothing
-#else
-instanceD = InstanceD
-#endif
