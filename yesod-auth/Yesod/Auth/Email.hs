@@ -44,7 +44,10 @@
 -- @
 --       Endpoint: \/auth\/page\/email\/register
 --       Method: POST
---       JSON Data: { "email": "myemail@domain.com" }
+--       JSON Data: {
+--                      "email": "myemail@domain.com",
+--                      "password": "myStrongPassword" (optional)
+--                  }
 -- @
 -- 
 --     * Forgot password
@@ -187,6 +190,14 @@ class ( YesodAuth site
     --
     -- @since 1.1.0
     addUnverified :: Email -> VerKey -> AuthHandler site (AuthEmailId site)
+
+    -- | Similar to `addUnverified`, but comes with the registered password
+    -- the default implementation is just `addUnverified`, which ignores the password
+    -- you may override this to save the salted password to your database
+    --
+    -- @since 1.6.5
+    addUnverifiedWithPass :: Email -> VerKey -> SaltedPass -> AuthHandler site (AuthEmailId site)
+    addUnverifiedWithPass email verkey _ = addUnverified email verkey
 
     -- | Send an email to the given address to verify ownership.
     --
@@ -483,33 +494,44 @@ defaultRegisterHandler = do
 
             return (userRes, widget)
 
-parseEmail :: Value -> Parser Text
-parseEmail = withObject "email" (\obj -> do
-                                   email' <- obj .: "email"
-                                   return email')
+parseRegister :: Value -> Parser (Text, Maybe Text)
+parseRegister = withObject "email" (\obj -> do
+                                      email <- obj .: "email"
+                                      pass <- obj .:? "password"
+                                      return (email, pass))
 
 registerHelper :: YesodAuthEmail master
                => Bool -- ^ allow usernames?
+               -> Bool -- ^ allow password?
                -> Route Auth
                -> AuthHandler master TypedContent
-registerHelper allowUsername dest = do
+registerHelper allowUsername allowPassword dest = do
     y <- getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
-    pidentifier <- lookupPostParam "email"
-    midentifier <- case pidentifier of
-                     Nothing -> do
-                       (jidentifier :: Result Value) <- parseCheckJsonBody
-                       case jidentifier of
-                         Error _ -> return Nothing
-                         Success val -> return $ parseMaybe parseEmail val
-                     Just _ -> return pidentifier
-    let eidentifier = case midentifier of
+    result <- runInputPostResult $ (,)
+        <$> ireq textField "email"
+        <*> iopt textField "password"
+
+    creds <- case result of
+                 FormSuccess (iden, pass) -> return $ Just (iden, pass)
+                 _ -> do
+                     (creds :: Result Value) <- parseCheckJsonBody
+                     return $ case creds of
+                                  Error _ -> Nothing
+                                  Success val -> parseMaybe parseRegister val
+
+    let eidentifier = case creds of
                           Nothing -> Left Msg.NoIdentifierProvided
-                          Just x
+                          Just (x, _)
                               | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
                                          Right $ normalizeEmailAddress y $ decodeUtf8With lenientDecode x'
                               | allowUsername -> Right $ TS.strip x
                               | otherwise -> Left Msg.InvalidEmailAddress
+
+    let mpass = case (allowPassword, creds) of
+                    (True, Just (_, mp)) -> mp
+                    _ -> Nothing
+
     case eidentifier of
       Left route -> loginErrorMessageI dest route
       Right identifier -> do
@@ -525,7 +547,11 @@ registerHelper allowUsername dest = do
                         | allowUsername -> return Nothing
                         | otherwise -> do
                             key <- liftIO $ randomKey y
-                            lid <- addUnverified identifier key
+                            lid <- case mpass of
+                                Just pass -> do
+                                    salted <- hashAndSaltPassword pass
+                                    addUnverifiedWithPass identifier key salted
+                                _ -> addUnverified identifier key
                             return $ Just (lid, False, key, identifier)
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
@@ -543,7 +569,7 @@ registerHelper allowUsername dest = do
 
 
 postRegisterR :: YesodAuthEmail master => AuthHandler master TypedContent
-postRegisterR = registerHelper False registerR
+postRegisterR = registerHelper False True registerR
 
 getForgotPasswordR :: YesodAuthEmail master => AuthHandler master Html
 getForgotPasswordR = forgotPasswordHandler
@@ -587,7 +613,7 @@ defaultForgotPasswordHandler = do
         }
 
 postForgotPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
-postForgotPasswordR = registerHelper True forgotPasswordR
+postForgotPasswordR = registerHelper True False forgotPasswordR
 
 getVerifyR :: YesodAuthEmail site
            => AuthEmailId site
