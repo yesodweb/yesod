@@ -144,11 +144,15 @@ registerR = PluginR "email" ["register"]
 forgotPasswordR = PluginR "email" ["forgot-password"]
 setpassR = PluginR "email" ["set-password"]
 
+verifyURLHasSetPassText :: Text
+verifyURLHasSetPassText = "has-set-pass"
+
 -- |
 --
 -- @since 1.4.5
-verifyR :: Text -> Text -> AuthRoute -- FIXME
-verifyR eid verkey = PluginR "email" ["verify", eid, verkey]
+verifyR :: Text -> Text -> Bool -> AuthRoute -- FIXME
+verifyR eid verkey hasSetPass = PluginR "email" path
+    where path = "verify":eid:verkey:(if hasSetPass then [verifyURLHasSetPassText] else [])
 
 type Email = Text
 type VerKey = Text
@@ -273,6 +277,12 @@ class ( YesodAuth site
     -- @since 1.2.0
     afterPasswordRoute :: site -> Route site
 
+    -- | Route to send user to after verification with a password
+    --
+    -- @since 1.6.5
+    afterVerificationWithPass :: site -> Route site
+    afterVerificationWithPass = afterPasswordRoute
+
     -- | Does the user need to provide the current password in order to set a
     -- new password?
     --
@@ -384,7 +394,11 @@ authEmail =
     dispatch "GET" ["verify", eid, verkey] =
         case fromPathPiece eid of
             Nothing -> notFound
-            Just eid' -> getVerifyR eid' verkey >>= sendResponse
+            Just eid' -> getVerifyR eid' verkey False >>= sendResponse
+    dispatch "GET" ["verify", eid, verkey, hasSetPass] =
+        case fromPathPiece eid of
+            Nothing -> notFound
+            Just eid' -> getVerifyR eid' verkey (hasSetPass == verifyURLHasSetPassText) >>= sendResponse
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
     dispatch "GET" ["set-password"] = getPasswordR >>= sendResponse
     dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
@@ -563,7 +577,7 @@ registerHelper allowUsername allowPassword dest = do
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
-                      let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey
+                      let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey (isJust mpass)
                       sendVerifyEmail email verKey verUrl
                       confirmationEmailSentResponse identifier
 
@@ -618,8 +632,9 @@ postForgotPasswordR = registerHelper True False forgotPasswordR
 getVerifyR :: YesodAuthEmail site
            => AuthEmailId site
            -> Text
+           -> Bool
            -> AuthHandler site TypedContent
-getVerifyR lid key = do
+getVerifyR lid key hasSetPass = do
     realKey <- getVerifyKey lid
     memail <- getEmail lid
     mr <- getMessageRender
@@ -635,8 +650,14 @@ getVerifyR lid key = do
                     selectRep $ do
                       provideRep $ do
                         addMessageI "success" msgAv
-                        tp <- getRouteToParent
-                        fmap asHtml $ redirect $ tp setpassR
+                        redirectRoute <- if hasSetPass
+                            then do
+                              y <- getYesod
+                              return $ afterVerificationWithPass y
+                            else do
+                              tp <- getRouteToParent
+                              return $ tp setpassR
+                        fmap asHtml $ redirect redirectRoute
                       provideJsonMessage $ mr msgAv
         _ -> invalidKey mr
   where
