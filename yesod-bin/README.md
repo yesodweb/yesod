@@ -103,7 +103,7 @@ to jump through the hoops implied above.
 
 One important note: I highly recommend putting _all_ of the logic in
 your library, and then providing a `develMain :: IO ()` function which
-yoru `app/devel.hs` script reexports as `main`. I've found this to
+your `app/devel.hs` script reexports as `main`. I've found this to
 greatly simplify things overall, since you can ensure all of your
 dependencies are specified correctly in your `.cabal` file. Also, I
 recommend using `PackageImports` in that file, as the example app
