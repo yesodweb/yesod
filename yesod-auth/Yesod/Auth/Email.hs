@@ -199,7 +199,7 @@ class ( YesodAuth site
     -- the default implementation is just `addUnverified`, which ignores the password
     -- you may override this to save the salted password to your database
     --
-    -- @since 1.6.5
+    -- @since 1.6.4
     addUnverifiedWithPass :: Email -> VerKey -> SaltedPass -> AuthHandler site (AuthEmailId site)
     addUnverifiedWithPass email verkey _ = addUnverified email verkey
 
@@ -279,7 +279,7 @@ class ( YesodAuth site
 
     -- | Route to send user to after verification with a password
     --
-    -- @since 1.6.5
+    -- @since 1.6.4
     afterVerificationWithPass :: site -> Route site
     afterVerificationWithPass = afterPasswordRoute
 

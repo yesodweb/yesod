@@ -1,5 +1,8 @@
-## 1.6.5
+# ChangeLog for yesod-auth
 
+## 1.6.4
+
+* Make `registerHelper` configurable [#1524](https://github.com/yesodweb/yesod/issues/1524)
 * Email: Immediately register with a password [#1389](https://github.com/yesodweb/yesod/issues/1389)
 To configure this new functionality:
   1. Define `addUnverifiedWithPass`, e.g:
@@ -13,10 +16,6 @@ To configure this new functionality:
     return email
   ```
   2. Add a `password` field to your client forms.
-
-## 1.6.4
-
-* Make `registerHelper` configurable [#1524](https://github.com/yesodweb/yesod/issues/1524)
 
 ## 1.6.3
 
