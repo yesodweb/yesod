@@ -733,7 +733,7 @@ optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
 -- |
 -- A helper function for constucting 'selectField's. You may want to use this when you define your custom 'selectField's or 'radioField's.
 --
--- Since 1.6.4
+-- @since 1.6.2
 selectFieldHelper
         :: (Eq a, RenderMessage site FormMessage)
         => (Text -> Text -> [(Text, Text)] -> WidgetFor site () -> WidgetFor site ()) -- ^ Outermost part of the field

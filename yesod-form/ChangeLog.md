@@ -1,15 +1,11 @@
-## 1.6.4
-
-* Expose `selectFieldHelper` [#1530](https://github.com/yesodweb/yesod/pull/1530)
-
-## 1.6.3
-
-* Changed `Textarea` to derive `IsString` [#1514](https://github.com/yesodweb/yesod/pull/1514)
+# ChangeLog for yesod-form
 
 ## 1.6.2
 
 * Move `addClass` from private/undocumented in `Yesod.Form.Bootstrap3` to `Yesod.Form.Functions` [#1510](https://github.com/yesodweb/yesod/pull/1510)
 * Add `Yesod.Form.Functions.removeClass` [#1510](https://github.com/yesodweb/yesod/pull/1510)
+* Changed `Textarea` to derive `IsString` [#1514](https://github.com/yesodweb/yesod/pull/1514)
+* Expose `selectFieldHelper` [#1530](https://github.com/yesodweb/yesod/pull/1530)
 
 ## 1.6.1
 
