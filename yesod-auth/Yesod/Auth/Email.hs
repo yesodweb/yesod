@@ -44,7 +44,10 @@
 -- @
 --       Endpoint: \/auth\/page\/email\/register
 --       Method: POST
---       JSON Data: { "email": "myemail@domain.com" }
+--       JSON Data: {
+--                      "email": "myemail@domain.com",
+--                      "password": "myStrongPassword" (optional)
+--                  }
 -- @
 -- 
 --     * Forgot password
@@ -141,11 +144,15 @@ registerR = PluginR "email" ["register"]
 forgotPasswordR = PluginR "email" ["forgot-password"]
 setpassR = PluginR "email" ["set-password"]
 
+verifyURLHasSetPassText :: Text
+verifyURLHasSetPassText = "has-set-pass"
+
 -- |
 --
 -- @since 1.4.5
-verifyR :: Text -> Text -> AuthRoute -- FIXME
-verifyR eid verkey = PluginR "email" ["verify", eid, verkey]
+verifyR :: Text -> Text -> Bool -> AuthRoute -- FIXME
+verifyR eid verkey hasSetPass = PluginR "email" path
+    where path = "verify":eid:verkey:(if hasSetPass then [verifyURLHasSetPassText] else [])
 
 type Email = Text
 type VerKey = Text
@@ -187,6 +194,14 @@ class ( YesodAuth site
     --
     -- @since 1.1.0
     addUnverified :: Email -> VerKey -> AuthHandler site (AuthEmailId site)
+
+    -- | Similar to `addUnverified`, but comes with the registered password
+    -- the default implementation is just `addUnverified`, which ignores the password
+    -- you may override this to save the salted password to your database
+    --
+    -- @since 1.6.5
+    addUnverifiedWithPass :: Email -> VerKey -> SaltedPass -> AuthHandler site (AuthEmailId site)
+    addUnverifiedWithPass email verkey _ = addUnverified email verkey
 
     -- | Send an email to the given address to verify ownership.
     --
@@ -261,6 +276,12 @@ class ( YesodAuth site
     --
     -- @since 1.2.0
     afterPasswordRoute :: site -> Route site
+
+    -- | Route to send user to after verification with a password
+    --
+    -- @since 1.6.5
+    afterVerificationWithPass :: site -> Route site
+    afterVerificationWithPass = afterPasswordRoute
 
     -- | Does the user need to provide the current password in order to set a
     -- new password?
@@ -373,7 +394,11 @@ authEmail =
     dispatch "GET" ["verify", eid, verkey] =
         case fromPathPiece eid of
             Nothing -> notFound
-            Just eid' -> getVerifyR eid' verkey >>= sendResponse
+            Just eid' -> getVerifyR eid' verkey False >>= sendResponse
+    dispatch "GET" ["verify", eid, verkey, hasSetPass] =
+        case fromPathPiece eid of
+            Nothing -> notFound
+            Just eid' -> getVerifyR eid' verkey (hasSetPass == verifyURLHasSetPassText) >>= sendResponse
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
     dispatch "GET" ["set-password"] = getPasswordR >>= sendResponse
     dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
@@ -483,33 +508,44 @@ defaultRegisterHandler = do
 
             return (userRes, widget)
 
-parseEmail :: Value -> Parser Text
-parseEmail = withObject "email" (\obj -> do
-                                   email' <- obj .: "email"
-                                   return email')
+parseRegister :: Value -> Parser (Text, Maybe Text)
+parseRegister = withObject "email" (\obj -> do
+                                      email <- obj .: "email"
+                                      pass <- obj .:? "password"
+                                      return (email, pass))
 
 registerHelper :: YesodAuthEmail master
                => Bool -- ^ allow usernames?
+               -> Bool -- ^ allow password?
                -> Route Auth
                -> AuthHandler master TypedContent
-registerHelper allowUsername dest = do
+registerHelper allowUsername allowPassword dest = do
     y <- getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
-    pidentifier <- lookupPostParam "email"
-    midentifier <- case pidentifier of
-                     Nothing -> do
-                       (jidentifier :: Result Value) <- parseCheckJsonBody
-                       case jidentifier of
-                         Error _ -> return Nothing
-                         Success val -> return $ parseMaybe parseEmail val
-                     Just _ -> return pidentifier
-    let eidentifier = case midentifier of
+    result <- runInputPostResult $ (,)
+        <$> ireq textField "email"
+        <*> iopt textField "password"
+
+    creds <- case result of
+                 FormSuccess (iden, pass) -> return $ Just (iden, pass)
+                 _ -> do
+                     (creds :: Result Value) <- parseCheckJsonBody
+                     return $ case creds of
+                                  Error _ -> Nothing
+                                  Success val -> parseMaybe parseRegister val
+
+    let eidentifier = case creds of
                           Nothing -> Left Msg.NoIdentifierProvided
-                          Just x
+                          Just (x, _)
                               | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
                                          Right $ normalizeEmailAddress y $ decodeUtf8With lenientDecode x'
                               | allowUsername -> Right $ TS.strip x
                               | otherwise -> Left Msg.InvalidEmailAddress
+
+    let mpass = case (allowPassword, creds) of
+                    (True, Just (_, mp)) -> mp
+                    _ -> Nothing
+
     case eidentifier of
       Left route -> loginErrorMessageI dest route
       Right identifier -> do
@@ -525,7 +561,11 @@ registerHelper allowUsername dest = do
                         | allowUsername -> return Nothing
                         | otherwise -> do
                             key <- liftIO $ randomKey y
-                            lid <- addUnverified identifier key
+                            lid <- case mpass of
+                                Just pass -> do
+                                    salted <- hashAndSaltPassword pass
+                                    addUnverifiedWithPass identifier key salted
+                                _ -> addUnverified identifier key
                             return $ Just (lid, False, key, identifier)
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
@@ -537,13 +577,13 @@ registerHelper allowUsername dest = do
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
-                      let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey
+                      let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey (isJust mpass)
                       sendVerifyEmail email verKey verUrl
                       confirmationEmailSentResponse identifier
 
 
 postRegisterR :: YesodAuthEmail master => AuthHandler master TypedContent
-postRegisterR = registerHelper False registerR
+postRegisterR = registerHelper False True registerR
 
 getForgotPasswordR :: YesodAuthEmail master => AuthHandler master Html
 getForgotPasswordR = forgotPasswordHandler
@@ -587,13 +627,14 @@ defaultForgotPasswordHandler = do
         }
 
 postForgotPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
-postForgotPasswordR = registerHelper True forgotPasswordR
+postForgotPasswordR = registerHelper True False forgotPasswordR
 
 getVerifyR :: YesodAuthEmail site
            => AuthEmailId site
            -> Text
+           -> Bool
            -> AuthHandler site TypedContent
-getVerifyR lid key = do
+getVerifyR lid key hasSetPass = do
     realKey <- getVerifyKey lid
     memail <- getEmail lid
     mr <- getMessageRender
@@ -609,8 +650,14 @@ getVerifyR lid key = do
                     selectRep $ do
                       provideRep $ do
                         addMessageI "success" msgAv
-                        tp <- getRouteToParent
-                        fmap asHtml $ redirect $ tp setpassR
+                        redirectRoute <- if hasSetPass
+                            then do
+                              y <- getYesod
+                              return $ afterVerificationWithPass y
+                            else do
+                              tp <- getRouteToParent
+                              return $ tp setpassR
+                        fmap asHtml $ redirect redirectRoute
                       provideJsonMessage $ mr msgAv
         _ -> invalidKey mr
   where

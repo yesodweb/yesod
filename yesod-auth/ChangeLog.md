@@ -1,3 +1,19 @@
+## 1.6.5
+
+* Email: Immediately register with a password [#1389](https://github.com/yesodweb/yesod/issues/1389)
+To configure this new functionality:
+  1. Define `addUnverifiedWithPass`, e.g:
+  ```
+  addUnverified email verkey = liftHandler $ runDB $ do
+    void $ insert $ UserLogin email Nothing (Just verkey) False
+    return email
+
+  addUnverifiedWithPass email verkey pass = liftHandler $ runDB $ do
+    void $ insert $ UserLogin email (Just pass) (Just verkey) False
+    return email
+  ```
+  2. Add a `password` field to your client forms.
+
 ## 1.6.4
 
 * Make `registerHelper` configurable [#1524](https://github.com/yesodweb/yesod/issues/1524)
