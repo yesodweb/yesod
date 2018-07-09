@@ -195,9 +195,11 @@ class ( YesodAuth site
     -- @since 1.1.0
     addUnverified :: Email -> VerKey -> AuthHandler site (AuthEmailId site)
 
-    -- | Similar to `addUnverified`, but comes with the registered password
-    -- the default implementation is just `addUnverified`, which ignores the password
-    -- you may override this to save the salted password to your database
+    -- | Similar to `addUnverified`, but comes with the registered password.
+    --
+    -- The default implementation is just `addUnverified`, which ignores the password.
+    --
+    -- You may override this to save the salted password to your database.
     --
     -- @since 1.6.4
     addUnverifiedWithPass :: Email -> VerKey -> SaltedPass -> AuthHandler site (AuthEmailId site)
