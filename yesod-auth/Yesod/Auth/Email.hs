@@ -518,10 +518,10 @@ parseRegister = withObject "email" (\obj -> do
 
 registerHelper :: YesodAuthEmail master
                => Bool -- ^ allow usernames?
-               -> Bool -- ^ allow password?
+               -> Bool -- ^ forgot password?
                -> Route Auth
                -> AuthHandler master TypedContent
-registerHelper allowUsername allowPassword dest = do
+registerHelper allowUsername forgotPassword dest = do
     y <- getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
     result <- runInputPostResult $ (,)
@@ -544,8 +544,8 @@ registerHelper allowUsername allowPassword dest = do
                               | allowUsername -> Right $ TS.strip x
                               | otherwise -> Left Msg.InvalidEmailAddress
 
-    let mpass = case (allowPassword, creds) of
-                    (True, Just (_, mp)) -> mp
+    let mpass = case (forgotPassword, creds) of
+                    (False, Just (_, mp)) -> mp
                     _ -> Nothing
 
     case eidentifier of
@@ -573,9 +573,10 @@ registerHelper allowUsername allowPassword dest = do
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
                 Just creds@(_, False, _, _) -> sendConfirmationEmail creds
                 Just creds@(_, True, _, _) -> do
-                  case emailPreviouslyRegisteredResponse identifier of
-                    Just response -> response
-                    Nothing -> sendConfirmationEmail creds
+                  if forgotPassword then sendConfirmationEmail creds
+                    else case emailPreviouslyRegisteredResponse identifier of
+                      Just response -> response
+                      Nothing -> sendConfirmationEmail creds
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
@@ -585,7 +586,7 @@ registerHelper allowUsername allowPassword dest = do
 
 
 postRegisterR :: YesodAuthEmail master => AuthHandler master TypedContent
-postRegisterR = registerHelper False True registerR
+postRegisterR = registerHelper False False registerR
 
 getForgotPasswordR :: YesodAuthEmail master => AuthHandler master Html
 getForgotPasswordR = forgotPasswordHandler
@@ -629,7 +630,7 @@ defaultForgotPasswordHandler = do
         }
 
 postForgotPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
-postForgotPasswordR = registerHelper True False forgotPasswordR
+postForgotPasswordR = registerHelper True True forgotPasswordR
 
 getVerifyR :: YesodAuthEmail site
            => AuthEmailId site
