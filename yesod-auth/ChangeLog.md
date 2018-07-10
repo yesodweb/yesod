@@ -1,5 +1,8 @@
 # ChangeLog for yesod-auth
 
+## 1.6.4.1
+* Email: Fix forgot-password endpoint [#1537](https://github.com/yesodweb/yesod/pull/1537)
+
 ## 1.6.4
 
 * Make `registerHelper` configurable [#1524](https://github.com/yesodweb/yesod/issues/1524)
