@@ -1289,15 +1289,9 @@ selectRep w = do
         [] ->
             case reps of
                 [] -> sendResponseStatus H.status500 ("No reps provided to selectRep" :: Text)
-                rep:_ ->
-                  if null cts
-                    then returnRep rep
-                    else sendResponseStatus H.status406 explainUnaccepted
+                rep:_ -> returnRep rep
         rep:_ -> returnRep rep
   where
-    explainUnaccepted :: Text
-    explainUnaccepted = "no match found for accept header"
-
     returnRep (ProvidedRep ct mcontent) = fmap (TypedContent ct) mcontent
 
     reps = appEndo (Writer.execWriter w) []
