@@ -1,5 +1,10 @@
 # ChangeLog for yesod-form
 
+## Unreleased
+
+* make sure a select field does not lose the selected value even if a validation on the
+  field fails
+
 ## 1.6.2
 
 * Move `addClass` from private/undocumented in `Yesod.Form.Bootstrap3` to `Yesod.Form.Functions` [#1510](https://github.com/yesodweb/yesod/pull/1510)
