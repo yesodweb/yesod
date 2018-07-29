@@ -759,7 +759,7 @@ selectFieldHelper outside onOpt inside opts' = Field
     , fieldEnctype = UrlEncoded
     }
   where
-    render _ (Left _) = ""
+    render _ (Left x) = x
     render opts (Right a) = maybe "" optionExternalValue $ listToMaybe $ filter ((== a) . optionInternalValue) opts
     selectParser _ [] = Right Nothing
     selectParser opts (s:_) = case s of
