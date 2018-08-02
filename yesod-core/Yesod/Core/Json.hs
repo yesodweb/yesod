@@ -133,8 +133,10 @@ requireJsonBody = do
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
 
--- | Same as 'requireJsonBody', but ensures that the mime type
--- indicates JSON content.
+-- | Same as 'requireJsonBody', but ensures that the MIME type
+-- indicates JSON content. Requiring a JSON content-type helps secure your site against
+-- CSRF attacks (browsers will perform POST requests for form and text/plain content-types
+-- without doing a CORS check, and those content-types can easily contain valid JSON).
 requireCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m a
 requireCheckJsonBody = do
     ra <- parseCheckJsonBody
