@@ -337,12 +337,14 @@ defaultShouldLogIO :: LogSource -> LogLevel -> IO Bool
 defaultShouldLogIO _ level = return $ level >= LevelInfo
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
--- \"Vary: Accept, Accept-Language\" and performs authorization checks.
+-- \"Vary: Accept, Accept-Language\", \"X-XSS-Protection: 1; mode=block\", and
+-- performs authorization checks.
 --
 -- Since 1.2.0
 defaultYesodMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultYesodMiddleware handler = do
     addHeader "Vary" "Accept, Accept-Language"
+    addHeader "X-XSS-Protection" "1; mode=block"
     authorizationCheck
     handler
 

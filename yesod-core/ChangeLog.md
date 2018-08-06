@@ -1,3 +1,7 @@
+## 1.6.8
+
+* Sets the `X-XSS-Protection` header to `1; mode=block` [#1550](https://github.com/yesodweb/yesod/pull/1550)
+
 ## 1.6.7
 
 * If no matches are found, `selectRep` chooses first representation regardless

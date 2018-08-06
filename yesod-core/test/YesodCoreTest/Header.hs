@@ -69,9 +69,16 @@ header3Test = do
     assertHeader "michael" "snoyman" res
     assertHeader "yesod" "book" res
 
+xssHeaderTest :: IO ()
+xssHeaderTest = do
+  runner $ do
+    res <- request defaultRequest {pathInfo = decodePathSegments "/header1"}
+    assertHeader "X-XSS-Protection" "1; mode=block" res
+
 headerTest :: Spec
 headerTest =
   describe "Test.Header" $ do
     it "addHeader" addHeaderTest
     it "multiple header" multipleHeaderTest
     it "persist headers" header3Test
+    it "has X-XSS-Protection: 1; mode=block" xssHeaderTest
