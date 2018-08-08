@@ -1,5 +1,5 @@
 name:                yesod-websockets
-version:             0.3.0
+version:             0.3.0.1
 synopsis:            WebSockets support for Yesod
 homepage:            https://github.com/yesodweb/yesod
 license:             MIT
