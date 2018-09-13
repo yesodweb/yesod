@@ -52,7 +52,7 @@ be unique).
 'AuthId' must have an instance of 'PathPiece' class, this is needed to store
 user identifier in session (this happens in 'setCreds' and 'setCredsRedirect'
 actions) and to read that identifier from session (this happens in
-`dafaultMaybeAuthId` action).  So we have to define it:
+`defaultMaybeAuthId` action).  So we have to define it:
 
 @
 import Text.Read (readMaybe)
@@ -85,7 +85,7 @@ Here @lookupUser@ is just a helper function to lookup hardcoded users by name:
 
 @
 lookupUser :: Text -> Maybe SiteManager
-lookupUser username = find (\m -> manUserName m == username) siteManagers
+lookupUser username = find (\\m -> manUserName m == username) siteManagers
 @
 
 
@@ -113,7 +113,7 @@ instance YesodAuthHardcoded App where
 
 validPassword :: Text -> Text -> Bool
 validPassword u p =
-  case find (\m -> manUserName m == u && manPassWord m == p) siteManagers of
+  case find (\\m -> manUserName m == u && manPassWord m == p) siteManagers of
     Just _ -> True
     _      -> False
 @
