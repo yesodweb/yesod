@@ -1,5 +1,8 @@
 # ChangeLog for yesod-auth
 
+## 1.6.5
+* Do not expose AuthEmailId in verify URL [#1557](https://github.com/yesodweb/yesod/pull/1557)
+
 ## 1.6.4.1
 * Email: Fix forgot-password endpoint [#1537](https://github.com/yesodweb/yesod/pull/1537)
 
