@@ -285,7 +285,9 @@ dropBracket str@('{':x) = case break (== '}') x of
     _ -> error $ "Unclosed bracket ('{'): " ++ str
 dropBracket x = x
 
--- If this line ends with a backslash, concatenate it together with the next line.
+-- | If this line ends with a backslash, concatenate it together with the next line.
+--
+-- @since 1.6.8
 lineContinuations :: String -> [String] -> [String]
 lineContinuations this [] = [this]
 lineContinuations this below@(next:rest) = case unsnoc this of
