@@ -1,3 +1,10 @@
+# ChangeLog for yesod-core
+
+## 1.6.9
+
+* Add `PrimMonad` instances for `HandlerFor` and `WidgetFor` [from
+  StackOverflow](https://stackoverflow.com/q/52692508/369198)
+
 ## 1.6.8
 
 * Sets the `X-XSS-Protection` header to `1; mode=block` [#1550](https://github.com/yesodweb/yesod/pull/1550)

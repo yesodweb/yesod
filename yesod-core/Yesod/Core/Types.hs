@@ -17,6 +17,7 @@ import           Control.Monad                      (ap)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
+import           Control.Monad.Primitive            (PrimMonad (..))
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
@@ -417,6 +418,10 @@ instance Monad (WidgetFor site) where
         unWidgetFor (f a) wd
 instance MonadIO (WidgetFor site) where
     liftIO = WidgetFor . const
+-- | @since 1.6.9
+instance PrimMonad (WidgetFor site) where
+    type PrimState (WidgetFor site) = PrimState IO
+    primitive = liftIO . primitive
 -- | @since 1.4.38
 instance MonadUnliftIO (WidgetFor site) where
   {-# INLINE askUnliftIO #-}
@@ -448,6 +453,10 @@ instance Monad (HandlerFor site) where
     HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
 instance MonadIO (HandlerFor site) where
     liftIO = HandlerFor . const
+-- | @since 1.6.9
+instance PrimMonad (HandlerFor site) where
+    type PrimState (HandlerFor site) = PrimState IO
+    primitive = liftIO . primitive
 instance MonadReader (HandlerData site site) (HandlerFor site) where
     ask = HandlerFor return
     local f (HandlerFor g) = HandlerFor $ g . f

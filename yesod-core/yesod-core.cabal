@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.8
+version:         1.6.9
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -42,6 +42,7 @@ library
                    , mtl
                    , parsec                >= 2        && < 3.2
                    , path-pieces           >= 0.1.2    && < 0.3
+                   , primitive             >= 0.6
                    , random                >= 1.0.0.2  && < 1.2
                    , resourcet             >= 1.2
                    , rio
