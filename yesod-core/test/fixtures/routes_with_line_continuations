@@ -1,0 +1,11 @@
+-- This fixture to test line continuations is in a separate file
+-- because when I put it in an in-line quasi-quotation, the compiler
+-- performed the line continuations processing itself.
+
+/foo1 \
+    Foo1
+/foo2 Foo2
+/foo3 \
+    Foo3 \
+    GET POST \
+    !foo
