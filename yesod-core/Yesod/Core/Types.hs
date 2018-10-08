@@ -418,7 +418,7 @@ instance Monad (WidgetFor site) where
         unWidgetFor (f a) wd
 instance MonadIO (WidgetFor site) where
     liftIO = WidgetFor . const
--- | @since 1.6.9
+-- | @since 1.6.7
 instance PrimMonad (WidgetFor site) where
     type PrimState (WidgetFor site) = PrimState IO
     primitive = liftIO . primitive
@@ -453,7 +453,7 @@ instance Monad (HandlerFor site) where
     HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
 instance MonadIO (HandlerFor site) where
     liftIO = HandlerFor . const
--- | @since 1.6.9
+-- | @since 1.6.7
 instance PrimMonad (HandlerFor site) where
     type PrimState (HandlerFor site) = PrimState IO
     primitive = liftIO . primitive

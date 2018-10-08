@@ -1,19 +1,13 @@
 # ChangeLog for yesod-core
 
-## 1.6.9
-
-* Add `PrimMonad` instances for `HandlerFor` and `WidgetFor` [from
-  StackOverflow](https://stackoverflow.com/q/52692508/369198)
-
-## 1.6.8
-
-* Sets the `X-XSS-Protection` header to `1; mode=block` [#1550](https://github.com/yesodweb/yesod/pull/1550)
-
 ## 1.6.7
 
 * If no matches are found, `selectRep` chooses first representation regardless
     of the presence or absence of a `Content-Type` header in the request
     [#1540](https://github.com/yesodweb/yesod/pull/1540)
+* Sets the `X-XSS-Protection` header to `1; mode=block` [#1550](https://github.com/yesodweb/yesod/pull/1550)
+* Add `PrimMonad` instances for `HandlerFor` and `WidgetFor` [from
+  StackOverflow](https://stackoverflow.com/q/52692508/369198)
 
 ## 1.6.6
 
