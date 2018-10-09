@@ -45,6 +45,7 @@ import Data.Foldable
 --
 -- The 'Applicative' instance will concatenate the failure messages in two
 -- 'FormResult's.
+-- The `Monad` instance will stop process when `FormFailure`. @since 1.6.3
 -- The 'Alternative' instance will choose 'FormFailure' before 'FormSuccess',
 -- and 'FormMissing' last of all.
 data FormResult a = FormMissing
@@ -62,6 +63,10 @@ instance Control.Applicative.Applicative FormResult where
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
+instance Monad FormResult where
+  FormMissing >>= _ = FormMissing
+  FormFailure x >>= _ = FormFailure x
+  FormSuccess x >>= f = f x
 instance Data.Monoid.Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
