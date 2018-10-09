@@ -17,7 +17,7 @@ import Test.HUnit ((@?=))
 import Data.Text (Text, pack, unpack, singleton)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
-import Yesod.Routes.Parse (parseRoutesNoCheck, parseTypeTree, TypeTree (..))
+import Yesod.Routes.Parse (parseRoutesFile, parseRoutesNoCheck, parseTypeTree, TypeTree (..))
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
@@ -219,10 +219,16 @@ main = hspec $ do
         it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
             @?= (pack "subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
 
-    describe "parsing" $ do
+    describe "route parsing" $ do
         it "subsites work" $ do
             parseRoute ([pack "subsite", pack "foo"], [(pack "bar", pack "baz")]) @?=
                 Just (SubsiteR $ MySubRoute ([pack "foo"], [(pack "bar", pack "baz")]))
+
+    describe "routing table parsing" $ do
+        it "recognizes trailing backslashes as line continuation directives" $ do
+            let routes :: [ResourceTree String]
+                routes = $(parseRoutesFile "test/fixtures/routes_with_line_continuations")
+            length routes @?= 3
 
     describe "overlap checking" $ do
         it "catches overlapping statics" $ do

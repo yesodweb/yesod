@@ -65,7 +65,7 @@ parseRoutesNoCheck = QuasiQuoter
 -- invalid input.
 resourcesFromString :: String -> [ResourceTree String]
 resourcesFromString =
-    fst . parse 0 . filter (not . all (== ' ')) . lines . filter (/= '\r')
+    fst . parse 0 . filter (not . all (== ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
   where
     parse _ [] = ([], [])
     parse indent (thisLine:otherLines)
@@ -285,3 +285,12 @@ dropBracket str@('{':x) = case break (== '}') x of
     _ -> error $ "Unclosed bracket ('{'): " ++ str
 dropBracket x = x
 
+-- | If this line ends with a backslash, concatenate it together with the next line.
+--
+-- @since 1.6.8
+lineContinuations :: String -> [String] -> [String]
+lineContinuations this [] = [this]
+lineContinuations this below@(next:rest) = case unsnoc this of
+    Just (this', '\\') -> (this'++next):rest
+    _ -> this:below
+  where unsnoc s = if null s then Nothing else Just (init s, last s)

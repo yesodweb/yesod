@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.8
+* In the route syntax, allow trailing backslashes to indicate line
+    continuation. [#1558](https://github.com/yesodweb/yesod/pull/1558)
+
 ## 1.6.7
 
 * If no matches are found, `selectRep` chooses first representation regardless
