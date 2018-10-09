@@ -150,9 +150,9 @@ verifyURLHasSetPassText = "has-set-pass"
 -- |
 --
 -- @since 1.4.5
-verifyR :: Text -> Text -> Bool -> AuthRoute -- FIXME
-verifyR eid verkey hasSetPass = PluginR "email" path
-    where path = "verify":eid:verkey:(if hasSetPass then [verifyURLHasSetPassText] else [])
+verifyR :: Text -> Bool -> AuthRoute
+verifyR verkey hasSetPass = PluginR "email" path
+    where path = "verify":verkey:(if hasSetPass then [verifyURLHasSetPassText] else [])
 
 type Email = Text
 type VerKey = Text
@@ -210,11 +210,6 @@ class ( YesodAuth site
     -- @since 1.1.0
     sendVerifyEmail :: Email -> VerKey -> VerUrl -> AuthHandler site ()
 
-    -- | Get the verification key for the given email ID.
-    --
-    -- @since 1.1.0
-    getVerifyKey :: AuthEmailId site -> AuthHandler site (Maybe VerKey)
-
     -- | Set the verification key for the given email ID.
     --
     -- @since 1.1.0
@@ -267,6 +262,11 @@ class ( YesodAuth site
     --
     -- @since 1.1.0
     getEmail :: AuthEmailId site -> AuthHandler site (Maybe Email)
+
+    -- | Get the email ID for the given verification key.
+    --
+    -- @since 1.6.5
+    getAuthEmailId :: VerKey -> AuthHandler site (Maybe (AuthEmailId site))
 
     -- | Generate a random alphanumeric string.
     --
@@ -393,14 +393,8 @@ authEmail =
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
     dispatch "GET" ["forgot-password"] = getForgotPasswordR >>= sendResponse
     dispatch "POST" ["forgot-password"] = postForgotPasswordR >>= sendResponse
-    dispatch "GET" ["verify", eid, verkey] =
-        case fromPathPiece eid of
-            Nothing -> notFound
-            Just eid' -> getVerifyR eid' verkey False >>= sendResponse
-    dispatch "GET" ["verify", eid, verkey, hasSetPass] =
-        case fromPathPiece eid of
-            Nothing -> notFound
-            Just eid' -> getVerifyR eid' verkey (hasSetPass == verifyURLHasSetPassText) >>= sendResponse
+    dispatch "GET" ["verify", verkey] = getVerifyR verkey False >>= sendResponse
+    dispatch "GET" ["verify", verkey, hasSetPass] = getVerifyR verkey (hasSetPass == verifyURLHasSetPassText) >>= sendResponse
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
     dispatch "GET" ["set-password"] = getPasswordR >>= sendResponse
     dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
@@ -577,10 +571,10 @@ registerHelper allowUsername forgotPassword dest = do
                     else case emailPreviouslyRegisteredResponse identifier of
                       Just response -> response
                       Nothing -> sendConfirmationEmail creds
-              where sendConfirmationEmail (lid, _, verKey, email) = do
+              where sendConfirmationEmail (_, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
-                      let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey (isJust mpass)
+                      let verUrl = render $ tp $ verifyR verKey (isJust mpass)
                       sendVerifyEmail email verKey verUrl
                       confirmationEmailSentResponse identifier
 
@@ -633,52 +627,51 @@ postForgotPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
 postForgotPasswordR = registerHelper True True forgotPasswordR
 
 getVerifyR :: YesodAuthEmail site
-           => AuthEmailId site
-           -> Text
+           => VerKey
            -> Bool
            -> AuthHandler site TypedContent
-getVerifyR lid key hasSetPass = do
-    realKey <- getVerifyKey lid
-    memail <- getEmail lid
+getVerifyR verKey hasSetPass = do
     mr <- getMessageRender
-    case (realKey == Just key, memail) of
-        (True, Just email) -> do
-            muid <- verifyAccount lid
-            case muid of
-                Nothing -> invalidKey mr
-                Just uid -> do
-                    setCreds False $ Creds "email-verify" email [("verifiedEmail", email)] -- FIXME uid?
-                    setLoginLinkKey uid
-                    let msgAv = Msg.AddressVerified
-                    selectRep $ do
-                      provideRep $ do
-                        addMessageI "success" msgAv
-                        redirectRoute <- if hasSetPass
-                            then do
-                              y <- getYesod
-                              return $ afterVerificationWithPass y
-                            else do
-                              tp <- getRouteToParent
-                              return $ tp setpassR
-                        fmap asHtml $ redirect redirectRoute
-                      provideJsonMessage $ mr msgAv
-        _ -> invalidKey mr
+    mauthEmailId <- getAuthEmailId verKey
+    maybe (invalidKey mr) (attemptVerify mr) mauthEmailId
   where
+    attemptVerify mr authEmailid = do
+        memail <- getEmail authEmailid
+        case memail of
+            Just email -> do
+                muid <- verifyAccount authEmailid
+                case muid of
+                    Nothing -> invalidKey mr
+                    Just uid -> do
+                        setCreds False $ Creds "email-verify" email [("verifiedEmail", email)] -- FIXME uid?
+                        setLoginLinkKey uid
+                        let msgAv = Msg.AddressVerified
+                        selectRep $ do
+                          provideRep $ do
+                            addMessageI "success" msgAv
+                            redirectRoute <- if hasSetPass
+                                then do
+                                  y <- getYesod
+                                  return $ afterVerificationWithPass y
+                                else do
+                                  tp <- getRouteToParent
+                                  return $ tp setpassR
+                            fmap asHtml $ redirect redirectRoute
+                          provideJsonMessage $ mr msgAv
+            _ -> invalidKey mr
     msgIk = Msg.InvalidKey
     invalidKey mr = messageJson401 (mr msgIk) $ authLayout $ do
         setTitleI msgIk
         [whamlet|
-$newline never
-<p>_{msgIk}
-|]
-
+          $newline never
+          <p>_{msgIk}
+        |]
 
 parseCreds :: Value -> Parser (Text, Text)
 parseCreds = withObject "creds" (\obj -> do
                                    email' <- obj .: "email"
                                    pass <- obj .: "password"
                                    return (email', pass))
-
 
 postLoginR :: YesodAuthEmail master => AuthHandler master TypedContent
 postLoginR = do
