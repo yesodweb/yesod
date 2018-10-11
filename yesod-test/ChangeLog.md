@@ -1,3 +1,7 @@
+## 1.6.5.1
+
+* Make test suite build with GHC 8.6 [#1561](https://github.com/yesodweb/yesod/pull/1561)
+
 ## 1.6.5
 bodyEquals prints out actual body in addition to expected body in failure msg
 [#1525](https://github.com/yesodweb/yesod/pull/1525)

@@ -2,7 +2,7 @@
 
 ## 1.6.4.2
 
-* Add support for persistent 2.9 [#1516](https://github.com/yesodweb/yesod/pull/1516)
+* Add support for persistent 2.9 [#1516](https://github.com/yesodweb/yesod/pull/1516), [#1561](https://github.com/yesodweb/yesod/pull/1561)
 
 ## 1.6.4.1
 

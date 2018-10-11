@@ -1,6 +1,6 @@
 ## 1.6.0.1
 
-* Compile with GHC 8.6
+* Compile with GHC 8.6 [#1561](https://github.com/yesodweb/yesod/pull/1561)
 
 ## 1.6.0
 
