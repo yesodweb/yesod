@@ -1,4 +1,4 @@
-## 1.6.1
+## 1.6.0.1
 
 * Add support for persistent 2.9 [#1516](https://github.com/yesodweb/yesod/pull/1516)
 
