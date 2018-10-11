@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable, OverloadedStrings, QuasiQuotes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -69,7 +70,9 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
         setSession oauthSessionName $ lookupTokenSecret tok
         redirect $ authorizeUrl oauth' tok
     dispatch "GET" [] = do
-      Just tokSec <- lookupSession oauthSessionName
+      tokSec <- lookupSession oauthSessionName >>= \case
+        Just t -> return t
+        Nothing -> liftIO $ fail "lookupSession could not find session"
       deleteSession oauthSessionName
       reqTok <-
         if oauthVersion oauth == OAuth10

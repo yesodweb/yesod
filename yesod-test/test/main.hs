@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -482,8 +483,10 @@ postHomeR = defaultLayout
 
 postResourcesR :: Handler ()
 postResourcesR = do
-  ([("foo", t)], _) <- runRequestBody
-  sendResponseCreated $ ResourceR t
+    t <- runRequestBody >>= \case
+        ([("foo", t)], _) -> return t
+        _ -> liftIO $ fail "postResourcesR pattern match failure"
+    sendResponseCreated $ ResourceR t
 
 getResourceR :: Text -> Handler Html
 getResourceR i = defaultLayout
