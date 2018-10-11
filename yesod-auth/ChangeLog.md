@@ -1,6 +1,11 @@
 # ChangeLog for yesod-auth
 
+## 1.6.4.2
+
+* Add support for persistent 2.9 [#1516](https://github.com/yesodweb/yesod/pull/1516)
+
 ## 1.6.4.1
+
 * Email: Fix forgot-password endpoint [#1537](https://github.com/yesodweb/yesod/pull/1537)
 
 ## 1.6.4

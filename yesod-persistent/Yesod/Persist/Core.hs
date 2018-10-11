@@ -98,7 +98,11 @@ defaultGetDBRunner getPool = do
     (relKey, (conn, local)) <- allocate
         (do
             (conn, local) <- takeResource pool
+#if MIN_VERSION_persistent(2,9,0)
+            withPrep conn (\c f -> SQL.connBegin c f Nothing)
+#else
             withPrep conn SQL.connBegin
+#endif
             return (conn, local)
             )
         (\(conn, local) -> do
