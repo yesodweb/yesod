@@ -1,6 +1,6 @@
 # ChangeLog for yesod-form
 
-## Unreleased
+## 1.6.3
 
 * make sure a select field does not lose the selected value even if a validation on the
   field fails
