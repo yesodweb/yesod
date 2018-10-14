@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, QuasiQuotes, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 module EmbedProductionTest where
 
 -- Tests the production mode of the embedded static subsite by
@@ -108,7 +109,9 @@ embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
         yit "Embedded Javascript" $ do
             get HomeR
             statusIs 200
-            [script] <- htmlQuery "script"
+            script <- htmlQuery "script" >>= \case
+                [s] -> return s
+                _ -> liftIO $ fail "Expected singleton list of script"
             let src = BL.takeWhile (/= 34) $ BL.drop 1 $ BL.dropWhile (/= 34) script -- 34 is "
 
             get $ TL.toStrict $ TL.decodeUtf8 src
