@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.8.1
+
+* Add missing test file to tarball [#1563](https://github.com/yesodweb/yesod/issues/1563)
+
 ## 1.6.8
 * In the route syntax, allow trailing backslashes to indicate line
     continuation. [#1558](https://github.com/yesodweb/yesod/pull/1558)
