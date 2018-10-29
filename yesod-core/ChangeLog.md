@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.12
+
+* Use at most one valid session cookie per request [#1581](https://github.com/yesodweb/yesod/pull/1581)
+
 ## 1.6.11
 
 * Deprecate insecure JSON parsing functions [#1576](https://github.com/yesodweb/yesod/pull/1576)
