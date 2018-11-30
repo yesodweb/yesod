@@ -99,6 +99,7 @@ module Yesod.Core.Handler
       -- ** Type specific response with custom status
     , sendStatusJSON
     , sendResponseCreated
+    , sendResponseNoContent
     , sendWaiResponse
     , sendWaiApplication
     , sendRawResponse
@@ -647,6 +648,12 @@ sendResponseCreated :: MonadHandler m => Route (HandlerSite m) -> m a
 sendResponseCreated url = do
     r <- getUrlRender
     handlerError $ HCCreated $ r url
+
+-- | Bypass remaining handler code and output no content with a 204 status code.
+--
+-- @since 1.6.9
+sendResponseNoContent :: MonadHandler m => m a
+sendResponseNoContent = sendWaiResponse $ W.responseBuilder H.status204 [] mempty
 
 -- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
