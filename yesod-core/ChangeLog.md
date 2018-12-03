@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.9
+
+* Add `sendResponseNoContent` [#1565](https://github.com/yesodweb/yesod/pull/1565)
+
 ## 1.6.8.1
 
 * Add missing test file to tarball [#1563](https://github.com/yesodweb/yesod/issues/1563)
