@@ -130,7 +130,7 @@ authTwitter :: YesodAuth m
             -> ByteString -- ^ Consumer Secret
             -> AuthPlugin m
 authTwitter key secret = authTwitter' key secret "screen_name"
-{-# DEPRECATED authTwitter "Use authTwitterUsingUserID instead" #-}
+{-# DEPRECATED authTwitter "Use authTwitterUsingUserId instead" #-}
 
 -- | Twitter plugin which uses Twitter's /user_id/ as ID.
 --
