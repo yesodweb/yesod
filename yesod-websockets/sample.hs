@@ -16,7 +16,7 @@ mkYesod "App" [parseRoutes|
 / HomeR GET
 |]
 
-timeSource :: MonadIO m => Source m TL.Text
+timeSource :: MonadIO m => ConduitT () TL.Text m ()
 timeSource = forever $ do
     now <- liftIO getCurrentTime
     yield $ TL.pack $ show now
@@ -25,8 +25,8 @@ timeSource = forever $ do
 getHomeR :: Handler Html
 getHomeR = do
     webSockets $ race_
-        (sourceWS $$ Data.Conduit.List.map TL.toUpper =$ sinkWSText)
-        (timeSource $$ sinkWSText)
+        (runConduit (sourceWS .| Data.Conduit.List.map TL.toUpper .| sinkWSText))
+        (runConduit (timeSource .| sinkWSText))
     defaultLayout $
         toWidget
             [julius|
