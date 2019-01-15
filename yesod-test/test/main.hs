@@ -38,8 +38,10 @@ import Data.Either (isLeft, isRight)
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
-import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
+import Network.HTTP.Types.Status (status301, status303, status422, unsupportedMediaType415)
 import UnliftIO.Exception (tryAny, SomeException, try)
+import qualified Web.Cookie as Cookie
+import Data.Maybe (isNothing)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -314,6 +316,33 @@ main = hspec $ do
             statusIs 200
             printBody
             bodyContains "Foo"
+        yit "should 422 on the cookie named key" $ do
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 200
+            testSetCookie Cookie.defaultSetCookie { Cookie.setCookieName = "key" }
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 422
+        yit "should be able to delete a cookie" $ do
+            testSetCookie Cookie.defaultSetCookie { Cookie.setCookieName = "key" }
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 422
+            testDeleteCookie "key"
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 200
+        yit "should be able to clear all cookies" $ do
+            testSetCookie Cookie.defaultSetCookie { Cookie.setCookieName = "key" }
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 422
+            testClearCookies
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 200
+        yit "should be able to modify cookies" $ do
+            testSetCookie Cookie.defaultSetCookie { Cookie.setCookieName = "key" }
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 422
+            testModifyCookies (\_ -> Map.empty)
+            get ("cookie/check-no-cookie" :: Text)
+            statusIs 200
     describe "CSRF with cookies/headers" $ yesodSpec RoutedApp $ do
         yit "Should receive a CSRF cookie and add its value to the headers" $ do
             get ("/" :: Text)
@@ -463,6 +492,11 @@ cookieApp = liteApp $ do
             setMessage "Foo"
             () <- redirect ("/cookie/home" :: Text)
             return ()
+        onStatic "check-no-cookie" $ dispatchTo $ do
+            mCookie <- lookupCookie "key"
+            if isNothing mCookie
+                then return ()
+                else sendResponseStatus status422 ()
 
 instance Yesod RoutedApp where
     yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware

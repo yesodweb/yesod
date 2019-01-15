@@ -1,3 +1,7 @@
+## 1.6.6
+
+* Add utility functions to modify cookies [$1570](https://github.com/yesodweb/yesod/pull/1570)
+
 ## 1.6.5.1
 
 * Make test suite build with GHC 8.6 [#1561](https://github.com/yesodweb/yesod/pull/1561)
