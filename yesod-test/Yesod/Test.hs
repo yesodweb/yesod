@@ -45,6 +45,12 @@ module Yesod.Test
     , ydescribe
     , yit
 
+    -- * Modify test state
+    , testSetCookie
+    , testDeleteCookie
+    , testModifyCookies
+    , testClearCookies
+
     -- * Making requests
     -- | You can construct requests with the 'RequestBuilder' monad, which lets you
     -- set the URL and add parameters, headers, and files. Helper functions are provided to
@@ -325,6 +331,46 @@ yesodSpecApp site getApp yspecs =
 -- | Describe a single test that keeps cookies, and a reference to the last response.
 yit :: String -> YesodExample site () -> YesodSpec site
 yit label example = tell [YesodSpecItem label example]
+
+-- | Sets a cookie
+--
+-- ==== __Examples__
+--
+-- > import qualified Data.Cookie as Cookie
+-- > :set -XOverloadedStrings
+-- > testSetCookie Cookie.defaultSetCookie { Cookie.setCookieName = "name" }
+--
+-- @since 1.6.6
+testSetCookie :: Cookie.SetCookie -> YesodExample site ()
+testSetCookie cookie = do
+  let key = Cookie.setCookieName cookie
+  modifySIO $ \yed -> yed { yedCookies = M.insert key cookie (yedCookies yed) }
+
+-- | Deletes the cookie of the given name
+--
+-- ==== __Examples__
+--
+-- > :set -XOverloadedStrings
+-- > testDeleteCookie "name"
+--
+-- @since 1.6.6
+testDeleteCookie :: ByteString -> YesodExample site ()
+testDeleteCookie k = do
+  modifySIO $ \yed -> yed { yedCookies = M.delete k (yedCookies yed) }
+
+-- | Modify the current cookies with the given mapping function
+--
+-- @since 1.6.6
+testModifyCookies :: (Cookies -> Cookies) -> YesodExample site ()
+testModifyCookies f = do
+  modifySIO $ \yed -> yed { yedCookies = f (yedCookies yed) }
+
+-- | Clears the current cookies
+--
+-- @since 1.6.6
+testClearCookies :: YesodExample site ()
+testClearCookies = do
+  modifySIO $ \yed -> yed { yedCookies = M.empty }
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
