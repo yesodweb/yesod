@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.6.4
+
+* Make FormResult an instance of Eq
+
 ## 1.6.3
 
 * make sure a select field does not lose the selected value even if a validation on the
