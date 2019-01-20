@@ -50,7 +50,7 @@ import Data.Foldable
 data FormResult a = FormMissing
                   | FormFailure [Text]
                   | FormSuccess a
-    deriving Show
+    deriving (Show, Eq)
 instance Functor FormResult where
     fmap _ FormMissing = FormMissing
     fmap _ (FormFailure errs) = FormFailure errs
