@@ -168,7 +168,11 @@ module Yesod.Core.Handler
     , getMessageRender
       -- * Per-request caching
     , cached
+    , cacheGet
+    , cacheSet
     , cachedBy
+    , cacheByGet
+    , cacheBySet
       -- * AJAX CSRF protection
 
       -- $ajaxCSRFOverview
@@ -1134,6 +1138,27 @@ cached action = do
           put $ gs { ghsCache = merged }
           return res
 
+-- | Retrieves a value from the cache used by 'cached'.
+--
+-- @since 1.6.10
+cacheGet :: (MonadHandler m, Typeable a)
+         => m (Maybe a)
+cacheGet = do
+  cache <- ghsCache <$> get
+  pure $ Cache.cacheGet cache
+
+-- | Sets a value in the cache used by 'cached'.
+--
+-- @since 1.6.10
+cacheSet :: (MonadHandler m, Typeable a)
+         => a
+         -> m ()
+cacheSet value = do
+  gs <- get
+  let cache = ghsCache gs
+      newCache = Cache.cacheSet value cache
+  put $ gs { ghsCache = newCache }
+
 -- | a per-request cache. just like 'cached'.
 -- 'cached' can only cache a single value per type.
 -- 'cachedBy' stores multiple values per type by usage of a ByteString key
@@ -1155,6 +1180,29 @@ cachedBy k action = do
           let merged = newCache `HM.union` ghsCacheBy gs
           put $ gs { ghsCacheBy = merged }
           return res
+
+-- | Retrieves a value from the cache used by 'cachedBy'.
+--
+-- @since 1.6.10
+cacheByGet :: (MonadHandler m, Typeable a)
+           => S.ByteString
+           -> m (Maybe a)
+cacheByGet key = do
+  cache <- ghsCacheBy <$> get
+  pure $ Cache.cacheByGet key cache
+
+-- | Sets a value in the cache used by 'cachedBy'.
+--
+-- @since 1.6.10
+cacheBySet :: (MonadHandler m, Typeable a)
+           => S.ByteString
+           -> a
+           -> m ()
+cacheBySet key value = do
+  gs <- get
+  let cache = ghsCacheBy gs
+      newCache = Cache.cacheBySet key value cache
+  put $ gs { ghsCacheBy = newCache }
 
 -- | Get the list of supported languages supplied by the user.
 --
