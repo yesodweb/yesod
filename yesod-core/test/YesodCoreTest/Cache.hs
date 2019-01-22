@@ -46,7 +46,11 @@ getRootR = do
     V2 v2a <- cached $ atomicModifyIORef ref $ \i -> (i + 1, V2 $ i + 1)
     V2 v2b <- cached $ atomicModifyIORef ref $ \i -> (i + 1, V2 $ i + 1)
 
-    return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b]
+    cacheBySet "3" (V2 3)
+    Just (V2 v3a) <- cacheByGet "3"
+    V2 v3b <- cachedBy "3" $ (pure $ V2 4)
+
+    return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b, v3a, v3b]
 
 getKeyR :: Handler RepPlain
 getKeyR = do
@@ -60,7 +64,12 @@ getKeyR = do
     V2 v3a <- cachedBy "2" $ atomicModifyIORef ref $ \i -> (i + 1, V2 $ i + 1)
     V2 v3b <- cachedBy "2" $ atomicModifyIORef ref $ \i -> (i + 1, V2 $ i + 1)
 
-    return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b, v3a, v3b]
+
+    cacheBySet "4" (V2 4)
+    Just (V2 v4a) <- cacheByGet "4"
+    V2 v4b <- cachedBy "4" $ (pure $ V2 5)
+
+    return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b, v3a, v3b, v4a, v4b]
 
 getNestedR :: Handler RepPlain
 getNestedR = getNested cached
@@ -86,12 +95,12 @@ cacheTest =
     it "cached" $ runner $ do
       res <- request defaultRequest
       assertStatus 200 res
-      assertBody (L8.pack $ show [1, 1, 2, 2 :: Int]) res
+      assertBody (L8.pack $ show [1, 1, 2, 2, 3, 3 :: Int]) res
 
     it "cachedBy" $ runner $ do
       res <- request defaultRequest { pathInfo = ["key"] }
       assertStatus 200 res
-      assertBody (L8.pack $ show [1, 1, 2, 2, 3, 3 :: Int]) res
+      assertBody (L8.pack $ show [1, 1, 2, 2, 3, 3, 4, 4 :: Int]) res
 
     it "nested cached" $ runner $ do
       res <- request defaultRequest { pathInfo = ["nested"] }

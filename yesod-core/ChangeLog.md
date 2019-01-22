@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.10
+
+* Adds functions to get and set values in the per-request caches. [#1573](https://github.com/yesodweb/yesod/pull/1573)
+
 ## 1.6.9
 
 * Add `sendResponseNoContent` [#1565](https://github.com/yesodweb/yesod/pull/1565)
