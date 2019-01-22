@@ -47,7 +47,10 @@ getRootR = do
     V2 v2b <- cached $ atomicModifyIORef ref $ \i -> (i + 1, V2 $ i + 1)
 
     cacheBySet "3" (V2 3)
-    Just (V2 v3a) <- cacheByGet "3"
+    V2 v3a <- cacheByGet "3" >>= \x ->
+      case x of
+        Just y -> return y
+        Nothing -> error "must be Just"
     V2 v3b <- cachedBy "3" $ (pure $ V2 4)
 
     return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b, v3a, v3b]
@@ -66,7 +69,10 @@ getKeyR = do
 
 
     cacheBySet "4" (V2 4)
-    Just (V2 v4a) <- cacheByGet "4"
+    V2 v4a <- cacheByGet "4" >>= \x ->
+      case x of
+        Just y -> return y
+        Nothing -> error "must be Just"
     V2 v4b <- cachedBy "4" $ (pure $ V2 5)
 
     return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b, v3a, v3b, v4a, v4b]
