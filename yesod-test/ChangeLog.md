@@ -1,3 +1,7 @@
+## 1.6.6.1
+
+* Documentation fixes
+
 ## 1.6.6
 
 * Add utility functions to modify cookies [$1570](https://github.com/yesodweb/yesod/pull/1570)
