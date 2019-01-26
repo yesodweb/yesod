@@ -212,7 +212,7 @@ type Cookies = M.Map ByteString Cookie.SetCookie
 -- Since 1.2.0
 type YesodSpec site = Writer [YesodSpecTree site] ()
 
--- | Internal data structure, corresponding to hspec\'s 'YesodSpecTree'.
+-- | Internal data structure, corresponding to hspec\'s "SpecTree".
 --
 -- Since 1.2.0
 data YesodSpecTree site
