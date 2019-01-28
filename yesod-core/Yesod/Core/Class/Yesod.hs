@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE LambdaCase #-}
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -53,6 +54,7 @@ import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
 import Data.IORef
+import Data.Maybe
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -515,7 +517,8 @@ widgetToPageContent w = HandlerFor $ \hd -> do
     }
   GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
   let title = maybe mempty unTitle mTitle
-      scripts = runUniqueList scripts'
+      toUnique = UniqueList . (:)
+      scripts = runUniqueList (scripts' <> toUnique SOAAnchor)
       stylesheets = runUniqueList stylesheets'
 
   flip unHandlerFor hd $ do
@@ -543,16 +546,22 @@ widgetToPageContent w = HandlerFor $ \hd -> do
 
     -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
-    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
+    let scripts'' = catMaybes $ (\case
+                                    SOAAnchor -> Nothing
+                                    SOAScript s -> Just s) <$> scripts
+        (mcomplete, asyncScripts) = asyncHelper render scripts'' jscript jsLoc
         regularScriptLoad = [hamlet|
             $newline never
             $forall s <- scripts
-                ^{mkScriptTag s}
-            $maybe j <- jscript
-                $maybe s <- jsLoc
-                    <script src="#{s}" *{jsAttributes master}>
-                $nothing
-                    <script>^{jelper j}
+                $case s
+                    $of SOAScript s
+                        ^{mkScriptTag s}
+                    $of SOAAnchor
+                        $maybe j <- jscript
+                            $maybe s <- jsLoc
+                                <script src="#{s}" *{jsAttributes master}>
+                            $nothing
+                                <script>^{jelper j}
         |]
 
         headAll = [hamlet|

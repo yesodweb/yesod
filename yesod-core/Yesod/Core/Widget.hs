@@ -42,6 +42,7 @@ module Yesod.Core.Widget
     , addScriptRemote
     , addScriptRemoteAttrs
     , addScriptEither
+    , addScriptAnchor
       -- * Subsites
     , handlerToWidget
       -- * Internal
@@ -207,7 +208,7 @@ addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
 addScriptAttrs :: MonadWidget m => Route (HandlerSite m) -> [(Text, Text)] -> m ()
-addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
+addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ SOAScript $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
 addScriptRemote :: MonadWidget m => Text -> m ()
@@ -215,7 +216,10 @@ addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
 addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
+addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ SOAScript $ Script (Remote x) y) mempty mempty mempty mempty
+
+addScriptAnchor :: MonadWidget m => m ()
+addScriptAnchor = tell $ GWData mempty mempty (toUnique $ SOAAnchor) mempty mempty mempty mempty
 
 whamlet :: QuasiQuoter
 whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings

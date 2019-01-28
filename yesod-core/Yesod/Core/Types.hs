@@ -347,6 +347,8 @@ newtype UniqueList x = UniqueList ([x] -> [x])
 
 data Script url = Script { scriptLocation :: !(Location url), scriptAttributes :: ![(Text, Text)] }
     deriving (Show, Eq)
+data ScriptOrAnchor url = SOAScript (Script url) | SOAAnchor
+    deriving (Show, Eq)
 data Stylesheet url = Stylesheet { styleLocation :: !(Location url), styleAttributes :: ![(Text, Text)] }
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
@@ -365,7 +367,7 @@ type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 data GWData a = GWData
     { gwdBody        :: !(Body a)
     , gwdTitle       :: !(Last Title)
-    , gwdScripts     :: !(UniqueList (Script a))
+    , gwdScripts     :: !(UniqueList (ScriptOrAnchor a))
     , gwdStylesheets :: !(UniqueList (Stylesheet a))
     , gwdCss         :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
     , gwdJavascript  :: !(Maybe (JavascriptUrl a))
