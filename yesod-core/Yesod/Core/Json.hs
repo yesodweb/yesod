@@ -106,6 +106,8 @@ parseJsonBody = parseInsecureJsonBody
 -- indicates JSON content.
 --
 -- Note: This function is vulnerable to CSRF attacks.
+--
+-- @since 1.6.11
 parseInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseInsecureJsonBody = do
     eValue <- runConduit $ rawRequestBody .| runCatchC (sinkParser JP.value')
@@ -150,6 +152,8 @@ requireJsonBody = requireInsecureJsonBody
 
 -- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
+--
+-- @since 1.6.11
 requireInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m a
 requireInsecureJsonBody = do
     ra <- parseInsecureJsonBody
