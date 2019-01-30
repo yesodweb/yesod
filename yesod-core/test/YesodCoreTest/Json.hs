@@ -23,7 +23,7 @@ instance Yesod App
 
 getHomeR :: Handler RepPlain
 getHomeR = do
-    val <- requireJsonBody
+    val <- requireInsecureJsonBody
     case Map.lookup ("foo" :: Text) val of
         Nothing -> invalidArgs ["foo not found"]
         Just foo -> return $ RepPlain $ toContent (foo :: Text)
