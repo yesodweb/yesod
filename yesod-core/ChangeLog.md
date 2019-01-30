@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.11
+
+* Add the ability to control autogen script output in page for [#1578](https://github.com/yesodweb/yesod/pull/1578).
+
 ## 1.6.10.1
 
 * Fix test suite compilation for [commercialhaskell/stackage#4319](https://github.com/commercialhaskell/stackage/issues/4319)
