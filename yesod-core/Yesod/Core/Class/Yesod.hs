@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -54,7 +54,7 @@ import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
 import Data.IORef
-import Data.Maybe
+import Data.Maybe                                   (catMaybes)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -518,6 +518,8 @@ widgetToPageContent w = HandlerFor $ \hd -> do
   GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
   let title = maybe mempty unTitle mTitle
       toUnique = UniqueList . (:)
+      -- We add an Anchor to the end, but this gets nubbed out if the user
+      -- already had one.
       scripts = runUniqueList (scripts' <> toUnique SOAAnchor)
       stylesheets = runUniqueList stylesheets'
 
@@ -544,11 +546,11 @@ widgetToPageContent w = HandlerFor $ \hd -> do
                    $ encodeUtf8 $ renderJavascriptUrl render s
                 return $ renderLoc x
 
-    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
-    -- the asynchronous loader means your page doesn't have to wait for all the js to load
     let scripts'' = catMaybes $ (\case
                                     SOAAnchor -> Nothing
                                     SOAScript s -> Just s) <$> scripts
+        -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
+        -- the asynchronous loader means your page doesn't have to wait for all the js to load
         (mcomplete, asyncScripts) = asyncHelper render scripts'' jscript jsLoc
         regularScriptLoad = [hamlet|
             $newline never

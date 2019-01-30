@@ -218,6 +218,10 @@ addScriptRemote = flip addScriptRemoteAttrs []
 addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
 addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ SOAScript $ Script (Remote x) y) mempty mempty mempty mempty
 
+-- | Insert the Widget's JavaScript bundle at this location. If called multiple
+-- times, the bundle anchors to the _first_ site.
+--
+-- @since 1.6.11
 addScriptAnchor :: MonadWidget m => m ()
 addScriptAnchor = tell $ GWData mempty mempty (toUnique $ SOAAnchor) mempty mempty mempty mempty
 
