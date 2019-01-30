@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.12
+
+* Add the ability to control autogen script output in page for [#1578](https://github.com/yesodweb/yesod/pull/1578).
+
 ## 1.6.11
 
 * Deprecate insecure JSON parsing functions [#1576](https://github.com/yesodweb/yesod/pull/1576)
