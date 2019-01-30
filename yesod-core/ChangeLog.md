@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.11
+
+* Deprecate insecure JSON parsing functions [#1576](https://github.com/yesodweb/yesod/pull/1576)
+
 ## 1.6.10.1
 
 * Fix test suite compilation for [commercialhaskell/stackage#4319](https://github.com/commercialhaskell/stackage/issues/4319)

@@ -10,11 +10,14 @@ module Yesod.Core.Json
     , provideJson
 
       -- * Convert to a JSON value
-    , parseJsonBody
     , parseCheckJsonBody
+    , parseInsecureJsonBody
+    , requireCheckJsonBody
+    , requireInsecureJsonBody
+      -- ** Deprecated JSON conversion
+    , parseJsonBody
     , parseJsonBody_
     , requireJsonBody
-    , requireCheckJsonBody
 
       -- * Produce JSON values
     , J.Value (..)
@@ -92,51 +95,74 @@ returnJsonEncoding = return . J.toEncoding
 provideJson :: (Monad m, J.ToJSON a) => a -> Writer (Endo [ProvidedRep m]) ()
 provideJson = provideRep . return . J.toEncoding
 
+-- | Same as 'parseInsecureJsonBody'
+--
+-- @since 0.3.0
+parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
+parseJsonBody = parseInsecureJsonBody
+{-# DEPRECATED parseJsonBody "Use parseCheckJsonBody or parseInsecureJsonBody instead" #-}
+
+-- | Same as 'parseCheckJsonBody', but does not check that the mime type
+-- indicates JSON content.
+--
+-- Note: This function is vulnerable to CSRF attacks.
+--
+-- @since 1.6.11
+parseInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
+parseInsecureJsonBody = do
+    eValue <- runConduit $ rawRequestBody .| runCatchC (sinkParser JP.value')
+    return $ case eValue of
+        Left e -> J.Error $ show e
+        Right value -> J.fromJSON value
+
 -- | Parse the request body to a data type as a JSON value.  The
 -- data type must support conversion from JSON via 'J.FromJSON'.
 -- If you want the raw JSON value, just ask for a @'J.Result'
 -- 'J.Value'@.
+--
+-- The MIME type must indicate JSON content. Requiring a JSON
+-- content-type helps secure your site against CSRF attacks
+-- (browsers will perform POST requests for form and text/plain
+-- content-types without doing a CORS check, and those content-types
+-- can easily contain valid JSON).
 --
 -- Note that this function will consume the request body. As such, calling it
 -- twice will result in a parse error on the second call, since the request
 -- body will no longer be available.
 --
 -- @since 0.3.0
-parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
-parseJsonBody = do
-    eValue <- runConduit $ rawRequestBody .| runCatchC (sinkParser JP.value')
-    return $ case eValue of
-        Left e -> J.Error $ show e
-        Right value -> J.fromJSON value
-
--- | Same as 'parseJsonBody', but ensures that the mime type indicates
--- JSON content.
 parseCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseCheckJsonBody = do
     mct <- lookupHeader "content-type"
     case fmap (B8.takeWhile (/= ';')) mct of
-        Just "application/json" -> parseJsonBody
+        Just "application/json" -> parseInsecureJsonBody
         _ -> return $ J.Error $ "Non-JSON content type: " ++ show mct
 
--- | Same as 'parseJsonBody', but return an invalid args response on a parse
+-- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
 parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
-parseJsonBody_ = requireJsonBody
-{-# DEPRECATED parseJsonBody_ "Use requireJsonBody instead" #-}
+parseJsonBody_ = requireInsecureJsonBody
+{-# DEPRECATED parseJsonBody_ "Use requireCheckJsonBody or requireInsecureJsonBody instead" #-}
 
--- | Same as 'parseJsonBody', but return an invalid args response on a parse
+-- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
 requireJsonBody :: (MonadHandler m, J.FromJSON a) => m a
-requireJsonBody = do
-    ra <- parseJsonBody
+requireJsonBody = requireInsecureJsonBody
+{-# DEPRECATED requireJsonBody "Use requireCheckJsonBody or requireInsecureJsonBody instead" #-}
+
+-- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
+-- error.
+--
+-- @since 1.6.11
+requireInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireInsecureJsonBody = do
+    ra <- parseInsecureJsonBody
     case ra of
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
 
--- | Same as 'requireJsonBody', but ensures that the MIME type
--- indicates JSON content. Requiring a JSON content-type helps secure your site against
--- CSRF attacks (browsers will perform POST requests for form and text/plain content-types
--- without doing a CORS check, and those content-types can easily contain valid JSON).
+-- | Same as 'parseCheckJsonBody', but return an invalid args response on a parse
+-- error.
 requireCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m a
 requireCheckJsonBody = do
     ra <- parseCheckJsonBody
