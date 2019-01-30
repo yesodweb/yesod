@@ -221,7 +221,7 @@ addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ SOAScript $ S
 -- | Insert the Widget's JavaScript bundle at this location. If called multiple
 -- times, the bundle anchors to the _first_ site.
 --
--- @since 1.6.11
+-- @since 1.6.12
 addScriptAnchor :: MonadWidget m => m ()
 addScriptAnchor = tell $ GWData mempty mempty (toUnique $ SOAAnchor) mempty mempty mempty mempty
 
