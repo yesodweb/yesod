@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE LambdaCase        #-}
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -54,7 +53,6 @@ import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
 import Data.IORef
-import Data.Maybe                                   (catMaybes)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -546,9 +544,7 @@ widgetToPageContent w = HandlerFor $ \hd -> do
                    $ encodeUtf8 $ renderJavascriptUrl render s
                 return $ renderLoc x
 
-    let scripts'' = catMaybes $ (\case
-                                    SOAAnchor -> Nothing
-                                    SOAScript s -> Just s) <$> scripts
+    let scripts'' = [s | SOAScript s <- scripts]
         -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
         -- the asynchronous loader means your page doesn't have to wait for all the js to load
         (mcomplete, asyncScripts) = asyncHelper render scripts'' jscript jsLoc
