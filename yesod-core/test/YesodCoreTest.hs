@@ -14,6 +14,7 @@ import YesodCoreTest.Cache
 import qualified YesodCoreTest.WaiSubsite as WaiSubsite
 import qualified YesodCoreTest.Redirect as Redirect
 import qualified YesodCoreTest.JsLoader as JsLoader
+import qualified YesodCoreTest.JsAnchor as JsAnchor
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
 
@@ -46,6 +47,7 @@ specs = do
       WaiSubsite.specs
       Redirect.specs
       JsLoader.specs
+      JsAnchor.specs
       RequestBodySize.specs
       Json.specs
 #if !WINDOWS
