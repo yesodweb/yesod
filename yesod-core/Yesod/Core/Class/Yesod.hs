@@ -23,6 +23,7 @@ import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
 import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
+import           Data.Maybe                         (catMaybes)
 import           Data.Monoid
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
@@ -820,6 +821,12 @@ clientSessionBackend key getCachedDate =
     sbLoadSession = loadClientSession key getCachedDate "_SESSION"
   }
 
+justSingleton :: a -> [Maybe a] -> a
+justSingleton d = just . catMaybes
+  where
+    just [s] = s
+    just _   = d
+
 loadClientSession :: CS.Key
                   -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
                   -> S8.ByteString -- ^ session name
@@ -830,11 +837,11 @@ loadClientSession key getCachedDate sessionName req = load
     load = do
       date <- getCachedDate
       return (sess date, save date)
-    sess date = Map.unions $ do
+    sess date = justSingleton Map.empty $ do
       raw <- [v | (k, v) <- W.requestHeaders req, k == "Cookie"]
       val <- [v | (k, v) <- parseCookies raw, k == sessionName]
       let host = "" -- fixme, properly lock sessions to client address
-      maybe [] return $ decodeClientSession key date host val
+      return $ decodeClientSession key date host val
     save date sess' = do
       -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
