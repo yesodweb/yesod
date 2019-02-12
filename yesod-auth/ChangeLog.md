@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.6
+
+* Deprecated `Yesod.Auth.GoogleEmail2`, see [#1579](https://github.com/yesodweb/yesod/issues/1579) and [migration blog post](https://pbrisbin.com/posts/googleemail2_deprecation/)
+
 ## 1.6.5
 
 * Add support for persistent 2.9 [#1516](https://github.com/yesodweb/yesod/pull/1516), [#1561](https://github.com/yesodweb/yesod/pull/1561)

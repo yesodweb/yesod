@@ -26,6 +26,7 @@
 --
 -- @since 1.3.1
 module Yesod.Auth.GoogleEmail2
+    {-# DEPRECATED "Google+ is being shut down, please migrate to Google Sign-in https://pbrisbin.com/posts/googleemail2_deprecation/" #-}
     ( -- * Authentication handlers
       authGoogleEmail
     , authGoogleEmailSaveToken
