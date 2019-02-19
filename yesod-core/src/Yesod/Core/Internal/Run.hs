@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -8,16 +9,13 @@
 module Yesod.Core.Internal.Run where
 
 
+import           RIO
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
 import qualified Data.ByteString.Lazy         as BL
-import           Control.Monad.IO.Class       (MonadIO, liftIO)
-import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
-                                               liftLoc)
 import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, InternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
-import qualified Data.IORef                   as I
 import qualified Data.Map                     as Map
 import           Data.Maybe                   (isJust, fromMaybe)
 import           Data.Monoid                  (appEndo)
@@ -25,11 +23,9 @@ import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8, decodeUtf8With)
 import           Data.Text.Encoding.Error     (lenientDecode)
-import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
 import           Network.Wai.Internal
-import           System.Log.FastLogger        (LogStr, toLogStr)
 import           Yesod.Core.Content
 import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
@@ -38,7 +34,6 @@ import           Yesod.Core.Internal.Request  (parseWaiRequest,
 import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!), NFData)
-import           UnliftIO.Exception
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
@@ -67,13 +62,13 @@ basicRunHandler :: ToTypedContent c
 basicRunHandler rhe handler yreq resState = do
     -- Create a mutable ref to hold the state. We use mutable refs so
     -- that the updates will survive runtime exceptions.
-    istate <- I.newIORef defState
+    istate <- newIORef defState
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
     contents' <- catchAny
         (do
-            res <- unHandlerFor handler (hd istate)
+            res <- runRIO (hd istate) handler
             tc <- evaluate (toTypedContent res)
             -- Success! Wrap it up in an @HCContent@
             return (HCContent defaultStatus tc))
@@ -83,7 +78,7 @@ basicRunHandler rhe handler yreq resState = do
                 Nothing -> HCError <$> toErrorHandler e)
 
     -- Get the raw state and return
-    state <- I.readIORef istate
+    state <- readIORef istate
     return (state, contents')
   where
     defState = GHState
@@ -94,7 +89,7 @@ basicRunHandler rhe handler yreq resState = do
         , ghsCacheBy = mempty
         , ghsHeaders = mempty
         }
-    hd istate = HandlerData
+    hd istate = HandlerData $ SubHandlerData
         { handlerRequest = yreq
         , handlerEnv     = rhe
         , handlerState   = istate
@@ -203,12 +198,11 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
         headers
         contents3
 
-safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-       -> ErrorResponse
-       -> YesodApp
-safeEh log' er req = do
-    liftIO $ log' $(qLocation >>= liftLoc) "yesod-core" LevelError
-           $ toLogStr $ "Error handler errored out: " ++ show er
+safeEh :: LogFunc -> ErrorResponse -> YesodApp
+safeEh logFunc er req = do
+    runRIO logFunc $
+      logErrorS "yesod-core" $
+      "Error handler errored out: " <> displayShow er
     return $ YRPlain
         H.status500
         []
@@ -238,14 +232,14 @@ safeEh log' er req = do
 -- @HandlerT@'s return value.
 runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
-               -> (site -> Logger)
+               -> LogFunc
                -> site
                -> HandlerFor site a
                -> m (Either ErrorResponse a)
-runFakeHandler fakeSessionMap logger site handler = liftIO $ do
-  ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
+runFakeHandler fakeSessionMap logFunc site handler = liftIO $ do
+  ret <- newIORef (Left $ InternalError "runFakeHandler: no result")
   maxExpires <- getCurrentMaxExpiresRFC1123
-  let handler' = liftIO . I.writeIORef ret . Right =<< handler
+  let handler' = writeIORef ret . Right =<< handler
   let yapp = runHandler
          RunHandlerEnv
             { rheRender = yesodRender site $ resolveApproot site fakeWaiRequest
@@ -254,13 +248,13 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheChild = site
             , rheSite = site
             , rheUpload = fileUpload site
-            , rheLog = messageLoggerSource site $ logger site
+            , rheLogFunc = logFunc
             , rheOnError = errHandler
             , rheMaxExpires = maxExpires
             }
         handler'
       errHandler err req = do
-          liftIO $ I.writeIORef ret (Left err)
+          writeIORef ret (Left err)
           return $ YRPlain
                      H.status500
                      []
@@ -296,7 +290,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , reqSession    = fakeSessionMap
           }
   _ <- runResourceT $ yapp fakeRequest
-  I.readIORef ret
+  readIORef ret
 
 yesodRunner :: (ToTypedContent res, Yesod site)
             => HandlerFor site res
@@ -316,8 +310,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
                 Left yreq' -> yreq'
                 Right needGen -> needGen yreGen
     let ra = resolveApproot yreSite req
-    let log' = messageLoggerSource yreSite yreLogger
-        -- We set up two environments: the first one has a "safe" error handler
+    let -- We set up two environments: the first one has a "safe" error handler
         -- which will never throw an exception. The second one uses the
         -- user-provided errorHandler function. If that errorHandler function
         -- errors out, it will use the safeEh below to recover.
@@ -328,8 +321,8 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
             , rheChild = yreSite
             , rheSite = yreSite
             , rheUpload = fileUpload yreSite
-            , rheLog = log'
-            , rheOnError = safeEh log'
+            , rheLogFunc = yreLogFunc
+            , rheOnError = safeEh yreLogFunc
             , rheMaxExpires = maxExpires
             }
         rhe = rheSafe

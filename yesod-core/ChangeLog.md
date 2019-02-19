@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 2.0.0.0
+
+* Switch over to using `rio`
+
 ## 1.6.12
 
 * Use at most one valid session cookie per request [#1581](https://github.com/yesodweb/yesod/pull/1581)

@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 module Yesod.Core
     ( -- * Type classes
@@ -29,10 +30,6 @@ module Yesod.Core
     , AuthResult (..)
     , unauthorizedI
       -- * Logging
-    , defaultMakeLogger
-    , defaultMessageLoggerSource
-    , defaultShouldLogIO
-    , formatLogMessage
     , LogLevel (..)
     , logDebug
     , logInfo
@@ -67,8 +64,10 @@ module Yesod.Core
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
     -- * Generalizing type classes
-    , MonadHandler (..)
-    , MonadWidget (..)
+    , HasHandlerData (..)
+    , HasWidgetData (..)
+    , liftHandler
+    , liftWidget
       -- * Approot
     , guessApproot
     , guessApprootOr
@@ -76,7 +75,6 @@ module Yesod.Core
       -- * Misc
     , yesodVersion
     , yesodRender
-    , Yesod.Core.runFakeHandler
       -- * LiteApp
     , module Yesod.Core.Internal.LiteApp
       -- * Low-level
@@ -94,12 +92,9 @@ module Yesod.Core
     , MonadIO (..)
     , MonadUnliftIO (..)
     , MonadResource (..)
-    , MonadLogger
+    , RIO
       -- * Commonly referenced functions/datatypes
     , Application
-      -- * Utilities
-    , showIntegral
-    , readIntegral
       -- * Shakespeare
       -- ** Hamlet
     , hamlet
@@ -120,7 +115,6 @@ module Yesod.Core
 import Yesod.Core.Content
 import Yesod.Core.Dispatch
 import Yesod.Core.Handler
-import Yesod.Core.Class.Handler
 import Yesod.Core.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
@@ -128,18 +122,16 @@ import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 
-import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
 import Yesod.Core.Internal.Run (yesodRunner, yesodRender)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs
-import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class
-import UnliftIO (MonadIO (..), MonadUnliftIO (..))
+import RIO
 
 import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp
@@ -149,17 +141,11 @@ import Text.Lucius
 import Text.Julius
 import Network.Wai (Application)
 
-runFakeHandler :: (Yesod site, MonadIO m) =>
-                  SessionMap
-               -> (site -> Logger)
-               -> site
-               -> HandlerT site IO a
-               -> m (Either ErrorResponse a)
-runFakeHandler = Yesod.Core.Internal.Run.runFakeHandler
-{-# DEPRECATED runFakeHandler "import runFakeHandler from Yesod.Core.Unsafe" #-}
-
 -- | Return an 'Unauthorized' value, with the given i18n message.
-unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult
+unauthorizedI
+  :: (HasHandlerData env, RenderMessage (HandlerSite env) msg)
+  => msg
+  -> RIO env AuthResult
 unauthorizedI msg = do
     mr <- getMessageRender
     return $ Unauthorized $ mr msg
@@ -178,12 +164,3 @@ maybeAuthorized :: Yesod site
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
-
-showIntegral :: Integral a => a -> String
-showIntegral x = show (fromIntegral x :: Integer)
-
-readIntegral :: Num a => String -> Maybe a
-readIntegral s =
-    case reads s of
-        (i, _):_ -> Just $ fromInteger i
-        [] -> Nothing

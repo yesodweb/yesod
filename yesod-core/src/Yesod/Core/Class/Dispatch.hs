@@ -4,8 +4,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Yesod.Core.Class.Dispatch where
 
+import RIO
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
@@ -30,8 +32,8 @@ instance YesodSubDispatch WaiSubsiteWithAuth master where
       ysreParentRunner handlert ysreParentEnv (fmap ysreToParentRoute route) req
     where
       route = Just $ WaiSubsiteWithAuthRoute (W.pathInfo req) []
-      WaiSubsiteWithAuth set = ysreGetSub $ yreSite $ ysreParentEnv
-      handlert = sendWaiApplication set
+      WaiSubsiteWithAuth set' = ysreGetSub $ yreSite $ ysreParentEnv
+      handlert = sendWaiApplication set'
 
 subHelper
   :: ToTypedContent content
@@ -39,14 +41,15 @@ subHelper
   -> YesodSubRunnerEnv child master
   -> Maybe (Route child)
   -> W.Application
-subHelper (SubHandlerFor f) YesodSubRunnerEnv {..} mroute =
+subHelper subHandler YesodSubRunnerEnv {..} mroute =
     ysreParentRunner handler ysreParentEnv (fmap ysreToParentRoute mroute)
   where
-    handler = fmap toTypedContent $ HandlerFor $ \hd ->
+    handler = fmap toTypedContent $ do
+      hd <- view subHandlerDataL
       let rhe = handlerEnv hd
           rhe' = rhe
             { rheRoute = mroute
             , rheChild = ysreGetSub $ yreSite ysreParentEnv
             , rheRouteToMaster = ysreToParentRoute
             }
-       in f hd { handlerEnv = rhe' }
+      runRIO hd { handlerEnv = rhe' } subHandler

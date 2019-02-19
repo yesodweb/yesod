@@ -1,6 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Yesod.Core.Json
     ( -- * Convert from a JSON value
       defaultLayoutJson
@@ -34,13 +33,13 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
+import RIO
 import Yesod.Core.Handler (HandlerFor, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader)
 import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
-import Yesod.Core.Types (reqAccept)
+import Yesod.Core.Types (reqAccept, HasHandlerData (..))
 import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
-import Yesod.Core.Class.Handler
 import Yesod.Core.Widget (WidgetFor)
 import Yesod.Routes.Class
 import qualified Data.Aeson as J
@@ -98,7 +97,7 @@ provideJson = provideRep . return . J.toEncoding
 -- | Same as 'parseInsecureJsonBody'
 --
 -- @since 0.3.0
-parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
+parseJsonBody :: (HasHandlerData env, J.FromJSON a) => RIO env (J.Result a)
 parseJsonBody = parseInsecureJsonBody
 {-# DEPRECATED parseJsonBody "Use parseCheckJsonBody or parseInsecureJsonBody instead" #-}
 
@@ -108,7 +107,7 @@ parseJsonBody = parseInsecureJsonBody
 -- Note: This function is vulnerable to CSRF attacks.
 --
 -- @since 1.6.11
-parseInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
+parseInsecureJsonBody :: (HasHandlerData env, J.FromJSON a) => RIO env (J.Result a)
 parseInsecureJsonBody = do
     eValue <- runConduit $ rawRequestBody .| runCatchC (sinkParser JP.value')
     return $ case eValue of
@@ -131,7 +130,7 @@ parseInsecureJsonBody = do
 -- body will no longer be available.
 --
 -- @since 0.3.0
-parseCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
+parseCheckJsonBody :: (HasHandlerData env, J.FromJSON a) => RIO env (J.Result a)
 parseCheckJsonBody = do
     mct <- lookupHeader "content-type"
     case fmap (B8.takeWhile (/= ';')) mct of
@@ -140,13 +139,13 @@ parseCheckJsonBody = do
 
 -- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
-parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
+parseJsonBody_ :: (HasHandlerData env, J.FromJSON a) => RIO env a
 parseJsonBody_ = requireInsecureJsonBody
 {-# DEPRECATED parseJsonBody_ "Use requireCheckJsonBody or requireInsecureJsonBody instead" #-}
 
 -- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
-requireJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireJsonBody :: (HasHandlerData env, J.FromJSON a) => RIO env a
 requireJsonBody = requireInsecureJsonBody
 {-# DEPRECATED requireJsonBody "Use requireCheckJsonBody or requireInsecureJsonBody instead" #-}
 
@@ -154,7 +153,7 @@ requireJsonBody = requireInsecureJsonBody
 -- error.
 --
 -- @since 1.6.11
-requireInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireInsecureJsonBody :: (HasHandlerData env, J.FromJSON a) => RIO env a
 requireInsecureJsonBody = do
     ra <- parseInsecureJsonBody
     case ra of
@@ -163,7 +162,7 @@ requireInsecureJsonBody = do
 
 -- | Same as 'parseCheckJsonBody', but return an invalid args response on a parse
 -- error.
-requireCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireCheckJsonBody :: (HasHandlerData env, J.FromJSON a) => RIO env a
 requireCheckJsonBody = do
     ra <- parseCheckJsonBody
     case ra of
@@ -181,10 +180,10 @@ array = J.Array . V.fromList . map J.toJSON
 --     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
 --
 --     2. 3xx otherwise, following the PRG pattern.
-jsonOrRedirect :: (MonadHandler m, J.ToJSON a)
-               => Route (HandlerSite m) -- ^ Redirect target
+jsonOrRedirect :: (HasHandlerData env, J.ToJSON a)
+               => Route (HandlerSite env) -- ^ Redirect target
                -> a            -- ^ Data to send via JSON
-               -> m J.Value
+               -> RIO env J.Value
 jsonOrRedirect = jsonOrRedirect' J.toJSON
 
 -- | jsonEncodingOrRedirect simplifies the scenario where a POST handler sends a different
@@ -195,17 +194,17 @@ jsonOrRedirect = jsonOrRedirect' J.toJSON
 --
 --     2. 3xx otherwise, following the PRG pattern.
 -- @since 1.4.21
-jsonEncodingOrRedirect :: (MonadHandler m, J.ToJSON a)
-            => Route (HandlerSite m) -- ^ Redirect target
+jsonEncodingOrRedirect :: (HasHandlerData env, J.ToJSON a)
+            => Route (HandlerSite env) -- ^ Redirect target
             -> a            -- ^ Data to send via JSON
-            -> m J.Encoding
+            -> RIO env J.Encoding
 jsonEncodingOrRedirect = jsonOrRedirect' J.toEncoding
 
-jsonOrRedirect' :: MonadHandler m
+jsonOrRedirect' :: HasHandlerData env
             => (a -> b)
-            -> Route (HandlerSite m) -- ^ Redirect target
+            -> Route (HandlerSite env) -- ^ Redirect target
             -> a            -- ^ Data to send via JSON
-            -> m b
+            -> RIO env b
 jsonOrRedirect' f r j = do
     q <- acceptsJson
     if q then return (f j)
@@ -213,7 +212,7 @@ jsonOrRedirect' f r j = do
 
 -- | Returns @True@ if the client prefers @application\/json@ as
 -- indicated by the @Accept@ HTTP header.
-acceptsJson :: MonadHandler m => m Bool
+acceptsJson :: HasHandlerData env => RIO env Bool
 acceptsJson =  (maybe False ((== "application/json") . B8.takeWhile (/= ';'))
             .  listToMaybe
             .  reqAccept)

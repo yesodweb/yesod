@@ -56,7 +56,7 @@ instance Yesod App where
 
 getHomeR :: Handler Html
 getHomeR = do
-    $logDebug "Testing logging"
+    logDebug "Testing logging"
     defaultLayout $ toWidget [hamlet|
 $doctype 5
 

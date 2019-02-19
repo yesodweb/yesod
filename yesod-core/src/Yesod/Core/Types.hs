@@ -1,61 +1,51 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+-- FIXME rename to Internal
 module Yesod.Core.Types where
 
 import qualified Data.ByteString.Builder            as BB
-import           Control.Arrow                      (first)
-import           Control.Exception                  (Exception)
-import           Control.Monad                      (ap)
-import           Control.Monad.IO.Class             (MonadIO (liftIO))
-import           Control.Monad.Logger               (LogLevel, LogSource,
-                                                     MonadLogger (..))
-import           Control.Monad.Primitive            (PrimMonad (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
-import           Data.ByteString                    (ByteString)
+import           Control.Monad.Trans.Resource       (ResourceT)
 import qualified Data.ByteString.Lazy               as L
 import           Data.CaseInsensitive               (CI)
-import           Data.Conduit                       (Flush, ConduitT)
-import           Data.IORef                         (IORef, modifyIORef')
-import           Data.Map                           (Map, unionWith)
-import qualified Data.Map                           as Map
+import           Conduit                            (Flush, ConduitT)
+import           RIO.Map                            (unionWith)
+import qualified RIO.Map                            as Map
 import           Data.Monoid                        (Endo (..), Last (..))
-import           Data.Semigroup                     (Semigroup(..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
-import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
 import           Data.Typeable                      (Typeable)
 import           GHC.Generics                       (Generic)
-import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
 import           Network.Wai                        (FilePart,
                                                      RequestBodyLength)
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
-import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
-import           Network.Wai.Logger                 (DateCacheGetter)
 import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
-import           Control.Monad.Reader               (MonadReader (..))
 import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
-import Control.Monad.Logger (MonadLoggerIO (..))
-import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
+
+import RIO
+import RIO.Orphans
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -131,7 +121,7 @@ data FileInfo = FileInfo
     }
 
 data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
-                | FileUploadDisk !(InternalState -> NWP.BackEnd FilePath)
+                | FileUploadDisk !(ResourceMap -> NWP.BackEnd FilePath)
                 | FileUploadSource !(NWP.BackEnd (ConduitT () ByteString (ResourceT IO) ()))
 
 -- | How to determine the root of the application for constructing URLs.
@@ -176,28 +166,73 @@ data RunHandlerEnv child site = RunHandlerEnv
     , rheSite     :: !site
     , rheChild    :: !child
     , rheUpload   :: !(RequestBodyLength -> FileUpload)
-    , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+    , rheLogFunc  :: !LogFunc
     , rheOnError  :: !(ErrorResponse -> YesodApp)
       -- ^ How to respond when an error is thrown internally.
       --
       -- Since 1.2.0
     , rheMaxExpires :: !Text
     }
+instance HasLogFunc (RunHandlerEnv child site) where
+  logFuncL = lens rheLogFunc (\x y -> x { rheLogFunc = y })
 
-data HandlerData child site = HandlerData
+data SubHandlerData child site = SubHandlerData
     { handlerRequest  :: !YesodRequest
     , handlerEnv      :: !(RunHandlerEnv child site)
     , handlerState    :: !(IORef GHState)
-    , handlerResource :: !InternalState
+    , handlerResource :: !ResourceMap
     }
 
+class (HasResourceMap env, HasLogFunc env) => HasHandlerData env where
+  type HandlerSite env
+  type SubHandlerSite env
+
+  subHandlerDataL :: Lens' env (SubHandlerData (SubHandlerSite env) (HandlerSite env))
+class (HasHandlerData env, HandlerSite env ~ SubHandlerSite env) => HasWidgetData env where
+  widgetDataL :: Lens' env (WidgetData (HandlerSite env))
+
+instance HasHandlerData (SubHandlerData child site) where
+  type HandlerSite (SubHandlerData child site) = site
+  type SubHandlerSite (SubHandlerData child site) = child
+  subHandlerDataL = id
+instance HasLogFunc (SubHandlerData child site) where
+  logFuncL = lens handlerEnv (\x y -> x { handlerEnv = y }).logFuncL
+instance HasResourceMap (SubHandlerData child site) where
+  resourceMapL = lens handlerResource (\x y -> x { handlerResource = y })
+
+instance HasHandlerData (HandlerData site) where
+  type HandlerSite (HandlerData site) = site
+  type SubHandlerSite (HandlerData site) = site
+  subHandlerDataL = lens unHandlerData (\_ y -> HandlerData y)
+instance HasLogFunc (HandlerData site) where
+  logFuncL = subHandlerDataL.logFuncL
+instance HasResourceMap (HandlerData site) where
+  resourceMapL = subHandlerDataL.resourceMapL
+
+instance HasHandlerData (WidgetData site) where
+  type HandlerSite (WidgetData site) = site
+  type SubHandlerSite (WidgetData site) = site
+  subHandlerDataL =
+    (lens wdHandler (\x y -> x { wdHandler = y })).subHandlerDataL
+instance HasWidgetData (WidgetData site) where
+  widgetDataL = id
+instance HasLogFunc (WidgetData site) where
+  logFuncL = subHandlerDataL.logFuncL
+instance HasResourceMap (WidgetData site) where
+  resourceMapL = subHandlerDataL.resourceMapL
+
+newtype HandlerData site = HandlerData { unHandlerData :: SubHandlerData site site }
+
 data YesodRunnerEnv site = YesodRunnerEnv
-    { yreLogger         :: !Logger
+    { yreLogFunc        :: !LogFunc
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
     , yreGen            :: !(IO Int)
     -- ^ Generate a random number
     , yreGetMaxExpires  :: !(IO Text)
+    , yreCleanup        :: !(IORef ())
+    -- ^ Used to ensure some cleanup actions can be performed via
+    -- garbage collection.
     }
 
 data YesodSubRunnerEnv sub parent = YesodSubRunnerEnv
@@ -215,10 +250,7 @@ type ParentRunner parent
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
-newtype HandlerFor site a = HandlerFor
-    { unHandlerFor :: HandlerData site site -> IO a
-    }
-    deriving Functor
+type HandlerFor site = RIO (HandlerData site)
 
 data GHState = GHState
     { ghsSession :: !SessionMap
@@ -237,23 +269,12 @@ type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
-newtype WidgetFor site a = WidgetFor
-    { unWidgetFor :: WidgetData site -> IO a
-    }
-    deriving Functor
+type WidgetFor site = RIO (WidgetData site)
 
 data WidgetData site = WidgetData
   { wdRef :: {-# UNPACK #-} !(IORef (GWData (Route site)))
-  , wdHandler :: {-# UNPACK #-} !(HandlerData site site)
+  , wdHandler :: {-# UNPACK #-} !(HandlerData site)
   }
-
-instance a ~ () => Monoid (WidgetFor site a) where
-    mempty = return ()
-#if !(MIN_VERSION_base(4,11,0))
-    mappend = (<>)
-#endif
-instance a ~ () => Semigroup (WidgetFor site a) where
-    x <> y = x >> y
 
 -- | A 'String' can be trivially promoted to a widget.
 --
@@ -264,8 +285,10 @@ instance a ~ () => IsString (WidgetFor site a) where
     fromString = toWidget . toHtml . T.pack
       where toWidget x = tellWidget mempty { gwdBody = Body (const x) }
 
-tellWidget :: GWData (Route site) -> WidgetFor site ()
-tellWidget d = WidgetFor $ \wd -> modifyIORef' (wdRef wd) (<> d)
+tellWidget :: HasWidgetData env => GWData (Route (HandlerSite env)) -> RIO env ()
+tellWidget d = do
+  wd <- view widgetDataL
+  modifyIORef' (wdRef wd) (<> d)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
@@ -288,8 +311,8 @@ data PageContent url = PageContent
     , pageBody  :: !(HtmlUrl url)
     }
 
-data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and optional content length.
-             | ContentSource !(ConduitT () (Flush BB.Builder) (ResourceT IO) ())
+data Content = ContentBuilder !Builder !(Maybe Int) -- ^ The content and optional content length.
+             | ContentSource !(ConduitT () (Flush Builder) (ResourceT IO) ())
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
@@ -330,9 +353,6 @@ data Header =
     -- ^ key and value
     deriving (Eq, Show)
 
--- FIXME In the next major version bump, let's just add strictness annotations
--- to Header (and probably everywhere else). We can also add strictness
--- annotations to SetCookie in the cookie package.
 instance NFData Header where
     rnf (AddCookie x) = rnf x
     rnf (DeleteCookie x y) = x `seq` y `seq` ()
@@ -373,9 +393,7 @@ data GWData a = GWData
     }
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty
-#if !(MIN_VERSION_base(4,11,0))
     mappend = (<>)
-#endif
 instance Semigroup (GWData a) where
     GWData a1 a2 a3 a4 a5 a6 a7 <>
       GWData b1 b2 b3 b4 b5 b6 b7 = GWData
@@ -407,84 +425,9 @@ instance Show HandlerContents where
     show (HCWaiApp _) = "HCWaiApp"
 instance Exception HandlerContents
 
--- Instances for WidgetFor
-instance Applicative (WidgetFor site) where
-    pure = WidgetFor . const . pure
-    (<*>) = ap
-instance Monad (WidgetFor site) where
-    return = pure
-    WidgetFor x >>= f = WidgetFor $ \wd -> do
-        a <- x wd
-        unWidgetFor (f a) wd
-instance MonadIO (WidgetFor site) where
-    liftIO = WidgetFor . const
--- | @since 1.6.7
-instance PrimMonad (WidgetFor site) where
-    type PrimState (WidgetFor site) = PrimState IO
-    primitive = liftIO . primitive
--- | @since 1.4.38
-instance MonadUnliftIO (WidgetFor site) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = WidgetFor $ \wd ->
-                return (UnliftIO (flip unWidgetFor wd))
-instance MonadReader (WidgetData site) (WidgetFor site) where
-    ask = WidgetFor return
-    local f (WidgetFor g) = WidgetFor $ g . f
-
-instance MonadThrow (WidgetFor site) where
-    throwM = liftIO . throwM
-
-instance MonadResource (WidgetFor site) where
-    liftResourceT f = WidgetFor $ runInternalState f . handlerResource . wdHandler
-
-instance MonadLogger (WidgetFor site) where
-    monadLoggerLog a b c d = WidgetFor $ \wd ->
-        rheLog (handlerEnv $ wdHandler wd) a b c (toLogStr d)
-
-instance MonadLoggerIO (WidgetFor site) where
-    askLoggerIO = WidgetFor $ return . rheLog . handlerEnv . wdHandler
-
--- Instances for HandlerT
-instance Applicative (HandlerFor site) where
-    pure = HandlerFor . const . return
-    (<*>) = ap
-instance Monad (HandlerFor site) where
-    return = pure
-    HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
-instance MonadIO (HandlerFor site) where
-    liftIO = HandlerFor . const
--- | @since 1.6.7
-instance PrimMonad (HandlerFor site) where
-    type PrimState (HandlerFor site) = PrimState IO
-    primitive = liftIO . primitive
-instance MonadReader (HandlerData site site) (HandlerFor site) where
-    ask = HandlerFor return
-    local f (HandlerFor g) = HandlerFor $ g . f
-
--- | @since 1.4.38
-instance MonadUnliftIO (HandlerFor site) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = HandlerFor $ \r ->
-                return (UnliftIO (flip unHandlerFor r))
-
-instance MonadThrow (HandlerFor site) where
-    throwM = liftIO . throwM
-
-instance MonadResource (HandlerFor site) where
-    liftResourceT f = HandlerFor $ runInternalState f . handlerResource
-
-instance MonadLogger (HandlerFor site) where
-    monadLoggerLog a b c d = HandlerFor $ \hd ->
-        rheLog (handlerEnv hd) a b c (toLogStr d)
-
-instance MonadLoggerIO (HandlerFor site) where
-    askLoggerIO = HandlerFor $ \hd -> return (rheLog (handlerEnv hd))
-
 instance Monoid (UniqueList x) where
     mempty = UniqueList id
-#if !(MIN_VERSION_base(4,11,0))
     mappend = (<>)
-#endif
 instance Semigroup (UniqueList x) where
     UniqueList x <> UniqueList y = UniqueList $ x . y
 
@@ -506,49 +449,34 @@ instance RenderRoute WaiSubsiteWithAuth where
 instance ParseRoute WaiSubsiteWithAuth where
   parseRoute (x, y) = Just $ WaiSubsiteWithAuthRoute x y
 
-data Logger = Logger
-    { loggerSet :: !LoggerSet
-    , loggerDate :: !DateCacheGetter
-    }
-
-loggerPutStr :: Logger -> LogStr -> IO ()
-loggerPutStr (Logger ls _) = pushLogStr ls
-
 -- | A handler monad for subsite
 --
 -- @since 1.6.0
-newtype SubHandlerFor sub master a = SubHandlerFor
-    { unSubHandlerFor :: HandlerData sub master -> IO a
-    }
-    deriving Functor
+type SubHandlerFor sub master = RIO (SubHandlerData sub master)
 
-instance Applicative (SubHandlerFor child master) where
-    pure = SubHandlerFor . const . return
-    (<*>) = ap
-instance Monad (SubHandlerFor child master) where
-    return = pure
-    SubHandlerFor x >>= f = SubHandlerFor $ \r -> x r >>= \x' -> unSubHandlerFor (f x') r
-instance MonadIO (SubHandlerFor child master) where
-    liftIO = SubHandlerFor . const
-instance MonadReader (HandlerData child master) (SubHandlerFor child master) where
-    ask = SubHandlerFor return
-    local f (SubHandlerFor g) = SubHandlerFor $ g . f
+-- | Convert a concrete 'HandlerFor' action into an arbitrary other monad.
+liftHandler
+  :: (MonadIO m, MonadReader env m, HasHandlerData env)
+  => HandlerFor (HandlerSite env) a
+  -> m a
+liftHandler action = do
+  shd <- view subHandlerDataL
+  let hd = HandlerData $ shd
+            { handlerEnv =
+                let rhe = handlerEnv shd
+                 in rhe
+                      { rheRoute = rheRouteToMaster rhe <$> rheRoute rhe
+                      , rheChild = rheSite rhe
+                      , rheRouteToMaster = id
+                      }
+            }
+  runRIO hd action
 
--- | @since 1.4.38
-instance MonadUnliftIO (SubHandlerFor child master) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = SubHandlerFor $ \r ->
-                return (UnliftIO (flip unSubHandlerFor r))
-
-instance MonadThrow (SubHandlerFor child master) where
-    throwM = liftIO . throwM
-
-instance MonadResource (SubHandlerFor child master) where
-    liftResourceT f = SubHandlerFor $ runInternalState f . handlerResource
-
-instance MonadLogger (SubHandlerFor child master) where
-    monadLoggerLog a b c d = SubHandlerFor $ \sd ->
-        rheLog (handlerEnv sd) a b c (toLogStr d)
-
-instance MonadLoggerIO (SubHandlerFor child master) where
-    askLoggerIO = SubHandlerFor $ return . rheLog . handlerEnv
+-- | Convert a concrete 'WidgetFor' action into an arbitrary other monad.
+liftWidget
+  :: (MonadIO m, MonadReader env m, HasWidgetData env)
+  => WidgetFor (HandlerSite env) a
+  -> m a
+liftWidget action = do
+  hd <- view widgetDataL
+  runRIO hd action

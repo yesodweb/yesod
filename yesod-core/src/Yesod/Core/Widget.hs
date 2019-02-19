@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
@@ -57,8 +58,7 @@ import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
 import Text.Shakespeare.I18N (RenderMessage)
-import Data.Text (Text)
-import qualified Data.Map as Map
+import qualified RIO.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP), newName)
 
@@ -68,8 +68,8 @@ import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TB
 
+import RIO
 import Yesod.Core.Types
-import Yesod.Core.Class.Handler
 
 type WidgetT site (m :: * -> *) = WidgetFor site
 {-# DEPRECATED WidgetT "Use WidgetFor directly" #-}
@@ -78,7 +78,7 @@ preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
 
 class ToWidget site a where
-    toWidget :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
+    toWidget :: (HasWidgetData env, HandlerSite env ~ site) => a -> RIO env ()
 
 instance render ~ RY site => ToWidget site (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
@@ -115,10 +115,10 @@ class ToWidgetMedia site a where
     -- | Add the given content to the page, but only for the given media type.
     --
     -- Since 1.2
-    toWidgetMedia :: (MonadWidget m, HandlerSite m ~ site)
+    toWidgetMedia :: (HasWidgetData env, HandlerSite env ~ site)
                   => Text -- ^ media value
                   -> a
-                  -> m ()
+                  -> RIO env ()
 instance render ~ RY site => ToWidgetMedia site (render -> Css) where
     toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
 instance ToWidgetMedia site Css where
@@ -129,7 +129,7 @@ instance ToWidgetMedia site CssBuilder where
     toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
 
 class ToWidgetBody site a where
-    toWidgetBody :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
+    toWidgetBody :: (HasWidgetData env, HandlerSite env ~ site) => a -> RIO env ()
 
 instance render ~ RY site => ToWidgetBody site (render -> Html) where
     toWidgetBody = toWidget
@@ -141,7 +141,7 @@ instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
 class ToWidgetHead site a where
-    toWidgetHead :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
+    toWidgetHead :: (HasWidgetData env, HandlerSite env ~ site) => a -> RIO env ()
 
 instance render ~ RY site => ToWidgetHead site (render -> Html) where
     toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
@@ -162,59 +162,59 @@ instance ToWidgetHead site Html where
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitle :: MonadWidget m => Html -> m ()
+setTitle :: HasWidgetData env => Html -> RIO env ()
 setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitleI :: (MonadWidget m, RenderMessage (HandlerSite m) msg) => msg -> m ()
+setTitleI :: (HasWidgetData env, RenderMessage (HandlerSite env) msg) => msg -> RIO env ()
 setTitleI msg = do
     mr <- getMessageRender
     setTitle $ toHtml $ mr msg
 
 -- | Link to the specified local stylesheet.
-addStylesheet :: MonadWidget m => Route (HandlerSite m) -> m ()
+addStylesheet :: HasWidgetData env => Route (HandlerSite env) -> RIO env ()
 addStylesheet = flip addStylesheetAttrs []
 
 -- | Link to the specified local stylesheet.
-addStylesheetAttrs :: MonadWidget m
-                   => Route (HandlerSite m)
+addStylesheetAttrs :: HasWidgetData env
+                   => Route (HandlerSite env)
                    -> [(Text, Text)]
-                   -> m ()
+                   -> RIO env ()
 addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemote :: MonadWidget m => Text -> m ()
+addStylesheetRemote :: HasWidgetData env => Text -> RIO env ()
 addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
+addStylesheetRemoteAttrs :: HasWidgetData env => Text -> [(Text, Text)] -> RIO env ()
 addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
-addStylesheetEither :: MonadWidget m
-                    => Either (Route (HandlerSite m)) Text
-                    -> m ()
+addStylesheetEither :: HasWidgetData env
+                    => Either (Route (HandlerSite env)) Text
+                    -> RIO env ()
 addStylesheetEither = either addStylesheet addStylesheetRemote
 
-addScriptEither :: MonadWidget m
-                => Either (Route (HandlerSite m)) Text
-                -> m ()
+addScriptEither :: HasWidgetData env
+                => Either (Route (HandlerSite env)) Text
+                -> RIO env ()
 addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
-addScript :: MonadWidget m => Route (HandlerSite m) -> m ()
+addScript :: HasWidgetData env => Route (HandlerSite env) -> RIO env ()
 addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
-addScriptAttrs :: MonadWidget m => Route (HandlerSite m) -> [(Text, Text)] -> m ()
+addScriptAttrs :: HasWidgetData env => Route (HandlerSite env) -> [(Text, Text)] -> RIO env ()
 addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
-addScriptRemote :: MonadWidget m => Text -> m ()
+addScriptRemote :: HasWidgetData env => Text -> RIO env ()
 addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
-addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
+addScriptRemoteAttrs :: HasWidgetData env => Text -> [(Text, Text)] -> RIO env ()
 addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
 whamlet :: QuasiQuoter
@@ -247,28 +247,28 @@ rules = do
     return $ NP.HamletRules ah ur $ \_ b -> return $ ah `AppE` b
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-ihamletToRepHtml :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-                 => HtmlUrlI18n message (Route (HandlerSite m))
-                 -> m Html
+ihamletToRepHtml :: (HasHandlerData env, RenderMessage (HandlerSite env) message)
+                 => HtmlUrlI18n message (Route (HandlerSite env))
+                 -> RIO env Html
 ihamletToRepHtml = ihamletToHtml
 {-# DEPRECATED ihamletToRepHtml "Please use ihamletToHtml instead" #-}
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
 --
 -- Since 1.2.1
-ihamletToHtml :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-              => HtmlUrlI18n message (Route (HandlerSite m))
-              -> m Html
+ihamletToHtml :: (HasHandlerData env, RenderMessage (HandlerSite env) message)
+              => HtmlUrlI18n message (Route (HandlerSite env))
+              -> RIO env Html
 ihamletToHtml ih = do
     urender <- getUrlRenderParams
     mrender <- getMessageRender
     return $ ih (toHtml . mrender) urender
 
-tell :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
+tell :: HasWidgetData env => GWData (Route (HandlerSite env)) -> RIO env ()
 tell = liftWidget . tellWidget
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
 
 handlerToWidget :: HandlerFor site a -> WidgetFor site a
-handlerToWidget (HandlerFor f) = WidgetFor $ f . wdHandler
+handlerToWidget = liftHandler

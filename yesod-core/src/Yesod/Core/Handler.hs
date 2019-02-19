@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -10,6 +11,7 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE QuantifiedConstraints      #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -201,13 +203,12 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
 
 import           Control.Applicative           ((<|>))
 import qualified Data.CaseInsensitive          as CI
-import           Control.Exception             (evaluate, SomeException, throwIO)
-import           Control.Exception             (handle)
 
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
-import           UnliftIO                      (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
+import           RIO
+import           RIO.Orphans
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
@@ -241,55 +242,52 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
-import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
-import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 import           Data.ByteString.Builder (Builder)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
-import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
+import           Control.Monad.Trans.Resource  (MonadResource, InternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
 import           Conduit ((.|), runConduit, sinkLazy)
 import           Data.Conduit (ConduitT, transPipe, Flush (Flush), yield, Void)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
-import           Control.Monad.Logger (MonadLogger, logWarnS)
 
 type HandlerT site (m :: * -> *) = HandlerFor site
 {-# DEPRECATED HandlerT "Use HandlerFor directly" #-}
 
-get :: MonadHandler m => m GHState
-get = liftHandler $ HandlerFor $ I.readIORef . handlerState
+get :: HasHandlerData env => RIO env GHState
+get = view (subHandlerDataL.to handlerState) >>= readIORef
 
-put :: MonadHandler m => GHState -> m ()
-put x = liftHandler $ HandlerFor $ flip I.writeIORef x . handlerState
+put :: HasHandlerData env => GHState -> RIO env ()
+put x = view (subHandlerDataL.to handlerState) >>= flip writeIORef x
 
-modify :: MonadHandler m => (GHState -> GHState) -> m ()
-modify f = liftHandler $ HandlerFor $ flip I.modifyIORef f . handlerState
+modify :: HasHandlerData env => (GHState -> GHState) -> RIO env ()
+modify f = view (subHandlerDataL.to handlerState) >>= flip modifyIORef f
 
-tell :: MonadHandler m => Endo [Header] -> m ()
+tell :: HasHandlerData env => Endo [Header] -> RIO env ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
 
-handlerError :: MonadHandler m => HandlerContents -> m a
+handlerError :: HasHandlerData env => HandlerContents -> RIO env a
 handlerError = liftIO . throwIO
 
-hcError :: MonadHandler m => ErrorResponse -> m a
+hcError :: HasHandlerData env => ErrorResponse -> RIO env a
 hcError = handlerError . HCError
 
-getRequest :: MonadHandler m => m YesodRequest
-getRequest = liftHandler $ HandlerFor $ return . handlerRequest
+getRequest :: HasHandlerData env => RIO env YesodRequest
+getRequest = view $ subHandlerDataL.to handlerRequest
 
-runRequestBody :: MonadHandler m => m RequestBodyContents
+runRequestBody :: HasHandlerData env => RIO env RequestBodyContents
 runRequestBody = do
-    HandlerData
+    SubHandlerData
         { handlerEnv = RunHandlerEnv {..}
         , handlerRequest = req
-        } <- liftHandler $ HandlerFor return
+        } <- view subHandlerDataL
     let len = W.requestBodyLength $ reqWaiRequest req
         upload = rheUpload len
     x <- get
@@ -328,28 +326,28 @@ rbHelper' backend mkFI req =
             | otherwise = a'
     go = decodeUtf8With lenientDecode
 
-askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m) (HandlerSite m))
-askHandlerEnv = liftHandler $ HandlerFor $ return . handlerEnv
+askHandlerEnv :: HasHandlerData env => RIO env (RunHandlerEnv (SubHandlerSite env) (HandlerSite env))
+askHandlerEnv = view $ subHandlerDataL.to handlerEnv
 
 -- | Get the master site application argument.
-getYesod :: MonadHandler m => m (HandlerSite m)
+getYesod :: HasHandlerData env => RIO env (HandlerSite env)
 getYesod = rheSite <$> askHandlerEnv
 
 -- | Get a specific component of the master site application argument.
 --   Analogous to the 'gets' function for operating on 'StateT'.
-getsYesod :: MonadHandler m => (HandlerSite m -> a) -> m a
+getsYesod :: HasHandlerData env => (HandlerSite env -> a) -> RIO env a
 getsYesod f = (f . rheSite) <$> askHandlerEnv
 
 -- | Get the URL rendering function.
-getUrlRender :: MonadHandler m => m (Route (HandlerSite m) -> Text)
+getUrlRender :: HasHandlerData env => RIO env (Route (HandlerSite env) -> Text)
 getUrlRender = do
     x <- rheRender <$> askHandlerEnv
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
-    :: MonadHandler m
-    => m (Route (HandlerSite m) -> [(Text, Text)] -> Text)
+    :: HasHandlerData env
+    => RIO env (Route (HandlerSite env) -> [(Text, Text)] -> Text)
 getUrlRenderParams = rheRender <$> askHandlerEnv
 
 -- | Get all the post parameters passed to the handler. To also get
@@ -358,16 +356,18 @@ getUrlRenderParams = rheRender <$> askHandlerEnv
 --
 -- @since 1.4.33
 getPostParams
-  :: MonadHandler m
-  => m [(Text, Text)]
+  :: HasHandlerData env
+  => RIO env [(Text, Text)]
 getPostParams = do
   reqBodyContent <- runRequestBody
   return $ fst reqBodyContent
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
-getCurrentRoute :: MonadHandler m => m (Maybe (Route (HandlerSite m)))
-getCurrentRoute = rheRoute <$> askHandlerEnv
+getCurrentRoute :: HasHandlerData env => RIO env (Maybe (Route (HandlerSite env)))
+getCurrentRoute = do
+  rhe <- askHandlerEnv
+  pure $ rheRouteToMaster rhe <$> rheRoute rhe
 
 -- | Returns a function that runs 'HandlerT' actions inside @IO@.
 --
@@ -406,8 +406,8 @@ getCurrentRoute = rheRoute <$> askHandlerEnv
 -- 'GHandler' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
 handlerToIO :: MonadIO m => HandlerFor site (HandlerFor site a -> m a)
-handlerToIO =
-  HandlerFor $ \oldHandlerData -> do
+handlerToIO = do
+    oldHandlerData <- view subHandlerDataL
     -- Take just the bits we need from oldHandlerData.
     let newReq = oldReq { reqWaiRequest = newWaiReq }
           where
@@ -418,7 +418,7 @@ handlerToIO =
                                   }
         oldEnv = handlerEnv oldHandlerData
     newState <- liftIO $ do
-      oldState <- I.readIORef (handlerState oldHandlerData)
+      oldState <- readIORef (handlerState oldHandlerData)
       return $ oldState { ghsRBC = Nothing
                         , ghsIdent = 1
                         , ghsCache = mempty
@@ -429,20 +429,20 @@ handlerToIO =
     liftIO $ evaluate (newReq `seq` oldEnv `seq` newState `seq` ())
 
     -- Return GHandler running function.
-    return $ \(HandlerFor f) ->
+    return $ \action ->
       liftIO $
-      runResourceT $ withInternalState $ \resState -> do
+      withResourceMap $ \resourceMap -> do
         -- The state IORef needs to be created here, otherwise it
         -- will be shared by different invocations of this function.
-        newStateIORef <- liftIO (I.newIORef newState)
+        newStateIORef <- liftIO (newIORef newState)
         let newHandlerData =
-              HandlerData
+              HandlerData $ SubHandlerData
                 { handlerRequest  = newReq
                 , handlerEnv      = oldEnv
                 , handlerState    = newStateIORef
-                , handlerResource = resState
+                , handlerResource = resourceMap
                 }
-        liftIO (f newHandlerData)
+        runRIO newHandlerData action
 
 -- | forkIO for a Handler (run an action in the background)
 --
@@ -465,8 +465,8 @@ forkHandler onErr handler = do
 --
 -- If you want direct control of the final status code, or need a different
 -- status code, please use 'redirectWith'.
-redirect :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
-         => url -> m a
+redirect :: (HasHandlerData env, RedirectUrl (HandlerSite env) url)
+         => url -> RIO env a
 redirect url = do
     req <- waiRequest
     let status =
@@ -476,10 +476,10 @@ redirect url = do
     redirectWith status url
 
 -- | Redirect to the given URL with the specified status code.
-redirectWith :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
+redirectWith :: (HasHandlerData env, RedirectUrl (HandlerSite env) url)
              => H.Status
              -> url
-             -> m a
+             -> RIO env a
 redirectWith status url = do
     urlText <- toTextUrl url
     handlerError $ HCRedirect status urlText
@@ -491,9 +491,9 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
+setUltDest :: (HasHandlerData env, RedirectUrl (HandlerSite env) url)
            => url
-           -> m ()
+           -> RIO env ()
 setUltDest url = do
     urlText <- toTextUrl url
     setSession ultDestKey urlText
@@ -502,7 +502,7 @@ setUltDest url = do
 --
 -- If this is a 404 handler, there is no current page, and then this call does
 -- nothing.
-setUltDestCurrent :: MonadHandler m => m ()
+setUltDestCurrent :: HasHandlerData env => RIO env ()
 setUltDestCurrent = do
     route <- getCurrentRoute
     case route of
@@ -514,7 +514,7 @@ setUltDestCurrent = do
 -- | Sets the ultimate destination to the referer request header, if present.
 --
 -- This function will not overwrite an existing ultdest.
-setUltDestReferer :: MonadHandler m => m ()
+setUltDestReferer :: HasHandlerData env => RIO env ()
 setUltDestReferer = do
     mdest <- lookupSession ultDestKey
     maybe
@@ -531,16 +531,16 @@ setUltDestReferer = do
 --
 -- This function uses 'redirect', and thus will perform a temporary redirect to
 -- a GET request.
-redirectUltDest :: (RedirectUrl (HandlerSite m) url, MonadHandler m)
+redirectUltDest :: (RedirectUrl (HandlerSite env) url, HasHandlerData env)
                 => url -- ^ default destination if nothing in session
-                -> m a
+                -> RIO env a
 redirectUltDest defaultDestination = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
     maybe (redirect defaultDestination) redirect mdest
 
 -- | Remove a previously set ultimate destination. See 'setUltDest'.
-clearUltDest :: MonadHandler m => m ()
+clearUltDest :: HasHandlerData env => RIO env ()
 clearUltDest = deleteSession ultDestKey
 
 msgKey :: Text
@@ -551,10 +551,10 @@ msgKey = "_MSG"
 -- See 'getMessages'.
 --
 -- @since 1.4.20
-addMessage :: MonadHandler m
+addMessage :: HasHandlerData env
            => Text -- ^ status
            -> Html -- ^ message
-           -> m ()
+           -> RIO env ()
 addMessage status msg = do
     val <- lookupSessionBS msgKey
     setSessionBS msgKey $ addMsg val
@@ -569,8 +569,8 @@ addMessage status msg = do
 -- See 'getMessages'.
 --
 -- @since 1.4.20
-addMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
-            => Text -> msg -> m ()
+addMessageI :: (HasHandlerData env, RenderMessage (HandlerSite env) msg)
+            => Text -> msg -> RIO env ()
 addMessageI status msg = do
     mr <- getMessageRender
     addMessage status $ toHtml $ mr msg
@@ -580,7 +580,7 @@ addMessageI status msg = do
 -- See 'addMessage'.
 --
 -- @since 1.4.20
-getMessages :: MonadHandler m => m [(Text, Html)]
+getMessages :: HasHandlerData env => RIO env [(Text, Html)]
 getMessages = do
     bs <- lookupSessionBS msgKey
     let ms = maybe [] enlist bs
@@ -594,33 +594,34 @@ getMessages = do
     decode = decodeUtf8With lenientDecode
 
 -- | Calls 'addMessage' with an empty status
-setMessage :: MonadHandler m => Html -> m ()
+setMessage :: HasHandlerData env => Html -> RIO env ()
 setMessage = addMessage ""
 
 -- | Calls 'addMessageI' with an empty status
-setMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
-            => msg -> m ()
+setMessageI :: (HasHandlerData env, RenderMessage (HandlerSite env) msg)
+            => msg
+            -> RIO env ()
 setMessageI = addMessageI ""
 
 -- | Gets just the last message in the user's session,
 -- discards the rest and the status
-getMessage :: MonadHandler m => m (Maybe Html)
+getMessage :: HasHandlerData env => RIO env (Maybe Html)
 getMessage = fmap (fmap snd . listToMaybe) getMessages
 
 -- | Bypass remaining handler code and output the given file.
 --
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
-sendFile :: MonadHandler m => ContentType -> FilePath -> m a
+sendFile :: HasHandlerData env => ContentType -> FilePath -> RIO env a
 sendFile ct fp = handlerError $ HCSendFile ct fp Nothing
 
 -- | Same as 'sendFile', but only sends part of a file.
-sendFilePart :: MonadHandler m
+sendFilePart :: HasHandlerData env
              => ContentType
              -> FilePath
              -> Integer -- ^ offset
              -> Integer -- ^ count
-             -> m a
+             -> RIO env a
 sendFilePart ct fp off count = do
     fs <- liftIO $ PC.getFileStatus fp
     handlerError $ HCSendFile ct fp $ Just W.FilePart
@@ -631,24 +632,24 @@ sendFilePart ct fp off count = do
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
-sendResponse :: (MonadHandler m, ToTypedContent c) => c -> m a
+sendResponse :: (HasHandlerData env, ToTypedContent c) => c -> RIO env a
 sendResponse = handlerError . HCContent H.status200 . toTypedContent
 
 -- | Bypass remaining handler code and output the given content with the given
 -- status code.
-sendResponseStatus :: (MonadHandler m, ToTypedContent c) => H.Status -> c -> m a
+sendResponseStatus :: (HasHandlerData env, ToTypedContent c) => H.Status -> c -> RIO env a
 sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
 -- | Bypass remaining handler code and output the given JSON with the given
 -- status code.
 --
 -- @since 1.4.18
-sendStatusJSON :: (MonadHandler m, ToJSON c) => H.Status -> c -> m a
+sendStatusJSON :: (HasHandlerData env, ToJSON c) => H.Status -> c -> RIO env a
 sendStatusJSON s v = sendResponseStatus s (toEncoding v)
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
-sendResponseCreated :: MonadHandler m => Route (HandlerSite m) -> m a
+sendResponseCreated :: HasHandlerData env => Route (HandlerSite env) -> RIO env a
 sendResponseCreated url = do
     r <- getUrlRender
     handlerError $ HCCreated $ r url
@@ -656,7 +657,7 @@ sendResponseCreated url = do
 -- | Bypass remaining handler code and output no content with a 204 status code.
 --
 -- @since 1.6.9
-sendResponseNoContent :: MonadHandler m => m a
+sendResponseNoContent :: HasHandlerData env => RIO env a
 sendResponseNoContent = sendWaiResponse $ W.responseBuilder H.status204 [] mempty
 
 -- | Send a 'W.Response'. Please note: this function is rarely
@@ -664,13 +665,13 @@ sendResponseNoContent = sendWaiResponse $ W.responseBuilder H.status204 [] mempt
 -- that you have already specified. This function short-circuits. It should be
 -- considered only for very specific needs. If you are not sure if you need it,
 -- you don't.
-sendWaiResponse :: MonadHandler m => W.Response -> m b
+sendWaiResponse :: HasHandlerData env => W.Response -> RIO env b
 sendWaiResponse = handlerError . HCWai
 
 -- | Switch over to handling the current request with a WAI @Application@.
 --
 -- @since 1.2.17
-sendWaiApplication :: MonadHandler m => W.Application -> m b
+sendWaiApplication :: HasHandlerData env => W.Application -> RIO env b
 sendWaiApplication = handlerError . HCWaiApp
 
 -- | Send a raw response without conduit. This is used for cases such as
@@ -679,9 +680,9 @@ sendWaiApplication = handlerError . HCWaiApp
 --
 -- @since 1.2.16
 sendRawResponseNoConduit
-    :: (MonadHandler m, MonadUnliftIO m)
-    => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
-    -> m a
+    :: HasHandlerData env
+    => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> RIO env ())
+    -> RIO env a
 sendRawResponseNoConduit raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO (raw src sink)
@@ -695,9 +696,9 @@ sendRawResponseNoConduit raw = withRunInIO $ \runInIO ->
 --
 -- @since 1.2.7
 sendRawResponse
-  :: (MonadHandler m, MonadUnliftIO m)
-  => (ConduitT () S8.ByteString IO () -> ConduitT S8.ByteString Void IO () -> m ())
-  -> m a
+  :: HasHandlerData env
+  => (ConduitT () S8.ByteString IO () -> ConduitT S8.ByteString Void IO () -> RIO env ())
+  -> RIO env a
 sendRawResponse raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
@@ -714,41 +715,41 @@ sendRawResponse raw = withRunInIO $ \runInIO ->
 -- action.
 --
 -- @since 1.4.4
-notModified :: MonadHandler m => m a
+notModified :: HasHandlerData env => RIO env a
 notModified = sendWaiResponse $ W.responseBuilder H.status304 [] mempty
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: MonadHandler m => m a
+notFound :: HasHandlerData env => RIO env a
 notFound = hcError NotFound
 
 -- | Return a 405 method not supported page.
-badMethod :: MonadHandler m => m a
+badMethod :: HasHandlerData env => RIO env a
 badMethod = do
     w <- waiRequest
     hcError $ BadMethod $ W.requestMethod w
 
 -- | Return a 401 status code
-notAuthenticated :: MonadHandler m => m a
+notAuthenticated :: HasHandlerData env => RIO env a
 notAuthenticated = hcError NotAuthenticated
 
 -- | Return a 403 permission denied page.
-permissionDenied :: MonadHandler m => Text -> m a
-permissionDenied = hcError . PermissionDenied
+permissionDenied :: HasHandlerData env => Utf8Builder -> RIO env a
+permissionDenied = hcError . PermissionDenied . utf8BuilderToText -- FIXME inefficient
 
 -- | Return a 403 permission denied page.
-permissionDeniedI :: (RenderMessage (HandlerSite m) msg, MonadHandler m)
+permissionDeniedI :: (RenderMessage (HandlerSite env) msg, HasHandlerData env)
                   => msg
-                  -> m a
+                  -> RIO env a
 permissionDeniedI msg = do
     mr <- getMessageRender
-    permissionDenied $ mr msg
+    permissionDenied $ display $ mr msg
 
 -- | Return a 400 invalid arguments page.
-invalidArgs :: MonadHandler m => [Text] -> m a
+invalidArgs :: HasHandlerData env => [Text] -> RIO env a
 invalidArgs = hcError . InvalidArgs
 
 -- | Return a 400 invalid arguments page.
-invalidArgsI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => [msg] -> m a
+invalidArgsI :: (HasHandlerData env, RenderMessage (HandlerSite env) msg) => [msg] -> RIO env a
 invalidArgsI msg = do
     mr <- getMessageRender
     invalidArgs $ map mr msg
@@ -756,7 +757,7 @@ invalidArgsI msg = do
 ------- Headers
 -- | Set the cookie on the client.
 
-setCookie :: MonadHandler m => SetCookie -> m ()
+setCookie :: HasHandlerData env => SetCookie -> RIO env ()
 setCookie sc = do
   addHeaderInternal (DeleteCookie name path)
   addHeaderInternal (AddCookie sc)
@@ -776,16 +777,16 @@ getExpires m = do
 --
 -- Note: although the value used for key and path is 'Text', you should only
 -- use ASCII values to be HTTP compliant.
-deleteCookie :: MonadHandler m
+deleteCookie :: HasHandlerData env
              => Text -- ^ key
              -> Text -- ^ path
-             -> m ()
+             -> RIO env ()
 deleteCookie a = addHeaderInternal . DeleteCookie (encodeUtf8 a) . encodeUtf8
 
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
-setLanguage :: MonadHandler m => Text -> m ()
+setLanguage :: HasHandlerData env => Text -> RIO env ()
 setLanguage = setSession langKey
 
 -- | Set attachment file name.
@@ -797,7 +798,7 @@ setLanguage = setSession langKey
 -- <https://tools.ietf.org/html/rfc6266 RFC 6266>(<https://tools.ietf.org/html/rfc5987 RFC 5987>)
 --
 -- @since 1.6.4
-addContentDispositionFileName :: MonadHandler m => T.Text -> m ()
+addContentDispositionFileName :: HasHandlerData env => T.Text -> RIO env ()
 addContentDispositionFileName fileName
     = addHeader "Content-Disposition" $ rfc6266Utf8FileName fileName
 
@@ -814,11 +815,11 @@ rfc6266Utf8FileName fileName = "attachment; filename*=UTF-8''" `mappend` decodeU
 -- ASCII value to be HTTP compliant.
 --
 -- @since 1.2.0
-addHeader :: MonadHandler m => Text -> Text -> m ()
+addHeader :: HasHandlerData env => Text -> Text -> RIO env ()
 addHeader a = addHeaderInternal . Header (CI.mk $ encodeUtf8 a) . encodeUtf8
 
 -- | Deprecated synonym for addHeader.
-setHeader :: MonadHandler m => Text -> Text -> m ()
+setHeader :: HasHandlerData env => Text -> Text -> RIO env ()
 setHeader = addHeader
 {-# DEPRECATED setHeader "Please use addHeader instead" #-}
 
@@ -829,7 +830,7 @@ setHeader = addHeader
 -- ASCII value to be HTTP compliant.
 --
 -- @since 1.4.36
-replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
+replaceOrAddHeader :: HasHandlerData env => Text -> Text -> RIO env ()
 replaceOrAddHeader a b =
   modify $ \g -> g {ghsHeaders = replaceHeader (ghsHeaders g)}
   where
@@ -858,7 +859,7 @@ replaceOrAddHeader a b =
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
-cacheSeconds :: MonadHandler m => Int -> m ()
+cacheSeconds :: HasHandlerData env => Int -> RIO env ()
 cacheSeconds i = setHeader "Cache-Control" $ T.concat
     [ "max-age="
     , T.pack $ show i
@@ -867,7 +868,7 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 
 -- | Set the Expires header to some date in 2037. In other words, this content
 -- is never (realistically) expired.
-neverExpires :: MonadHandler m => m ()
+neverExpires :: HasHandlerData env => RIO env ()
 neverExpires = do
     setHeader "Expires" . rheMaxExpires =<< askHandlerEnv
     cacheSeconds oneYear
@@ -877,11 +878,11 @@ neverExpires = do
 
 -- | Set an Expires header in the past, meaning this content should not be
 -- cached.
-alreadyExpired :: MonadHandler m => m ()
+alreadyExpired :: HasHandlerData env => RIO env ()
 alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
-expiresAt :: MonadHandler m => UTCTime -> m ()
+expiresAt :: HasHandlerData env => UTCTime -> RIO env ()
 expiresAt = setHeader "Expires" . formatRFC1123
 
 data Etag
@@ -905,7 +906,7 @@ data Etag
 -- function.
 --
 -- @since 1.4.4
-setEtag :: MonadHandler m => Text -> m ()
+setEtag :: HasHandlerData env => Text -> RIO env ()
 setEtag etag = do
     mmatch <- lookupHeader "if-none-match"
     let matches = maybe [] parseMatch mmatch
@@ -949,7 +950,7 @@ parseMatch =
 -- function.
 --
 -- @since 1.4.37
-setWeakEtag :: MonadHandler m => Text -> m ()
+setWeakEtag :: HasHandlerData env => Text -> RIO env ()
 setWeakEtag etag = do
     mmatch <- lookupHeader "if-none-match"
     let matches = maybe [] parseMatch mmatch
@@ -962,40 +963,40 @@ setWeakEtag etag = do
 -- The session is handled by the clientsession package: it sets an encrypted
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
-setSession :: MonadHandler m
+setSession :: HasHandlerData env
            => Text -- ^ key
            -> Text -- ^ value
-           -> m ()
+           -> RIO env ()
 setSession k = setSessionBS k . encodeUtf8
 
 -- | Same as 'setSession', but uses binary data for the value.
-setSessionBS :: MonadHandler m
+setSessionBS :: HasHandlerData env
              => Text
              -> S.ByteString
-             -> m ()
+             -> RIO env ()
 setSessionBS k = modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
-deleteSession :: MonadHandler m => Text -> m ()
+deleteSession :: HasHandlerData env => Text -> RIO env ()
 deleteSession = modify . modSession . Map.delete
 
 -- | Clear all session variables.
 --
 -- @since: 1.0.1
-clearSession :: MonadHandler m => m ()
+clearSession :: HasHandlerData env => RIO env ()
 clearSession = modify $ \x -> x { ghsSession = Map.empty }
 
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
-addHeaderInternal :: MonadHandler m => Header -> m ()
+addHeaderInternal :: HasHandlerData env => Header -> RIO env ()
 addHeaderInternal = tell . Endo . (:)
 
 -- | Some value which can be turned into a URL for redirects.
 class RedirectUrl master a where
     -- | Converts the value to the URL and a list of query-string parameters.
-    toTextUrl :: (MonadHandler m, HandlerSite m ~ master) => a -> m Text
+    toTextUrl :: (HandlerSite env ~ master, HasHandlerData env) => a -> RIO env Text
 
 instance RedirectUrl master Text where
     toTextUrl = return
@@ -1029,21 +1030,21 @@ instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b
 
 
 -- | Lookup for session data.
-lookupSession :: MonadHandler m => Text -> m (Maybe Text)
+lookupSession :: HasHandlerData env => Text -> RIO env (Maybe Text)
 lookupSession = (fmap . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
 
 -- | Lookup for session data in binary format.
-lookupSessionBS :: MonadHandler m => Text -> m (Maybe S.ByteString)
+lookupSessionBS :: HasHandlerData env => Text -> RIO env (Maybe S.ByteString)
 lookupSessionBS n = do
     m <- fmap ghsSession get
     return $ Map.lookup n m
 
 -- | Get all session variables.
-getSession :: MonadHandler m => m SessionMap
+getSession :: HasHandlerData env => RIO env SessionMap
 getSession = fmap ghsSession get
 
 -- | Get a unique identifier.
-newIdent :: MonadHandler m => m Text
+newIdent :: HasHandlerData env => RIO env Text
 newIdent = do
     x <- get
     let i' = ghsIdent x + 1
@@ -1056,9 +1057,9 @@ newIdent = do
 -- POST form, and some Javascript to automatically submit the form. This can be
 -- useful when you need to post a plain link somewhere that needs to cause
 -- changes on the server.
-redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
+redirectToPost :: (HasHandlerData env, RedirectUrl (HandlerSite env) url)
                => url
-               -> m a
+               -> RIO env a
 redirectToPost url = do
     urlText <- toTextUrl url
     req <- getRequest
@@ -1079,16 +1080,16 @@ $doctype 5
 |] >>= sendResponse
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-hamletToRepHtml :: MonadHandler m => HtmlUrl (Route (HandlerSite m)) -> m Html
+hamletToRepHtml :: HasHandlerData env => HtmlUrl (Route (HandlerSite env)) -> RIO env Html
 hamletToRepHtml = withUrlRenderer
 {-# DEPRECATED hamletToRepHtml "Use withUrlRenderer instead" #-}
 
 -- | Deprecated synonym for 'withUrlRenderer'.
 --
 -- @since 1.2.0
-giveUrlRenderer :: MonadHandler m
-                => ((Route (HandlerSite m) -> [(Text, Text)] -> Text) -> output)
-                -> m output
+giveUrlRenderer :: HasHandlerData env
+                => ((Route (HandlerSite env) -> [(Text, Text)] -> Text) -> output)
+                -> RIO env output
 giveUrlRenderer = withUrlRenderer
 {-# DEPRECATED giveUrlRenderer "Use withUrlRenderer instead" #-}
 
@@ -1096,19 +1097,19 @@ giveUrlRenderer = withUrlRenderer
 -- result. Useful for processing Shakespearean templates.
 --
 -- @since 1.2.20
-withUrlRenderer :: MonadHandler m
-                => ((Route (HandlerSite m) -> [(Text, Text)] -> Text) -> output)
-                -> m output
+withUrlRenderer :: HasHandlerData env
+                => ((Route (HandlerSite env) -> [(Text, Text)] -> Text) -> output)
+                -> RIO env output
 withUrlRenderer f = do
     render <- getUrlRenderParams
     return $ f render
 
 -- | Get the request\'s 'W.Request' value.
-waiRequest :: MonadHandler m => m W.Request
+waiRequest :: HasHandlerData env => RIO env W.Request
 waiRequest = reqWaiRequest <$> getRequest
 
-getMessageRender :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-                 => m (message -> Text)
+getMessageRender :: (HasHandlerData env, RenderMessage (HandlerSite env) message)
+                 => RIO env (message -> Text)
 getMessageRender = do
     env <- askHandlerEnv
     l <- languages
@@ -1124,9 +1125,9 @@ getMessageRender = do
 -- See the original announcement: <http://www.yesodweb.com/blog/2013/03/yesod-1-2-cleaner-internals>
 --
 -- @since 1.2.0
-cached :: (MonadHandler m, Typeable a)
-       => m a
-       -> m a
+cached :: (HasHandlerData env, Typeable a)
+       => RIO env a
+       -> RIO env a
 cached action = do
     cache <- ghsCache <$> get
     eres <- Cache.cached cache action
@@ -1141,8 +1142,8 @@ cached action = do
 -- | Retrieves a value from the cache used by 'cached'.
 --
 -- @since 1.6.10
-cacheGet :: (MonadHandler m, Typeable a)
-         => m (Maybe a)
+cacheGet :: (HasHandlerData env, Typeable a)
+         => RIO env (Maybe a)
 cacheGet = do
   cache <- ghsCache <$> get
   pure $ Cache.cacheGet cache
@@ -1150,9 +1151,9 @@ cacheGet = do
 -- | Sets a value in the cache used by 'cached'.
 --
 -- @since 1.6.10
-cacheSet :: (MonadHandler m, Typeable a)
+cacheSet :: (HasHandlerData env, Typeable a)
          => a
-         -> m ()
+         -> RIO env ()
 cacheSet value = do
   gs <- get
   let cache = ghsCache gs
@@ -1169,7 +1170,7 @@ cacheSet value = do
 -- For example, caching a lookup of a Link by a token where multiple token lookups might be performed.
 --
 -- @since 1.4.0
-cachedBy :: (MonadHandler m, Typeable a) => S.ByteString -> m a -> m a
+cachedBy :: (HasHandlerData env, Typeable a) => S.ByteString -> RIO env a -> RIO env a
 cachedBy k action = do
     cache <- ghsCacheBy <$> get
     eres <- Cache.cachedBy cache k action
@@ -1184,9 +1185,9 @@ cachedBy k action = do
 -- | Retrieves a value from the cache used by 'cachedBy'.
 --
 -- @since 1.6.10
-cacheByGet :: (MonadHandler m, Typeable a)
+cacheByGet :: (HasHandlerData env, Typeable a)
            => S.ByteString
-           -> m (Maybe a)
+           -> RIO env (Maybe a)
 cacheByGet key = do
   cache <- ghsCacheBy <$> get
   pure $ Cache.cacheByGet key cache
@@ -1194,10 +1195,10 @@ cacheByGet key = do
 -- | Sets a value in the cache used by 'cachedBy'.
 --
 -- @since 1.6.10
-cacheBySet :: (MonadHandler m, Typeable a)
+cacheBySet :: (HasHandlerData env, Typeable a)
            => S.ByteString
            -> a
-           -> m ()
+           -> RIO env ()
 cacheBySet key value = do
   gs <- get
   let cache = ghsCacheBy gs
@@ -1221,7 +1222,7 @@ cacheBySet key value = do
 -- If a matching language is not found the default language will be used.
 --
 -- This is handled by parseWaiRequest (not exposed).
-languages :: MonadHandler m => m [Text]
+languages :: HasHandlerData env => RIO env [Text]
 languages = do
     mlang <- lookupSession langKey
     langs <- reqLangs <$> getRequest
@@ -1233,13 +1234,13 @@ lookup' a = map snd . filter (\x -> a == fst x)
 -- | Lookup a request header.
 --
 -- @since 1.2.2
-lookupHeader :: MonadHandler m => CI S8.ByteString -> m (Maybe S8.ByteString)
+lookupHeader :: HasHandlerData env => CI S8.ByteString -> RIO env (Maybe S8.ByteString)
 lookupHeader = fmap listToMaybe . lookupHeaders
 
 -- | Lookup a request header.
 --
 -- @since 1.2.2
-lookupHeaders :: MonadHandler m => CI S8.ByteString -> m [S8.ByteString]
+lookupHeaders :: HasHandlerData env => CI S8.ByteString -> RIO env [S8.ByteString]
 lookupHeaders key = do
     req <- waiRequest
     return $ lookup' key $ W.requestHeaders req
@@ -1248,7 +1249,7 @@ lookupHeaders key = do
 -- request. Returns user name and password
 --
 -- @since 1.4.9
-lookupBasicAuth :: (MonadHandler m) => m (Maybe (Text, Text))
+lookupBasicAuth :: (HasHandlerData env) => RIO env (Maybe (Text, Text))
 lookupBasicAuth = fmap (>>= getBA) (lookupHeader "Authorization")
   where
     getBA bs = (decodeUtf8With lenientDecode *** decodeUtf8With lenientDecode)
@@ -1258,7 +1259,7 @@ lookupBasicAuth = fmap (>>= getBA) (lookupHeader "Authorization")
 -- request. Returns bearer token value
 --
 -- @since 1.4.9
-lookupBearerAuth :: (MonadHandler m) => m (Maybe Text)
+lookupBearerAuth :: (HasHandlerData env) => RIO env (Maybe Text)
 lookupBearerAuth = fmap (>>= getBR)
                    (lookupHeader "Authorization")
   where
@@ -1267,46 +1268,46 @@ lookupBearerAuth = fmap (>>= getBR)
 
 
 -- | Lookup for GET parameters.
-lookupGetParams :: MonadHandler m => Text -> m [Text]
+lookupGetParams :: HasHandlerData env => Text -> RIO env [Text]
 lookupGetParams pn = do
     rr <- getRequest
     return $ lookup' pn $ reqGetParams rr
 
 -- | Lookup for GET parameters.
-lookupGetParam :: MonadHandler m => Text -> m (Maybe Text)
+lookupGetParam :: HasHandlerData env => Text -> RIO env (Maybe Text)
 lookupGetParam = fmap listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
-lookupPostParams :: (MonadResource m, MonadHandler m) => Text -> m [Text]
+lookupPostParams :: HasHandlerData env => Text -> RIO env [Text]
 lookupPostParams pn = do
     (pp, _) <- runRequestBody
     return $ lookup' pn pp
 
-lookupPostParam :: (MonadResource m, MonadHandler m)
+lookupPostParam :: HasHandlerData env
                 => Text
-                -> m (Maybe Text)
+                -> RIO env (Maybe Text)
 lookupPostParam = fmap listToMaybe . lookupPostParams
 
 -- | Lookup for POSTed files.
-lookupFile :: MonadHandler m
+lookupFile :: HasHandlerData env
            => Text
-           -> m (Maybe FileInfo)
+           -> RIO env (Maybe FileInfo)
 lookupFile = fmap listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
-lookupFiles :: MonadHandler m
+lookupFiles :: HasHandlerData env
             => Text
-            -> m [FileInfo]
+            -> RIO env [FileInfo]
 lookupFiles pn = do
     (_, files) <- runRequestBody
     return $ lookup' pn files
 
 -- | Lookup for cookie data.
-lookupCookie :: MonadHandler m => Text -> m (Maybe Text)
+lookupCookie :: HasHandlerData env => Text -> RIO env (Maybe Text)
 lookupCookie = fmap listToMaybe . lookupCookies
 
 -- | Lookup for cookie data.
-lookupCookies :: MonadHandler m => Text -> m [Text]
+lookupCookies :: HasHandlerData env => Text -> RIO env [Text]
 lookupCookies pn = do
     rr <- getRequest
     return $ lookup' pn $ reqCookies rr
@@ -1332,9 +1333,9 @@ lookupCookies pn = do
 -- provided inside this do-block. Should be used together with 'provideRep'.
 --
 -- @since 1.2.0
-selectRep :: MonadHandler m
-          => Writer.Writer (Endo [ProvidedRep m]) ()
-          -> m TypedContent
+selectRep :: HasHandlerData env
+          => Writer.Writer (Endo [ProvidedRep (RIO env)]) ()
+          -> RIO env TypedContent
 selectRep w = do
     -- the content types are already sorted by q values
     -- which have been stripped
@@ -1411,7 +1412,7 @@ provideRepType ct handler =
 -- | Stream in the raw request body without any parsing.
 --
 -- @since 1.2.0
-rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
+rawRequestBody :: HasHandlerData env => ConduitT i S.ByteString (RIO env) ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
@@ -1457,12 +1458,13 @@ respond ct = return . TypedContent ct . toContent
 respondSource :: ContentType
               -> ConduitT () (Flush Builder) (HandlerFor site) ()
               -> HandlerFor site TypedContent
-respondSource ctype src = HandlerFor $ \hd ->
+respondSource ctype src = do
+    hd <- ask
     -- Note that this implementation relies on the fact that the ResourceT
     -- environment provided by the server is the same one used in HandlerT.
     -- This is a safe assumption assuming the HandlerT is run correctly.
     return $ TypedContent ctype $ ContentSource
-           $ transPipe (lift . flip unHandlerFor hd) src
+           $ transPipe (runRIO hd) src
 
 -- | In a streaming response, send a single chunk of data. This function works
 -- on most datatypes, such as @ByteString@ and @Html@.
@@ -1547,7 +1549,7 @@ sendChunkHtml = sendChunk
 -- | The default cookie name for the CSRF token ("XSRF-TOKEN").
 --
 -- @since 1.4.14
-defaultCsrfCookieName :: S8.ByteString
+defaultCsrfCookieName :: IsString s => s
 defaultCsrfCookieName = "XSRF-TOKEN"
 
 -- | Sets a cookie with a CSRF token, using 'defaultCsrfCookieName' for the cookie name.
@@ -1555,7 +1557,7 @@ defaultCsrfCookieName = "XSRF-TOKEN"
 -- The cookie's path is set to @/@, making it valid for your whole website.
 --
 -- @since 1.4.14
-setCsrfCookie :: MonadHandler m => m ()
+setCsrfCookie :: HasHandlerData env => RIO env ()
 setCsrfCookie = setCsrfCookieWithCookie defaultSetCookie
   { setCookieName = defaultCsrfCookieName
   , setCookiePath = Just "/"
@@ -1566,7 +1568,7 @@ setCsrfCookie = setCsrfCookieWithCookie defaultSetCookie
 -- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
 --
 -- @since 1.4.14
-setCsrfCookieWithCookie :: MonadHandler m => SetCookie -> m ()
+setCsrfCookieWithCookie :: HasHandlerData env => SetCookie -> RIO env ()
 setCsrfCookieWithCookie cookie  = do
     mCsrfToken <- reqToken <$> getRequest
     Fold.forM_ mCsrfToken (\token -> setCookie $ cookie { setCookieValue = encodeUtf8 token })
@@ -1581,7 +1583,7 @@ defaultCsrfHeaderName = "X-XSRF-TOKEN"
 -- this function throws a 'PermissionDenied' error.
 --
 -- @since 1.4.14
-checkCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m ()
+checkCsrfHeaderNamed :: HasHandlerData env => CI S8.ByteString -> RIO env ()
 checkCsrfHeaderNamed headerName = do
   (valid, mHeader) <- hasValidCsrfHeaderNamed' headerName
   unless valid (permissionDenied $ csrfErrorMessage [CSRFHeader (decodeUtf8 $ original headerName) mHeader])
@@ -1589,11 +1591,11 @@ checkCsrfHeaderNamed headerName = do
 -- | Takes a header name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
 --
 -- @since 1.4.14
-hasValidCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m Bool
+hasValidCsrfHeaderNamed :: HasHandlerData env => CI S8.ByteString -> RIO env Bool
 hasValidCsrfHeaderNamed headerName = fst <$> hasValidCsrfHeaderNamed' headerName
 
 -- | Like 'hasValidCsrfHeaderNamed', but also returns the header value to be used in error messages.
-hasValidCsrfHeaderNamed' :: MonadHandler m => CI S8.ByteString -> m (Bool, Maybe Text)
+hasValidCsrfHeaderNamed' :: HasHandlerData env => CI S8.ByteString -> RIO env (Bool, Maybe Text)
 hasValidCsrfHeaderNamed' headerName = do
   mCsrfToken  <- reqToken <$> getRequest
   mXsrfHeader <- lookupHeader headerName
@@ -1612,7 +1614,7 @@ defaultCsrfParamName = "_token"
 -- this function throws a 'PermissionDenied' error.
 --
 -- @since 1.4.14
-checkCsrfParamNamed :: MonadHandler m => Text -> m ()
+checkCsrfParamNamed :: HasHandlerData env => Text -> RIO env ()
 checkCsrfParamNamed paramName = do
   (valid, mParam) <- hasValidCsrfParamNamed' paramName
   unless valid (permissionDenied $ csrfErrorMessage [CSRFParam paramName mParam])
@@ -1620,11 +1622,11 @@ checkCsrfParamNamed paramName = do
 -- | Takes a POST parameter name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
 --
 -- @since 1.4.14
-hasValidCsrfParamNamed :: MonadHandler m => Text -> m Bool
+hasValidCsrfParamNamed :: HasHandlerData env => Text -> RIO env Bool
 hasValidCsrfParamNamed paramName = fst <$> hasValidCsrfParamNamed' paramName
 
 -- | Like 'hasValidCsrfParamNamed', but also returns the param value to be used in error messages.
-hasValidCsrfParamNamed' :: MonadHandler m => Text -> m (Bool, Maybe Text)
+hasValidCsrfParamNamed' :: HasHandlerData env => Text -> RIO env (Bool, Maybe Text)
 hasValidCsrfParamNamed' paramName = do
   mCsrfToken  <- reqToken <$> getRequest
   mCsrfParam <- lookupPostParam paramName
@@ -1635,16 +1637,16 @@ hasValidCsrfParamNamed' paramName = do
 -- If the value doesn't match the token stored in the session, this function throws a 'PermissionDenied' error.
 --
 -- @since 1.4.14
-checkCsrfHeaderOrParam :: (MonadHandler m, MonadLogger m)
+checkCsrfHeaderOrParam :: HasHandlerData env
                        => CI S8.ByteString -- ^ The header name to lookup the CSRF token
                        -> Text -- ^ The POST parameter name to lookup the CSRF token
-                       -> m ()
+                       -> RIO env ()
 checkCsrfHeaderOrParam headerName paramName = do
   (validHeader, mHeader) <- hasValidCsrfHeaderNamed' headerName
   (validParam, mParam) <- hasValidCsrfParamNamed' paramName
   unless (validHeader || validParam) $ do
     let errorMessage = csrfErrorMessage $ [CSRFHeader (decodeUtf8 $ original headerName) mHeader, CSRFParam paramName mParam]
-    $logWarnS "yesod-core" errorMessage
+    logWarnS "yesod-core" errorMessage
     permissionDenied errorMessage
 
 validCsrf :: Maybe Text -> Maybe S.ByteString -> Bool
@@ -1657,30 +1659,30 @@ data CSRFExpectation = CSRFHeader Text (Maybe Text) -- Key/Value
                      | CSRFParam Text (Maybe Text) -- Key/Value
 
 csrfErrorMessage :: [CSRFExpectation]
-                  -> Text -- ^ Error message
-csrfErrorMessage expectedLocations = T.intercalate "\n"
-  [ "A valid CSRF token wasn't present. Because the request could have been forged, it's been rejected altogether."
-  , "If you're a developer of this site, these tips will help you debug the issue:"
-  , "- Read the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
-  , "- Check that your HTTP client is persisting cookies between requests, like a browser does."
-  , "- By default, the CSRF token is sent to the client in a cookie named " `mappend` (decodeUtf8 defaultCsrfCookieName) `mappend` "."
-  , "- The server is looking for the token in the following locations:\n" `mappend` T.intercalate "\n" (map csrfLocation expectedLocations)
-  ]
+                  -> Utf8Builder -- ^ Error message
+csrfErrorMessage expectedLocations =
+  "A valid CSRF token wasn't present. Because the request could have been forged, it's been rejected altogether.\n" <>
+  "If you're a developer of this site, these tips will help you debug the issue:\n" <>
+  "- Read the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection.\n" <>
+  "- Check that your HTTP client is persisting cookies between requests, like a browser does.\n" <>
+  "- By default, the CSRF token is sent to the client in a cookie named " <> defaultCsrfCookieName <> ".\n" <>
+  "- The server is looking for the token in the following locations:\n" <>
+  foldMap (\x -> csrfLocation x <> "\n") expectedLocations
 
   where csrfLocation expected = case expected of
-          CSRFHeader k v -> T.intercalate " " ["  - An HTTP header named", k, (formatValue v)]
-          CSRFParam k v -> T.intercalate " " ["  - A POST parameter named", k, (formatValue v)]
+          CSRFHeader k v -> "  - An HTTP header named " <> display k <> " " <> formatValue v
+          CSRFParam k v -> "  - A POST parameter named " <> display k <> " " <> formatValue v
 
-        formatValue :: Maybe Text -> Text
+        formatValue :: Maybe Text -> Utf8Builder
         formatValue maybeText = case maybeText of
           Nothing -> "(which is not currently set)"
-          Just t -> T.concat ["(which has the current, incorrect value: '", t, "')"]
+          Just t -> "(which has the current, incorrect value: '" <> display t <> "')"
 
-getSubYesod :: MonadHandler m => m (SubHandlerSite m)
-getSubYesod = liftSubHandler $ SubHandlerFor $ return . rheChild . handlerEnv
+getSubYesod :: HasHandlerData env => RIO env (SubHandlerSite env)
+getSubYesod = view $ subHandlerDataL.to (rheChild . handlerEnv)
 
-getRouteToParent :: MonadHandler m => m (Route (SubHandlerSite m) -> Route (HandlerSite m))
-getRouteToParent = liftSubHandler $ SubHandlerFor $ return . rheRouteToMaster . handlerEnv
+getRouteToParent :: HasHandlerData env => RIO env (Route (SubHandlerSite env) -> Route (HandlerSite env))
+getRouteToParent = view $ subHandlerDataL.to (rheRouteToMaster . handlerEnv)
 
-getSubCurrentRoute :: MonadHandler m => m (Maybe (Route (SubHandlerSite m)))
-getSubCurrentRoute = liftSubHandler $ SubHandlerFor $ return . rheRoute . handlerEnv
+getSubCurrentRoute :: HasHandlerData env => RIO env (Maybe (Route (SubHandlerSite env)))
+getSubCurrentRoute = view $ subHandlerDataL.to (rheRoute . handlerEnv)

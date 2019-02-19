@@ -41,25 +41,24 @@ library
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
                    , memory
-                   , monad-logger          >= 0.3.10   && < 0.4
                    , mtl
                    , parsec                >= 2        && < 3.2
                    , path-pieces           >= 0.1.2    && < 0.3
-                   , primitive             >= 0.6
                    , random                >= 1.0.0.2  && < 1.2
                    , resourcet             >= 1.2
                    , rio
+                   , rio-orphans
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11
                    , text                  >= 0.7
                    , time                  >= 1.5
                    , transformers          >= 0.4
                    , unix-compat
-                   , unliftio
                    , unordered-containers  >= 0.2
                    , vector                >= 0.9      && < 0.13
                    , wai                   >= 3.2
                    , wai-extra             >= 3.0.7
+                   -- FIXME remove?
                    , wai-logger            >= 0.2
                    , warp                  >= 3.0.2
                    , word8
@@ -76,7 +75,6 @@ library
                      Yesod.Routes.TH.Types
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
-                     Yesod.Core.Class.Handler
                      Yesod.Core.Internal.Util
                      Yesod.Core.Internal.Response
                      Yesod.Core.Internal.Run

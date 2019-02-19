@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Yesod.Core.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -38,7 +39,6 @@ module Yesod.Core.Dispatch
 
 import Prelude hiding (exp)
 import Yesod.Core.Internal.TH
-import Language.Haskell.TH.Syntax (qLocation)
 
 import Web.PathPieces
 
@@ -68,28 +68,43 @@ import Network.Wai.Middleware.AcceptOverride
 import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.MethodOverride
+import System.Log.FastLogger (fromLogStr)
 
 import qualified Network.Wai.Handler.Warp
-import System.Log.FastLogger
-import Control.Monad.Logger
 import Control.Monad (when)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
+import RIO
+
+-- | Get a 'LogFunc' from the site, or create if needed. Returns an
+-- @IORef@ with a finalizer to clean up when done.
+makeLogFunc :: Yesod site => site -> IO (LogFunc, IORef ())
+makeLogFunc site =
+  case getLogFunc site of
+    Just logFunc -> do
+      ref <- newIORef ()
+      pure (logFunc, ref)
+    Nothing -> do
+      (logFunc, cleanup) <- logOptionsHandle stderr False >>= newLogFunc
+      ref <- newIORef ()
+      _ <- mkWeakIORef ref cleanup
+      pure (logFunc, ref)
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This function will provide no middlewares; if you want commonly
 -- used middlewares, please use 'toWaiApp'.
 toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain site = do
-    logger <- makeLogger site
+    (logFunc, cleanup) <- makeLogFunc site
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
     return $ toWaiAppYre YesodRunnerEnv
-            { yreLogger = logger
+            { yreLogFunc = logFunc
             , yreSite = site
             , yreSessionBackend = sb
             , yreGen = defaultGen
             , yreGetMaxExpires = getMaxExpires
+            , yreCleanup = cleanup
             }
 
 defaultGen :: IO Int
@@ -143,28 +158,28 @@ toWaiAppYre yre req =
 -- * Accept header override with the _accept query string parameter
 toWaiApp :: YesodDispatch site => site -> IO W.Application
 toWaiApp site = do
-    logger <- makeLogger site
-    toWaiAppLogger logger site
+    (logFunc, cleanup) <- makeLogFunc site
+    toWaiAppLogger logFunc cleanup site
 
-toWaiAppLogger :: YesodDispatch site => Logger -> site -> IO W.Application
-toWaiAppLogger logger site = do
+toWaiAppLogger
+  :: YesodDispatch site
+  => LogFunc
+  -> IORef () -- ^ cleanup
+  -> site
+  -> IO W.Application
+toWaiAppLogger logFunc cleanup site = do
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
     let yre = YesodRunnerEnv
-                { yreLogger = logger
+                { yreLogFunc = logFunc
                 , yreSite = site
                 , yreSessionBackend = sb
                 , yreGen = defaultGen
                 , yreGetMaxExpires = getMaxExpires
+                , yreCleanup = cleanup
                 }
-    messageLoggerSource
-        site
-        logger
-        $(qLocation >>= liftLoc)
-        "yesod-core"
-        LevelInfo
-        (toLogStr ("Application launched" :: S.ByteString))
-    middleware <- mkDefaultMiddlewares logger
+    runRIO logFunc $ logInfoS "yesod-core" "Application launched"
+    middleware <- mkDefaultMiddlewares logFunc
     return $ middleware $ toWaiAppYre yre
 
 -- | A convenience method to run an application using the Warp webserver on the
@@ -178,19 +193,15 @@ toWaiAppLogger logger site = do
 -- Since 1.2.0
 warp :: YesodDispatch site => Int -> site -> IO ()
 warp port site = do
-    logger <- makeLogger site
-    toWaiAppLogger logger site >>= Network.Wai.Handler.Warp.runSettings (
+    (logFunc, cleanup) <- makeLogFunc site
+    toWaiAppLogger logFunc cleanup site >>= Network.Wai.Handler.Warp.runSettings (
         Network.Wai.Handler.Warp.setPort port $
         Network.Wai.Handler.Warp.setServerName serverValue $
         Network.Wai.Handler.Warp.setOnException (\_ e ->
                 when (shouldLog' e) $
-                messageLoggerSource
-                    site
-                    logger
-                    $(qLocation >>= liftLoc)
-                    "yesod-core"
-                    LevelError
-                    (toLogStr $ "Exception from Warp: " ++ show e))
+                runRIO logFunc $
+                logErrorS "yesod-core" $
+                "Exception from Warp: " <> displayShow e)
         Network.Wai.Handler.Warp.defaultSettings)
   where
     shouldLog' = Network.Wai.Handler.Warp.defaultShouldDisplayException
@@ -207,10 +218,14 @@ serverValue = S8.pack $ concat
 -- | A default set of middlewares.
 --
 -- Since 1.2.0
-mkDefaultMiddlewares :: Logger -> IO W.Middleware
-mkDefaultMiddlewares logger = do
+mkDefaultMiddlewares :: LogFunc -> IO W.Middleware
+mkDefaultMiddlewares logFunc = do
     logWare <- mkRequestLogger def
-        { destination = Network.Wai.Middleware.RequestLogger.Logger $ loggerSet logger
+        { destination = Network.Wai.Middleware.RequestLogger.Callback $
+            runRIO logFunc .
+            logInfoS "yesod-core" .
+            displayBytesUtf8 .
+            fromLogStr
         , outputFormat = Apache FromSocket
         }
     return $ logWare . defaultMiddlewaresNoLogging
