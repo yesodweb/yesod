@@ -228,7 +228,7 @@ import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
 import qualified Data.HashMap.Strict           as HM
 
-import           Data.Byteable                 (constEqBytes)
+import           Data.ByteArray                (constEq)
 
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
@@ -1648,8 +1648,8 @@ checkCsrfHeaderOrParam headerName paramName = do
     permissionDenied errorMessage
 
 validCsrf :: Maybe Text -> Maybe S.ByteString -> Bool
--- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
-validCsrf (Just token) (Just param) = encodeUtf8 token `constEqBytes` param
+-- It's important to use constant-time comparison (constEq) in order to avoid timing attacks.
+validCsrf (Just token) (Just param) = encodeUtf8 token `constEq` param
 validCsrf Nothing            _param = True
 validCsrf (Just _token)     Nothing = False
 
