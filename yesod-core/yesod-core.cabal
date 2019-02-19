@@ -22,6 +22,8 @@ extra-source-files:
   README.md
 
 library
+    hs-source-dirs: src
+
     build-depends:   base                  >= 4.9      && < 5
                    , aeson                 >= 1.0
                    , auto-update
@@ -106,7 +108,7 @@ library
 test-suite test-routes
     type: exitcode-stdio-1.0
     main-is: RouteSpec.hs
-    hs-source-dirs: test, .
+    hs-source-dirs: test, src
 
     other-modules: Hierarchy
                    Yesod.Routes.Class
