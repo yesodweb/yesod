@@ -9,7 +9,7 @@ install:
 build: off
 
 build_script:
-  - stack --no-terminal test --no-run-tests --resolver lts-11
+  - stack --no-terminal test --no-run-tests
 
 test_script:
-  - stack --jobs 1 --no-terminal test --resolver lts-11
+  - stack --jobs 1 --no-terminal test
