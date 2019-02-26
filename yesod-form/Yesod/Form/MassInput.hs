@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -11,11 +12,11 @@ module Yesod.Form.MassInput
     , massTable
     ) where
 
+import RIO
 import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (checkBoxField)
 import Yesod.Core
-import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal)
 import Control.Monad (liftM)
@@ -24,43 +25,45 @@ import Data.Traversable (sequenceA)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
 
-down :: Monad m => Int -> MForm m ()
+down :: Int -> MForm site ()
 down 0 = return ()
 down i | i < 0 = error "called down with a negative number"
 down i = do
-    is <- get
-    put $ IntCons 0 is
+    ref <- view $ to mfdInts
+    is <- readIORef ref
+    writeIORef ref $ IntCons 0 is
     down $ i - 1
 
-up :: Monad m => Int -> MForm m ()
+up :: Int -> MForm site ()
 up 0 = return ()
 up i | i < 0 = error "called down with a negative number"
 up i = do
-    is <- get
+    ref <- view $ to mfdInts
+    is <- readIORef ref
     case is of
         IntSingle _ -> error "up on IntSingle"
-        IntCons _ is' -> put is' >> newFormIdent >> return ()
+        IntCons _ is' -> writeIORef ref is' >> newFormIdent >> return ()
     up $ i - 1
 
 -- | Generate a form that accepts 0 or more values from the user, allowing the
 -- user to specify that a new row is necessary.
-inputList :: (xml ~ WidgetFor site (), RenderMessage site FormMessage)
+inputList :: RenderMessage site FormMessage
           => Html
           -- ^ label for the form
-          -> ([[FieldView site]] -> xml)
+          -> ([[FieldView site]] -> WidgetFor site ())
           -- ^ how to display the rows, usually either 'massDivs' or 'massTable'
-          -> (Maybe a -> AForm (HandlerFor site) a)
+          -> (Maybe a -> AForm site a)
           -- ^ display a single row of the form, where @Maybe a@ gives the
           -- previously submitted value
           -> Maybe [a]
           -- ^ default initial values for the form
-          -> AForm (HandlerFor site) [a]
+          -> AForm site [a]
 inputList label fixXml single mdef = formToAForm $ do
-    theId <- lift newIdent
+    theId <- newIdent
     down 1
     countName <- newFormIdent
     addName <- newFormIdent
-    (menv, _, _) <- ask
+    menv <- view $ to mfdParams
     let readInt t =
             case decimal t of
                 Right (i, "") -> Just i
@@ -94,13 +97,13 @@ $newline never
         , fvRequired = False
         }])
 
-withDelete :: (xml ~ WidgetFor site (), RenderMessage site FormMessage)
-           => AForm (HandlerFor site) a
-           -> MForm (HandlerFor site) (Either xml (FormResult a, [FieldView site]))
+withDelete :: RenderMessage site FormMessage
+           => AForm site a
+           -> MForm site (Either (WidgetFor site ())(FormResult a, [FieldView site]))
 withDelete af = do
     down 1
     deleteName <- newFormIdent
-    (menv, _, _) <- ask
+    menv <- view $ to mfdParams
     res <- case menv >>= Map.lookup deleteName . fst of
         Just ("yes":_) -> return $ Left [whamlet|
 $newline never

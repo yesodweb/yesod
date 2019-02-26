@@ -29,7 +29,7 @@ class Yesod a => YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField :: YesodNic site => Field (HandlerFor site) Html
+nicHtmlField :: YesodNic site => Field site Html
 nicHtmlField = Field
     { fieldParse = \e _ -> return . Right . fmap (preEscapedToMarkup . sanitizeBalance) . listToMaybe $ e
     , fieldView = \theId name attrs val _isReq -> do
@@ -52,9 +52,9 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{ra
   where
     showVal = either id (pack . renderHtml)
 
-addScript' :: (MonadWidget m, HandlerSite m ~ site)
+addScript' :: (HasWidgetData env, HandlerSite env ~ site)
            => (site -> Either (Route site) Text)
-           -> m ()
+           -> RIO env ()
 addScript' f = do
     y <- getYesod
     addScriptEither $ f y

@@ -22,6 +22,7 @@ library
                      , wai-websockets    >= 2.1
                      , websockets        >= 0.10
                      , yesod-core        >= 1.6
+                     , rio
 
 source-repository head
   type:     git

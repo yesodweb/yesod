@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -15,6 +17,8 @@ module Yesod.Form.Types
     , WForm
     , MForm
     , AForm (..)
+    , WFormData (..)
+    , MFormData (..)
       -- * Build forms
     , Field (..)
     , FieldSettings (..)
@@ -22,8 +26,8 @@ module Yesod.Form.Types
     , FieldViewFunc
     ) where
 
-import Control.Monad.Trans.RWS (RWST)
-import Control.Monad.Trans.Writer (WriterT)
+import RIO
+import RIO.Orphans
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
 import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
@@ -31,10 +35,9 @@ import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 import Control.Applicative ((<$>), Alternative (..), Applicative (..))
-import Control.Monad (liftM)
-import Control.Monad.Trans.Class
 import Data.String (IsString (..))
 import Yesod.Core
+import Yesod.Core.Types
 import qualified Data.Map as Map
 import Data.Semigroup (Semigroup, (<>))
 import Data.Traversable
@@ -140,46 +143,53 @@ type FileEnv = Map.Map Text [FileInfo]
 -- >   return $ MyForm <$> field1F <*> field2F <*> field3F
 --
 -- @since 1.4.14
-type WForm m a = MForm (WriterT [FieldView (HandlerSite m)] m) a
+type WForm site = RIO (WFormData site)
+data WFormData site = WFormData
+  { wfdViews :: !(IORef ([FieldView site] -> [FieldView site]))
+  , wfdMfd :: !(MFormData site)
+  }
+instance HasHandlerData (WFormData site) where
+  type HandlerSite (WFormData site) = site
+  type SubHandlerSite (WFormData site) = site
+  subHandlerDataL = (lens wfdMfd (\x y -> x { wfdMfd = y })).subHandlerDataL
+instance HasResourceMap (WFormData site) where
+  resourceMapL = subHandlerDataL.resourceMapL
+instance HasLogFunc (WFormData site) where
+  logFuncL = subHandlerDataL.logFuncL
 
-type MForm m a = RWST
-    (Maybe (Env, FileEnv), HandlerSite m, [Lang])
-    Enctype
-    Ints
-    m
-    a
+type MForm site = RIO (MFormData site)
+data MFormData site = MFormData
+  { mfdHandlerData :: !(SubHandlerData site site)
+  , mfdEnctype :: !(IORef Enctype)
+  , mfdParams :: !(Maybe (Env, FileEnv))
+  , mfdInts :: !(IORef Ints)
+  }
+instance HasHandlerData (MFormData site) where
+  type HandlerSite (MFormData site) = site
+  type SubHandlerSite (MFormData site) = site
+  subHandlerDataL = lens mfdHandlerData (\x y -> x { mfdHandlerData = y})
+instance HasResourceMap (MFormData site) where
+  resourceMapL = subHandlerDataL.resourceMapL
+instance HasLogFunc (MFormData site) where
+  logFuncL = subHandlerDataL.logFuncL
 
-newtype AForm m a = AForm
-    { unAForm :: (HandlerSite m, [Text])
-              -> Maybe (Env, FileEnv)
-              -> Ints
-              -> m (FormResult a, [FieldView (HandlerSite m)] -> [FieldView (HandlerSite m)], Ints, Enctype)
-    }
-instance Monad m => Functor (AForm m) where
-    fmap f (AForm a) =
-        AForm $ \x y z -> liftM go $ a x y z
-      where
-        go (w, x, y, z) = (fmap f w, x, y, z)
-instance Monad m => Applicative (AForm m) where
-    pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, id, ints, mempty)
-    (AForm f) <*> (AForm g) = AForm $ \mr env ints -> do
-        (a, b, ints', c) <- f mr env ints
-        (x, y, ints'', z) <- g mr env ints'
-        return (a <*> x, b . y, ints'', c `mappend` z)
-instance (Monad m, Monoid a) => Monoid (AForm m a) where
+newtype AForm site a = AForm (WForm site (FormResult a))
+  deriving Functor
+instance Applicative (AForm site) where
+    pure = AForm . pure . pure
+    (AForm f) <*> (AForm g) = AForm $ do
+        f' <- f
+        g' <- g
+        pure $ f' <*> g'
+instance Monoid a => Monoid (AForm site a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
-instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
+instance Semigroup a => Semigroup (AForm site a) where
     a <> b = (<>) <$> a <*> b
 
-instance MonadTrans AForm where
-    lift f = AForm $ \_ _ ints -> do
-        x <- f
-        return (FormSuccess x, id, ints, mempty)
-
-data FieldSettings master = FieldSettings
-    { fsLabel :: SomeMessage master
-    , fsTooltip :: Maybe (SomeMessage master)
+data FieldSettings site = FieldSettings
+    { fsLabel :: SomeMessage site
+    , fsTooltip :: Maybe (SomeMessage site)
     , fsId :: Maybe Text
     , fsName :: Maybe Text
     , fsAttrs :: [(Text, Text)]
@@ -197,17 +207,17 @@ data FieldView site = FieldView
     , fvRequired :: Bool
     }
 
-type FieldViewFunc m a
+type FieldViewFunc site a
     = Text -- ^ ID
    -> Text -- ^ Name
    -> [(Text, Text)] -- ^ Attributes
    -> Either Text a -- ^ Either (invalid text) or (legitimate result)
    -> Bool -- ^ Required?
-   -> WidgetFor (HandlerSite m) ()
+   -> WidgetFor site ()
 
-data Field m a = Field
-    { fieldParse :: [Text] -> [FileInfo] -> m (Either (SomeMessage (HandlerSite m)) (Maybe a))
-    , fieldView :: FieldViewFunc m a
+data Field site a = Field
+    { fieldParse :: [Text] -> [FileInfo] -> HandlerFor site (Either (SomeMessage site) (Maybe a))
+    , fieldView :: FieldViewFunc site a
     , fieldEnctype :: Enctype
     }
 

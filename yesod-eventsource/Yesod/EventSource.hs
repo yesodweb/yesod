@@ -22,7 +22,7 @@ import qualified Network.Wai.EventSource.EventStream as ES
 
 -- | (Internal) Find out the request's 'EventSourcePolyfill' and
 -- set any necessary headers.
-prepareForEventSource :: MonadHandler m => m EventSourcePolyfill
+prepareForEventSource :: HasHandlerData env => RIO env EventSourcePolyfill
 prepareForEventSource = do
   reqWith <- lookup "X-Requested-With" . W.requestHeaders Data.Functor.<$> waiRequest
   let polyfill | reqWith == Just "XMLHttpRequest" = Remy'sESPolyfill

@@ -61,9 +61,9 @@ data SitemapUrl url = SitemapUrl
     }
 
 -- | A basic robots file which just lists the "Sitemap: " line.
-robots :: MonadHandler m
-       => Route (HandlerSite m) -- ^ sitemap url
-       -> m Text
+robots :: HasHandlerData env
+       => Route (HandlerSite env) -- ^ sitemap url
+       -> RIO env Text
 robots smurl = do
     ur <- getUrlRender
     return $ T.unlines

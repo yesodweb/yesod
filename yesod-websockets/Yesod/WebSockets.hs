@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Yesod.WebSockets
     ( -- * Core API
-      WebSocketsT
-    , webSockets
+      webSockets
     , webSocketsWith
     , webSocketsOptions
     , webSocketsOptionsWith
@@ -39,12 +39,16 @@ import           Conduit
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
-import           UnliftIO (SomeException, tryAny, MonadIO, liftIO, MonadUnliftIO, withRunInIO, race, race_, concurrently, concurrently_)
+import           RIO
 
--- | A transformer for a WebSockets handler.
---
--- Since 0.1.0
-type WebSocketsT = ReaderT WS.Connection
+-- FIXME document
+class Y.HasHandlerData env => HasWebsockets env where
+  websocketsL :: Lens' env WS.Connection
+
+data WithWebsockets env = WithWebsockets
+  { wwConnection :: !WS.Connection
+  , wwEnv :: !env
+  }
 
 -- | Attempt to run a WebSockets handler. This function first checks if the
 -- client initiated a WebSockets connection and, if so, runs the provided
@@ -54,9 +58,9 @@ type WebSocketsT = ReaderT WS.Connection
 --
 -- Since 0.1.0
 webSockets
-  :: (MonadUnliftIO m, Y.MonadHandler m)
-  => WebSocketsT m ()
-  -> m ()
+  :: Y.HasHandlerData env
+  => RIO (WithWebsockets env) ()
+  -> RIO env ()
 webSockets = webSocketsOptions WS.defaultConnectionOptions
 
 -- | Varient of 'webSockets' which allows you to specify
@@ -64,26 +68,26 @@ webSockets = webSocketsOptions WS.defaultConnectionOptions
 --
 -- Since 0.2.5
 webSocketsOptions
-  :: (MonadUnliftIO m, Y.MonadHandler m)
+  :: Y.HasHandlerData env
   => WS.ConnectionOptions
-  -> WebSocketsT m ()
-  -> m ()
+  -> RIO (WithWebsockets env) ()
+  -> RIO env ()
 webSocketsOptions opts = webSocketsOptionsWith opts $ const $ return $ Just $ WS.AcceptRequest Nothing []
 
 -- | Varient of 'webSockets' which allows you to specify the 'WS.AcceptRequest'
 -- setttings when upgrading to a websocket connection.
 --
 -- Since 0.2.4
-webSocketsWith :: (MonadUnliftIO m, Y.MonadHandler m)
-               => (WS.RequestHead -> m (Maybe WS.AcceptRequest))
+webSocketsWith :: Y.HasHandlerData env
+               => (WS.RequestHead -> RIO env (Maybe WS.AcceptRequest))
                -- ^ A Nothing indicates that the websocket upgrade request should not happen
                -- and instead the rest of the handler will be called instead.  This allows
                -- you to use 'WS.getRequestSubprotocols' and only accept the request if
                -- a compatible subprotocol is given.  Also, the action runs before upgrading
                -- the request to websockets, so you can also use short-circuiting handler
                -- actions such as 'Y.invalidArgs'.
-               -> WebSocketsT m ()
-               -> m ()
+               -> RIO (WithWebsockets env) ()
+               -> RIO env ()
 webSocketsWith = webSocketsOptionsWith WS.defaultConnectionOptions
 
 -- | Varient of 'webSockets' which allows you to specify both
@@ -91,18 +95,18 @@ webSocketsWith = webSocketsOptionsWith WS.defaultConnectionOptions
 -- setttings when upgrading to a websocket connection.
 --
 -- Since 0.2.5
-webSocketsOptionsWith :: (MonadUnliftIO m, Y.MonadHandler m)
+webSocketsOptionsWith :: Y.HasHandlerData env
                => WS.ConnectionOptions
                -- ^ Custom websockets options
-               -> (WS.RequestHead -> m (Maybe WS.AcceptRequest))
+               -> (WS.RequestHead -> RIO env (Maybe WS.AcceptRequest))
                -- ^ A Nothing indicates that the websocket upgrade request should not happen
                -- and instead the rest of the handler will be called instead.  This allows
                -- you to use 'WS.getRequestSubprotocols' and only accept the request if
                -- a compatible subprotocol is given.  Also, the action runs before upgrading
                -- the request to websockets, so you can also use short-circuiting handler
                -- actions such as 'Y.invalidArgs'.
-               -> WebSocketsT m ()
-               -> m ()
+               -> RIO (WithWebsockets env) ()
+               -> RIO env ()
 webSocketsOptionsWith wsConnOpts buildAr inner = do
     req <- Y.waiRequest
     when (WaiWS.isWebSocketsReq req) $ do
@@ -110,43 +114,45 @@ webSocketsOptionsWith wsConnOpts buildAr inner = do
         mar <- buildAr rhead
         case mar of
             Nothing -> return ()
-            Just ar ->
+            Just ar -> do
+                env <- ask
                 Y.sendRawResponseNoConduit
-                  $ \src sink -> withRunInIO $ \runInIO -> WaiWS.runWebSockets
+                  $ \src sink -> liftIO $ WaiWS.runWebSockets
                     wsConnOpts
                     rhead
                     (\pconn -> do
                         conn <- WS.acceptRequestWith pconn ar
                         WS.forkPingThread conn 30
-                        runInIO $ runReaderT inner conn)
+                        let ww = WithWebsockets conn env
+                        runRIO ww inner)
                     src
                     sink
 
 -- | Wrapper for capturing exceptions
-wrapWSE :: (MonadIO m, MonadReader WS.Connection m)
+wrapWSE :: HasWebsockets env
         => (WS.Connection -> a -> IO ())
         -> a
-        -> m (Either SomeException ())
+        -> RIO env (Either SomeException ())
 wrapWSE ws x = do
-  conn <- ask
+  conn <- view websocketsL
   liftIO $ tryAny $ ws conn x
 
-wrapWS :: (MonadIO m, MonadReader WS.Connection m)
+wrapWS :: HasWebsockets env
        => (WS.Connection -> a -> IO ())
        -> a
-       -> m ()
+       -> RIO env ()
 wrapWS ws x = do
-  conn <- ask
+  conn <- view websocketsL
   liftIO $ ws conn x
 
 -- | Receive a piece of data from the client.
 --
 -- Since 0.1.0
 receiveData
-  :: (MonadIO m, MonadReader WS.Connection m, WS.WebSocketsData a)
-  => m a
+  :: (WS.WebSocketsData a, HasWebsockets env)
+  => RIO env a
 receiveData = do
-  conn <- ask
+  conn <- view websocketsL
   liftIO $ WS.receiveData conn
 
 -- | Receive a piece of data from the client.
@@ -173,9 +179,9 @@ receiveDataMessageE = do
 --
 -- Since 0.1.0
 sendTextData
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> m ()
+  -> RIO env ()
 sendTextData = wrapWS WS.sendTextData
 
 -- | Send a textual message to the client.
@@ -184,45 +190,45 @@ sendTextData = wrapWS WS.sendTextData
 -- `either handle_exception return =<< sendTextDataE ("Welcome" :: Text)`
 -- Since 0.2.2
 sendTextDataE
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> m (Either SomeException ())
+  -> RIO env (Either SomeException ())
 sendTextDataE = wrapWSE WS.sendTextData
 
 -- | Send a binary message to the client.
 --
 -- Since 0.1.0
 sendBinaryData
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> m ()
+  -> RIO env ()
 sendBinaryData = wrapWS WS.sendBinaryData
 
 -- | Send a binary message to the client.
 -- Capture SomeException as the result of operation
 -- Since 0.2.2
 sendBinaryDataE
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> m (Either SomeException ())
+  -> RIO env (Either SomeException ())
 sendBinaryDataE = wrapWSE WS.sendBinaryData
 
 -- | Send a ping message to the client.
 --
 -- Since 0.2.2
 sendPing
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> WebSocketsT m ()
+  -> RIO env ()
 sendPing = wrapWS WS.sendPing
 
 -- | Send a ping message to the client.
 -- Capture SomeException as the result of operation
 -- Since 0.2.2
 sendPingE
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> m (Either SomeException ())
+  -> RIO env (Either SomeException ())
 sendPingE = wrapWSE WS.sendPing
 
 -- | Send a DataMessage to the client.
@@ -240,40 +246,40 @@ sendDataMessageE x = do
 --
 -- Since 0.2.2
 sendClose
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> WebSocketsT m ()
+  -> RIO env ()
 sendClose = wrapWS WS.sendClose
 
 -- | Send a close request to the client.
 -- Capture SomeException as the result of operation
 -- Since 0.2.2
 sendCloseE
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
+  :: (WS.WebSocketsData a, HasWebsockets env)
   => a
-  -> m (Either SomeException ())
+  -> RIO env (Either SomeException ())
 sendCloseE = wrapWSE WS.sendClose
 
 -- | A @Source@ of WebSockets data from the user.
 --
 -- Since 0.1.0
 sourceWS
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
-  => ConduitT i a m ()
+  :: (WS.WebSocketsData a, HasWebsockets env)
+  => ConduitT i a (RIO env) ()
 sourceWS = forever $ lift receiveData >>= yield
 
 -- | A @Sink@ for sending textual data to the user.
 --
 -- Since 0.1.0
 sinkWSText
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
-  => ConduitT a o m ()
+  :: (WS.WebSocketsData a, HasWebsockets env)
+  => ConduitT a o (RIO env) ()
 sinkWSText = mapM_C sendTextData
 
 -- | A @Sink@ for sending binary data to the user.
 --
 -- Since 0.1.0
 sinkWSBinary
-  :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
-  => ConduitT a o m ()
+  :: (WS.WebSocketsData a, HasWebsockets env)
+  => ConduitT a o (RIO env) ()
 sinkWSBinary = mapM_C sendBinaryData

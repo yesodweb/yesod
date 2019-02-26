@@ -53,16 +53,16 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerFor site) Day
+jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field site Day
 jqueryDayField = flip jqueryDayField' "date"
 
 -- | Use jQuery's datepicker as the underlying implementation.
 --
 -- Since 1.4.3
-jqueryDatePickerDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerFor site) Day
+jqueryDatePickerDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field site Day
 jqueryDatePickerDayField = flip jqueryDayField' "text"
 
-jqueryDayField' :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Text -> Field (HandlerFor site) Day
+jqueryDayField' :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Text -> Field site Day
 jqueryDayField' jds inputType = Field
     { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
@@ -107,13 +107,13 @@ $(function(){
         ]
 
 jqueryAutocompleteField :: (RenderMessage site FormMessage, YesodJquery site)
-                        => Route site -> Field (HandlerFor site) Text
+                        => Route site -> Field site Text
 jqueryAutocompleteField = jqueryAutocompleteField' 2
 
 jqueryAutocompleteField' :: (RenderMessage site FormMessage, YesodJquery site)
                          => Int -- ^ autocomplete minimum length
                          -> Route site
-                         -> Field (HandlerFor site) Text
+                         -> Field site Text
 jqueryAutocompleteField' minLen src = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do
@@ -130,14 +130,14 @@ $(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:#{toJS
     , fieldEnctype = UrlEncoded
     }
 
-addScript' :: (HandlerSite m ~ site, MonadWidget m) => (site -> Either (Route site) Text) -> m ()
+addScript' :: (site -> Either (Route site) Text) -> WidgetFor site ()
 addScript' f = do
     y <- getYesod
     addScriptEither $ f y
 
-addStylesheet' :: (MonadWidget m, HandlerSite m ~ site)
+addStylesheet' :: (HasWidgetData env, HandlerSite env ~ site)
                => (site -> Either (Route site) Text)
-               -> m ()
+               -> RIO env ()
 addStylesheet' f = do
     y <- getYesod
     addStylesheetEither $ f y

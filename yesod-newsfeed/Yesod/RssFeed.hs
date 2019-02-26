@@ -39,14 +39,14 @@ instance ToTypedContent RepRss where
     toTypedContent = TypedContent typeRss . toContent
 
 -- | Generate the feed
-rssFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepRss
+rssFeed :: HasHandlerData env => Feed (Route (HandlerSite env)) -> RIO env RepRss
 rssFeed feed = do
     render <- getUrlRender
     return $ RepRss $ toContent $ renderLBS def $ template feed render
 
 -- | Same as @'rssFeed'@ but for @'Feed Text'@. Useful for cases where you are
 --   generating a feed of external links.
-rssFeedText :: MonadHandler m => Feed Text -> m RepRss
+rssFeedText :: HasHandlerData env => Feed Text -> RIO env RepRss
 rssFeedText feed = return $ RepRss $ toContent $ renderLBS def $ template feed id
 
 template :: Feed url -> (url -> Text) -> Document
@@ -93,10 +93,10 @@ entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement
                                   ,("url", render enclosedUrl)]) []]
 
 -- | Generates a link tag in the head of a widget.
-rssLink :: MonadWidget m
-        => Route (HandlerSite m)
+rssLink :: HasWidgetData env
+        => Route (HandlerSite env)
         -> Text -- ^ title
-        -> m ()
+        -> RIO env ()
 rssLink r title = toWidgetHead [hamlet|
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}>
     |]

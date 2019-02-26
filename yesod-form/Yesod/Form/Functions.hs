@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -38,7 +39,6 @@ module Yesod.Form.Functions
     , renderTable
     , renderDivs
     , renderDivsNoLabels
-    , renderBootstrap
     , renderBootstrap2
       -- * Validation
     , check
@@ -55,13 +55,12 @@ module Yesod.Form.Functions
     , removeClass
     ) where
 
+import RIO hiding (ask, local)
 import Yesod.Form.Types
+import Yesod.Core.Types (liftHandler)
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import Control.Arrow (second)
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local, mapRWST)
-import Control.Monad.Trans.Writer (runWriterT, writer)
 import Control.Monad (liftM, join)
 import Data.Byteable (constEqBytes)
 import Text.Blaze (Markup, toMarkup)
@@ -75,8 +74,28 @@ import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
 import Control.Arrow (first)
 
+get :: MForm site Ints
+get = view (to mfdInts) >>= readIORef
+
+put :: Ints -> MForm site ()
+put ints = view (to mfdInts) >>= (`writeIORef` ints)
+
+tell :: Enctype -> MForm site ()
+tell ec = view (to mfdEnctype) >>= (`writeIORef` ec)
+
+local
+  :: ( Maybe (Env, FileEnv)
+    -> Maybe (Env, FileEnv)
+     )
+  -> MForm site a
+  -> MForm site a
+local f inner = do
+  mfd <- view id
+  let mfd' = mfd { mfdParams = f $ mfdParams mfd }
+  runRIO mfd' inner
+
 -- | Get a unique identifier.
-newFormIdent :: Monad m => MForm m Text
+newFormIdent :: MForm site Text
 newFormIdent = do
     i <- get
     let i' = incrInts i
@@ -86,43 +105,34 @@ newFormIdent = do
     incrInts (IntSingle i) = IntSingle $ i + 1
     incrInts (IntCons i is) = (i + 1) `IntCons` is
 
-formToAForm :: (HandlerSite m ~ site, Monad m)
-            => MForm m (FormResult a, [FieldView site])
-            -> AForm m a
-formToAForm form = AForm $ \(site, langs) env ints -> do
-    ((a, xmls), ints', enc) <- runRWST form (env, site, langs) ints
-    return (a, (++) xmls, ints', enc)
+formToAForm :: MForm site (FormResult a, [FieldView site]) -> AForm site a
+formToAForm mform = AForm $ do
+  WFormData viewsRef mfd <- view id
+  (a, views) <- runRIO mfd mform
+  modifyIORef' viewsRef $ \front -> front . (views++)
+  pure a
 
-aFormToForm :: (Monad m, HandlerSite m ~ site)
-            => AForm m a
-            -> MForm m (FormResult a, [FieldView site] -> [FieldView site])
-aFormToForm (AForm aform) = do
-    ints <- get
-    (env, site, langs) <- ask
-    (a, xml, ints', enc) <- lift $ aform (site, langs) env ints
-    put ints'
-    tell enc
-    return (a, xml)
+aFormToForm :: AForm site a
+            -> MForm site (FormResult a, [FieldView site] -> [FieldView site])
+aFormToForm (AForm wform) = do
+    (res, views) <- wFormToMForm wform
+    pure (res, (views++))
 
-askParams :: Monad m => MForm m (Maybe Env)
-askParams = do
-    (x, _, _) <- ask
-    return $ liftM fst x
+askParams :: MForm site (Maybe Env)
+askParams = view $ to (fmap fst . mfdParams)
 
-askFiles :: Monad m => MForm m (Maybe FileEnv)
-askFiles = do
-    (x, _, _) <- ask
-    return $ liftM snd x
+askFiles :: MForm site (Maybe FileEnv)
+askFiles = view $ to (fmap snd . mfdParams)
 
 -- | Converts a form field into monadic form 'WForm'. This field requires a
 -- value and will return 'FormFailure' if left empty.
 --
 -- @since 1.4.14
-wreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
-     => Field m a           -- ^ form field
+wreq :: RenderMessage site FormMessage
+     => Field site a        -- ^ form field
      -> FieldSettings site  -- ^ settings for this field
      -> Maybe a             -- ^ optional default value
-     -> WForm m (FormResult a)
+     -> WForm site (FormResult a)
 wreq f fs = mFormToWForm . mreq f fs
 
 -- | Converts a form field into monadic form 'WForm'. This field is optional,
@@ -131,75 +141,78 @@ wreq f fs = mFormToWForm . mreq f fs
 -- value).
 --
 -- @since 1.4.14
-wopt :: (MonadHandler m, HandlerSite m ~ site)
-     => Field m a           -- ^ form field
+wopt :: Field site a        -- ^ form field
      -> FieldSettings site  -- ^ settings for this field
      -> Maybe (Maybe a)     -- ^ optional default value
-     -> WForm m (FormResult (Maybe a))
+     -> WForm site (FormResult (Maybe a))
 wopt f fs = mFormToWForm . mopt f fs
 
 -- | Converts a monadic form 'WForm' into an applicative form 'AForm'.
 --
 -- @since 1.4.14
-wFormToAForm :: MonadHandler m
-             => WForm m (FormResult a)  -- ^ input form
-             -> AForm m a               -- ^ output form
+wFormToAForm
+  :: WForm site (FormResult a)  -- ^ input form
+  -> AForm site a               -- ^ output form
 wFormToAForm = formToAForm . wFormToMForm
 
 -- | Converts a monadic form 'WForm' into another monadic form 'MForm'.
 --
 -- @since 1.4.14
-wFormToMForm :: (MonadHandler m, HandlerSite m ~ site)
-             => WForm m a                      -- ^ input form
-             -> MForm m (a, [FieldView site])  -- ^ output form
-wFormToMForm = mapRWST (fmap group . runWriterT)
-  where
-    group ((a, ints, enctype), views) = ((a, views), ints, enctype)
+wFormToMForm
+  :: WForm site a                      -- ^ input form
+  -> MForm site (a, [FieldView site])  -- ^ output form
+wFormToMForm wform = do
+  viewsRef <- newIORef id
+  mfd <- view id
+  a <- runRIO (WFormData viewsRef mfd) wform
+  views <- readIORef viewsRef
+  pure (a, views [])
 
 -- | Converts a monadic form 'MForm' into another monadic form 'WForm'.
 --
 -- @since 1.4.14
-mFormToWForm :: (MonadHandler m, HandlerSite m ~ site)
-             => MForm m (a, FieldView site)  -- ^ input form
-             -> WForm m a                    -- ^ output form
-mFormToWForm = mapRWST $ \f -> do
-  ((a, view), ints, enctype) <- lift f
-  writer ((a, ints, enctype), [view])
+mFormToWForm
+  :: MForm site (a, FieldView site)  -- ^ input form
+  -> WForm site a                    -- ^ output form
+mFormToWForm mform = do
+  WFormData views mfd <- view id
+  (a, view') <- runRIO mfd mform
+  modifyIORef' views $ \front -> front . (view':)
+  pure a
 
 -- | Converts a form field into monadic form. This field requires a value
 -- and will return 'FormFailure' if left empty.
-mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
-     => Field m a           -- ^ form field
+mreq :: RenderMessage site FormMessage
+     => Field site a         -- ^ form field
      -> FieldSettings site  -- ^ settings for this field
      -> Maybe a             -- ^ optional default value
-     -> MForm m (FormResult a, FieldView site)
+     -> MForm site (FormResult a, FieldView site)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
 -- | Converts a form field into monadic form. This field is optional, i.e.
 -- if filled in, it returns 'Just a', if left empty, it returns 'Nothing'.
 -- Arguments are the same as for 'mreq' (apart from type of default value).
-mopt :: (site ~ HandlerSite m, MonadHandler m)
-     => Field m a
+mopt :: Field site a
      -> FieldSettings site
      -> Maybe (Maybe a)
-     -> MForm m (FormResult (Maybe a), FieldView site)
+     -> MForm site (FormResult (Maybe a), FieldView site)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
-mhelper :: (site ~ HandlerSite m, MonadHandler m)
-        => Field m a
+mhelper :: Field site a
         -> FieldSettings site
         -> Maybe a
         -> (site -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
-        -> MForm m (FormResult b, FieldView site)
+        -> MForm site (FormResult b, FieldView site)
 
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     tell fieldEnctype
     mp <- askParams
     name <- maybe newFormIdent return fsName
-    theId <- lift $ maybe newIdent return fsId
-    (_, site, langs) <- ask
+    theId <- maybe newIdent return fsId
+    site <- getYesod
+    langs <- reqLangs <$> getRequest
     let mr2 = renderMessage site langs
     (res, val) <-
         case mp of
@@ -208,7 +221,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
                 mfs <- askFiles
                 let mvals = fromMaybe [] $ Map.lookup name p
                     files = fromMaybe [] $ mfs >>= Map.lookup name
-                emx <- lift $ fieldParse mvals files
+                emx <- liftHandler $ fieldParse mvals files
                 return $ case emx of
                     Left (SomeMessage e) -> (FormFailure [renderMessage site langs e], maybe (Left "") Left (listToMaybe mvals))
                     Right mx ->
@@ -228,28 +241,37 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         })
 
 -- | Applicative equivalent of 'mreq'.
-areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
-     => Field m a
+areq :: RenderMessage site FormMessage
+     => Field site a
      -> FieldSettings site
      -> Maybe a
-     -> AForm m a
+     -> AForm site a
 areq a b = formToAForm . liftM (second return) . mreq a b
 
 -- | Applicative equivalent of 'mopt'.
-aopt :: MonadHandler m
-     => Field m a
-     -> FieldSettings (HandlerSite m)
+aopt :: Field site a
+     -> FieldSettings site
      -> Maybe (Maybe a)
-     -> AForm m (Maybe a)
+     -> AForm site (Maybe a)
 aopt a b = formToAForm . liftM (second return) . mopt a b
 
-runFormGeneric :: Monad m
-               => MForm m a
-               -> HandlerSite m
-               -> [Text]
-               -> Maybe (Env, FileEnv)
-               -> m (a, Enctype)
-runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle 0)
+runFormGeneric
+  :: HasHandlerData env
+  => MForm (HandlerSite env) a
+  -> Maybe (Env, FileEnv)
+  -> RIO env (a, Enctype)
+runFormGeneric mform params = do
+  hd <- liftHandler $ view subHandlerDataL
+  enctypeRef <- newIORef mempty
+  intsRef <- newIORef $! IntSingle 0
+  let mfd = MFormData
+        { mfdHandlerData = hd
+        , mfdEnctype = enctypeRef
+        , mfdParams = params
+        , mfdInts = intsRef
+        }
+  a <- runRIO mfd mform
+  (,) a <$> readIORef enctypeRef
 
 -- | This function is used to both initially render a form and to later extract
 -- results from it. Note that, due to CSRF protection and a few other issues,
@@ -260,17 +282,19 @@ runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle
 -- For example, a common case is displaying a form on a GET request and having
 -- the form submit to a POST page. In such a case, both the GET and POST
 -- handlers should use 'runFormPost'.
-runFormPost :: (RenderMessage (HandlerSite m) FormMessage, MonadResource m, MonadHandler m)
-            => (Html -> MForm m (FormResult a, xml))
-            -> m ((FormResult a, xml), Enctype)
+runFormPost
+  :: (RenderMessage (HandlerSite env) FormMessage, HasHandlerData env)
+  => (Html -> MForm (HandlerSite env) (FormResult a, xml))
+  -> RIO env ((FormResult a, xml), Enctype)
 runFormPost form = do
     env <- postEnv
     postHelper form env
 
-postHelper  :: (MonadHandler m, RenderMessage (HandlerSite m) FormMessage)
-            => (Html -> MForm m (FormResult a, xml))
-            -> Maybe (Env, FileEnv)
-            -> m ((FormResult a, xml), Enctype)
+postHelper
+  :: (HasHandlerData env, RenderMessage (HandlerSite env) FormMessage)
+  => (Html -> MForm (HandlerSite env) (FormResult a, xml))
+  -> Maybe (Env, FileEnv)
+  -> RIO env ((FormResult a, xml), Enctype)
 postHelper form env = do
     req <- getRequest
     let tokenKey = defaultCsrfParamName
@@ -278,15 +302,14 @@ postHelper form env = do
             case reqToken req of
                 Nothing -> Data.Monoid.mempty
                 Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
-    m <- getYesod
-    langs <- languages
-    ((res, xml), enctype) <- runFormGeneric (form token) m langs env
+    ((res, xml), enctype) <- runFormGeneric (form token) env
+    site <- getYesod
     let res' =
             case (res, env) of
                 (_, Nothing) -> FormMissing
                 (FormSuccess{}, Just (params, _))
                     | not (Map.lookup tokenKey params === reqToken req) ->
-                        FormFailure [renderMessage m langs MsgCsrfWarning]
+                        FormFailure [renderMessage site (reqLangs req) MsgCsrfWarning]
                 _ -> res
             -- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
             where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constEqBytes` TE.encodeUtf8 t2
@@ -299,12 +322,12 @@ postHelper form env = do
 -- page will both receive and incoming form and produce a new, blank form. For
 -- general usage, you can stick with @runFormPost@.
 generateFormPost
-    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
-    => (Html -> MForm m (FormResult a, xml))
-    -> m (xml, Enctype)
+    :: (RenderMessage (HandlerSite env) FormMessage, HasHandlerData env)
+    => (Html -> MForm (HandlerSite env) (FormResult a, xml))
+    -> RIO env (xml, Enctype)
 generateFormPost form = first snd `liftM` postHelper form Nothing
 
-postEnv :: MonadHandler m => m (Maybe (Env, FileEnv))
+postEnv :: HasHandlerData env => RIO env (Maybe (Env, FileEnv))
 postEnv = do
     req <- getRequest
     if requestMethod (reqWaiRequest req) == "GET"
@@ -314,18 +337,16 @@ postEnv = do
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
             return $ Just (p', Map.unionsWith (++) $ map (\(k, v) -> Map.singleton k [v]) f)
 
-runFormPostNoToken :: MonadHandler m
-                   => (Html -> MForm m a)
-                   -> m (a, Enctype)
+runFormPostNoToken :: HasHandlerData env
+                   => (Html -> MForm (HandlerSite env) a)
+                   -> RIO env (a, Enctype)
 runFormPostNoToken form = do
-    langs <- languages
-    m <- getYesod
-    env <- postEnv
-    runFormGeneric (form mempty) m langs env
+    params <- postEnv
+    runFormGeneric (form mempty) params
 
-runFormGet :: MonadHandler m
-           => (Html -> MForm m a)
-           -> m (a, Enctype)
+runFormGet :: HasHandlerData env
+           => (Html -> MForm (HandlerSite env) a)
+           -> RIO env (a, Enctype)
 runFormGet form = do
     gets <- liftM reqGetParams getRequest
     let env =
@@ -339,29 +360,27 @@ runFormGet form = do
 --
 -- Since 1.3.11
 generateFormGet'
-    :: MonadHandler m
-    => (Html -> MForm m (FormResult a, xml))
-    -> m (xml, Enctype)
+    :: HasHandlerData env
+    => (Html -> MForm (HandlerSite env) (FormResult a, xml))
+    -> RIO env (xml, Enctype)
 generateFormGet' form = first snd `liftM` getHelper form Nothing
 
 {-# DEPRECATED generateFormGet "Will require RenderMessage in next version of Yesod" #-}
-generateFormGet :: MonadHandler m
-                => (Html -> MForm m a)
-                -> m (a, Enctype)
+generateFormGet :: HasHandlerData env
+                => (Html -> MForm (HandlerSite env) a)
+                -> RIO env (a, Enctype)
 generateFormGet form = getHelper form Nothing
 
 getKey :: Text
 getKey = "_hasdata"
 
-getHelper :: MonadHandler m
-          => (Html -> MForm m a)
+getHelper :: HasHandlerData env
+          => (Html -> MForm (HandlerSite env) a)
           -> Maybe (Env, FileEnv)
-          -> m (a, Enctype)
-getHelper form env = do
+          -> RIO env (a, Enctype)
+getHelper form params = do
     let fragment = [shamlet|<input type=hidden name=#{getKey}>|]
-    langs <- languages
-    m <- getYesod
-    runFormGeneric (form fragment) m langs env
+    runFormGeneric (form fragment) params
 
 
 -- | Creates a hidden field on the form that identifies it.  This
@@ -386,10 +405,9 @@ getHelper form env = do
 -- even if their number or order change between the HTML
 -- generation and the form submission.
 identifyForm
-  :: Monad m
-  => Text -- ^ Form identification string.
-  -> (Html -> MForm m (FormResult a, WidgetFor (HandlerSite m) ()))
-  -> (Html -> MForm m (FormResult a, WidgetFor (HandlerSite m) ()))
+  :: Text -- ^ Form identification string.
+  -> (Html -> MForm site (FormResult a, WidgetFor site ()))
+  -> (Html -> MForm site (FormResult a, WidgetFor site ()))
 identifyForm identVal form = \fragment -> do
     -- Create hidden <input>.
     let fragment' =
@@ -406,7 +424,7 @@ identifyForm identVal form = \fragment -> do
     -- data is missing, then do not provide any params to the
     -- form, which will turn its result into FormMissing.  Also,
     -- doing this avoids having lots of fields with red errors.
-    let eraseParams | missing   = local (\(_, h, l) -> (Nothing, h, l))
+    let eraseParams | missing   = local (const Nothing)
                     | otherwise = id
     ( res', w) <- eraseParams (form fragment')
 
@@ -418,12 +436,12 @@ identifyFormKey :: Text
 identifyFormKey = "_formid"
 
 
-type FormRender m a =
-       AForm m a
+type FormRender site a =
+       AForm site a
     -> Html
-    -> MForm m (FormResult a, WidgetFor (HandlerSite m) ())
+    -> MForm site (FormResult a, WidgetFor site ())
 
-renderTable, renderDivs, renderDivsNoLabels :: Monad m => FormRender m a
+renderTable, renderDivs, renderDivsNoLabels :: FormRender env a
 -- | Render a form into a series of tr tags. Note that, in order to allow
 -- you to add extra rows to the table, this function does /not/ wrap up
 -- the resulting HTML in a table tag; you must do that yourself.
@@ -457,7 +475,7 @@ renderDivs = renderDivsMaybeLabels True
 -- | render a field inside a div, not displaying any label
 renderDivsNoLabels = renderDivsMaybeLabels False
 
-renderDivsMaybeLabels :: Monad m => Bool -> FormRender m a
+renderDivsMaybeLabels :: Bool -> FormRender env a
 renderDivsMaybeLabels withLabels aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
@@ -495,7 +513,7 @@ $forall view <- views
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
 --
 -- Since 1.3.14
-renderBootstrap2 :: Monad m => FormRender m a
+renderBootstrap2 :: FormRender env a
 renderBootstrap2 aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
@@ -516,26 +534,21 @@ renderBootstrap2 aform fragment = do
                 |]
     return (res, widget)
 
--- | Deprecated synonym for 'renderBootstrap2'.
-renderBootstrap :: Monad m => FormRender m a
-renderBootstrap = renderBootstrap2
-{-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
-
-check :: (Monad m, RenderMessage (HandlerSite m) msg)
+check :: RenderMessage site msg
       => (a -> Either msg a)
-      -> Field m a
-      -> Field m a
+      -> Field site a
+      -> Field site a
 check f = checkM $ return . f
 
 -- | Return the given error message if the predicate is false.
-checkBool :: (Monad m, RenderMessage (HandlerSite m) msg)
-          => (a -> Bool) -> msg -> Field m a -> Field m a
+checkBool :: RenderMessage site msg
+          => (a -> Bool) -> msg -> Field site a -> Field site a
 checkBool b s = check $ \x -> if b x then Right x else Left s
 
-checkM :: (Monad m, RenderMessage (HandlerSite m) msg)
-       => (a -> m (Either msg a))
-       -> Field m a
-       -> Field m a
+checkM :: RenderMessage site msg
+       => (a -> HandlerFor site (Either msg a))
+       -> Field site a
+       -> Field site a
 checkM f = checkMMap f id
 
 -- | Same as 'checkM', but modifies the datatype.
@@ -544,11 +557,11 @@ checkM f = checkMMap f id
 -- the new datatype to the old one (the second argument to this function).
 --
 -- Since 1.1.2
-checkMMap :: (Monad m, RenderMessage (HandlerSite m) msg)
-          => (a -> m (Either msg b))
+checkMMap :: RenderMessage site msg
+          => (a -> HandlerFor site (Either msg b))
           -> (b -> a)
-          -> Field m a
-          -> Field m b
+          -> Field site a
+          -> Field site b
 checkMMap f inv field = field
     { fieldParse = \ts fs -> do
         e1 <- fieldParse field ts fs
@@ -560,7 +573,7 @@ checkMMap f inv field = field
     }
 
 -- | Allows you to overwrite the error message on parse error.
-customErrorMessage :: Monad m => SomeMessage (HandlerSite m) -> Field m a -> Field m a
+customErrorMessage :: SomeMessage site -> Field site a -> Field site a
 customErrorMessage msg field = field
     { fieldParse = \ts fs ->
         liftM (either (const $ Left msg) Right)
@@ -611,11 +624,10 @@ parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $
 -- > lazyTextField = convertField TL.fromStrict TL.toStrict textField
 --
 -- Since 1.3.16
-convertField :: (Functor m)
-             => (a -> b) -> (b -> a)
-             -> Field m a -> Field m b
-convertField to from (Field fParse fView fEnctype) = let
-  fParse' ts = fmap (fmap (fmap to)) . fParse ts
+convertField :: (a -> b) -> (b -> a)
+             -> Field env a -> Field env b
+convertField to' from (Field fParse fView fEnctype) = let
+  fParse' ts = fmap (fmap (fmap to')) . fParse ts
   fView' ti tn at ei = fView ti tn at (fmap from ei)
   in Field fParse' fView' fEnctype
 
