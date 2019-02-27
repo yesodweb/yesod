@@ -46,7 +46,7 @@ library
                    , path-pieces           >= 0.1.2    && < 0.3
                    , random                >= 1.0.0.2  && < 1.2
                    , resourcet             >= 1.2
-                   , rio
+                   , rio                   >= 0.1.9
                    , rio-orphans
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11

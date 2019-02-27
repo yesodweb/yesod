@@ -765,7 +765,7 @@ fileAFormReq :: RenderMessage site FormMessage
 fileAFormReq fs = AForm $ do
     site <- getYesod
     langs <- reqLangs <$> getRequest
-    WFormData viewsRef mfd <- view id
+    WFormData viewsDeque mfd <- view id
     ints <- readIORef $ mfdInts mfd
     let (name, ints') =
             case fsName fs of
@@ -796,14 +796,14 @@ $newline never
             , fvRequired = True
             }
     writeIORef (mfdEnctype mfd) Multipart
-    modifyIORef viewsRef $ \views -> views . (fv:)
+    pushBackDeque viewsDeque fv
     return res
 
 fileAFormOpt :: FieldSettings site -> AForm site (Maybe FileInfo)
 fileAFormOpt fs = AForm $ do
     master <- getYesod
     langs <- reqLangs <$> getRequest
-    WFormData viewsRef mfd <- view id
+    WFormData viewsDeque mfd <- view id
     ints <- readIORef $ mfdInts mfd
     let (name, ints') =
             case fsName fs of
@@ -832,7 +832,7 @@ $newline never
             , fvRequired = False
             }
     writeIORef (mfdEnctype mfd) Multipart
-    modifyIORef viewsRef $ \views -> views . (fv:)
+    pushBackDeque viewsDeque fv
     return res
 
 incrInts :: Ints -> Ints

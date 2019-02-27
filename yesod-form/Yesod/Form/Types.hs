@@ -145,7 +145,7 @@ type FileEnv = Map.Map Text [FileInfo]
 -- @since 1.4.14
 type WForm site = RIO (WFormData site)
 data WFormData site = WFormData
-  { wfdViews :: !(IORef ([FieldView site] -> [FieldView site]))
+  { wfdViews :: !(BDeque (PrimState IO) (FieldView site))
   , wfdMfd :: !(MFormData site)
   }
 instance HasHandlerData (WFormData site) where

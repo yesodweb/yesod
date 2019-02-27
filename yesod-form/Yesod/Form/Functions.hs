@@ -107,9 +107,9 @@ newFormIdent = do
 
 formToAForm :: MForm site (FormResult a, [FieldView site]) -> AForm site a
 formToAForm mform = AForm $ do
-  WFormData viewsRef mfd <- view id
+  WFormData viewsDeque mfd <- view id
   (a, views) <- runRIO mfd mform
-  modifyIORef' viewsRef $ \front -> front . (views++)
+  for_ views $ pushBackDeque viewsDeque
   pure a
 
 aFormToForm :: AForm site a
@@ -162,11 +162,11 @@ wFormToMForm
   :: WForm site a                      -- ^ input form
   -> MForm site (a, [FieldView site])  -- ^ output form
 wFormToMForm wform = do
-  viewsRef <- newIORef id
+  viewsDeque <- newDeque
   mfd <- view id
-  a <- runRIO (WFormData viewsRef mfd) wform
-  views <- readIORef viewsRef
-  pure (a, views [])
+  a <- runRIO (WFormData viewsDeque mfd) wform
+  views <- dequeToList viewsDeque
+  pure (a, views)
 
 -- | Converts a monadic form 'MForm' into another monadic form 'WForm'.
 --
@@ -175,9 +175,9 @@ mFormToWForm
   :: MForm site (a, FieldView site)  -- ^ input form
   -> WForm site a                    -- ^ output form
 mFormToWForm mform = do
-  WFormData views mfd <- view id
+  WFormData viewsDeque mfd <- view id
   (a, view') <- runRIO mfd mform
-  modifyIORef' views $ \front -> front . (view':)
+  pushBackDeque viewsDeque view'
   pure a
 
 -- | Converts a form field into monadic form. This field requires a value
