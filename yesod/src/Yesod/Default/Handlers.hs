@@ -6,8 +6,8 @@ module Yesod.Default.Handlers
 
 import Yesod.Core
 
-getFaviconR :: MonadHandler m => m ()
+getFaviconR :: HasHandlerData env => RIO env ()
 getFaviconR = sendFile "image/x-icon" "config/favicon.ico"
 
-getRobotsR :: MonadHandler m => m ()
+getRobotsR :: HasHandlerData env => RIO env ()
 getRobotsR = sendFile "text/plain" "config/robots.txt"

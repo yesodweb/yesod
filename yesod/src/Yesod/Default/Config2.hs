@@ -6,7 +6,6 @@ module Yesod.Default.Config2
       configSettingsYml
     , getDevSettings
     , develMainHelper
-    , makeYesodLogger
       -- * Re-exports from Data.Yaml.Config
     , applyCurrentEnv
     , getCurrentEnv
@@ -28,7 +27,6 @@ module Yesod.Default.Config2
 
 import Data.Yaml.Config
 
-import Data.Semigroup
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import System.Environment (getEnvironment)
@@ -39,9 +37,6 @@ import Data.Maybe (fromMaybe)
 import Control.Concurrent (forkIO, threadDelay)
 import System.Exit (exitSuccess)
 import System.Directory (doesFileExist)
-import Network.Wai.Logger (clockDateCacher)
-import Yesod.Core.Types (Logger (Logger))
-import System.Log.FastLogger (LoggerSet)
 
 #ifndef mingw32_HOST_OS
 import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
@@ -117,10 +112,3 @@ develMainHelper getSettingsApp = do
 
     terminateDevel :: IO ()
     terminateDevel = exitSuccess
-
--- | Create a 'Logger' value (from yesod-core) out of a 'LoggerSet' (from
--- fast-logger).
-makeYesodLogger :: LoggerSet -> IO Logger
-makeYesodLogger loggerSet' = do
-    (getter, _) <- clockDateCacher
-    return $! Yesod.Core.Types.Logger loggerSet' getter

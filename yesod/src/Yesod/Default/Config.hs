@@ -180,7 +180,7 @@ loadConfig :: ConfigSettings environment extra
            -> IO (AppConfig environment extra)
 loadConfig (ConfigSettings env parseExtra getFile getObject) = do
     fp <- getFile env
-    mtopObj <- decodeFile fp
+    mtopObj <- decodeFileThrow fp
     topObj <- maybe (fail "Invalid YAML file") return mtopObj
     obj <- getObject env topObj
     m <-
@@ -233,7 +233,7 @@ withYamlEnvironment :: Show e
                     -> (Value -> Parser a) -- ^ what to do with the mapping
                     -> IO a
 withYamlEnvironment fp env f = do
-    mval <- decodeFile fp
+    mval <- decodeFileThrow fp
     case mval of
         Nothing -> fail $ "Invalid YAML file: " ++ show fp
         Just (Object obj)
