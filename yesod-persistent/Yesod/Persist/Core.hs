@@ -41,6 +41,15 @@ type YesodDB site = ReaderT (YesodPersistBackend site) (HandlerFor site)
 
 class Monad (YesodDB site) => YesodPersist site where
     type YesodPersistBackend site
+    -- | Allows you to execute database actions within Yesod Handlers. For databases that support it, code inside the action will run as an atomic transaction.
+    --
+    --
+    -- ==== __Example Usage__
+    --
+    -- > userId <- runDB $ do
+    -- >   userId <- insert $ User "username" "email@example.com"
+    -- >   insert_ $ UserPreferences userId True
+    -- >   pure userId
     runDB :: YesodDB site a -> HandlerFor site a
 
 -- | Helper for creating 'runDB'.
