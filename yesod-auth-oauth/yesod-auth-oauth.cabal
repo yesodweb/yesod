@@ -24,7 +24,7 @@ library
     build-depends:   authenticate-oauth      >= 1.5       && < 1.7
                    , bytestring              >= 0.9.1.4
                    , text                    >= 0.7
-                   , unliftio
+                   , rio
                    , yesod-auth              >= 1.6       && < 1.7
                    , yesod-core              >= 1.6       && < 1.7
                    , yesod-form              >= 1.6       && < 1.7

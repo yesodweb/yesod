@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Yesod.Auth.OAuth
     ( authOAuth
     , oauthUrl
@@ -14,14 +15,8 @@ module Yesod.Auth.OAuth
     , tumblrUrl
     , module Web.Authenticate.OAuth
     ) where
-import           Control.Applicative      as A ((<$>), (<*>))
 import           Control.Arrow            ((***))
-import           UnliftIO.Exception
-import           Control.Monad.IO.Class
-import           UnliftIO                 (MonadUnliftIO)
-import           Data.ByteString          (ByteString)
-import           Data.Maybe
-import           Data.Text                (Text)
+import           RIO
 import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8With, encodeUtf8)
 import           Data.Text.Encoding.Error (lenientDecode)
@@ -53,14 +48,9 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
     oauthSessionName = "__oauth_token_secret"
 
     dispatch
-      :: ( MonadHandler m
-         , master ~ HandlerSite m
-         , Auth ~ SubHandlerSite m
-         , MonadUnliftIO m
-         )
-      => Text
+      :: Text
       -> [Text]
-      -> m TypedContent
+      -> SubHandlerFor Auth master TypedContent
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
         tm <- getRouteToParent
@@ -83,8 +73,8 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
                                 ]
           else do
             (verifier, oaTok) <-
-                runInputGet $ (,) A.<$> ireq textField "oauth_verifier"
-                                  A.<*> ireq textField "oauth_token"
+                runInputGet $ (,) <$> ireq textField "oauth_verifier"
+                                  <*> ireq textField "oauth_token"
             return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)
                                 , ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)

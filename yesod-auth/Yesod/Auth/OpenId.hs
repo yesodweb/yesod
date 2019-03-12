@@ -4,6 +4,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Yesod.Auth.OpenId
     ( authOpenId
     , forwardUrl
@@ -29,7 +30,7 @@ forwardUrl = PluginR "openid" ["forward"]
 
 data IdentifierType = Claimed | OPLocal
 
-authOpenId :: YesodAuth master
+authOpenId :: forall master. YesodAuth master
            => IdentifierType
            -> [(Text, Text)] -- ^ extension fields
            -> AuthPlugin master
@@ -41,16 +42,15 @@ authOpenId idType extensionFields =
     name :: Text
     name = "openid_identifier"
 
+    login
+      :: (AuthRoute -> Route master)
+      -> WidgetFor master ()
     login tm = do
         ident <- newIdent
-        -- FIXME this is a hack to get GHC 7.6's type checker to allow the
-        -- code, but it shouldn't be necessary
-        let y :: a -> [(Text, Text)] -> Text
-            y = undefined
-        toWidget (\x -> [cassius|##{ident}
+        toWidget [cassius|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
-|] $ x `asTypeOf` y)
+|]
         [whamlet|
 $newline never
 <form method="get" action="@{tm forwardUrl}">
@@ -62,7 +62,10 @@ $newline never
     <input type="submit" value="_{Msg.LoginOpenID}">
 |]
 
-    dispatch :: Text -> [Text] -> AuthHandler master TypedContent
+    dispatch
+      :: Text
+      -> [Text]
+      -> SubHandlerFor Auth master TypedContent
     dispatch "GET" ["forward"] = do
         roid <- runInputGet $ iopt textField name
         case roid of
@@ -86,7 +89,11 @@ $newline never
         completeHelper idType posts
     dispatch _ _ = notFound
 
-completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master TypedContent
+completeHelper
+  :: (HasHandlerData env, SubHandlerSite env ~ Auth, YesodAuth (HandlerSite env))
+  => IdentifierType
+  -> [(Text, Text)]
+  -> RIO env TypedContent
 completeHelper idType gets' = do
     manager <- authHttpManager
     eres <- tryAny $ OpenId.authenticateClaimed gets' manager

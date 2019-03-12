@@ -1080,7 +1080,7 @@ setUrl url' = do
     site <- fmap rbdSite getSIO
     eurl <- Yesod.Core.Unsafe.runFakeHandler
         M.empty
-        (const $ error "Yesod.Test: No logger available")
+        mempty
         site
         (toTextUrl url')
     url <- either (error . show) return eurl

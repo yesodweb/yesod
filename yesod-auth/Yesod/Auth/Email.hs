@@ -327,7 +327,7 @@ class ( YesodAuth site
     -- used.
     --
     -- @since 1.6.4
-    emailPreviouslyRegisteredResponse :: MonadAuthHandler site m => Text -> Maybe (m TypedContent)
+    emailPreviouslyRegisteredResponse :: Text -> Maybe (AuthHandler site TypedContent)
     emailPreviouslyRegisteredResponse _ = Nothing
 
     -- | Additional normalization of email addresses, besides standard canonicalization.
@@ -376,8 +376,8 @@ class ( YesodAuth site
     -- Default: 'defaultSetPasswordHandler'.
     --
     -- @since: 1.2.6
-    setPasswordHandler ::
-         Bool
+    setPasswordHandler
+      :: Bool
          -- ^ Whether the old password is needed.  If @True@, a
          -- field for the old password should be presented.
          -- Otherwise, just two fields for the new password are
@@ -571,12 +571,12 @@ registerHelper allowUsername forgotPassword dest = do
                             return $ Just (lid, False, key, identifier)
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
-                Just creds@(_, False, _, _) -> sendConfirmationEmail creds
-                Just creds@(_, True, _, _) -> do
-                  if forgotPassword then sendConfirmationEmail creds
+                Just creds'@(_, False, _, _) -> sendConfirmationEmail creds'
+                Just creds'@(_, True, _, _) -> do
+                  if forgotPassword then sendConfirmationEmail creds'
                     else case emailPreviouslyRegisteredResponse identifier of
                       Just response -> response
-                      Nothing -> sendConfirmationEmail creds
+                      Nothing -> sendConfirmationEmail creds'
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
@@ -928,9 +928,9 @@ loginLinkKey = "_AUTH_EMAIL_LOGIN_LINK"
 --
 -- @since 1.2.1
 --setLoginLinkKey :: (MonadHandler m) => AuthId site -> m ()
-setLoginLinkKey :: (MonadHandler m, YesodAuthEmail (HandlerSite m))
-                => AuthId (HandlerSite m)
-                -> m ()
+setLoginLinkKey :: (HasHandlerData env, YesodAuthEmail (HandlerSite env))
+                => AuthId (HandlerSite env)
+                -> RIO env ()
 setLoginLinkKey aid = do
     now <- liftIO getCurrentTime
     setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)

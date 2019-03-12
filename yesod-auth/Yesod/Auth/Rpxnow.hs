@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Yesod.Auth.Rpxnow
     ( authRpxnow
     ) where
@@ -18,7 +19,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Control.Arrow ((***))
 import Network.HTTP.Types (renderQuery)
 
-authRpxnow :: YesodAuth master
+authRpxnow :: forall master. YesodAuth master
            => String -- ^ app name
            -> String -- ^ key
            -> AuthPlugin master
