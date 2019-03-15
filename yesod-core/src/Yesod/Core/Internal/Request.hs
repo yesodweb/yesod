@@ -71,7 +71,7 @@ tooLargeResponse maxLen bodyLen = W.responseLBS
         , (LS8.pack (show maxLen))
         , " bytes; your request body was "
         , (LS8.pack (show bodyLen))
-        , " bytes. If you're the developer of this site, you can configure the maximum length with the `maximumContentLength` function on the Yesod typeclass."
+        , " bytes. If you're the developer of this site, you can configure the maximum length with the `maximumContentLength` or `maximumContentLengthIO` function on the Yesod typeclass."
         ])
 
 parseWaiRequest :: W.Request
