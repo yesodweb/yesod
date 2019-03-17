@@ -195,12 +195,25 @@ class RenderRoute site => Yesod site where
     addStaticContent _ _ _ = return Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
+    -- This method may be ignored if 'maximumContentLengthIO' is overridden.
     --
     -- If @Nothing@, no maximum is applied.
     --
     -- Default: 2 megabytes.
     maximumContentLength :: site -> Maybe (Route site) -> Maybe Word64
     maximumContentLength _ _ = Just $ 2 * 1024 * 1024 -- 2 megabytes
+
+    -- | Maximum allowed length of the request body, in bytes. This is similar
+    -- to 'maximumContentLength', but the result lives in @IO@. This allows
+    -- you to dynamically change the maximum file size based on some external
+    -- source like a database or an @IORef@.
+    --
+    -- The default implementation uses 'maximumContentLength'. Future version of yesod will
+    -- remove 'maximumContentLength' and use this method exclusively.
+    --
+    -- @since 1.6.13
+    maximumContentLengthIO :: site -> Maybe (Route site) -> IO (Maybe Word64)
+    maximumContentLengthIO a b = pure $ maximumContentLength a b
 
     -- | Creates a @Logger@ to use for log messages.
     --
