@@ -195,6 +195,7 @@ class RenderRoute site => Yesod site where
     addStaticContent _ _ _ = return Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
+    -- This method may be ignored if 'maximumContentLengthIO' is overridden.
     --
     -- If @Nothing@, no maximum is applied.
     --
