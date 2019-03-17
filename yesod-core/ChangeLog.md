@@ -4,6 +4,10 @@
 
 * Switch over to using `rio`
 
+## 1.6.13
+
+* Introduce `maxContentLengthIO`. [issue #1588](https://github.com/yesodweb/yesod/issues/1588) and [PR #1589](https://github.com/yesodweb/yesod/pull/1589)
+
 ## 1.6.12
 
 * Use at most one valid session cookie per request [#1581](https://github.com/yesodweb/yesod/pull/1581)

@@ -297,42 +297,44 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
-yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
-  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = sendResponse (tooLargeResponse maxLen len)
-  | otherwise = do
-    let dontSaveSession _ = return []
-    (session, saveSession) <- liftIO $
-        maybe (return (Map.empty, dontSaveSession)) (`sbLoadSession` req) yreSessionBackend
-    maxExpires <- yreGetMaxExpires
-    let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
-    let yreq =
-            case mkYesodReq of
-                Left yreq' -> yreq'
-                Right needGen -> needGen yreGen
-    let ra = resolveApproot yreSite req
-    let -- We set up two environments: the first one has a "safe" error handler
-        -- which will never throw an exception. The second one uses the
-        -- user-provided errorHandler function. If that errorHandler function
-        -- errors out, it will use the safeEh below to recover.
-        rheSafe = RunHandlerEnv
-            { rheRender = yesodRender yreSite ra
-            , rheRoute = route
-            , rheRouteToMaster = id
-            , rheChild = yreSite
-            , rheSite = yreSite
-            , rheUpload = fileUpload yreSite
-            , rheLogFunc = yreLogFunc
-            , rheOnError = safeEh yreLogFunc
-            , rheMaxExpires = maxExpires
-            }
-        rhe = rheSafe
-            { rheOnError = runHandler rheSafe . errorHandler
-            }
+yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
+  mmaxLen <- maximumContentLengthIO yreSite route
+  case (mmaxLen, requestBodyLength req) of
+    (Just maxLen, KnownLength len) | maxLen < len -> sendResponse (tooLargeResponse maxLen len)
+    _ -> do
+      let dontSaveSession _ = return []
+      (session, saveSession) <- liftIO $
+          maybe (return (Map.empty, dontSaveSession)) (`sbLoadSession` req) yreSessionBackend
+      maxExpires <- yreGetMaxExpires
+      let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
+      let yreq =
+              case mkYesodReq of
+                  Left yreq' -> yreq'
+                  Right needGen -> needGen yreGen
+      let ra = resolveApproot yreSite req
+      let -- We set up two environments: the first one has a "safe" error handler
+          -- which will never throw an exception. The second one uses the
+          -- user-provided errorHandler function. If that errorHandler function
+          -- errors out, it will use the safeEh below to recover.
+          rheSafe = RunHandlerEnv
+              { rheRender = yesodRender yreSite ra
+              , rheRoute = route
+              , rheRouteToMaster = id
+              , rheChild = yreSite
+              , rheSite = yreSite
+              , rheUpload = fileUpload yreSite
+              , rheLogFunc = yreLogFunc
+              , rheOnError = safeEh yreLogFunc
+              , rheMaxExpires = maxExpires
+              }
+          rhe = rheSafe
+              { rheOnError = runHandler rheSafe . errorHandler
+              }
 
-    yesodWithInternalState yreSite route $ \is -> do
-        yreq' <- yreq
-        yar <- runInternalState (runHandler rhe handler yreq') is
-        yarToResponse yar saveSession yreq' req is sendResponse
+      yesodWithInternalState yreSite route $ \is -> do
+          yreq' <- yreq
+          yar <- runInternalState (runHandler rhe handler yreq') is
+          yarToResponse yar saveSession yreq' req is sendResponse
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
