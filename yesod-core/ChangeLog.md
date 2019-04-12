@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.14
+
+* Introduce `JSONResponse`. [issue #1481](https://github.com/yesodweb/yesod/issues/1481) and [PR #1592](https://github.com/yesodweb/yesod/pull/1592)
+
 ## 1.6.13
 
 * Introduce `maxContentLengthIO`. [issue #1588](https://github.com/yesodweb/yesod/issues/1588) and [PR #1589](https://github.com/yesodweb/yesod/pull/1589)
