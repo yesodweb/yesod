@@ -107,6 +107,8 @@ instance ToContent (ContentType, Content) where
     toContent = snd
 instance ToContent TypedContent where
     toContent (TypedContent _ c) = c
+instance ToContent (JSONResponse a) where
+    toContent (JSONResponse a) = toContent $ J.toEncoding a
 
 instance ToContent Css where
     toContent = toContent . renderCss
@@ -262,6 +264,9 @@ instance HasContentType Css where
 instance HasContentType Javascript where
     getContentType _ = typeJavascript
 
+instance HasContentType (JSONResponse a) where
+    getContentType _ = typeJson
+
 -- | Any type which can be converted to 'TypedContent'.
 --
 -- Since 1.2.0
@@ -301,3 +306,5 @@ instance ToTypedContent Css where
     toTypedContent = TypedContent typeCss . toContent
 instance ToTypedContent Javascript where
     toTypedContent = TypedContent typeJavascript . toContent
+instance ToTypedContent (JSONResponse a) where
+    toTypedContent c = TypedContent typeJson (toContent c)

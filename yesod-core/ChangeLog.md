@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.9
+
+* Add `JSONResponse` data type [#1591](https://github.com/yesodweb/yesod/pull/1591)
+
 ## 1.6.8.1
 
 * Add missing test file to tarball [#1563](https://github.com/yesodweb/yesod/issues/1563)
