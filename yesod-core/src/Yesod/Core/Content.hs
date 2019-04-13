@@ -107,6 +107,8 @@ instance ToContent (ContentType, Content) where
     toContent = snd
 instance ToContent TypedContent where
     toContent (TypedContent _ c) = c
+instance ToContent (JSONResponse a) where
+    toContent (JSONResponse a) = toContent $ J.toEncoding a
 
 instance ToContent Css where
     toContent = toContent . renderCss
@@ -160,6 +162,8 @@ deriving instance ToContent RepJson
 instance HasContentType RepPlain where
     getContentType _ = typePlain
 deriving instance ToContent RepPlain
+instance HasContentType (JSONResponse a) where
+    getContentType _ = typeJson
 
 instance HasContentType RepXml where
     getContentType _ = typeXml
@@ -292,6 +296,8 @@ instance ToTypedContent [Char] where
     toTypedContent = toTypedContent . pack
 instance ToTypedContent Text where
     toTypedContent t = TypedContent typePlain (toContent t)
+instance ToTypedContent (JSONResponse a) where
+    toTypedContent c = TypedContent typeJson (toContent c)
 instance ToTypedContent a => ToTypedContent (DontFullyEvaluate a) where
     toTypedContent (DontFullyEvaluate a) =
         let TypedContent ct c = toTypedContent a

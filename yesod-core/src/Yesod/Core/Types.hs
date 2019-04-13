@@ -8,8 +8,10 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GADTs #-}
 module Yesod.Core.Types where
 
+import Data.Aeson (ToJSON)
 import qualified Data.ByteString.Builder            as BB
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
@@ -302,6 +304,20 @@ newtype RepPlain = RepPlain Content
 newtype RepXml = RepXml Content
 
 type ContentType = ByteString -- FIXME Text?
+
+-- | Wrapper around types so that Handlers can return a domain type, even when
+-- the data will eventually be encoded as JSON.
+-- Example usage in a type signature:
+--
+-- > postSignupR :: Handler (JSONResponse CreateUserResponse)
+--
+-- And in the implementation:
+--
+-- > return $ JSONResponse $ CreateUserResponse userId
+--
+-- @since 1.6.14
+data JSONResponse a where
+    JSONResponse :: ToJSON a => a -> JSONResponse a
 
 -- | Prevents a response body from being fully evaluated before sending the
 -- request.
