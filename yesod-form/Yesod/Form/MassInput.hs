@@ -112,6 +112,7 @@ $newline never
                 , fsTooltip = Nothing
                 , fsName = Just deleteName
                 , fsId = Nothing
+                , fsPlaceholder = Nothing
                 , fsAttrs = []
                 } $ Just False
             (res, xml) <- aFormToForm af

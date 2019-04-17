@@ -569,7 +569,7 @@ customErrorMessage msg field = field
 
 -- | Generate a 'FieldSettings' from the given label.
 fieldSettingsLabel :: RenderMessage site msg => msg -> FieldSettings site
-fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing []
+fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing Nothing []
 
 -- | A helper function for creating custom fields.
 --

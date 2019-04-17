@@ -182,11 +182,12 @@ data FieldSettings master = FieldSettings
     , fsTooltip :: Maybe (SomeMessage master)
     , fsId :: Maybe Text
     , fsName :: Maybe Text
+    , fsPlaceholder :: Maybe (SomeMessage master)
     , fsAttrs :: [(Text, Text)]
     }
 
 instance IsString (FieldSettings a) where
-    fromString s = FieldSettings (fromString s) Nothing Nothing Nothing []
+    fromString s = FieldSettings (fromString s) Nothing Nothing Nothing Nothing []
 
 data FieldView site = FieldView
     { fvLabel :: Html

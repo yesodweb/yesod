@@ -42,7 +42,7 @@ import Yesod.Form.Functions
 -- Since: yesod-form 1.3.8
 bfs :: RenderMessage site msg => msg -> FieldSettings site
 bfs msg =
-    FieldSettings (SomeMessage msg) Nothing Nothing Nothing [("class", "form-control")]
+    FieldSettings (SomeMessage msg) Nothing Nothing Nothing Nothing [("class", "form-control")]
 
 
 -- | Add a placeholder attribute to a field.  If you need i18n
