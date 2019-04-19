@@ -62,7 +62,7 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
-import Yesod.Form.Functions (parseHelper)
+import Yesod.Form.Functions (parseHelper, fullAttrs)
 import Yesod.Core
 import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup

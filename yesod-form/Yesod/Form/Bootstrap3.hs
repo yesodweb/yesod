@@ -45,14 +45,11 @@ bfs msg =
     FieldSettings (SomeMessage msg) Nothing Nothing Nothing Nothing [("class", "form-control")]
 
 
--- | Add a placeholder attribute to a field.  If you need i18n
--- for the placeholder, currently you\'ll need to do a hack and
--- use 'getMessageRender' manually.
+-- | Add a placeholder attribute to a field.
 --
 -- Since: yesod-form 1.3.8
-withPlaceholder :: Text -> FieldSettings site -> FieldSettings site
-withPlaceholder placeholder fs = fs { fsAttrs = newAttrs }
-    where newAttrs = ("placeholder", placeholder) : fsAttrs fs
+withPlaceholder :: RenderMessage site msg => msg -> FieldSettings site -> FieldSettings site
+withPlaceholder msg fs = fs { fsPlaceholder = Just (SomeMessage msg) }
 
 
 -- | Add an autofocus attribute to a field.
