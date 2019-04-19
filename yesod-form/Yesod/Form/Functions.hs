@@ -53,6 +53,7 @@ module Yesod.Form.Functions
     , convertField
     , addClass
     , removeClass
+    , fullAttrs
     ) where
 
 import Yesod.Form.Types
@@ -618,6 +619,23 @@ convertField to from (Field fParse fView fEnctype) = let
   fParse' ts = fmap (fmap (fmap to)) . fParse ts
   fView' ti tn at ei = fView ti tn at (fmap from ei)
   in Field fParse' fView' fEnctype
+
+-- | Combine placeholder and fsAttrs into a full set of attributes.
+--
+-- @since 1.6.5
+fullAttrs :: (site ~ HandlerSite m, MonadHandler m) => FieldSettings site -> m [(Text, Text)]
+fullAttrs fs = do
+    site <- getYesod
+    langs <- languages
+    let renderer = renderMessage site langs
+    return $ combineAttrs renderer (fsAttrs fs) (fsPlaceholder fs)
+
+combineAttrs :: (message -> Text) -- ^ Function to internationalize a message
+             -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
+             -> Maybe message  -- ^ An optional placeholder message
+             -> [(Text, Text)] -- ^ Full list of attributes
+combineAttrs _ attrs Nothing  = attrs
+combineAttrs f attrs (Just t) = attrs ++ [("placeholder", f t)]
 
 -- | Removes a CSS class from the 'fsAttrs' in a 'FieldSettings'.
 --
