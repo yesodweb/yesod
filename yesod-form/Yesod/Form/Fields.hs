@@ -802,13 +802,14 @@ fileAFormReq fs = AForm $ \(site, langs) menvs ints -> do
                         _ ->
                             let t = renderMessage site langs MsgValueRequired
                              in (FormFailure [t], Just $ toHtml t)
+    attrs <- fullAttrs fs
     let fv = FieldView
             { fvLabel = toHtml $ renderMessage site langs $ fsLabel fs
             , fvTooltip = fmap (toHtml . renderMessage site langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [whamlet|
 $newline never
-<input type=file name=#{name} ##{id'} *{fsAttrs fs}>
+<input type=file name=#{name} ##{id'} *{attrs}>
 |]
             , fvErrors = errs
             , fvRequired = True
@@ -826,6 +827,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
                     let i' = incrInts ints
                      in (pack $ 'f' : show i', i')
     id' <- maybe newIdent return $ fsId fs
+    attrs <- fullAttrs fs
     let (res, errs) =
             case menvs of
                 Nothing -> (FormMissing, Nothing)
@@ -839,7 +841,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
             , fvId = id'
             , fvInput = [whamlet|
 $newline never
-<input type=file name=#{name} ##{id'} *{fsAttrs fs}>
+<input type=file name=#{name} ##{id'} *{attrs}>
 |]
             , fvErrors = errs
             , fvRequired = False

@@ -202,6 +202,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     theId <- lift $ maybe newIdent return fsId
     (_, site, langs) <- ask
     let mr2 = renderMessage site langs
+        attrs = combineAttrs mr2 fsAttrs fsPlaceholder
     (res, val) <-
         case mp of
             Nothing -> return (FormMissing, maybe (Left "") Right mdef)
@@ -220,7 +221,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
         , fvId = theId
-        , fvInput = fieldView theId name fsAttrs val isReq
+        , fvInput = fieldView theId name attrs val isReq
         , fvErrors =
             case res of
                 FormFailure [e] -> Just $ toHtml e
