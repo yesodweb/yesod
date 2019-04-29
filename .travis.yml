@@ -80,6 +80,10 @@ matrix:
     compiler: ": #stack/persistent 2.9"
     addons: {apt: {packages: [libgmp-dev]}}
 
+  - env: BUILD=stack ARGS="--stack-yaml stack-persistent-2-10.yaml"
+    compiler: ": #stack/persistent 2.10"
+    addons: {apt: {packages: [libgmp-dev]}}
+
   # Nightly builds are allowed to fail
   - env: BUILD=stack ARGS="--resolver nightly"
     compiler: ": #stack nightly"
@@ -108,6 +112,10 @@ matrix:
 
   - env: BUILD=stack ARGS="--stack-yaml stack-persistent-2-9.yaml"
     compiler: ": #stack/persistent 2.9"
+    os: osx
+
+  - env: BUILD=stack ARGS="--stack-yaml stack-persistent-2-10.yaml"
+    compiler: ": #stack/persistent 2.10"
     os: osx
 
   - env: BUILD=stack ARGS="--resolver nightly"
