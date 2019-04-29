@@ -26,6 +26,7 @@ extra-deps:
 - persistent-sqlite-2.8.1.2@rev:0
 - project-template-0.2.0.1@rev:0
 - resourcet-1.2.1@rev:0
+- rio-0.1.8.0@rev:0
 - streaming-commons-0.2.0.0@rev:0
 - typed-process-0.2.2.0@rev:0
 - unliftio-0.2.7.0@rev:0
