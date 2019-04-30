@@ -1,6 +1,9 @@
+# ChangeLog for yesod-test
+
 ## 1.6.6.1
 
 * Documentation fixes
+* Support for network 3
 
 ## 1.6.6
 
