@@ -115,6 +115,7 @@ test-suite tests
                    , wai
                    , wai-app-static
                    , yesod-core
+                   , rio
 
     ghc-options:     -Wall -threaded
     extensions: TemplateHaskell
