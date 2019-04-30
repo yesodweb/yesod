@@ -148,7 +148,13 @@ import qualified Data.Text.Encoding.Error as TErr
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Test.HUnit as HUnit
 import qualified Network.HTTP.Types as H
+
+#if MIN_VERSION_network(3, 0, 0)
+import qualified Network.Socket as Sock
+#else
 import qualified Network.Socket.Internal as Sock
+#endif
+
 import Data.CaseInsensitive (CI)
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
