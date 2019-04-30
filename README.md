@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/yesodweb/yesod.svg?branch=master)](https://travis-ci.org/yesodweb/yesod)
+[![Build Status](https://dev.azure.com/yesodweb/yesod/_apis/build/status/yesodweb.yesod?branchName=master)](https://dev.azure.com/yesodweb/yesod/_build/latest?definitionId=3&branchName=master)
 
 # Yesod Web Framework
 
