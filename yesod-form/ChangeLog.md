@@ -1,5 +1,10 @@
 # ChangeLog for yesod-form
 
+## 1.6.5
+
+* Internationalize fsAttrs [#1597](https://github.com/yesodweb/yesod/pull/1597)
+* Change the type of the `fsAttrs` field from `[(Text, Text]` to `[(Text, [SomeMessage master])]`
+
 ## 1.6.4
 
 * Make FormResult an instance of Eq

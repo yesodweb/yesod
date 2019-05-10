@@ -630,19 +630,14 @@ convertField to from (Field fParse fView fEnctype) = let
 -- [("class","  login-form"),("id","home-login")]
 --
 -- @since 1.6.2
-removeClass :: Text -- ^ The class to remove
-            -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
-            -> [(Text, Text)]
+removeClass :: (Eq (SomeMessage site)) => SomeMessage site -- ^ The class to remove
+            -> [(Text, [SomeMessage site])] -- ^ List of existing 'fsAttrs'
+            -> [(Text, [SomeMessage site])]
 removeClass _     []                    = []
-removeClass klass (("class", old):rest) = ("class", T.replace klass " " old) : rest
+removeClass klass (("class", old):rest) = ("class", filter ((==) klass) old) : rest
 removeClass klass (other         :rest) = other : removeClass klass rest
 
 -- | Adds a CSS class to the 'fsAttrs' in a 'FieldSettings'.
---
--- ==== __Examples__
---
--- >>> addClass "login-form" [("class", "form-control"), ("id", "home-login")]
--- [("class","form-control login-form"),("id","home-login")]
 --
 -- @since 1.6.2
 addClass :: Text -- ^ The class to add
@@ -652,9 +647,12 @@ addClass klass []                    = [("class", [SomeMessage klass])]
 addClass klass (("class", old):rest) = ("class", SomeMessage klass : old) : rest
 addClass klass (other         :rest) = other : addClass klass rest
 
+--  Process the list of attributes into end-user display value
+--
+-- Since 1.6.5
 processAttributes :: (message -> Text) -> [(Text, [message])] -> [(Text, Text)]
 processAttributes renderer attributes = foldr processAttribute [] attributes
   where processAttribute (attribute, vals) processed = let vals' = if null vals
-                                                                   then "true"
+                                                                   then attribute -- i.e. ("disabled", "disabled")
                                                                    else T.intercalate " " $ nub $ fmap renderer vals
                                                        in  (attribute, vals') : processed

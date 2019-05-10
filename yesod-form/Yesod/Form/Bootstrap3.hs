@@ -42,7 +42,7 @@ import Yesod.Form.Functions
 -- Since: yesod-form 1.3.8
 bfs :: RenderMessage site msg => msg -> FieldSettings site
 bfs msg =
-    FieldSettings (SomeMessage msg) Nothing Nothing Nothing [("class", "form-control")]
+    FieldSettings (SomeMessage msg) Nothing Nothing Nothing [("class", ["form-control"])]
 
 
 -- | Add a placeholder attribute to a field.  If you need i18n
@@ -52,7 +52,7 @@ bfs msg =
 -- Since: yesod-form 1.3.8
 withPlaceholder :: Text -> FieldSettings site -> FieldSettings site
 withPlaceholder placeholder fs = fs { fsAttrs = newAttrs }
-    where newAttrs = ("placeholder", placeholder) : fsAttrs fs
+    where newAttrs = ("placeholder", [SomeMessage placeholder]) : fsAttrs fs
 
 
 -- | Add an autofocus attribute to a field.
@@ -60,7 +60,7 @@ withPlaceholder placeholder fs = fs { fsAttrs = newAttrs }
 -- Since: yesod-form 1.3.8
 withAutofocus :: FieldSettings site -> FieldSettings site
 withAutofocus fs = fs { fsAttrs = newAttrs }
-    where newAttrs = ("autofocus", "autofocus") : fsAttrs fs
+    where newAttrs = ("autofocus", [SomeMessage ("autofocus" :: Text)]) : fsAttrs fs
 
 
 -- | Add the @input-lg@ CSS class to a field.
