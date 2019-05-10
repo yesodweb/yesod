@@ -182,7 +182,7 @@ data FieldSettings master = FieldSettings
     , fsTooltip :: Maybe (SomeMessage master)
     , fsId :: Maybe Text
     , fsName :: Maybe Text
-    , fsAttrs :: [(Text, Text)]
+    , fsAttrs :: [(Text, [SomeMessage master])]
     }
 
 instance IsString (FieldSettings a) where
