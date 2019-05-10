@@ -53,6 +53,7 @@ module Yesod.Form.Functions
     , convertField
     , addClass
     , removeClass
+    , processAttributes
     ) where
 
 import Yesod.Form.Types
@@ -71,6 +72,7 @@ import Yesod.Core
 import Network.Wai (requestMethod)
 import Data.Monoid (mempty, (<>))
 import Data.Maybe (listToMaybe, fromMaybe)
+import Data.List (nub)
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
 import Control.Arrow (first)
@@ -215,11 +217,12 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
                         case mx of
                             Nothing -> (onMissing site langs, Left "")
                             Just x -> (onFound x, Right x)
+    let fsAttrs' = processAttributes mr2 fsAttrs
     return (res, FieldView
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
         , fvId = theId
-        , fvInput = fieldView theId name fsAttrs val isReq
+        , fvInput = fieldView theId name fsAttrs' val isReq
         , fvErrors =
             case res of
                 FormFailure [e] -> Just $ toHtml e
@@ -643,8 +646,15 @@ removeClass klass (other         :rest) = other : removeClass klass rest
 --
 -- @since 1.6.2
 addClass :: Text -- ^ The class to add
-         -> [(Text, Text)] -- ^ List of existing 'fsAttrs'
-         -> [(Text, Text)]
-addClass klass []                    = [("class", klass)]
-addClass klass (("class", old):rest) = ("class", T.concat [old, " ", klass]) : rest
+         -> [(Text, [SomeMessage site])] -- ^ List of existing 'fsAttrs'
+         -> [(Text, [SomeMessage site])]
+addClass klass []                    = [("class", [SomeMessage klass])]
+addClass klass (("class", old):rest) = ("class", SomeMessage klass : old) : rest
 addClass klass (other         :rest) = other : addClass klass rest
+
+processAttributes :: (message -> Text) -> [(Text, [message])] -> [(Text, Text)]
+processAttributes renderer attributes = foldr processAttribute [] attributes
+  where processAttribute (attribute, vals) processed = let vals' = if null vals
+                                                                   then "true"
+                                                                   else T.intercalate " " $ nub $ fmap renderer vals
+                                                       in  (attribute, vals') : processed
