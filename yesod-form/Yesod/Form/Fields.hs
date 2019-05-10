@@ -62,7 +62,7 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
-import Yesod.Form.Functions (parseHelper)
+import Yesod.Form.Functions (parseHelper, processAttributes)
 import Yesod.Core
 import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
@@ -808,11 +808,12 @@ fileAFormReq fs = AForm $ \(site, langs) menvs ints -> do
             , fvId = id'
             , fvInput = [whamlet|
 $newline never
-<input type=file name=#{name} ##{id'} *{fsAttrs fs}>
+<input type=file name=#{name} ##{id'} *{fsAttrs'}>
 |]
             , fvErrors = errs
             , fvRequired = True
             }
+        fsAttrs' = processAttributes (renderMessage site langs) (fsAttrs fs)
     return (res, (fv :), ints', Multipart)
 
 fileAFormOpt :: MonadHandler m
@@ -839,11 +840,12 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
             , fvId = id'
             , fvInput = [whamlet|
 $newline never
-<input type=file name=#{name} ##{id'} *{fsAttrs fs}>
+<input type=file name=#{name} ##{id'} *{fsAttrs'}>
 |]
             , fvErrors = errs
             , fvRequired = False
             }
+        fsAttrs' = processAttributes (renderMessage master langs) (fsAttrs fs)
     return (res, (fv :), ints', Multipart)
 
 incrInts :: Ints -> Ints
