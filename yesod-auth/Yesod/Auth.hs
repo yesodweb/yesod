@@ -421,14 +421,20 @@ authLayoutJson w json = selectRep $ do
 --
 -- @since 1.1.7
 clearCreds :: (MonadHandler m, YesodAuth (HandlerSite m))
-           => Bool -- ^ if HTTP redirect to 'logoutDest' should be done
+           => Bool -- ^ if HTTP, redirect to 'logoutDest'
            -> m ()
 clearCreds doRedirects = do
-    y <- getYesod
     onLogout
     deleteSession credsKey
-    when doRedirects $ do
-        redirectUltDest $ logoutDest y
+    y  <- getYesod
+    aj <- acceptsJson
+    case (aj, doRedirects) of
+      (True, _)               -> sendResponse successfulLogout
+      (False, True)           -> redirectUltDest (logoutDest y)
+      _                       -> return ()
+    where successfulLogout = object ["message" .= msg]
+          msg :: Text
+          msg = "Logged out successfully!"
 
 getCheckR :: AuthHandler master TypedContent
 getCheckR = do
