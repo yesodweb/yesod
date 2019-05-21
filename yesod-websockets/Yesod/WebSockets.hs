@@ -213,7 +213,7 @@ sendBinaryDataE = wrapWSE WS.sendBinaryData
 sendPing
   :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
   => a
-  -> WebSocketsT m ()
+  -> m ()
 sendPing = wrapWS WS.sendPing
 
 -- | Send a ping message to the client.
@@ -242,7 +242,7 @@ sendDataMessageE x = do
 sendClose
   :: (MonadIO m, WS.WebSocketsData a, MonadReader WS.Connection m)
   => a
-  -> WebSocketsT m ()
+  -> m ()
 sendClose = wrapWS WS.sendClose
 
 -- | Send a close request to the client.
