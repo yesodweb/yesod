@@ -1,3 +1,12 @@
+## 0.3.0.2
+
+* `sendClose` and `sendPing` correctly find the `Connection` from `WebSocketsT`
+
+  Previously, these types were incorrectly typed to look for the `Connection` on
+  the `m` of `WebSocketsT m ()`, and not via `WebSocketsT` itself. Because this
+  made them practically impossible to use, this change is unlikely to break any
+  existing code.
+
 ## 0.3.0.1
 
 * Minor cabal file improvements
