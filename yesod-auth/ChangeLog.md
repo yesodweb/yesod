@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.7
+
+* Redirect behavior of `clearCreds` depends on request type [#1598](https://github.com/yesodweb/yesod/pull/1598)
+
 ## 1.6.6
 
 * Deprecated `Yesod.Auth.GoogleEmail2`, see [#1579](https://github.com/yesodweb/yesod/issues/1579) and [migration blog post](https://pbrisbin.com/posts/googleemail2_deprecation/)
