@@ -1,4 +1,4 @@
-resolver: lts-13.4
+resolver: lts-12.26
 packages:
 - ./yesod-core
 - ./yesod-static
