@@ -20,14 +20,20 @@ import qualified Data.Text as T
 import Data.Maybe (fromJust, listToMaybe, fromMaybe)
 import Control.Arrow (second)
 
+-- | Button classes for Bootstrap 4.
+bsBtnClass :: Text
+bsBtnClass = "btn btn-primary"
+
 -- | Applicative equivalent of 'mmulti'.
 amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     => Field m a
     -> FieldSettings site
     -> [a]
     -> Int
+    -> Text
     -> AForm m [a]
-amulti field fs defs minVals = formToAForm $ liftM (second return) (mmulti field fs defs minVals)
+amulti field fs defs minVals btnClass =
+    formToAForm $ liftM (second return) (mmulti field fs defs minVals btnClass)
 
 -- | Converts a form field into a monadic form containing an arbitrary
 -- number of the given fields as specified by the user. Returns a list
@@ -38,8 +44,9 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> FieldSettings site
     -> [a]
     -> Int
+    -> Text
     -> MForm m (FormResult [a], FieldView site)
-mmulti field fs defs minVals = mhelperMulti field fs defs minVals
+mmulti field fs defs minVals btnClass = mhelperMulti field fs defs minVals btnClass
 
 -- Helper function, performs a bounds check on minVals and adds a class to
 -- the FieldSettings for identification later.
@@ -48,12 +55,13 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> FieldSettings site
     -> [a]
     -> Int
+    -> Text
     -> MForm m (FormResult [a], FieldView site)
-mhelperMulti field fs@FieldSettings {..} defs minVals = do
+mhelperMulti field fs@FieldSettings {..} defs minVals btnClass = do
     fieldClass <- newFormIdent
     let fs' = fs {fsAttrs = addClass fieldClass fsAttrs}
         minVals' = if minVals < 0 then 0 else minVals
-    mhelperMulti' field fs' fieldClass defs minVals'
+    mhelperMulti' field fs' fieldClass defs minVals' btnClass
 
 -- Helper function, does most of the work for mmulti.
 mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
@@ -62,8 +70,9 @@ mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormM
     -> Text
     -> [a]
     -> Int
+    -> Text
     -> MForm m (FormResult [a], FieldView site)
-mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals = do
+mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btnClass = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
@@ -140,7 +149,7 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals = d
                     $maybe err <- fvErrors fv
                         <span .help-block .error-block>#{err}
 
-                <button ##{btnId} type="button">Add Another
+                <button ##{btnId} .#{btnClass} type="button">Add Another
             |]
             toWidget
                 [julius|
