@@ -32,8 +32,35 @@ amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> Int
     -> Text
     -> AForm m [a]
-amulti field fs defs minVals btnClass =
-    formToAForm $ liftM (second return) (mmulti field fs defs minVals btnClass)
+amulti field fs defs minVals btnClass = formToAForm $
+    liftM (second return) mform
+    where
+        mform = do
+            (fr, cView : btnView : fvs) <- mmulti field fs defs minVals btnClass
+
+            let widget = do
+                    [whamlet|
+                        ^{fvInput cView}
+
+                        $forall fv <- fvs
+                            ^{fvInput fv}
+
+                            $maybe err <- fvErrors fv
+                                <span .help-block .error-block>#{err}
+                        
+                        ^{fvInput btnView}
+                    |]
+
+                view = FieldView
+                    { fvLabel = (fvLabel btnView)
+                    , fvTooltip = (fvTooltip btnView)
+                    , fvId = (fvId btnView)
+                    , fvInput = widget
+                    , fvErrors = (fvErrors btnView)
+                    , fvRequired = False
+                    }
+            
+            return (fr, view)
 
 -- | Converts a form field into a monadic form containing an arbitrary
 -- number of the given fields as specified by the user. Returns a list
@@ -45,7 +72,7 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> [a]
     -> Int
     -> Text
-    -> MForm m (FormResult [a], FieldView site)
+    -> MForm m (FormResult [a], [FieldView site])
 mmulti field fs defs minVals btnClass = mhelperMulti field fs defs minVals btnClass
 
 -- Helper function, performs a bounds check on minVals and adds a class to
@@ -56,7 +83,7 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> [a]
     -> Int
     -> Text
-    -> MForm m (FormResult [a], FieldView site)
+    -> MForm m (FormResult [a], [FieldView site])
 mhelperMulti field fs@FieldSettings {..} defs minVals btnClass = do
     fieldClass <- newFormIdent
     let fs' = fs {fsAttrs = addClass fieldClass fsAttrs}
@@ -71,7 +98,7 @@ mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormM
     -> [a]
     -> Int
     -> Text
-    -> MForm m (FormResult [a], FieldView site)
+    -> MForm m (FormResult [a], [FieldView site])
 mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btnClass = do
     mp <- askParams
     (_, site, langs) <- ask
@@ -128,7 +155,6 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
         rvs <- mapM mkView' ys
         return $ unzip rvs
     
-    -- generate form widget
     let rs' = [ fmap fromJust r | r <- rs
                                 , not $ isSuccNothing r ]
         err = T.pack $ "Please enter at least " ++ show minVals ++ " values."
@@ -140,15 +166,8 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
                         else (FormSuccess xs, False)
                 fRes -> (fRes, False)
 
-        widget = do
+        btnWidget = do
             [whamlet|
-                ^{fvInput cView}
-
-                $forall fv <- fvs
-                    ^{fvInput fv}
-                    $maybe err <- fvErrors fv
-                        <span .help-block .error-block>#{err}
-
                 <button ##{btnId} .#{btnClass} type="button">Add Another
             |]
             toWidget
@@ -167,16 +186,16 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
                     });
                 |]
 
-    let view = FieldView
+    let btnView = FieldView
             { fvLabel = toHtml $ mr2 fsLabel
             , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
             , fvId = theId
-            , fvInput = widget
+            , fvInput = btnWidget
             , fvErrors = if tooFewVals then Just $ toHtml err else Nothing
             , fvRequired = False
             }
 
-    return (res, view)
+    return (res, cView : btnView : fvs)
 
 -- Search for the given field's name in the environment
 -- and parse any values found and construct a FormResult.
