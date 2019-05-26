@@ -21,19 +21,33 @@ import Data.Maybe (fromJust, listToMaybe, fromMaybe)
 import Control.Arrow (second)
 
 data MultiSettings site = MultiSettings
-    { msAddClass :: Text
-    , msErrClass :: Text -- only used in applicative forms
+    { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
+    , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
     }
 
 data MultiView site = MultiView
-    { mvCounter :: FieldView site
-    , mvFields :: [FieldView site]
-    , mvAddBtn :: FieldView site
+    { mvCounter :: FieldView site -- ^ Hidden counter field.
+    , mvFields :: [FieldView site] -- ^ Input fields.
+    , mvAddBtn :: FieldView site -- ^ Button to add another field.
     }
 
--- | Button classes for Bootstrap 4.
-bsBtnClass :: MultiSettings site
-bsBtnClass = MultiSettings "btn btn-primary" "invalid-feedback"
+-- | 'MultiSettings' for Bootstrap 3.
+bs3BtnClass :: MultiSettings site
+bs3BtnClass = MultiSettings "btn btn-default" (Just errW)
+    where
+        errW err = 
+            [whamlet|
+                <span .help-block .error-block>#{err}
+            |]
+
+-- | 'MultiSettings' for Bootstrap 4.
+bs4Settings :: MultiSettings site
+bs4Settings = MultiSettings "btn btn-basic" (Just errW)
+    where
+        errW err =
+            [whamlet|
+                <div .invalid-feedback>#{err}
+            |]
 
 -- | Applicative equivalent of 'mmulti'.
 amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
@@ -57,8 +71,9 @@ amulti field fs defs minVals ms = formToAForm $
                             ^{fvInput fv}
 
                             $maybe err <- fvErrors fv
-                                <div .#{msErrClass ms}>#{err}
-                        
+                                $maybe errW <- msErrWidget ms
+                                    ^{errW err}
+
                         ^{fvInput mvAddBtn}
                     |]
                 (fv : _) = mvFields
