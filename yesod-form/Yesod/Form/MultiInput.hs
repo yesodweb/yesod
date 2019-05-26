@@ -12,23 +12,23 @@
 module Yesod.Form.MultiInput
     ( MultiSettings (..)
     , MultiView (..)
-    , bs3BtnClass
-    , bs4BtnClass
     , mmulti
     , amulti
+    , bs3Settings
+    , bs4Settings
     ) where
 
-import Yesod.Form.Types
-import Yesod.Form.Functions
-import Yesod.Form.Fields (intField)
-import Yesod.Core
+import Control.Arrow (second)
+import Control.Monad (liftM)
 import Control.Monad.Trans.RWS (ask, tell)
 import qualified Data.Map as Map
-import Control.Monad (liftM)
+import Data.Maybe (fromJust, listToMaybe, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Maybe (fromJust, listToMaybe, fromMaybe)
-import Control.Arrow (second)
+import Yesod.Core
+import Yesod.Form.Fields (intField)
+import Yesod.Form.Functions
+import Yesod.Form.Types
 
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
@@ -42,8 +42,8 @@ data MultiView site = MultiView
     }
 
 -- | 'MultiSettings' for Bootstrap 3.
-bs3BtnClass :: MultiSettings site
-bs3BtnClass = MultiSettings "btn btn-default" (Just errW)
+bs3Settings :: MultiSettings site
+bs3Settings = MultiSettings "btn btn-default" (Just errW)
     where
         errW err = 
             [whamlet|
