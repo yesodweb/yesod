@@ -84,25 +84,14 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mmulti field fs defs minVals ms = mhelperMulti field fs defs minVals ms
-
--- Helper function, performs a bounds check on minVals and adds a class to
--- the FieldSettings for identification later.
-mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
-    => Field m a
-    -> FieldSettings site
-    -> [a]
-    -> Int
-    -> MultiSettings site
-    -> MForm m (FormResult [a], MultiView site)
-mhelperMulti field fs@FieldSettings {..} defs minVals ms = do
+mmulti field fs@FieldSettings {..} defs minVals ms = do
     fieldClass <- newFormIdent
     let fs' = fs {fsAttrs = addClass fieldClass fsAttrs}
         minVals' = if minVals < 0 then 0 else minVals
-    mhelperMulti' field fs' fieldClass defs minVals' ms
+    mhelperMulti field fs' fieldClass defs minVals' ms
 
 -- Helper function, does most of the work for mmulti.
-mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
+mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     => Field m a
     -> FieldSettings site
     -> Text
@@ -110,7 +99,7 @@ mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormM
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals MultiSettings {..} = do
+mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals MultiSettings {..} = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
