@@ -6,7 +6,17 @@
 {-# LANGUAGE QuasiQuotes  #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Yesod.Form.NewMassInput where
+-- | A module providing a means of creating multiple input forms without
+-- the need to submit the form to generate a new input field unlike
+-- in "MassInput".
+module Yesod.Form.MultiInput
+    ( MultiSettings (..)
+    , MultiView (..)
+    , bs3BtnClass
+    , bs4BtnClass
+    , mmulti
+    , amulti
+    ) where
 
 import Yesod.Form.Types
 import Yesod.Form.Functions
