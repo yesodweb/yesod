@@ -20,10 +20,10 @@ import qualified Data.Text as T
 import Data.Maybe (fromJust, listToMaybe, fromMaybe)
 import Control.Arrow (second)
 
--- data MultiSettings = MultiSettings
---     { msAddClass :: Text
---     , msDelBtn :: Maybe Widget
---     }
+data MultiSettings site = MultiSettings
+    { msAddClass :: Text
+    , msErrClass :: Text -- only used in applicative forms
+    }
 
 data MultiView site = MultiView
     { mvCounter :: FieldView site
@@ -32,8 +32,8 @@ data MultiView site = MultiView
     }
 
 -- | Button classes for Bootstrap 4.
-bsBtnClass :: Text
-bsBtnClass = "btn btn-primary"
+bsBtnClass :: MultiSettings site
+bsBtnClass = MultiSettings "btn btn-primary" "invalid-feedback"
 
 -- | Applicative equivalent of 'mmulti'.
 amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
@@ -41,13 +41,13 @@ amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> FieldSettings site
     -> [a]
     -> Int
-    -> Text
+    -> MultiSettings site
     -> AForm m [a]
-amulti field fs defs minVals btnClass = formToAForm $
+amulti field fs defs minVals ms = formToAForm $
     liftM (second return) mform
     where
         mform = do
-            (fr, MultiView {..}) <- mmulti field fs defs minVals btnClass
+            (fr, MultiView {..}) <- mmulti field fs defs minVals ms
 
             let widget = do
                     [whamlet|
@@ -57,15 +57,15 @@ amulti field fs defs minVals btnClass = formToAForm $
                             ^{fvInput fv}
 
                             $maybe err <- fvErrors fv
-                                <span .help-block .error-block>#{err}
+                                <div .#{msErrClass ms}>#{err}
                         
                         ^{fvInput mvAddBtn}
                     |]
-
+                (fv : _) = mvFields
                 view = FieldView
-                    { fvLabel = fvLabel mvAddBtn
-                    , fvTooltip = fvTooltip mvAddBtn
-                    , fvId = fvId mvAddBtn
+                    { fvLabel = fvLabel fv
+                    , fvTooltip = Nothing
+                    , fvId = fvId fv
                     , fvInput = widget
                     , fvErrors = fvErrors mvAddBtn
                     , fvRequired = False
@@ -82,9 +82,9 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> FieldSettings site
     -> [a]
     -> Int
-    -> Text
+    -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mmulti field fs defs minVals btnClass = mhelperMulti field fs defs minVals btnClass
+mmulti field fs defs minVals ms = mhelperMulti field fs defs minVals ms
 
 -- Helper function, performs a bounds check on minVals and adds a class to
 -- the FieldSettings for identification later.
@@ -93,13 +93,13 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> FieldSettings site
     -> [a]
     -> Int
-    -> Text
+    -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti field fs@FieldSettings {..} defs minVals btnClass = do
+mhelperMulti field fs@FieldSettings {..} defs minVals ms = do
     fieldClass <- newFormIdent
     let fs' = fs {fsAttrs = addClass fieldClass fsAttrs}
         minVals' = if minVals < 0 then 0 else minVals
-    mhelperMulti' field fs' fieldClass defs minVals' btnClass
+    mhelperMulti' field fs' fieldClass defs minVals' ms
 
 -- Helper function, does most of the work for mmulti.
 mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
@@ -108,16 +108,16 @@ mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormM
     -> Text
     -> [a]
     -> Int
-    -> Text
+    -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btnClass = do
+mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals MultiSettings {..} = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
     theId <- maybe newFormIdent return fsId
     cName <- newFormIdent
     cid <- newFormIdent
-    btnId <- newFormIdent
+    addBtnId <- newFormIdent 
 
     let mr2 = renderMessage site langs
         cDef = length defs
@@ -166,6 +166,7 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
         rvs <- mapM mkView' ys
         return $ unzip rvs
     
+    -- check values
     let rs' = [ fmap fromJust r | r <- rs
                                 , not $ isSuccNothing r ]
         err = T.pack $ "Please enter at least " ++ show minVals ++ " values."
@@ -176,15 +177,16 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
                         then (FormFailure [err], True)
                         else (FormSuccess xs, False)
                 fRes -> (fRes, False)
-
+    
+        -- create add button
         btnWidget = do
             [whamlet|
-                <button ##{btnId} .#{btnClass} type="button">Add Another
+                <button ##{addBtnId} .#{msAddClass} type="button">Add Another
             |]
             toWidget
                 [julius|
                     var extraFields = 0;
-                    $("#" + #{btnId}).click(function() {
+                    $("#" + #{addBtnId}).click(function() {
                         extraFields++;
                         var newNumber = parseInt(#{show counter}) + extraFields;
                         $("#" + #{cid}).val(newNumber);
@@ -193,21 +195,20 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
                         
                         var newElem = $("." + #{fieldClass}).first().clone();
                         newElem.val("").attr('name', newName).attr('id', newId);
-                        newElem.insertBefore("#" + #{btnId})
+                        newElem.insertBefore("#" + #{addBtnId})
                     });
                 |]
 
-    let btnView = FieldView
-            { fvLabel = toHtml $ mr2 fsLabel
-            , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
-            , fvId = theId
+        btnView = FieldView
+            { fvLabel = toHtml $ mr2 ("" :: Text)
+            , fvTooltip = Nothing
+            , fvId = addBtnId
             , fvInput = btnWidget
             , fvErrors = if tooFewVals then Just $ toHtml err else Nothing
             , fvRequired = False
             }
-        mv = MultiView cView fvs btnView
 
-    return (res, mv)
+    return (res, MultiView cView fvs btnView)
 
 -- Search for the given field's name in the environment,
 -- parse any values found and construct a FormResult.
