@@ -20,6 +20,17 @@ import qualified Data.Text as T
 import Data.Maybe (fromJust, listToMaybe, fromMaybe)
 import Control.Arrow (second)
 
+-- data MultiSettings = MultiSettings
+--     { msAddClass :: Text
+--     , msDelBtn :: Maybe Widget
+--     }
+
+data MultiView site = MultiView
+    { mvCounter :: FieldView site
+    , mvFields :: [FieldView site]
+    , mvAddBtn :: FieldView site
+    }
+
 -- | Button classes for Bootstrap 4.
 bsBtnClass :: Text
 bsBtnClass = "btn btn-primary"
@@ -36,27 +47,27 @@ amulti field fs defs minVals btnClass = formToAForm $
     liftM (second return) mform
     where
         mform = do
-            (fr, cView : btnView : fvs) <- mmulti field fs defs minVals btnClass
+            (fr, MultiView {..}) <- mmulti field fs defs minVals btnClass
 
             let widget = do
                     [whamlet|
-                        ^{fvInput cView}
+                        ^{fvInput mvCounter}
 
-                        $forall fv <- fvs
+                        $forall fv <- mvFields
                             ^{fvInput fv}
 
                             $maybe err <- fvErrors fv
                                 <span .help-block .error-block>#{err}
                         
-                        ^{fvInput btnView}
+                        ^{fvInput mvAddBtn}
                     |]
 
                 view = FieldView
-                    { fvLabel = (fvLabel btnView)
-                    , fvTooltip = (fvTooltip btnView)
-                    , fvId = (fvId btnView)
+                    { fvLabel = fvLabel mvAddBtn
+                    , fvTooltip = fvTooltip mvAddBtn
+                    , fvId = fvId mvAddBtn
                     , fvInput = widget
-                    , fvErrors = (fvErrors btnView)
+                    , fvErrors = fvErrors mvAddBtn
                     , fvRequired = False
                     }
             
@@ -72,7 +83,7 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> [a]
     -> Int
     -> Text
-    -> MForm m (FormResult [a], [FieldView site])
+    -> MForm m (FormResult [a], MultiView site)
 mmulti field fs defs minVals btnClass = mhelperMulti field fs defs minVals btnClass
 
 -- Helper function, performs a bounds check on minVals and adds a class to
@@ -83,7 +94,7 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> [a]
     -> Int
     -> Text
-    -> MForm m (FormResult [a], [FieldView site])
+    -> MForm m (FormResult [a], MultiView site)
 mhelperMulti field fs@FieldSettings {..} defs minVals btnClass = do
     fieldClass <- newFormIdent
     let fs' = fs {fsAttrs = addClass fieldClass fsAttrs}
@@ -98,7 +109,7 @@ mhelperMulti' :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormM
     -> [a]
     -> Int
     -> Text
-    -> MForm m (FormResult [a], [FieldView site])
+    -> MForm m (FormResult [a], MultiView site)
 mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btnClass = do
     mp <- askParams
     (_, site, langs) <- ask
@@ -194,11 +205,12 @@ mhelperMulti' field@Field {..} fs@FieldSettings {..} fieldClass defs minVals btn
             , fvErrors = if tooFewVals then Just $ toHtml err else Nothing
             , fvRequired = False
             }
+        mv = MultiView cView fvs btnView
 
-    return (res, cView : btnView : fvs)
+    return (res, mv)
 
--- Search for the given field's name in the environment
--- and parse any values found and construct a FormResult.
+-- Search for the given field's name in the environment,
+-- parse any values found and construct a FormResult.
 mkRes :: (site ~ HandlerSite m, MonadHandler m)
     => Field m a
     -> FieldSettings site
