@@ -54,7 +54,7 @@ library
                      Yesod.Form.Jquery
                      Yesod.Form.Nic
                      Yesod.Form.MassInput
-                     Yesod.Form.NewMassInput
+                     Yesod.Form.MultiInput
                      Yesod.Form.I18n.English
                      Yesod.Form.I18n.Portuguese
                      Yesod.Form.I18n.Swedish
