@@ -157,7 +157,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
 
     mfs <- askFiles
     
-    -- get counter value
+    -- get counter value (starts counting from 0)
     cr@(cRes, _) <- case mp of
         Nothing -> return (FormMissing, Right cDef)
         Just p -> mkRes intField cfs p mfs cName onMissingFail FormSuccess
@@ -212,7 +212,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
                     var extraFields = 0;
                     $("#" + #{addBtnId}).click(function() {
                         extraFields++;
-                        var newNumber = parseInt(#{T.pack $ show counter}) + extraFields;
+                        var newNumber = parseInt(#{toJSON $ show counter}) + extraFields;
                         $("#" + #{cid}).val(newNumber);
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
