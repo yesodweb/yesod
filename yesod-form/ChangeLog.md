@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.6.5
+
+* Added `Yesod.Form.MultiInput` which supports multi-input forms without needing to submit the form to add an input field [#1601](https://github.com/yesodweb/yesod/pull/1601)
+
 ## 1.6.4
 
 * Make FormResult an instance of Eq
