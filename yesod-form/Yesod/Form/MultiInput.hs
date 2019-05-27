@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE QuasiQuotes  #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE CPP #-}
 
 -- | A module providing a means of creating multiple input forms without
@@ -34,9 +35,9 @@ import Yesod.Form.Types
 #ifdef MIN_VERSION_shakespeare(2,0,18)
 #if MIN_VERSION_shakespeare(2,0,18)
 #else
-    import Text.Julius (ToJavascript (..))
-    instance ToJavascript String where toJavascript = toJavascript . toJSON
-    instance ToJavascript Text where toJavascript = toJavascript . toJSON
+import Text.Julius (ToJavascript (..))
+instance ToJavascript String where toJavascript = toJavascript . toJSON
+instance ToJavascript Text where toJavascript = toJavascript . toJSON
 #endif
 #endif
 
