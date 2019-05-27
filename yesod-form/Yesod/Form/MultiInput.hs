@@ -30,11 +30,13 @@ import Yesod.Form.Fields (intField)
 import Yesod.Form.Functions
 import Yesod.Form.Types
 
+-- @since 1.6.5
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
     , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
     }
 
+-- @since 1.6.5
 data MultiView site = MultiView
     { mvCounter :: FieldView site -- ^ Hidden counter field.
     , mvFields :: [FieldView site] -- ^ Input fields.
@@ -42,6 +44,8 @@ data MultiView site = MultiView
     }
 
 -- | 'MultiSettings' for Bootstrap 3.
+--
+-- @since 1.6.5
 bs3Settings :: MultiSettings site
 bs3Settings = MultiSettings "btn btn-default" (Just errW)
     where
@@ -51,6 +55,8 @@ bs3Settings = MultiSettings "btn btn-default" (Just errW)
             |]
 
 -- | 'MultiSettings' for Bootstrap 4.
+--
+-- @since 1.6.5
 bs4Settings :: MultiSettings site
 bs4Settings = MultiSettings "btn btn-basic" (Just errW)
     where
@@ -60,6 +66,8 @@ bs4Settings = MultiSettings "btn btn-basic" (Just errW)
             |]
 
 -- | Applicative equivalent of 'mmulti'.
+--
+-- @since 1.6.5
 amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     => Field m a
     -> FieldSettings site
@@ -102,6 +110,8 @@ amulti field fs defs minVals ms = formToAForm $
 -- number of the given fields as specified by the user. Returns a list
 -- of results, failing if the length of the list is less than the minimum
 -- requested values.
+--
+-- @since 1.6.5
 mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     => Field m a
     -> FieldSettings site
