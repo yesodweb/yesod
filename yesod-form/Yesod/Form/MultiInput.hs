@@ -212,7 +212,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
                     var extraFields = 0;
                     $("#" + #{addBtnId}).click(function() {
                         extraFields++;
-                        var newNumber = parseInt(#{show counter}) + extraFields;
+                        var newNumber = parseInt(#{T.pack $ show counter}) + extraFields;
                         $("#" + #{cid}).val(newNumber);
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
