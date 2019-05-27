@@ -40,8 +40,6 @@ import Yesod.Form.Types
 #endif
 #endif
 
-
-
 -- @since 1.6.5
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
