@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE QuasiQuotes  #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 
 -- | A module providing a means of creating multiple input forms without
 -- the need to submit the form to generate a new input field unlike
@@ -29,6 +30,17 @@ import Yesod.Core
 import Yesod.Form.Fields (intField)
 import Yesod.Form.Functions
 import Yesod.Form.Types
+
+#ifdef MIN_VERSION_shakespeare(2,0,18)
+#if MIN_VERSION_shakespeare(2,0,18)
+#else
+    import Text.Julius (ToJavascript (..))
+    instance ToJavascript String where toJavascript = toJavascript . toJSON
+    instance ToJavascript Text where toJavascript = toJavascript . toJSON
+#endif
+#endif
+
+
 
 -- @since 1.6.5
 data MultiSettings site = MultiSettings
@@ -212,7 +224,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
                     var extraFields = 0;
                     $("#" + #{addBtnId}).click(function() {
                         extraFields++;
-                        var newNumber = parseInt(#{toJSON $ show counter}) + extraFields;
+                        var newNumber = parseInt(#{show counter}) + extraFields;
                         $("#" + #{cid}).val(newNumber);
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
