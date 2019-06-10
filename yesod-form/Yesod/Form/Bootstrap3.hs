@@ -32,6 +32,7 @@ import Control.Arrow (second)
 import Control.Monad (liftM)
 import Data.Text (Text)
 import Data.String (IsString(..))
+import qualified Text.Blaze.Internal as Blaze
 import Yesod.Core
 import Yesod.Form.Types
 import Yesod.Form.Functions
@@ -154,7 +155,7 @@ renderBootstrap3 formLayout aform fragment = do
                 $case formLayout
                   $of BootstrapBasicForm
                     $if fvId view /= bootstrapSubmitId
-                      <label for=#{fvId view}>#{fvLabel view}
+                      <label :Blaze.null (fvLabel view):.sr-only for=#{fvId view}>#{fvLabel view}
                     ^{fvInput view}
                     ^{helpWidget view}
                   $of BootstrapInlineForm
@@ -164,7 +165,7 @@ renderBootstrap3 formLayout aform fragment = do
                     ^{helpWidget view}
                   $of BootstrapHorizontalForm labelOffset labelSize inputOffset inputSize
                     $if fvId view /= bootstrapSubmitId
-                      <label .control-label .#{toOffset labelOffset} .#{toColumn labelSize} for=#{fvId view}>#{fvLabel view}
+                      <label :Blaze.null (fvLabel view):.sr-only .control-label .#{toOffset labelOffset} .#{toColumn labelSize} for=#{fvId view}>#{fvLabel view}
                       <div .#{toOffset inputOffset} .#{toColumn inputSize}>
                         ^{fvInput view}
                         ^{helpWidget view}

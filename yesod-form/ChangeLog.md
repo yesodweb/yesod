@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.6.5
+
+* Omit labels in `renderBootstrap3` when they are null.
+
 ## 1.6.4
 
 * Make FormResult an instance of Eq
