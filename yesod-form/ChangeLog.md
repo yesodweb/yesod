@@ -2,7 +2,7 @@
 
 ## 1.6.5
 
-* Omit labels in `renderBootstrap3` when they are null.
+* Add `.sr-only` to labels in `renderBootstrap3` when they are null.
 
 ## 1.6.4
 
