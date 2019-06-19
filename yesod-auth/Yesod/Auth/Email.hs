@@ -420,7 +420,7 @@ defaultEmailLoginHandler toParent = do
         (widget, enctype) <- generateFormPost loginForm
 
         [whamlet|
-            <form method="post" action="@{toParent loginR}", enctype=#{enctype}>
+            <form method="post" action="@{toParent loginR}" enctype=#{enctype}>
                 <div id="emailLoginForm">
                     ^{widget}
                     <div>

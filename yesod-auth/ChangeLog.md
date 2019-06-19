@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## Unreleased
+
+* Email: Fix typo in `defaultEmailLoginHandler` template [#1605](https://github.com/yesodweb/yesod/pull/1605)
+
 ## 1.6.7
 
 * Redirect behavior of `clearCreds` depends on request type [#1598](https://github.com/yesodweb/yesod/pull/1598)
