@@ -358,7 +358,7 @@ yesodRender y sm ar url params =
     fromMaybe
         (joinPath y ar ps
           $ params ++ params')
-        (urlParamRenderOverride y sm url params)
+        (urlParamRenderOverride y sm ar url params)
   where
     (ps, params') = renderRoute url
 

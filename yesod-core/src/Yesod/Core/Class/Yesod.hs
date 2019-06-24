@@ -104,10 +104,11 @@ class RenderRoute site => Yesod site where
     -- Since 1.4.23
     urlParamRenderOverride :: site
                            -> SessionMap -- ^ Session information
+                           -> ResolvedApproot -- ^ Approot resolved to Text
                            -> Route site
                            -> [(T.Text, T.Text)] -- ^ query string
                            -> Maybe Builder
-    urlParamRenderOverride _ _ _ _ = Nothing
+    urlParamRenderOverride _ _ _ _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
     --
