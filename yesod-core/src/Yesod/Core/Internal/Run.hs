@@ -248,7 +248,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   let handler' = liftIO . I.writeIORef ret . Right =<< handler
   let yapp = runHandler
          RunHandlerEnv
-            { rheRender = yesodRender site $ resolveApproot site fakeWaiRequest
+            { rheRender = yesodRender site Map.empty $ resolveApproot site fakeWaiRequest
             , rheRoute = Nothing
             , rheRouteToMaster = id
             , rheChild = site
@@ -324,7 +324,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
           -- user-provided errorHandler function. If that errorHandler function
           -- errors out, it will use the safeEh below to recover.
           rheSafe = RunHandlerEnv
-              { rheRender = yesodRender yreSite ra
+              { rheRender = yesodRender yreSite session ra
               , rheRoute = route
               , rheRouteToMaster = id
               , rheChild = yreSite
@@ -348,16 +348,17 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
 
 yesodRender :: Yesod y
             => y
+            -> SessionMap
             -> ResolvedApproot
             -> Route y
             -> [(Text, Text)] -- ^ url query string
             -> Text
-yesodRender y ar url params =
+yesodRender y sm ar url params =
     decodeUtf8With lenientDecode $ BL.toStrict $ toLazyByteString $
     fromMaybe
         (joinPath y ar ps
           $ params ++ params')
-        (urlParamRenderOverride y url params)
+        (urlParamRenderOverride y sm url params)
   where
     (ps, params') = renderRoute url
 
