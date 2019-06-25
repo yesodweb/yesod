@@ -103,7 +103,7 @@ class RenderRoute site => Yesod site where
     --
     -- Since 1.4.23
     urlParamRenderOverride :: site
-                           -> SessionMap -- ^ Session information
+                           -> SessionMap -- ^ Session information available before handler or middleware is processed
                            -> ResolvedApproot -- ^ Approot resolved to Text
                            -> Route site
                            -> [(T.Text, T.Text)] -- ^ query string
