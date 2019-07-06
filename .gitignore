@@ -4,6 +4,7 @@
 *.hi
 dist/
 dist-stack/
+stack.yaml.lock
 .stack-work
 *.swp
 client_session_key.aes
