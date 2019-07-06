@@ -75,6 +75,8 @@ resourcesFromString =
         parseAttr ('!':x) = Just x
         parseAttr _ = Nothing
 
+        -- If the last string in the list ends with a colon, remove it. Otherwise, return Nothing.
+        -- stripColonLast ["foo", "bar", "baz:"] -> ["foo", "bar", "baz"]
         stripColonLast [] = Nothing
         stripColonLast strings
             | null end = Nothing
