@@ -75,15 +75,13 @@ resourcesFromString =
         parseAttr ('!':x) = Just x
         parseAttr _ = Nothing
 
-        stripColonLast =
-            go id
+        stripColonLast [] = Nothing
+        stripColonLast strings
+            | null end = Nothing
+            | last end == ':' = Just $ start <> [end]
+            | otherwise = Nothing
           where
-            go _ [] = Nothing
-            go front [x]
-                | null x = Nothing
-                | last x == ':' = Just $ front [init x]
-                | otherwise = Nothing
-            go front (x:xs) = go (front . (x:)) xs
+            (start, end) = (init strings, last strings)
 
         spaces = takeWhile (== ' ') thisLine
         (others, remainder) = parse indent otherLines'
