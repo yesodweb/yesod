@@ -22,10 +22,10 @@ tool stack](https://github.com/commercialhaskell/stack#readme).
 Yesod consists mostly of four repositories:
 
 ```bash
-git clone --recursive http://github.com/yesodweb/shakespeare
-git clone --recursive http://github.com/yesodweb/persistent
-git clone --recursive http://github.com/yesodweb/wai
-git clone --recursive http://github.com/yesodweb/yesod
+git clone --recurse-submodules http://github.com/yesodweb/shakespeare
+git clone --recurse-submodules http://github.com/yesodweb/persistent
+git clone --recurse-submodules http://github.com/yesodweb/wai
+git clone --recurse-submodules http://github.com/yesodweb/yesod
 ```
 
 Each repository can be built with `stack build`.
