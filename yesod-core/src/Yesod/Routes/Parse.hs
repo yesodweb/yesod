@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE PatternGuards #-}
@@ -14,15 +15,16 @@ module Yesod.Routes.Parse
     , nameToType
     ) where
 
-import Language.Haskell.TH.Syntax
-import Data.Char (isUpper, isLower, isSpace)
-import Language.Haskell.TH.Quote
-import qualified System.IO as SIO
 import Yesod.Routes.TH
 import Yesod.Routes.Overlap (findOverlapNames)
-import Data.List (foldl', isPrefixOf)
-import Data.Maybe (mapMaybe)
-import qualified Data.Set as Set
+import RIO hiding (lift)
+import qualified RIO.Char as C
+import qualified RIO.List as L
+import qualified RIO.Set as Set
+import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Quote
+import qualified System.IO as SIO
+import Data.Bitraversable (bisequence)
 
 -- | A quasi-quoter to parse a string into a list of 'Resource's. Checks for
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
@@ -75,20 +77,23 @@ resourcesFromString =
         parseAttr ('!':x) = Just x
         parseAttr _ = Nothing
 
-        stripColonLast =
-            go id
+        stripColonLast list = do
+            (init, last) <- unsnoc list
+            last' <- stripColon last
+            return $ init ++ [last']
           where
-            go _ [] = Nothing
-            go front [x]
-                | null x = Nothing
-                | last x == ':' = Just $ front [init x]
-                | otherwise = Nothing
-            go front (x:xs) = go (front . (x:)) xs
+            unsnoc a = bisequence (L.initMaybe a, L.lastMaybe a)
+
+            stripColon word = do
+                (init, last) <- unsnoc word
+                if last == ':'
+                  then return $ init
+                  else Nothing
 
         spaces = takeWhile (== ' ') thisLine
         (others, remainder) = parse indent otherLines'
         (this, otherLines') =
-            case takeWhile (not . isPrefixOf "--") $ splitSpaces thisLine of
+            case takeWhile (not . L.isPrefixOf "--") $ splitSpaces thisLine of
                 (pattern:rest0)
                     | Just (constr:rest) <- stripColonLast rest0
                     , Just attrs <- mapM parseAttr rest ->
@@ -108,13 +113,13 @@ resourcesFromString =
 splitSpaces :: String -> [String]
 splitSpaces "" = []
 splitSpaces str = 
-    let (rest, piece) = parse $ dropWhile isSpace str in
+    let (rest, piece) = parse $ dropWhile C.isSpace str in
     piece:(splitSpaces rest)
 
     where 
         parse :: String -> ( String, String)
         parse ('{':s) = fmap ('{':) $ parseBracket s
-        parse (c:s) | isSpace c = (s, [])
+        parse (c:s) | C.isSpace c = (s, [])
         parse (c:s) = fmap (c:) $ parse s
         parse "" = ("", "")
 
@@ -172,7 +177,7 @@ takeAttrs =
 dispatchFromString :: [String] -> Maybe String -> Dispatch String
 dispatchFromString rest mmulti
     | null rest = Methods mmulti []
-    | all (all isUpper) rest = Methods mmulti rest
+    | all (all C.isUpper) rest = Methods mmulti rest
 dispatchFromString [subTyp, subFun] Nothing =
     Subsite subTyp subFun
 dispatchFromString [_, _] Just{} =
@@ -259,7 +264,7 @@ ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
 nameToType :: String -> Type
-nameToType t@(h:_) | isLower h = VarT $ mkName t
+nameToType t@(h:_) | C.isLower h = VarT $ mkName t
 nameToType t = ConT $ mkName t
 
 pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
@@ -293,4 +298,4 @@ lineContinuations this [] = [this]
 lineContinuations this below@(next:rest) = case unsnoc this of
     Just (this', '\\') -> (this'++next):rest
     _ -> this:below
-  where unsnoc s = if null s then Nothing else Just (init s, last s)
+  where unsnoc a = bisequence (L.initMaybe a, L.lastMaybe a)

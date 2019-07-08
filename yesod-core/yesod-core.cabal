@@ -125,6 +125,7 @@ test-suite test-routes
     extensions:      TemplateHaskell
 
     build-depends: base
+                 , rio
                  , hspec
                  , containers
                  , bytestring
