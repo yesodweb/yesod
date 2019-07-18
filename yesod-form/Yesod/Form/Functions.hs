@@ -174,7 +174,7 @@ mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      -> FieldSettings site  -- ^ settings for this field
      -> Maybe a             -- ^ optional default value
      -> MForm m (FormResult a, FieldView site)
-mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
+mreq field fs mdef = mreqMsg field fs MsgValueRequired mdef
 
 -- | Same as @mreq@ but with your own message to be rendered in case the value
 -- is not provided.
