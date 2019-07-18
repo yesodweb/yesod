@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.6.6
+
+* Added `mreqMsg` for `mreq` functionality with a configurable MsgValueRequired [#1613](https://github.com/yesodweb/yesod/pull/1613)
+
 ## 1.6.5
 
 * Add `.sr-only` to labels in `renderBootstrap3` when they are null.

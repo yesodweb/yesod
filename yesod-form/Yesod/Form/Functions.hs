@@ -20,6 +20,7 @@ module Yesod.Form.Functions
     , wreq
     , wopt
     , mreq
+    , mreqMsg
     , mopt
     , areq
     , aopt
@@ -174,6 +175,23 @@ mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      -> Maybe a             -- ^ optional default value
      -> MForm m (FormResult a, FieldView site)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
+
+-- | Same as @mreq@ but with your own message to be rendered in case the value
+-- is not provided.
+--
+-- This is useful when you have several required fields on the page and you
+-- want to differentiate between which fields were left blank. Otherwise the
+-- user sees "Value is required" multiple times, which is ambiguous.
+--
+-- @since 1.6.6
+mreqMsg :: (RenderMessage site msg, HandlerSite m ~ site, MonadHandler m)
+        => Field m a           -- ^ form field
+        -> FieldSettings site  -- ^ settings for this field
+        -> msg                 -- ^ Message to use in case value is Nothing
+        -> Maybe a             -- ^ optional default value
+        -> MForm m (FormResult a, FieldView site)
+mreqMsg field fs msg mdef = mhelper field fs mdef formFailure FormSuccess True
+  where formFailure m l = FormFailure [renderMessage m l msg]
 
 -- | Converts a form field into monadic form. This field is optional, i.e.
 -- if filled in, it returns 'Just a', if left empty, it returns 'Nothing'.
