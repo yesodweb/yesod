@@ -146,10 +146,10 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl $ LiteAppRoute ["post"]
                     -- If value uses special characters,
-                    addPostParam "foo" "foo+bar%41&baz"
+                    addPostParam "foo" "foo+bar%41<&baz"
                 statusIs 200
                 -- They pass through the server correctly.
-                bodyEquals "foo+bar%41&baz"
+                bodyEquals "foo+bar%41<&baz"
             yit "labels" $ do
                 get ("/form" :: Text)
                 statusIs 200
@@ -157,13 +157,13 @@ main = hspec $ do
                 request $ do
                     setMethod "POST"
                     setUrl ("/form" :: Text)
-                    byLabel "Some Label" "foo+bar%41&baz"
+                    byLabel "Some Label" "foo+bar%41<&baz"
                     fileByLabel "Some File" "test/main.hs" "text/plain"
                     addToken
                 statusIs 200
-                -- The '%', '&' get further encoded because "/form"
-                -- (unlike "/post") uses toHtml.
-                bodyEquals "foo+bar%2541&amp;baz"
+                -- The '<' and '&' get encoded to HTML entities because
+                -- "/form" (unlike "/post") uses toHtml.
+                bodyEquals "foo+bar%41&lt;&amp;baz"
             yit "labels WForm" $ do
                 get ("/wform" :: Text)
                 statusIs 200

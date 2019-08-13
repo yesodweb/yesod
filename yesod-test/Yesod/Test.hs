@@ -1242,9 +1242,8 @@ request reqBuilder = do
       BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
     multipartPart (ReqKvPart k v) = BS8.concat
       [ "Content-Disposition: form-data; "
-      , "name=\"", enc k, "\"\r\n\r\n"
-      , enc v, "\r\n"]
-      where enc = H.urlEncode False . TE.encodeUtf8
+      , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
+      , TE.encodeUtf8 v, "\r\n"]
     multipartPart (ReqFilePart k v bytes mime) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"; "
