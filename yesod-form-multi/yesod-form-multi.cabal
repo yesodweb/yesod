@@ -21,6 +21,7 @@ flag network-uri
 library
     build-depends:   base                  >= 4        && < 5
                    , containers            >= 0.2
+                   , shakespeare           >= 2.0
                    , text                  >= 0.9
                    , transformers          >= 0.2.2
                    , yesod-core            >= 1.6      && < 1.7
