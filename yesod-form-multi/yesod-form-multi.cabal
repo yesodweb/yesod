@@ -1,0 +1,38 @@
+name:            yesod-form-multi
+version:         1.6.0
+license:         MIT
+license-file:    LICENSE
+author:          James Burton <jamesejburton@gmail.com>
+maintainer:      James Burton <jamesejburton@gmail.com>
+synopsis:        Multi-input form handling for Yesod Web Framework
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.8
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+description:     API docs and the README are available at <http://www.stackage.org/package/yesod-form-multi>.
+extra-source-files: ChangeLog.md
+                    README.md
+
+flag network-uri
+  description: Get Network.URI from the network-uri package
+  default: True
+
+library
+    build-depends:   base                  >= 4        && < 5
+                   , containers            >= 0.2
+                   , shakespeare           >= 2.0
+                   , text                  >= 0.9
+                   , transformers          >= 0.2.2
+                   , yesod-core            >= 1.6      && < 1.7
+                   , yesod-form            >= 1.6      && < 1.7
+
+    if flag(network-uri)
+      build-depends: network-uri >= 2.6
+
+    exposed-modules: Yesod.Form.MultiInput
+    ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/yesod

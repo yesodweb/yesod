@@ -5,6 +5,7 @@ packages:
 - ./yesod-persistent
 - ./yesod-newsfeed
 - ./yesod-form
+- ./yesod-form-multi
 - ./yesod-auth
 - ./yesod-auth-oauth
 - ./yesod-sitemap
