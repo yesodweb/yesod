@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.6.5
+version:         1.6.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -54,7 +54,6 @@ library
                      Yesod.Form.Jquery
                      Yesod.Form.Nic
                      Yesod.Form.MassInput
-                     Yesod.Form.MultiInput
                      Yesod.Form.I18n.English
                      Yesod.Form.I18n.Portuguese
                      Yesod.Form.I18n.Swedish
