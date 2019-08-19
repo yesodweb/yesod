@@ -1,5 +1,11 @@
 # ChangeLog for yesod-test
 
+## 1.6.6.2
+
+addPostParam will now URL-encode keys and values to prevent corruption
+when special characters such as `&` are used
+[#1617](https://github.com/yesodweb/yesod/pull/1617)
+
 ## 1.6.6.1
 
 * Documentation fixes
