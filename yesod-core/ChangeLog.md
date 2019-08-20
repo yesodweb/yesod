@@ -1,5 +1,10 @@
 # ChangeLog for yesod-core
 
+## 1.6.15
+
+* Move `redirectToPost` JavaScript form submission from HTML element to
+  `<script>` tag for CSP reasons [#1620](https://github.com/yesodweb/yesod/pull/1620)
+
 ## 1.6.14
 
 * Introduce `JSONResponse`. [issue #1481](https://github.com/yesodweb/yesod/issues/1481) and [PR #1592](https://github.com/yesodweb/yesod/pull/1592)
