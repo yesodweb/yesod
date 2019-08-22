@@ -36,10 +36,9 @@ module Yesod.Auth.Dummy
     ) where
 
 import Yesod.Auth
-import Yesod.Form (FormResult(..), runInputPostResult, textField, ireq)
+import Yesod.Form (runInputPost, textField, ireq)
 import Yesod.Core
 import Data.Text (Text)
-import qualified Data.Text as T
 import Data.Aeson.Types (Result(..), Parser)
 import qualified Data.Aeson.Types as A (parseEither, withObject)
 
@@ -51,18 +50,16 @@ authDummy =
     AuthPlugin "dummy" dispatch login
   where
     dispatch "POST" [] = do
-        formResult <- runInputPostResult $ ireq textField "ident"
-        eIdent <- case formResult of
-          FormSuccess ident ->
-            return $ Right ident
-          _ -> do
-            (jsonResult :: Result Value) <- parseCheckJsonBody
-            case jsonResult of
-              Success val -> return $ A.parseEither identParser val
-              Error   err -> return $ Left err
+        (jsonResult :: Result Value) <- parseCheckJsonBody
+        eIdent <- case jsonResult of
+            Success val -> return $ A.parseEither identParser val
+            Error   err -> return $ Left err
         case eIdent of
-          Right ident -> setCredsRedirect $ Creds "dummy" ident []
-          Left  err   -> invalidArgs [T.pack err]
+            Right ident ->
+                setCredsRedirect $ Creds "dummy" ident []
+            Left  _     -> do
+                ident <- runInputPost $ ireq textField "ident"
+                setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster = do
