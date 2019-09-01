@@ -98,7 +98,7 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
     , apLogin = \toMaster -> do
         onclick <- createOnClick bis toMaster
 
-        autologin <- fmap (== Just "true") $ lookupGetParam "autologin"
+        autologin <- (Just "true" ==) <$> lookupGetParam "autologin"
         when autologin $ toWidget [julius|#{rawJS onclick}();|]
 
         toWidget [hamlet|
@@ -123,7 +123,7 @@ createOnClickOverride BrowserIdSettings {..} toMaster mOnRegistration = do
     onclick <- newIdent
     render <- getUrlRender
     let login = toJSON $ getPath $ render loginRoute -- (toMaster LoginR)
-        loginRoute = maybe (toMaster LoginR) id mOnRegistration
+        loginRoute = fromMaybe (toMaster LoginR) mOnRegistration
     toWidget [julius|
         function #{rawJS onclick}() {
             if (navigator.id) {
@@ -154,7 +154,7 @@ createOnClickOverride BrowserIdSettings {..} toMaster mOnRegistration = do
         })();
     |]
 
-    autologin <- fmap (== Just "true") $ lookupGetParam "autologin"
+    autologin <- (Just "true" ==) <$> lookupGetParam "autologin"
     when autologin $ toWidget [julius|#{rawJS onclick}();|]
     return onclick
   where

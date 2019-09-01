@@ -201,8 +201,7 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
 
 import           Control.Applicative           ((<|>))
 import qualified Data.CaseInsensitive          as CI
-import           Control.Exception             (evaluate, SomeException, throwIO)
-import           Control.Exception             (handle)
+import           Control.Exception             (evaluate, SomeException, throwIO, handle)
 
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
@@ -242,7 +241,7 @@ import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
 import qualified Data.IORef                    as I
-import           Data.Maybe                    (listToMaybe, mapMaybe)
+import           Data.Maybe                    (fromMaybe, listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
@@ -761,7 +760,7 @@ setCookie sc = do
   addHeaderInternal (DeleteCookie name path)
   addHeaderInternal (AddCookie sc)
   where name = setCookieName sc
-        path = maybe "/" id (setCookiePath sc)
+        path = fromMaybe "/" (setCookiePath sc)
 
 -- | Helper function for setCookieExpires value
 getExpires :: MonadIO m
@@ -848,7 +847,7 @@ replaceOrAddHeader a b =
           if sameHeaderName repHeader x
             then acc ++
                  [repHeader] ++
-                 (filter (\header -> not (sameHeaderName header repHeader)) xs')
+                 filter (\header -> not (sameHeaderName header repHeader)) xs'
             else aux xs' (acc ++ [x])
 
     replaceHeader :: Endo [Header] -> Endo [Header]
@@ -1408,7 +1407,7 @@ provideRepType :: (Monad m, ToContent a)
                -> m a
                -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideRepType ct handler =
-    Writer.tell $ Endo (ProvidedRep ct (liftM toContent handler):)
+    Writer.tell $ Endo (ProvidedRep ct (fmap toContent handler):)
 
 -- | Stream in the raw request body without any parsing.
 --
@@ -1600,7 +1599,7 @@ hasValidCsrfHeaderNamed' headerName = do
   mCsrfToken  <- reqToken <$> getRequest
   mXsrfHeader <- lookupHeader headerName
 
-  return $ (validCsrf mCsrfToken mXsrfHeader, decodeUtf8 <$> mXsrfHeader)
+  return (validCsrf mCsrfToken mXsrfHeader, decodeUtf8 <$> mXsrfHeader)
 
 -- CSRF Parameter checking
 
@@ -1630,8 +1629,7 @@ hasValidCsrfParamNamed' :: MonadHandler m => Text -> m (Bool, Maybe Text)
 hasValidCsrfParamNamed' paramName = do
   mCsrfToken  <- reqToken <$> getRequest
   mCsrfParam <- lookupPostParam paramName
-
-  return $ (validCsrf mCsrfToken (encodeUtf8 <$> mCsrfParam), mCsrfParam)
+  return (validCsrf mCsrfToken (encodeUtf8 <$> mCsrfParam), mCsrfParam)
 
 -- | Checks that a valid CSRF token is present in either the request headers or POST parameters.
 -- If the value doesn't match the token stored in the session, this function throws a 'PermissionDenied' error.
@@ -1645,7 +1643,7 @@ checkCsrfHeaderOrParam headerName paramName = do
   (validHeader, mHeader) <- hasValidCsrfHeaderNamed' headerName
   (validParam, mParam) <- hasValidCsrfParamNamed' paramName
   unless (validHeader || validParam) $ do
-    let errorMessage = csrfErrorMessage $ [CSRFHeader (decodeUtf8 $ original headerName) mHeader, CSRFParam paramName mParam]
+    let errorMessage = csrfErrorMessage [CSRFHeader (decodeUtf8 $ original headerName) mHeader, CSRFParam paramName mParam]
     $logWarnS "yesod-core" errorMessage
     permissionDenied errorMessage
 
@@ -1665,13 +1663,13 @@ csrfErrorMessage expectedLocations = T.intercalate "\n"
   , "If you're a developer of this site, these tips will help you debug the issue:"
   , "- Read the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
   , "- Check that your HTTP client is persisting cookies between requests, like a browser does."
-  , "- By default, the CSRF token is sent to the client in a cookie named " `mappend` (decodeUtf8 defaultCsrfCookieName) `mappend` "."
+  , "- By default, the CSRF token is sent to the client in a cookie named " `mappend` decodeUtf8 defaultCsrfCookieName `mappend` "."
   , "- The server is looking for the token in the following locations:\n" `mappend` T.intercalate "\n" (map csrfLocation expectedLocations)
   ]
 
   where csrfLocation expected = case expected of
-          CSRFHeader k v -> T.intercalate " " ["  - An HTTP header named", k, (formatValue v)]
-          CSRFParam k v -> T.intercalate " " ["  - A POST parameter named", k, (formatValue v)]
+          CSRFHeader k v -> T.intercalate " " ["  - An HTTP header named", k, formatValue v]
+          CSRFParam k v -> T.intercalate " " ["  - A POST parameter named", k, formatValue v]
 
         formatValue :: Maybe Text -> Text
         formatValue maybeText = case maybeText of

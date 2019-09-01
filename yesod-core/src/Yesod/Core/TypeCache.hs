@@ -56,7 +56,7 @@ cacheSet :: (Typeable a)
          => a
          -> TypeMap
          -> TypeMap
-cacheSet v cache = insert (typeOf v) (toDyn v) cache
+cacheSet v = insert (typeOf v) (toDyn v)
 
 -- | similar to 'cached'.
 -- 'cached' can only cache a single value per type.
@@ -93,4 +93,4 @@ cacheByGet key c = res
 --
 -- @since 1.6.10
 cacheBySet :: Typeable a => ByteString -> a -> KeyedTypeMap -> KeyedTypeMap
-cacheBySet key v cache = insert (typeOf v, key) (toDyn v) cache
+cacheBySet key v = insert (typeOf v, key) (toDyn v)

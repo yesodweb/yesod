@@ -5,8 +5,9 @@ import Data.List (nub)
 import Network.Wai as W
 import Yesod.Core.Internal (randomString, parseWaiRequest)
 import Test.Hspec
-import Data.Monoid (mempty)
 import Data.Map (singleton)
+import Data.Maybe (isJust)
+import Data.Monoid (mempty)
 import Yesod.Core
 import Data.Word (Word64)
 import System.IO.Unsafe (unsafePerformIO)
@@ -17,7 +18,7 @@ gen :: IO Int
 gen = getStdRandom next
 
 randomStringSpecs :: Spec
-randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
+randomStringSpecs = describe "Yesod.Internal.Request.randomString" $
     --it "looks reasonably random" looksRandom
     it "does not repeat itself" $ noRepeat 10 100
 
@@ -56,11 +57,11 @@ tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
     it "generates a new token for sessions without token" generateToken
 
 noDisabledToken :: Bool
-noDisabledToken = reqToken r == Nothing where
+noDisabledToken = isNothing (reqToken r) where
   r = parseWaiRequest' defaultRequest Data.Monoid.mempty False 1000
 
 ignoreDisabledToken :: Bool
-ignoreDisabledToken = reqToken r == Nothing where
+ignoreDisabledToken = isNothing (reqToken r) where
   r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") False 1000
 
 useOldToken :: Bool
@@ -68,7 +69,7 @@ useOldToken = reqToken r == Just "old" where
   r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") True 1000
 
 generateToken :: Bool
-generateToken = reqToken r /= Nothing where
+generateToken = isJust (reqToken r) where
   r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") True 1000
 
 

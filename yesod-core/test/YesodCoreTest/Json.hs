@@ -49,7 +49,7 @@ specs = describe "Yesod.Json" $ do
     test "parses valid content" "{\"foo\":\"bar\"}" $ \sres -> do
         assertStatus 200 sres
         assertBody "bar" sres
-    test "400 for bad JSON" "{\"foo\":\"bar\"" $ \sres -> do
+    test "400 for bad JSON" "{\"foo\":\"bar\"" $ \sres ->
         assertStatus 400 sres
     test "400 for bad structure" "{\"foo2\":\"bar\"}" $ \sres -> do
         assertStatus 400 sres

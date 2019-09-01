@@ -12,6 +12,7 @@ import Test.Hspec
 import Yesod.Core
 import Yesod.Core.Types (HandlerContents (HCError))
 import Control.Exception (throwIO)
+import Control.Monad(void)
 import Network.Wai
 import Network.Wai.Test
 import Network.HTTP.Types (status301)
@@ -32,7 +33,7 @@ instance Yesod Y where
     errorHandler x = defaultErrorHandler x
 
 getRootR :: Handler ()
-getRootR = error "FOOBAR" >> return ()
+getRootR = void (error "FOOBAR")
 
 getRedirR :: Handler ()
 getRedirR = do

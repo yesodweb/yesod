@@ -30,7 +30,7 @@ instance YesodSubDispatch WaiSubsiteWithAuth master where
       ysreParentRunner handlert ysreParentEnv (fmap ysreToParentRoute route) req
     where
       route = Just $ WaiSubsiteWithAuthRoute (W.pathInfo req) []
-      WaiSubsiteWithAuth set = ysreGetSub $ yreSite $ ysreParentEnv
+      WaiSubsiteWithAuth set = ysreGetSub $ yreSite ysreParentEnv
       handlert = sendWaiApplication set
 
 subHelper

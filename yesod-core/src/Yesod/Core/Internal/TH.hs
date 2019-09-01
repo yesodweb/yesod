@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Core.Internal.TH where
 
-import Prelude hiding (exp)
+import Prelude
 import Yesod.Core.Handler
 
 import Language.Haskell.TH hiding (cxt, instanceD)

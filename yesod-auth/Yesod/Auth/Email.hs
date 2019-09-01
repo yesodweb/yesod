@@ -135,7 +135,7 @@ import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
 import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
-import           Data.Maybe (isJust)
+import           Data.Maybe (isJust, fromMaybe)
 import Data.ByteArray (convert)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
@@ -152,7 +152,7 @@ verifyURLHasSetPassText = "has-set-pass"
 -- @since 1.4.5
 verifyR :: Text -> Text -> Bool -> AuthRoute -- FIXME
 verifyR eid verkey hasSetPass = PluginR "email" path
-    where path = "verify":eid:verkey:(if hasSetPass then [verifyURLHasSetPassText] else [])
+    where path = "verify":eid:verkey:[verifyURLHasSetPassText | hasSetPass]
 
 type Email = Text
 type VerKey = Text
@@ -177,9 +177,9 @@ data EmailCreds site = EmailCreds
     , emailCredsEmail  :: Email
     }
 
-data ForgotPasswordForm = ForgotPasswordForm { _forgotEmail :: Text }
+newtype ForgotPasswordForm = ForgotPasswordForm { _forgotEmail :: Text }
 data PasswordForm = PasswordForm { _passwordCurrent :: Text, _passwordNew :: Text, _passwordConfirm :: Text }
-data UserForm = UserForm { _userFormEmail :: Text }
+newtype UserForm = UserForm { _userFormEmail :: Text }
 data UserLoginForm = UserLoginForm { _loginEmail :: Text, _loginPassword :: Text }
 
 class ( YesodAuth site
@@ -441,8 +441,7 @@ defaultEmailLoginHandler toParent = do
 
         let userRes = UserLoginForm Control.Applicative.<$> emailRes
                                     Control.Applicative.<*> passwordRes
-        let widget = do
-            [whamlet|
+        let widget = [whamlet|
                 #{extra}
                 <div>
                     ^{fvInput emailView}
@@ -451,8 +450,7 @@ defaultEmailLoginHandler toParent = do
             |]
 
         return (userRes, widget)
-    emailSettings emailMsg = do
-        FieldSettings {
+    emailSettings emailMsg = FieldSettings {
             fsLabel = SomeMessage Msg.Email,
             fsTooltip = Nothing,
             fsId = Just "email",
@@ -501,8 +499,7 @@ defaultRegisterHandler = do
             (emailRes, emailView) <- mreq emailField emailSettings Nothing
 
             let userRes = UserForm <$> emailRes
-            let widget = do
-                [whamlet|
+            let widget = [whamlet|
                     #{extra}
                     ^{fvLabel emailView}
                     ^{fvInput emailView}
@@ -572,11 +569,9 @@ registerHelper allowUsername forgotPassword dest = do
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
                 Just creds@(_, False, _, _) -> sendConfirmationEmail creds
-                Just creds@(_, True, _, _) -> do
-                  if forgotPassword then sendConfirmationEmail creds
-                    else case emailPreviouslyRegisteredResponse identifier of
-                      Just response -> response
-                      Nothing -> sendConfirmationEmail creds
+                Just creds@(_, True, _, _) ->
+                    if forgotPassword then sendConfirmationEmail creds
+                    else fromMaybe (sendConfirmationEmail creds) (emailPreviouslyRegisteredResponse identifier)
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
@@ -612,8 +607,7 @@ defaultForgotPasswordHandler = do
         (emailRes, emailView) <- mreq emailField emailSettings Nothing
 
         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
-        let widget = do
-            [whamlet|
+        let widget = [whamlet|
                 #{extra}
                 ^{fvLabel emailView}
                 ^{fvInput emailView}
@@ -660,7 +654,7 @@ getVerifyR lid key hasSetPass = do
                             else do
                               tp <- getRouteToParent
                               return $ tp setpassR
-                        fmap asHtml $ redirect redirectRoute
+                        asHtml <$> redirect redirectRoute
                       provideJsonMessage $ mr msgAv
         _ -> invalidKey mr
   where
@@ -759,8 +753,7 @@ defaultSetPasswordHandler needOld = do
         (confirmPasswordRes, confirmPasswordView) <- mreq passwordField confirmPasswordSettings Nothing
 
         let passwordFormRes = PasswordForm <$> currentPasswordRes <*> newPasswordRes <*> confirmPasswordRes
-        let widget = do
-            [whamlet|
+        let widget = [whamlet|
                 #{extra}
                 <table>
                     $if needOld
@@ -860,7 +853,7 @@ postPasswordR = do
         res <- runInputPostResult $ (,)
             <$> ireq textField "new"
             <*> ireq textField "confirm"
-        let creds = if (isJust jcreds)
+        let creds = if isJust jcreds
                     then getNewConfirm jcreds
                     else case res of
                            FormSuccess res' -> Just res'
@@ -938,5 +931,5 @@ setLoginLinkKey aid = do
 -- See https://github.com/yesodweb/yesod/issues/1245 for discussion on this
 -- use of unsafePerformIO.
 defaultNonceGen :: Nonce.Generator
-defaultNonceGen = unsafePerformIO (Nonce.new)
+defaultNonceGen = unsafePerformIO Nonce.new
 {-# NOINLINE defaultNonceGen #-}

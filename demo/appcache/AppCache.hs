@@ -7,8 +7,7 @@ import           Control.Monad.Trans.Writer
 import           Data.Hashable              (hashWithSalt)
 import           Data.List                  (intercalate)
 import qualified Data.Set                   as Set
-import           Data.Text                  (Text)
-import           Data.Text                  (pack)
+import           Data.Text                  (Text, pack)
 import           Language.Haskell.TH.Syntax
 import           Yesod.Core
 import           Yesod.Routes.TH

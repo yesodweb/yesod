@@ -22,7 +22,7 @@ Email
     UniqueEmail email
 |]
 
-data A2 = A2 { connPool :: ConnectionPool }
+newtype A2 = A2 { connPool :: ConnectionPool }
 mkYesod "A2" [$parseRoutes|
 /auth AuthR Auth getAuth
 |]
@@ -87,13 +87,11 @@ instance YesodAuthEmail A2 where
     verifyAccount emailid' = runDB $ do
         let emailid = fromIntegral emailid'
         x <- get emailid
-        uid <-
-            case x of
-                Nothing -> return Nothing
-                Just email -> do
-                    update emailid [EmailStatus True]
-                    return $ Just $ emailEmail email
-        return uid
+        case x of
+            Nothing -> return Nothing
+            Just email -> do
+                update emailid [EmailStatus True]
+                return $ Just $ emailEmail email
     getPassword email = runDB $ do
         x <- getBy $ UniqueEmail email
         return $ x >>= emailPassword . snd

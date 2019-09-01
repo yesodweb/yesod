@@ -127,7 +127,7 @@ accessTokenKey = "_GOOGLE_ACCESS_TOKEN"
 --   (probably because the user is not logged in via 'Yesod.Auth.GoogleEmail2'
 --   or you are not using 'authGoogleEmailSaveToken')
 getUserAccessToken :: MonadHandler m => m (Maybe Token)
-getUserAccessToken = fmap (\t -> Token t "Bearer") <$> lookupSession accessTokenKey
+getUserAccessToken = fmap (`Token` "Bearer") <$> lookupSession accessTokenKey
 
 getCreateCsrfToken :: MonadHandler m => m Text
 getCreateCsrfToken = do
@@ -184,8 +184,7 @@ authPlugin storeToken clientID clientSecret =
                $ fromByteString "https://accounts.google.com/o/oauth2/auth"
                     `Data.Monoid.mappend` renderQueryText True qs
 
-    login tm = do
-        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
+    login tm = [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
 
     dispatch :: YesodAuth site
              => Text
@@ -535,9 +534,9 @@ instance FromJSON Person where
                <*> o .:? "image"
                <*> o .:? "aboutMe"
                <*> o .:? "relationshipStatus"
-               <*> ((fromMaybe []) <$> (o .:? "urls"))
-               <*> ((fromMaybe []) <$> (o .:? "organizations"))
-               <*> ((fromMaybe []) <$> (o .:? "placesLived"))
+               <*> (fromMaybe [] <$> (o .:? "urls"))
+               <*> (fromMaybe [] <$> (o .:? "organizations"))
+               <*> (fromMaybe [] <$> (o .:? "placesLived"))
                <*> o .:? "tagline"
                <*> o .:? "isPlusUser"
                <*> o .:? "braggingRights"
@@ -545,7 +544,7 @@ instance FromJSON Person where
                <*> o .:? "circledByCount"
                <*> o .:? "verified"
                <*> o .:? "language"
-               <*> ((fromMaybe []) <$> (o .:? "emails"))
+               <*> (fromMaybe [] <$> (o .:? "emails"))
                <*> o .:? "domain"
                <*> o .:? "occupation"
                <*> o .:? "skills"
@@ -594,5 +593,5 @@ allPersonInfo _ = []
 -- See https://github.com/yesodweb/yesod/issues/1245 for discussion on this
 -- use of unsafePerformIO.
 defaultNonceGen :: Nonce.Generator
-defaultNonceGen = unsafePerformIO (Nonce.new)
+defaultNonceGen = unsafePerformIO Nonce.new
 {-# NOINLINE defaultNonceGen #-}

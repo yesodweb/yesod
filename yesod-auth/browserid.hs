@@ -15,7 +15,7 @@ import Network.HTTP.Conduit
 import Network.TLS
 import Network.Wai.Middleware.RequestLogger
 
-data BID = BID { httpManager :: Manager }
+newtype BID = BID { httpManager :: Manager }
 
 mkYesod "BID" [parseRoutes|
 / RootR GET

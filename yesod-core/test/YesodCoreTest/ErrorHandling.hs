@@ -106,7 +106,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
+goodBuilderContent = Data.Monoid.mconcat $ replicate 100 "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
@@ -201,8 +201,7 @@ caseErrorInBody = runner $ do
 
 caseErrorInBodyNoEval :: IO ()
 caseErrorInBodyNoEval = do
-    eres <- try $ runner $ do
-        request defaultRequest { pathInfo = ["error-in-body-noeval"] }
+    eres <- try $ runner $ request defaultRequest { pathInfo = ["error-in-body-noeval"] }
     case eres of
         Left (_ :: SomeException) -> return ()
         Right x -> error $ "Expected an exception, got: " ++ show x

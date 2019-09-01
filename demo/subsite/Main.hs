@@ -9,9 +9,7 @@ import           Wiki
 import           Yesod
 
 -- A very simple App, doesn't do anything except provide the Wiki.
-data App = App
-    { appWiki :: Wiki
-    }
+newtype App = App { appWiki :: Wiki }
 
 mkYesod "App" [parseRoutes|
 / HomeR GET

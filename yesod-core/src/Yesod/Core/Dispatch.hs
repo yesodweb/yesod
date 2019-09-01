@@ -36,7 +36,7 @@ module Yesod.Core.Dispatch
     , WaiSubsiteWithAuth (..)
     ) where
 
-import Prelude hiding (exp)
+import Prelude
 import Yesod.Core.Internal.TH
 import Language.Haskell.TH.Syntax (qLocation)
 

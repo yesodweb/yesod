@@ -35,9 +35,7 @@ import qualified Distribution.PackageDescription.Parse as D
 #endif
 import qualified Distribution.Simple.Utils             as D
 import qualified Distribution.Verbosity                as D
-import           Network.HTTP.Client                   (newManager)
-import           Network.HTTP.Client                   (managerSetProxy,
-                                                        noProxy)
+import           Network.HTTP.Client                   (newManager, managerSetProxy, noProxy)
 import           Network.HTTP.Client.TLS               (tlsManagerSettings)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings,
@@ -152,7 +150,7 @@ reverseProxy opts appPortVar = do
     let proxyApp = waiProxyToSettings
                 (const $ do
                     appPort <- atomically $ readTVar appPortVar
-                    sayV $ "revProxy: appPort " ++ (show appPort)
+                    sayV $ "revProxy: appPort " ++ show appPort
                     return $
                         ReverseProxy.WPRProxyDest
                         $ ProxyDest "127.0.0.1" appPort)
@@ -196,7 +194,7 @@ reverseProxy opts appPortVar = do
     say "Application can be accessed at:\n"
     sayString $ "http://localhost:" ++ show (develPort opts)
     sayString $ "https://localhost:" ++ show (develTlsPort opts)
-    say $ "If you wish to test https capabilities, you should set the following variable:"
+    say "If you wish to test https capabilities, you should set the following variable:"
     sayString $ "  export APPROOT=https://localhost:" ++ show (develTlsPort opts)
     say ""
     race_ httpProxy httpsProxy
@@ -337,7 +335,7 @@ devel opts passThroughArgs = do
     sayV = when (verbose opts) . sayString
 
     -- Leverage "stack build --file-watch" to do the build
-    runStackBuild :: TVar Int -> [Char] -> Set.Set [Char] -> IO ()
+    runStackBuild :: TVar Int -> String -> Set.Set String -> IO ()
     runStackBuild appPortVar packageName availableFlags = do
         -- We call into this app for the devel-signal command
         myPath <- getExecutablePath
@@ -425,7 +423,7 @@ devel opts passThroughArgs = do
         -- the child below. Also need to know if the env program
         -- exists.
         env <- fmap Map.fromList getEnvironment
-        hasEnv <- fmap isJust $ findExecutable "env"
+        hasEnv <- isJust <$> findExecutable "env"
 
         -- Keep looping forever, print any synchronous exceptions,
         -- and eventually die from an async exception from one of

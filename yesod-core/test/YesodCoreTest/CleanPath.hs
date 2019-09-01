@@ -14,13 +14,12 @@ import Yesod.Core
 
 import Network.Wai
 import Network.Wai.Test
-import Network.HTTP.Types (status200, decodePathSegments)
+import Network.HTTP.Types (status200, decodePathSegments, encodePath)
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as TS
 import qualified Data.Text.Encoding as TE
 import Control.Arrow ((***))
-import Network.HTTP.Types (encodePath)
 import Data.Monoid (mappend)
 import Data.Text.Encoding (encodeUtf8Builder)
 

@@ -26,7 +26,7 @@ prodMain = do
 
 develMain :: IO ()
 develMain = race_ watchTermFile $ do
-    port <- fmap read $ getEnv "PORT"
+    port <- read <$> getEnv "PORT"
     displayPort <- getEnv "DISPLAY_PORT"
     putStrLn $ "Running in development mode on port " ++ show port
     putStrLn $ "But you should connect to port " ++ displayPort

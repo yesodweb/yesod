@@ -17,7 +17,7 @@ iapp = toWaiApp $ liteApp $ do
 
 test :: String -- ^ method
      -> [String] -- ^ path
-     -> (Either Int String) -- ^ status code or body
+     -> Either Int String -- ^ status code or body
      -> Spec
 test method path expected = it (method ++ " " ++ show path) $ do
     app <- iapp

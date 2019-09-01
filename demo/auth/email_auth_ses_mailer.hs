@@ -7,8 +7,7 @@
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE OverloadedStrings          #-}
-import           Control.Monad (join)
+import           Control.Monad (join, mzero)
 import           Control.Monad.Logger (runNoLoggingT)
 import           Data.Maybe (isJust)
 import           Data.Yaml
@@ -26,7 +25,6 @@ import           Yesod.Auth
 import           Yesod.Auth.Email
 import           Network.Mail.Mime.SES
 import           Data.ByteString.Char8
-import           Control.Monad (mzero)
 import           Network.HTTP.Client.Conduit (Manager, newManager, HasHttpManager (getHttpManager))
 import           System.Exit (exitWith, ExitCode( ExitFailure ))
 
@@ -109,7 +107,7 @@ instance YesodAuthEmail App where
     -- NOTE: The email address you're sending from will have to be verified on SES
     sendVerifyEmail email _ verurl = do
         h <- getYesod
-        sesCreds <- liftIO $ getSESCredentials
+        sesCreds <- liftIO getSESCredentials
 
         liftIO $ renderSendMailSES (getHttpManager h) sesCreds (emptyMail $ Address Nothing "noreply@example.com")
             { mailTo = [Address Nothing email]
@@ -123,7 +121,7 @@ instance YesodAuthEmail App where
         getSESCredentials = do
             key <- getsesAccessKey
             return SES {
-                sesTo = [(TE.encodeUtf8 email)],
+                sesTo = [TE.encodeUtf8 email],
                 sesFrom = "noreply@example.com",
                 sesAccessKey =  TE.encodeUtf8 $ accessKey key,
                 sesSecretKey =  TE.encodeUtf8 $ secretKey key,

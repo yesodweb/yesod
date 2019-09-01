@@ -48,7 +48,7 @@ module Yesod.Auth
     , asHtml
     ) where
 
-import Control.Monad                 (when)
+import Control.Monad                 (when, void)
 import Control.Monad.Trans.Maybe
 import UnliftIO                      (withRunInIO, MonadUnliftIO)
 
@@ -59,6 +59,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as Map
+import Data.Maybe(isJust)
 import Data.Monoid (Endo)
 import Network.HTTP.Client (Manager, Request, withResponse, Response, BodyReader)
 import Network.HTTP.Client.TLS (getGlobalManager)
@@ -74,7 +75,6 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Network.HTTP.Types (Status, internalServerError500, unauthorized401)
 import qualified Control.Monad.Trans.Writer    as Writer
-import Control.Monad (void)
 
 type AuthRoute = Route Auth
 
@@ -227,7 +227,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     onErrorHtml :: (MonadHandler m, HandlerSite m ~ master) => Route master -> Text -> m Html
     onErrorHtml dest msg = do
         addMessage "error" $ toHtml msg
-        fmap asHtml $ redirect dest
+        asHtml <$> redirect dest
 
     -- | runHttpRequest gives you a chance to handle an HttpException and retry
     --  The default behavior is to simply execute the request which will throw an exception on failure
@@ -296,7 +296,7 @@ defaultLoginHandler = do
     authLayout $ do
         setTitleI Msg.LoginTitle
         master <- getYesod
-        mapM_ (flip apLogin tp) (authPlugins master)
+        mapM_ (`apLogin` tp) (authPlugins master)
 
 
 loginErrorMessageI
@@ -454,8 +454,7 @@ $nothing
 |]
     jsonCreds creds =
         Object $ Map.fromList
-            [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
-            ]
+            [ (T.pack "logged_in", Bool $ isJust creds)]
 
 setUltDestReferer' :: (MonadHandler m, YesodAuth (HandlerSite m)) => m ()
 setUltDestReferer' = do

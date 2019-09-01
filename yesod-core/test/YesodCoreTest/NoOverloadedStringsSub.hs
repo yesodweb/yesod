@@ -10,7 +10,7 @@ module YesodCoreTest.NoOverloadedStringsSub where
 import Yesod.Core
 import Yesod.Core.Types
 
-data Subsite = Subsite (forall master. Yesod master => YesodSubRunnerEnv Subsite master -> Application)
+newtype Subsite = Subsite (forall master. Yesod master => YesodSubRunnerEnv Subsite master -> Application)
 
 mkYesodSubData "Subsite" [parseRoutes|
 /bar BarR GET

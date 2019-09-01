@@ -13,7 +13,7 @@ import Yesod.Form
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Conduit
 
-data BID = BID { httpManager :: Manager }
+newtype BID = BID { httpManager :: Manager }
 
 mkYesod "BID" [parseRoutes|
 / RootR GET

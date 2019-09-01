@@ -194,7 +194,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
     -- propagating exceptions into the contents
     (finalSession, contents1) <- evalFallback contents0 (ghsSession state)
     (headers, contents2) <- evalFallback contents1 (appEndo (ghsHeaders state) [])
-    contents3 <- (evaluate contents2) `catchAny` (fmap HCError . toErrorHandler)
+    contents3 <- evaluate contents2 `catchAny` (fmap HCError . toErrorHandler)
 
     -- Convert the HandlerContents into the final YesodResponse
     handleContents

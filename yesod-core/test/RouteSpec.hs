@@ -40,7 +40,7 @@ instance ParseRoute MySub where
 getMySub :: MyApp -> MySub
 getMySub MyApp = MySub
 
-data MySubParam = MySubParam Int
+newtype MySubParam = MySubParam Int
 instance RenderRoute MySubParam where
     data
         Route
@@ -199,11 +199,9 @@ main = hspec $ do
 
     describe "thDispatch" $ do
         let disp m ps = dispatcher
-                (Env
-                    { envToMaster = id
+                Env { envToMaster = id
                     , envMaster = MyApp
-                    , envSub = MyApp
-                    })
+                    , envSub = MyApp }
                 (map pack ps, S8.pack m)
         it "routes to root" $ disp "GET" [] @?= (pack "this is the root", Just RootR)
         it "POST root is 405" $ disp "POST" [] @?= (pack "405", Just RootR)
@@ -219,12 +217,12 @@ main = hspec $ do
         it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
             @?= (pack "subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
 
-    describe "route parsing" $ do
-        it "subsites work" $ do
+    describe "route parsing" $
+        it "subsites work" $
             parseRoute ([pack "subsite", pack "foo"], [(pack "bar", pack "baz")]) @?=
                 Just (SubsiteR $ MySubRoute ([pack "foo"], [(pack "bar", pack "baz")]))
 
-    describe "routing table parsing" $ do
+    describe "routing table parsing" $
         it "recognizes trailing backslashes as line continuation directives" $ do
             let routes :: [ResourceTree String]
                 routes = $(parseRoutesFile "test/fixtures/routes_with_line_continuations")
@@ -315,9 +313,9 @@ main = hspec $ do
 |]
             findOverlapNames routes @?= []
     describe "routeAttrs" $ do
-        it "works" $ do
+        it "works" $
             routeAttrs RootR @?= Set.fromList [pack "foo", pack "bar"]
-        it "hierarchy" $ do
+        it "hierarchy" $
             routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
     hierarchy
     describe "parseRouteType" $ do

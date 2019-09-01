@@ -57,13 +57,11 @@ subDispatch
     -> (Route sub -> Route master)
     -> Env master master
     -> App sub master
-subDispatch handler _runHandler getSub toMaster env req =
-    handler env' req
-  where
-    env' = env
-        { envToMaster = envToMaster env . toMaster
-        , envSub = getSub $ envMaster env
-        }
+subDispatch handler _runHandler getSub toMaster env = handler env'
+    where env' = env {
+            envToMaster = envToMaster env . toMaster
+          , envSub = getSub $ envMaster env
+          }
 
 class Dispatcher sub master where
     dispatcher :: Env sub master -> App sub master
@@ -188,11 +186,9 @@ hierarchy = describe "hierarchy" $ do
     it "renders table correctly" $
         renderRoute (AdminR 6 $ TableR "foo") @?= (["admin", "6", "table", "foo"], [])
     let disp m ps = dispatcher
-            (Env
-                { envToMaster = id
+            Env { envToMaster = id
                 , envMaster = Hierarchy
-                , envSub = Hierarchy
-                })
+                , envSub = Hierarchy }
             (map pack ps, S8.pack m)
 
     let testGetPost route getRes postRes = do
@@ -213,7 +209,6 @@ hierarchy = describe "hierarchy" $ do
         parseRoute ([], [("foo", "bar")]) @?= Just HomeR
         parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
         parseRoute (["admin!", "5"], []) @?= (Nothing :: Maybe (Route Hierarchy))
-    it "inherited attributes" $ do
-        routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
+    it "inherited attributes" $ routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
     it "pair attributes" $
         routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]

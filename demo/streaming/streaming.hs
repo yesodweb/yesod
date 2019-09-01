@@ -26,7 +26,7 @@ getHomeR = do
             sendChunkText "Going to read a file\n\n"
             CB.sourceFile "streaming.hs" $= awaitForever sendChunkBS
             sendChunkText "Finished reading the file\n"
-        Just "fibs" -> respondSource typePlain $ do
+        Just "fibs" -> respondSource typePlain $
             forM_ fibs $ \fib -> do
                 $logError $ "Got fib: " <> T.pack (show fib)
                 sendChunkText $ "Next fib is: " <> T.pack (show fib) <> "\n"

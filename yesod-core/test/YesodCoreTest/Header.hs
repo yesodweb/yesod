@@ -62,16 +62,14 @@ multipleHeaderTest =
     assertHeader "hello" "sibi" res
 
 header3Test :: IO ()
-header3Test = do
-  runner $ do
+header3Test = runner $ do
     res <- request defaultRequest {pathInfo = decodePathSegments "/header3"}
     assertHeader "hello" "world" res
     assertHeader "michael" "snoyman" res
     assertHeader "yesod" "book" res
 
 xssHeaderTest :: IO ()
-xssHeaderTest = do
-  runner $ do
+xssHeaderTest = runner $ do
     res <- request defaultRequest {pathInfo = decodePathSegments "/header1"}
     assertHeader "X-XSS-Protection" "1; mode=block" res
 

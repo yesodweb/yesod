@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -17,8 +16,7 @@ import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (ap)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
-import           Control.Monad.Logger               (LogLevel, LogSource,
-                                                     MonadLogger (..))
+import           Control.Monad.Logger               (LogLevel, LogSource, MonadLogger (..), MonadLoggerIO (..))
 import           Control.Monad.Primitive            (PrimMonad (..))
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
 import           Data.ByteString                    (ByteString)
@@ -56,7 +54,6 @@ import           Yesod.Routes.Class                 (RenderRoute (..), ParseRout
 import           Control.Monad.Reader               (MonadReader (..))
 import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
-import Control.Monad.Logger (MonadLoggerIO (..))
 import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
 
 -- Sessions
@@ -441,8 +438,7 @@ instance PrimMonad (WidgetFor site) where
 -- | @since 1.4.38
 instance MonadUnliftIO (WidgetFor site) where
   {-# INLINE askUnliftIO #-}
-  askUnliftIO = WidgetFor $ \wd ->
-                return (UnliftIO (flip unWidgetFor wd))
+  askUnliftIO = WidgetFor $ \wd -> return (UnliftIO (`unWidgetFor` wd))
 instance MonadReader (WidgetData site) (WidgetFor site) where
     ask = WidgetFor return
     local f (WidgetFor g) = WidgetFor $ g . f
@@ -480,8 +476,7 @@ instance MonadReader (HandlerData site site) (HandlerFor site) where
 -- | @since 1.4.38
 instance MonadUnliftIO (HandlerFor site) where
   {-# INLINE askUnliftIO #-}
-  askUnliftIO = HandlerFor $ \r ->
-                return (UnliftIO (flip unHandlerFor r))
+  askUnliftIO = HandlerFor $ \r -> return (UnliftIO (`unHandlerFor` r))
 
 instance MonadThrow (HandlerFor site) where
     throwM = liftIO . throwM
@@ -553,8 +548,7 @@ instance MonadReader (HandlerData child master) (SubHandlerFor child master) whe
 -- | @since 1.4.38
 instance MonadUnliftIO (SubHandlerFor child master) where
   {-# INLINE askUnliftIO #-}
-  askUnliftIO = SubHandlerFor $ \r ->
-                return (UnliftIO (flip unSubHandlerFor r))
+  askUnliftIO = SubHandlerFor $ \r -> return (UnliftIO (`unSubHandlerFor` r))
 
 instance MonadThrow (SubHandlerFor child master) where
     throwM = liftIO . throwM

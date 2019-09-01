@@ -58,7 +58,6 @@ import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)
-import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Conduit.Internal as CI
 
@@ -232,7 +231,7 @@ contentTypeTypes = second tailEmpty . B.break (== _slash) . simpleContentType
     tailEmpty x = if B.null x then "" else B.tail x
 
 instance HasContentType a => HasContentType (DontFullyEvaluate a) where
-    getContentType = getContentType . liftM unDontFullyEvaluate
+    getContentType = getContentType . fmap unDontFullyEvaluate
 
 instance ToContent a => ToContent (DontFullyEvaluate a) where
     toContent (DontFullyEvaluate a) = ContentDontEvaluate $ toContent a

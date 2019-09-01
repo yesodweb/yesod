@@ -37,7 +37,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Conduit
 import Data.Word (Word8, Word64)
 import Control.Exception (throwIO)
-import Control.Monad ((<=<), liftM)
+import Control.Monad ((<=<))
 import Yesod.Core.Types
 import qualified Data.Map as Map
 import Data.IORef
@@ -68,9 +68,9 @@ tooLargeResponse maxLen bodyLen = W.responseLBS
     [("Content-Type", "text/plain")]
     (L.concat 
         [ "Request body too large to be processed. The maximum size is "
-        , (LS8.pack (show maxLen))
+        , LS8.pack (show maxLen)
         , " bytes; your request body was "
-        , (LS8.pack (show bodyLen))
+        , LS8.pack (show bodyLen)
         , " bytes. If you're the developer of this site, you can configure the maximum length with the `maximumContentLength` or `maximumContentLengthIO` function on the Yesod typeclass."
         ])
 
@@ -159,8 +159,7 @@ addTwoLetters (toAdd, exist) (l:ls) =
 -- (a-z, A-Z, and 0-9) of the given length using the given
 -- random number generator.
 randomString :: Monad m => Int -> m Int -> m Text
-randomString len gen =
-    liftM (decodeUtf8 . fromByteVector) $ V.replicateM len asciiChar
+randomString len gen = (decodeUtf8 . fromByteVector) <$> V.replicateM len asciiChar
   where
     asciiChar =
       let loop = do

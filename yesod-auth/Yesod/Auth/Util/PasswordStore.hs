@@ -135,7 +135,7 @@ pbkdf1 :: ByteString -> Salt -> Int -> ByteString
 pbkdf1 password (SaltBS salt) iter = hashRounds first_hash (iter + 1)
   where
     first_hash =
-      convert $
+      convert
       ((CH.hashFinalize $ CH.hashInit `CH.hashUpdate` password `CH.hashUpdate` salt) :: CH.Digest CH.SHA256)
 
 
@@ -220,8 +220,8 @@ genSaltDevURandom = withFile "/dev/urandom" ReadMode $ \h -> do
 
 -- | Generate a 'Salt' from 'System.Random'.
 genSaltSysRandom :: IO Salt
-genSaltSysRandom = randomChars >>= return . makeSalt . B.pack
-    where randomChars = sequence $ replicate 16 $ randomRIO ('\NUL', '\255')
+genSaltSysRandom = makeSalt . B.pack <$> randomChars
+    where randomChars = replicateM 16 (randomRIO ('\NUL', '\255'))
 
 -----------------------
 -- Password hash format

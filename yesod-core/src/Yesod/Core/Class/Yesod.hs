@@ -627,7 +627,7 @@ defaultErrorHandler NotFound = selectRep $ do
         let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
         defaultMessageWidget "Not Found" [hamlet|<p>#{path'}|]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
-    provideRep $ return $ ("Not Found" :: Text)
+    provideRep $ return ("Not Found" :: Text)
 
 -- For API requests.
 -- For a user with a browser,
@@ -651,7 +651,7 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
         let apair u = ["authentication_url" .= rend u]
             content = maybe [] apair (authRoute site)
         return $ object $ ("message" .= ("Not logged in"::Text)):content
-    provideRep $ return $ ("Not logged in" :: Text)
+    provideRep $ return ("Not logged in" :: Text)
 
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ defaultMessageWidget
@@ -670,7 +670,7 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
                     <li>#{msg}
         |]
     provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
-    provideRep $ return $ ("Invalid Arguments: " <> T.intercalate " " ia)
+    provideRep $ return ("Invalid Arguments: " <> T.intercalate " " ia)
 
 defaultErrorHandler (InternalError e) = do
     $logErrorS "yesod-core" e

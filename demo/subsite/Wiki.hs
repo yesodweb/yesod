@@ -82,7 +82,7 @@ getWikiReadR page = do
         provideRep $
             case Map.lookup page content of
                 Nothing -> do
-                    setMessage $ "Page does not exist, please create it."
+                    setMessage "Page does not exist, please create it."
 
                     -- We don't need to convert or lift here: we're using a
                     -- route from our subsite, and redirect lives in our
