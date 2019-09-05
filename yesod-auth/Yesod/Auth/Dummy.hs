@@ -39,8 +39,9 @@ import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
 import Yesod.Core
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Aeson.Types (Result(..), Parser)
-import qualified Data.Aeson.Types as A (parseEither, withObject)
+import qualified Data.Aeson.Types as A (withObject, parse)
 
 identParser :: Value -> Parser Text
 identParser = A.withObject "Ident" (.: "ident")
@@ -50,14 +51,16 @@ authDummy =
     AuthPlugin "dummy" dispatch login
   where
     dispatch "POST" [] = do
-        (jsonResult :: Result Value) <- parseCheckJsonBody
-        eIdent <- case jsonResult of
-            Success val -> return $ A.parseEither identParser val
-            Error   err -> return $ Left err
-        case eIdent of
-            Right ident ->
-                setCredsRedirect $ Creds "dummy" ident []
-            Left  _     -> do
+        mct <- lookupContentType
+        case mct of
+            Just "application/json" -> do
+                (result :: Result Value) <- parseCheckJsonBody
+                case result >>= A.parse identParser of
+                    Success ident ->
+                        setCredsRedirect $ Creds "dummy" ident []
+                    Error   err ->
+                        invalidArgs [T.pack err]
+            _ -> do
                 ident <- runInputPost $ ireq textField "ident"
                 setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound

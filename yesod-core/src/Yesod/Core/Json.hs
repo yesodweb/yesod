@@ -34,7 +34,7 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (HandlerFor, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader)
+import Yesod.Core.Handler (HandlerFor, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader, lookupContentType)
 import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
@@ -133,10 +133,12 @@ parseInsecureJsonBody = do
 -- @since 0.3.0
 parseCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseCheckJsonBody = do
-    mct <- lookupHeader "content-type"
-    case fmap (B8.takeWhile (/= ';')) mct of
-        Just "application/json" -> parseInsecureJsonBody
-        _ -> return $ J.Error $ "Non-JSON content type: " ++ show mct
+    mct <- lookupContentType
+    case mct of
+        Just "application/json"  ->
+            parseInsecureJsonBody
+        _ ->
+            return $ J.Error $ "Non-JSON content type: " ++ show mct
 
 -- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
