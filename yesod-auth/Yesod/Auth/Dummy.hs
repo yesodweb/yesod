@@ -51,16 +51,16 @@ authDummy =
     AuthPlugin "dummy" dispatch login
   where
     dispatch "POST" [] = do
-        mct <- lookupContentType
-        case mct of
-            Just "application/json" -> do
+        e <- hasJsonContentType
+        case e of
+            Right _ -> do
                 (result :: Result Value) <- parseCheckJsonBody
                 case result >>= A.parse identParser of
                     Success ident ->
                         setCredsRedirect $ Creds "dummy" ident []
                     Error   err ->
                         invalidArgs [T.pack err]
-            _ -> do
+            Left _ -> do
                 ident <- runInputPost $ ireq textField "ident"
                 setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound

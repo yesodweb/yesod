@@ -191,7 +191,7 @@ module Yesod.Core.Handler
     , defaultCsrfParamName
       -- ** Checking CSRF Headers or POST Parameters
     , checkCsrfHeaderOrParam
-    , lookupContentType
+    , hasJsonContentType
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -1688,7 +1688,10 @@ getRouteToParent = liftSubHandler $ SubHandlerFor $ return . rheRouteToMaster . 
 getSubCurrentRoute :: MonadHandler m => m (Maybe (Route (SubHandlerSite m)))
 getSubCurrentRoute = liftSubHandler $ SubHandlerFor $ return . rheRoute . handlerEnv
 
-lookupContentType :: MonadHandler m => m (Maybe S8.ByteString)
-lookupContentType = do
+hasJsonContentType :: MonadHandler m => m (Either String ())
+hasJsonContentType = do
     mct <- lookupHeader "content-type"
-    return $ fmap (S8.takeWhile (/= ';')) mct
+    let stripped = fmap (S8.takeWhile (/= ';')) mct
+    case stripped of
+        Just "application/json" -> return $ Right ()
+        _                       -> return $ Left $ show mct
