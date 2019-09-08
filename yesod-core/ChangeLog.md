@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.16.1
+
+* Compiles with GHC 8.8.1
+
 ## 1.6.16
 
 * Add `jsAttributesHandler` to run arbitrary Handler code before building the
