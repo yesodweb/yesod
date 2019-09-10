@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.6.7
+
+* Added equivalent version of `mreqMsg` for `areq` and `wreq` correspondingly [#1628](https://github.com/yesodweb/yesod/pull/1628)
+
 ## 1.6.6
 
 * Added `mreqMsg` for `mreq` functionality with a configurable MsgValueRequired [#1613](https://github.com/yesodweb/yesod/pull/1613)

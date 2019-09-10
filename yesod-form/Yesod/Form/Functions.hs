@@ -18,11 +18,13 @@ module Yesod.Form.Functions
     , wFormToMForm
       -- * Fields to Forms
     , wreq
+    , wreqMsg
     , wopt
     , mreq
     , mreqMsg
     , mopt
     , areq
+    , areqMsg
     , aopt
       -- * Run a form
     , runFormPost
@@ -124,7 +126,23 @@ wreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      -> FieldSettings site  -- ^ settings for this field
      -> Maybe a             -- ^ optional default value
      -> WForm m (FormResult a)
-wreq f fs = mFormToWForm . mreq f fs
+wreq f fs = wreqMsg f fs MsgValueRequired
+
+-- | Same as @wreq@ but with your own message to be rendered in case the value
+-- is not provided.
+--
+-- This is useful when you have several required fields on the page and you
+-- want to differentiate between which fields were left blank. Otherwise the
+-- user sees "Value is required" multiple times, which is ambiguous.
+--
+-- @since 1.6.7
+wreqMsg :: (RenderMessage site msg, HandlerSite m ~ site, MonadHandler m)
+        => Field m a           -- ^ form field
+        -> FieldSettings site  -- ^ settings for this field
+        -> msg                 -- ^ message to use in case value is Nothing
+        -> Maybe a             -- ^ optional default value
+        -> WForm m (FormResult a)
+wreqMsg f fs msg = mFormToWForm . mreqMsg f fs msg
 
 -- | Converts a form field into monadic form 'WForm'. This field is optional,
 -- i.e.  if filled in, it returns 'Just a', if left empty, it returns
@@ -247,11 +265,27 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
 
 -- | Applicative equivalent of 'mreq'.
 areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
-     => Field m a
-     -> FieldSettings site
-     -> Maybe a
+     => Field m a           -- ^ form field
+     -> FieldSettings site  -- ^ settings for this field
+     -> Maybe a             -- ^ optional default value
      -> AForm m a
-areq a b = formToAForm . liftM (second return) . mreq a b
+areq f fs = areqMsg f fs MsgValueRequired
+
+-- | Same as @areq@ but with your own message to be rendered in case the value
+-- is not provided.
+--
+-- This is useful when you have several required fields on the page and you
+-- want to differentiate between which fields were left blank. Otherwise the
+-- user sees "Value is required" multiple times, which is ambiguous.
+--
+-- @since 1.6.7
+areqMsg :: (RenderMessage site msg, HandlerSite m ~ site, MonadHandler m)
+        => Field m a           -- ^ form field
+        -> FieldSettings site  -- ^ settings for this field
+        -> msg                 -- ^ message to use in case value is Nothing
+        -> Maybe a             -- ^ optional default value
+        -> AForm m a
+areqMsg f fs msg = formToAForm . liftM (second return) . mreqMsg f fs msg
 
 -- | Applicative equivalent of 'mopt'.
 aopt :: MonadHandler m

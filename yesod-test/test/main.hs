@@ -206,6 +206,37 @@ main = hspec $ do
               bad <- tryAny (clickOn "a#nonexistentlink")
               assertEq "bad link" (isLeft bad) True
 
+        ydescribe "custom error message" $ do
+            yit "returns the message pass to areqMsg" $ do
+                get ("/form" :: Text)
+                statusIs 200
+
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/form" :: Text)
+                    addToken
+                statusIs 200
+                htmlAnyContain ".errors" "Missing Label"
+            yit "returns the message pass to mreqMsg" $ do
+                get ("/mform" :: Text)
+                statusIs 200
+
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/mform" :: Text)
+                    addToken
+                statusIs 200
+                htmlAnyContain ".errors" "Missing MLabel"
+            yit "returns the message pass to wreqMsg" $ do
+                get ("/wform" :: Text)
+                statusIs 200
+
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/wform" :: Text)
+                    addToken
+                statusIs 200
+                htmlAnyContain ".errors" "Missing WLabel"
 
         ydescribe "utf8 paths" $ do
             yit "from path" $ do
@@ -439,14 +470,26 @@ app = liteApp $ do
         ((mfoo, widget), _) <- runFormPost
                         $ renderDivs
                         $ (,)
-                      Control.Applicative.<$> areq textField "Some Label" Nothing
+                      Control.Applicative.<$> areqMsg textField "Some Label" ("Missing Label" :: SomeMessage LiteApp) Nothing
                       <*> areq fileField "Some File" Nothing
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
             _ -> defaultLayout widget
+    onStatic "mform" $ dispatchTo $ do
+        ((mfoo, widget), _) <- runFormPost $ renderDivs $ formToAForm $ do
+          (field1F, field1V) <- mreqMsg textField "Some MLabel" ("Missing MLabel" :: SomeMessage LiteApp) Nothing
+          (field2F, field2V) <- mreq fileField "Some MFile" Nothing
+
+          return
+            ( (,) Control.Applicative.<$> field1F <*> field2F
+            , [field1V, field2V]
+            )
+        case mfoo of
+            FormSuccess (foo, _) -> return $ toHtml foo
+            _                    -> defaultLayout widget
     onStatic "wform" $ dispatchTo $ do
         ((mfoo, widget), _) <- runFormPost $ renderDivs $ wFormToAForm $ do
-          field1F <- wreq textField "Some WLabel" Nothing
+          field1F <- wreqMsg textField "Some WLabel" ("Missing WLabel" :: SomeMessage LiteApp) Nothing
           field2F <- wreq fileField "Some WFile" Nothing
 
           return $ (,) Control.Applicative.<$> field1F <*> field2F
