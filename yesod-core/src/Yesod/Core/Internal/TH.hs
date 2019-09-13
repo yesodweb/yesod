@@ -160,7 +160,7 @@ mkYesodGeneral appCxt' namestr mtys isSub f resS = do
             , renderRouteDec
             , [routeAttrsDec]
             , resourcesDec
-            , if isSub then [] else masterTypeSyns vns site
+            , if isSub then [] else masterTypeSyns (map mkName mtys) site
             ]
     return (dataDec, dispatchDec)
 
