@@ -2,6 +2,7 @@ module Yesod.FeedTypes
     ( Feed (..)
     , FeedEntry (..)
     , EntryEnclosure (..)
+    , EntryCategory (..)
     ) where
 
 import Text.Hamlet      (Html)
@@ -40,6 +41,18 @@ data EntryEnclosure url = EntryEnclosure
     , enclosedMimeType :: Text
     }
 
+-- | RSS 2.0 and Atom allow category in a feed entry.
+-- See http://www.rssboard.org/rss-specification#ltcategorygtSubelementOfLtitemgt
+--
+-- RSS feeds ignore 'categoryLabel'
+--
+-- @since 1.7
+data EntryCategory = EntryCategory
+  { categoryDomain :: Maybe Text -- ^ category identifier
+  , categoryLabel :: Maybe Text -- ^ Human-readable label Atom only
+  , categoryValue :: Text -- ^ identified categorization scheme via URI
+  }
+
 -- | Each feed entry
 data FeedEntry url = FeedEntry
     { feedEntryLink    :: url
@@ -51,4 +64,5 @@ data FeedEntry url = FeedEntry
       -- rel=enclosure>
       --
       -- @since 1.5
+    , feedEntryCategories :: [EntryCategory]
     }
