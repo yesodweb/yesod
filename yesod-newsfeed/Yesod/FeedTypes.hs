@@ -42,7 +42,9 @@ data EntryEnclosure url = EntryEnclosure
     }
 
 -- | RSS 2.0 and Atom allow category in a feed entry.
--- See http://www.rssboard.org/rss-specification#ltcategorygtSubelementOfLtitemgt
+--
+-- * [RSS category](http://www.rssboard.org/rss-specification#ltcategorygtSubelementOfLtitemgt)
+-- * [Atom category](https://tools.ietf.org/html/rfc4287#section-4.2.2)
 --
 -- RSS feeds ignore 'categoryLabel'
 --
@@ -65,4 +67,8 @@ data FeedEntry url = FeedEntry
       --
       -- @since 1.5
     , feedEntryCategories :: [EntryCategory]
+      -- ^ Allows categories data: RSS \<category>
+      -- or Atom \<link term=category>
+      --
+      -- @since 1.7
     }
