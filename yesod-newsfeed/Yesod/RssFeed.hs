@@ -75,6 +75,7 @@ template Feed {..} render =
                 ]
                 ]
 
+
 entryTemplate :: FeedEntry url -> (url -> Text) -> Element
 entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement $
     [ Element "title" Map.empty [NodeContent feedEntryTitle]
@@ -83,6 +84,7 @@ entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement
     , Element "pubDate" Map.empty [NodeContent $ formatRFC822 feedEntryUpdated]
     , Element "description" Map.empty [NodeContent $ toStrict $ renderHtml feedEntryContent]
     ]
+    ++ map entryCategoryTemplate feedEntryCategories
     ++
     case feedEntryEnclosure of
         Nothing -> []
@@ -91,6 +93,11 @@ entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement
                     (Map.fromList [("type", enclosedMimeType)
                                   ,("length", pack $ show enclosedSize)
                                   ,("url", render enclosedUrl)]) []]
+
+entryCategoryTemplate :: EntryCategory -> Element
+entryCategoryTemplate (EntryCategory mdomain _ category) =
+  Element "category" prop [NodeContent category]
+  where prop = maybe Map.empty (\domain -> Map.fromList [("domain",domain)]) mdomain
 
 -- | Generates a link tag in the head of a widget.
 rssLink :: MonadWidget m

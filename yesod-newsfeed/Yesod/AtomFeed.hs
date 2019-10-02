@@ -74,6 +74,15 @@ template Feed {..} render =
             Nothing -> []
             Just (route, _) -> [Element "logo" Map.empty [NodeContent $ render route]]
 
+entryCategoryTemplate :: EntryCategory -> Element
+entryCategoryTemplate (EntryCategory mdomain mlabel category) =
+  Element "category" (Map.fromList ([("term",category)]
+                                   ++ (maybe [] (\d -> [("scheme",d)]) mdomain)
+                                   ++ (maybe [] (\l -> [("label",l)])  mlabel)
+                                   )
+
+                     ) []
+
 entryTemplate :: FeedEntry url -> (url -> Text) -> Element
 entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElement $
     [ Element "id" Map.empty [NodeContent $ render feedEntryLink]
@@ -82,6 +91,7 @@ entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElemen
     , Element "title" Map.empty [NodeContent feedEntryTitle]
     , Element "content" (Map.singleton "type" "html") [NodeContent $ toStrict $ renderHtml feedEntryContent]
     ]
+    ++ map entryCategoryTemplate feedEntryCategories
     ++
     case feedEntryEnclosure of
         Nothing -> []

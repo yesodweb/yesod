@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7
+
+* Add support for Feed Categories
+  * RSS: http://www.rssboard.org/rss-specification#ltcategorygtSubelementOfLtitemgt
+  * Atom: https://tools.ietf.org/html/rfc4287#section-4.2.2
+  * Create the `EntryCategory` datatype
+
 ## 1.6.1
 
 * Upgrade to yesod-core 1.6.0
