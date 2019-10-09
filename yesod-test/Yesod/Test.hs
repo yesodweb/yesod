@@ -66,6 +66,7 @@ module Yesod.Test
     , getLocation
     , request
     , addRequestHeader
+    , addBasicAuthHeader
     , setMethod
     , addPostParam
     , addGetParam
@@ -156,6 +157,7 @@ import qualified Network.Socket.Internal as Sock
 #endif
 
 import Data.CaseInsensitive (CI)
+import qualified Data.CaseInsensitive as CI
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import Control.Monad.Trans.Reader (ReaderT (..))
@@ -189,6 +191,7 @@ type HasCallStack = (?callStack :: CallStack)
 import GHC.Exts (Constraint)
 type HasCallStack = (() :: Constraint)
 #endif
+import Data.ByteArray.Encoding (convertToBase, Base(..))
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -1143,6 +1146,19 @@ addRequestHeader :: H.Header -> RequestBuilder site ()
 addRequestHeader header = modifySIO $ \rbd -> rbd
     { rbdHeaders = header : rbdHeaders rbd
     }
+
+-- | Adds a header for <https://en.wikipedia.org/wiki/Basic_access_authentication HTTP Basic Authentication> to the request
+--
+-- ==== __Examples__
+--
+-- > request $ do
+-- >   addBasicAuthHeader "Aladdin" "OpenSesame"
+addBasicAuthHeader :: CI ByteString -- ^ Username
+                   -> CI ByteString -- ^ Password
+                   -> RequestBuilder site ()
+addBasicAuthHeader username password =
+  let credentials = convertToBase Base64 $ CI.original $ username <> ":" <> password
+  in addRequestHeader ("Authorization", "Basic " <> credentials)
 
 -- | The general interface for performing requests. 'request' takes a 'RequestBuilder',
 -- constructs a request, and executes it.
