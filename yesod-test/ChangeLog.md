@@ -2,7 +2,7 @@
 
 ## 1.6.7
 
-TODO
+Add `addBasicAuthHeader` function [#1632](https://github.com/yesodweb/yesod/pull/1632)
 
 ## 1.6.6.2
 

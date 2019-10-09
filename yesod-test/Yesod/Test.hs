@@ -1153,6 +1153,8 @@ addRequestHeader header = modifySIO $ \rbd -> rbd
 --
 -- > request $ do
 -- >   addBasicAuthHeader "Aladdin" "OpenSesame"
+--
+-- @since 1.6.7
 addBasicAuthHeader :: CI ByteString -- ^ Username
                    -> CI ByteString -- ^ Password
                    -> RequestBuilder site ()
