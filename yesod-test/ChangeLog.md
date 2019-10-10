@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.7
+
+Add `addBasicAuthHeader` function [#1632](https://github.com/yesodweb/yesod/pull/1632)
+
 ## 1.6.6.2
 
 addPostParam will now URL-encode keys and values to prevent corruption
