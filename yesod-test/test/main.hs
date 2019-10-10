@@ -38,7 +38,7 @@ import Data.Either (isLeft, isRight)
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
-import Network.HTTP.Types.Status (status301, status303, status422, unsupportedMediaType415)
+import Network.HTTP.Types.Status (status301, status303, status403, status422, unsupportedMediaType415)
 import UnliftIO.Exception (tryAny, SomeException, try)
 import qualified Web.Cookie as Cookie
 import Data.Maybe (isNothing)
@@ -444,6 +444,21 @@ main = hspec $ do
             loc <- getLocation
             liftIO $ assertBool "expected a Left when not a redirect" $ isLeft loc
 
+    describe "Basic Authentication" $ yesodSpec app $ do
+        yit "rejects no header" $ do
+            get ("checkBasicAuth" :: Text)
+            statusIs 403
+        yit "rejects incorrect header" $ do
+            request $ do
+                setUrl ("checkBasicAuth" :: Text)
+                addBasicAuthHeader "Aladdin" "foo"
+            statusIs 403
+        yit "accepts correct header" $ do
+            request $ do
+                setUrl ("checkBasicAuth" :: Text)
+                addBasicAuthHeader "Aladdin" "OpenSesame"
+            statusIs 200
+
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
 
@@ -530,6 +545,14 @@ app = liteApp $ do
         if actual == expected
             then return ()
             else sendResponseStatus unsupportedMediaType415 ()
+    onStatic "checkBasicAuth" $ dispatchTo $ do
+        headers <- requestHeaders <$> waiRequest
+        let authHeader = lookup "Authorization" headers
+
+        -- Copied from the Wikipedia Aladdin:OpenSesame example
+        if authHeader == Just "Basic QWxhZGRpbjpPcGVuU2VzYW1l"
+            then return ()
+            else sendResponseStatus status403 ()
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do
