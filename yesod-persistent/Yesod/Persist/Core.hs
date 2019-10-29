@@ -103,7 +103,7 @@ defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
 #endif
 defaultGetDBRunner getPool = do
     pool <- fmap getPool getYesod
-    let withPrep conn f = f (persistBackend conn) (SQL.connPrepare $ persistBackend conn)
+    let withPrep conn f = f (persistBackend conn) (SQL.getStmtConn $ persistBackend conn)
     (relKey, (conn, local)) <- allocate
         (do
             (conn, local) <- takeResource pool
