@@ -1,5 +1,9 @@
 # ChangeLog for yesod-persistent
 
+## 1.6.0.3
+
+* Replace call to `connPrepare` with `getStmtConn`. [#1635](https://github.com/yesodweb/yesod/issues/1635)
+
 ## 1.6.0.2
 
 * Add support for persistent 2.10
