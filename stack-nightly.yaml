@@ -1,0 +1,22 @@
+resolver: nightly-2019-11-11
+packages:
+- ./yesod-core
+- ./yesod-static
+- ./yesod-persistent
+- ./yesod-newsfeed
+- ./yesod-form
+- ./yesod-form-multi
+# authenticate doesn't compile due to tagstream-conduit
+# - ./yesod-auth
+# - ./yesod-auth-oauth
+- ./yesod-sitemap
+- ./yesod-test
+- ./yesod-bin
+- ./yesod
+- ./yesod-eventsource
+- ./yesod-websockets
+extra-deps:
+- html-conduit-1.3.2.1
+- persistent-2.10.4
+- persistent-template-2.7.3
+- persistent-sqlite-2.10.5
