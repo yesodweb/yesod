@@ -91,7 +91,8 @@ module Yesod.Core.Handler
     , permissionDeniedI
     , invalidArgs
     , invalidArgsI
-      -- ** Short-circuit responses.
+      -- ** Short-circuit responses
+      -- $rollbackWarning
     , sendFile
     , sendFilePart
     , sendResponse
@@ -606,6 +607,20 @@ setMessageI = addMessageI ""
 -- discards the rest and the status
 getMessage :: MonadHandler m => m (Maybe Html)
 getMessage = fmap (fmap snd . listToMaybe) getMessages
+
+-- $rollbackWarning
+--
+-- Note that since short-circuiting is implemented by using exceptions,
+-- using e.g. 'sendStatusJSON' inside a runDB block
+-- will result in the database actions getting rolled back:
+--
+-- @
+-- runDB $ do
+--   userId <- insert $ User "username" "email@example.com"
+--   postId <- insert $ BlogPost "title" "hi there!"
+--     /The previous two inserts will be rolled back./
+--   sendStatusJSON Status.status200 ()
+-- @
 
 -- | Bypass remaining handler code and output the given file.
 --
