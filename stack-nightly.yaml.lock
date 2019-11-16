@@ -32,6 +32,13 @@ packages:
       sha256: 42a52062ae795140362c2d929ba82f823904b785740a0837141c96eeec013115
   original:
     hackage: persistent-sqlite-2.10.5
+- completed:
+    hackage: authenticate-1.3.5@sha256:47b932a0f48a2ef2dff598519c5d6161214e6b5c1156732b5e157de5784b3798,2108
+    pantry-tree:
+      size: 845
+      sha256: 597a081d3c6796d9b0ca6125e455c9e4b05da2a8db2d35c57afc292a8db7b89e
+  original:
+    hackage: authenticate-1.3.5
 snapshots:
 - completed:
     size: 418944
