@@ -62,12 +62,6 @@ mkYesod "RoutedApp" [parseRoutes|
 /get-integer     IntegerR   GET
 |]
 
--- data ParamaterizedApp = ParamaterizedApp { parameterizedAppInteger :: Integer }
-
--- mkYesod "ParamaterizedApp" [parseRoutes|
--- /get-integer ParameterizedGetInteger GET
--- |]
-
 main :: IO ()
 main = hspec $ do
     describe "CSS selector parsing" $ do
@@ -589,9 +583,6 @@ cookieApp = liteApp $ do
 
 instance Yesod RoutedApp where
     yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware
-
--- instance Yesod ParameterizedApp where
---     yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware
 
 getHomeR :: Handler Html
 getHomeR = defaultLayout
