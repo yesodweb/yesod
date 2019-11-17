@@ -45,6 +45,9 @@ module Yesod.Test
     , ydescribe
     , yit
 
+    -- * Modify test site
+    , testModifySite
+
     -- * Modify test state
     , testSetCookie
     , testDeleteCookie
@@ -340,6 +343,18 @@ yesodSpecApp site getApp yspecs =
 -- | Describe a single test that keeps cookies, and a reference to the last response.
 yit :: String -> YesodExample site () -> YesodSpec site
 yit label example = tell [YesodSpecItem label example]
+
+-- | Modifies the site ('yedSite') of the test
+-- 
+-- TODO documentation here
+--
+-- TODO @since
+testModifySite :: YesodDispatch site => (site -> site) -> Middleware -> YesodExample site ()
+testModifySite newSiteFn middleware = do
+  currentSite <- getTestYesod 
+  let newSite = newSiteFn currentSite
+  app <- liftIO $ toWaiAppPlain newSite
+  modifySIO $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
 
 -- | Sets a cookie
 --

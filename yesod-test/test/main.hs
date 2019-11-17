@@ -42,6 +42,7 @@ import Network.HTTP.Types.Status (status301, status303, status403, status422, un
 import UnliftIO.Exception (tryAny, SomeException, try)
 import qualified Web.Cookie as Cookie
 import Data.Maybe (isNothing)
+import qualified Data.Text as T
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -49,13 +50,23 @@ parseQuery_ = either error id . parseQuery
 findBySelector_ :: HtmlLBS -> Query -> [String]
 findBySelector_ x = either error id . findBySelector x
 
-data RoutedApp = RoutedApp
+data RoutedApp = RoutedApp { routedAppInteger :: Integer }
+
+defaultRoutedApp :: RoutedApp
+defaultRoutedApp = RoutedApp 0
 
 mkYesod "RoutedApp" [parseRoutes|
 /                HomeR      GET POST
 /resources       ResourcesR POST
 /resources/#Text ResourceR  GET
+/get-integer     IntegerR   GET
 |]
+
+-- data ParamaterizedApp = ParamaterizedApp { parameterizedAppInteger :: Integer }
+
+-- mkYesod "ParamaterizedApp" [parseRoutes|
+-- /get-integer ParameterizedGetInteger GET
+-- |]
 
 main :: IO ()
 main = hspec $ do
@@ -378,7 +389,7 @@ main = hspec $ do
             testModifyCookies (\_ -> Map.empty)
             get ("cookie/check-no-cookie" :: Text)
             statusIs 200
-    describe "CSRF with cookies/headers" $ yesodSpec RoutedApp $ do
+    describe "CSRF with cookies/headers" $ yesodSpec defaultRoutedApp $ do
         yit "Should receive a CSRF cookie and add its value to the headers" $ do
             get ("/" :: Text)
             statusIs 200
@@ -420,7 +431,7 @@ main = hspec $ do
             r <- followRedirect
             liftIO $ assertBool "expected a Left when not a redirect" $ isLeft r
 
-    describe "route parsing in tests" $ yesodSpec RoutedApp $ do
+    describe "route parsing in tests" $ yesodSpec defaultRoutedApp $ do
         yit "parses location header into a route" $ do
             -- get CSRF token
             get HomeR
@@ -443,6 +454,14 @@ main = hspec $ do
             statusIs 200
             loc <- getLocation
             liftIO $ assertBool "expected a Left when not a redirect" $ isLeft loc
+
+    describe "modifying site value" $ yesodSpec defaultRoutedApp $ do
+        yit "can change site value" $ do
+            get ("/get-integer" :: Text)
+            bodyContains "0"
+            testModifySite (\site -> site { routedAppInteger = 1 }) id
+            get ("/get-integer" :: Text)
+            bodyContains "1"
 
     describe "Basic Authentication" $ yesodSpec app $ do
         yit "rejects no header" $ do
@@ -571,6 +590,9 @@ cookieApp = liteApp $ do
 instance Yesod RoutedApp where
     yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware
 
+-- instance Yesod ParameterizedApp where
+--     yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware
+
 getHomeR :: Handler Html
 getHomeR = defaultLayout
     [whamlet|
@@ -598,3 +620,8 @@ getResourceR i = defaultLayout
         <p>
             Read item #{i}.
     |]
+
+getIntegerR :: Handler Text
+getIntegerR = do
+    app <- getYesod
+    pure $ T.pack $ show (routedAppInteger app)
