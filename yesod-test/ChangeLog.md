@@ -2,7 +2,7 @@
 
 ## 1.6.8
 
-Add `testModifySite` function [#](https://github.com/yesodweb/yesod/pull/)
+Add `testModifySite` function [#1642](https://github.com/yesodweb/yesod/pull/1642)
 
 ## 1.6.7
 
