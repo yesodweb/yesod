@@ -45,6 +45,9 @@ module Yesod.Test
     , ydescribe
     , yit
 
+    -- * Modify test site
+    , testModifySite
+
     -- * Modify test state
     , testSetCookie
     , testDeleteCookie
@@ -340,6 +343,36 @@ yesodSpecApp site getApp yspecs =
 -- | Describe a single test that keeps cookies, and a reference to the last response.
 yit :: String -> YesodExample site () -> YesodSpec site
 yit label example = tell [YesodSpecItem label example]
+
+-- | Modifies the site ('yedSite') of the test, and creates a new WAI app ('yedApp') for it.
+-- 
+-- yesod-test allows sending requests to your application to test that it handles them correctly.
+-- In rare cases, you may wish to modify that application in the middle of a test.
+-- This may be useful if you wish to, for example, test your application under a certain configuration,
+-- then change that configuration to see if your app responds differently.
+--
+-- ==== __Examples__
+--
+-- > post SendEmailR
+-- > -- Assert email not created in database
+-- > testModifySite (\site -> pure (site { siteSettingsStoreEmail = True }, id))
+-- > post SendEmailR
+-- > -- Assert email created in database
+--
+-- > testModifySite (\site -> do
+-- >   middleware <- makeLogware site
+-- >   pure (site { appRedisConnection = Nothing }, middleware)
+-- > )
+--
+-- @since 1.6.8
+testModifySite :: YesodDispatch site
+               => (site -> IO (site, Middleware)) -- ^ A function from the existing site, to a new site and middleware for a WAI app.
+               -> YesodExample site ()
+testModifySite newSiteFn = do
+  currentSite <- getTestYesod 
+  (newSite, middleware) <- liftIO $ newSiteFn currentSite
+  app <- liftIO $ toWaiAppPlain newSite
+  modifySIO $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
 
 -- | Sets a cookie
 --
