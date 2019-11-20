@@ -453,7 +453,7 @@ main = hspec $ do
         yit "can change site value" $ do
             get ("/get-integer" :: Text)
             bodyContains "0"
-            testModifySite (\site -> site { routedAppInteger = 1 }) id
+            testModifySite (\site -> pure (site { routedAppInteger = 1 }, id))
             get ("/get-integer" :: Text)
             bodyContains "1"
 

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.8
+
+Add `testModifySite` function [#](https://github.com/yesodweb/yesod/pull/)
+
 ## 1.6.7
 
 Add `addBasicAuthHeader` function [#1632](https://github.com/yesodweb/yesod/pull/1632)
