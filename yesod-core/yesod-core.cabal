@@ -48,7 +48,6 @@ library
                    , primitive             >= 0.6
                    , random                >= 1.0.0.2  && < 1.2
                    , resourcet             >= 1.2
-                   , rio
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11
                    , text                  >= 0.7
