@@ -125,6 +125,7 @@ module Yesod.Test
     , htmlAnyContain
     , htmlNoneContain
     , htmlCount
+    , requireJSONResponse
 
     -- * Grab information
     , getTestYesod
@@ -195,6 +196,9 @@ import GHC.Exts (Constraint)
 type HasCallStack = (() :: Constraint)
 #endif
 import Data.ByteArray.Encoding (convertToBase, Base(..))
+import Network.HTTP.Types.Header (hContentType)
+import Data.Aeson (FromJSON, eitherDecode')
+import Control.Monad (unless)
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -597,6 +601,27 @@ htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
   liftIO $ flip HUnit.assertBool (matches == count)
     ("Expected "++(show count)++" elements to match "++T.unpack query++", found "++(show matches))
+
+-- | Parses the response body from JSON into a Haskell value, throwing an error if parsing fails.
+--
+-- This function also checks that the @Content-Type@ of the response is @application/json@.
+--
+-- ==== __Examples__
+--
+-- > get CommentR
+-- > (comment :: Comment) <- requireJSONResponse
+requireJSONResponse :: (HasCallStack, FromJSON a) => YesodExample site a
+requireJSONResponse = do
+  withResponse $ \(SResponse _status headers body) -> do
+    let mContentType = lookup hContentType headers
+        isJSONContentType = maybe False (\contentType -> BS8.takeWhile (/= ';') contentType == "application/json") mContentType
+    unless
+        isJSONContentType
+        (failure $ T.pack $ "Expected `Content-Type: application/json` in the headers, got: " ++ show headers)
+    case eitherDecode' body of
+      -- TODO: include full body in error message?
+        Left err -> failure $ T.concat ["Failed to parse JSON response; error: ", T.pack err]
+        Right v -> return v
 
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
 printBody :: YesodExample site ()

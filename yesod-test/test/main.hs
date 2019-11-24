@@ -20,6 +20,7 @@ module Main
 
 import Test.HUnit hiding (Test)
 import Test.Hspec
+import qualified Test.Hspec as Hspec
 
 import Yesod.Core
 import Yesod.Form
@@ -38,11 +39,13 @@ import Data.Either (isLeft, isRight)
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
-import Network.HTTP.Types.Status (status301, status303, status403, status422, unsupportedMediaType415)
-import UnliftIO.Exception (tryAny, SomeException, try)
+import Network.HTTP.Types.Status (status200, status301, status303, status403, status422, unsupportedMediaType415)
+import UnliftIO.Exception (tryAny, SomeException, try, Exception)
+import Control.Monad.IO.Unlift (toIO)
 import qualified Web.Cookie as Cookie
 import Data.Maybe (isNothing)
 import qualified Data.Text as T
+-- import qualified Data.Aeson as A
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -471,6 +474,20 @@ main = hspec $ do
                 setUrl ("checkBasicAuth" :: Text)
                 addBasicAuthHeader "Aladdin" "OpenSesame"
             statusIs 200
+    describe "JSON parsing" $ yesodSpec app $ do
+        yit "checks for a json array" $ do
+            get ("get-json-response" :: Text)
+            statusIs 200
+            xs <- requireJSONResponse
+            assertEq "The value is [1]" xs [1 :: Integer]
+        yit "checks for valid content-type" $ do
+            get ("get-json-wrong-content-type" :: Text)
+            statusIs 200
+            (requireJSONResponse :: YesodExample site [Integer]) `liftedShouldThrow` (\(e :: SomeException) -> True)
+        yit "checks for valid JSON parse" $ do
+            get ("get-json-response" :: Text)
+            statusIs 200
+            (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -566,6 +583,11 @@ app = liteApp $ do
         if authHeader == Just "Basic QWxhZGRpbjpPcGVuU2VzYW1l"
             then return ()
             else sendResponseStatus status403 ()
+    onStatic "get-json-response" $ dispatchTo $ do
+        (sendStatusJSON status200 ([1] :: [Integer])) :: LiteHandler Value
+    onStatic "get-json-wrong-content-type" $ dispatchTo $ do
+        return ("[1]" :: Text)
+        -- (sendResponse "[1]") :: LiteHandler Text
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do
@@ -616,3 +638,12 @@ getIntegerR :: Handler Text
 getIntegerR = do
     app <- getYesod
     pure $ T.pack $ show (routedAppInteger app)
+
+
+-- infix Copied from HSpec's version
+infix 1 `liftedShouldThrow`
+
+liftedShouldThrow :: (MonadUnliftIO m, HasCallStack, Exception e) => m a -> Hspec.Selector e -> m ()
+liftedShouldThrow action sel = do
+  ioAction <- toIO action
+  liftIO $ ioAction `shouldThrow` sel

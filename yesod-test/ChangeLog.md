@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.9
+
+Add `requireJSONResponse` function [#164](https://github.com/yesodweb/yesod/pull/164)
+
 ## 1.6.8
 
 Add `testModifySite` function [#1642](https://github.com/yesodweb/yesod/pull/1642)
