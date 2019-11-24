@@ -610,6 +610,8 @@ htmlCount query count = do
 --
 -- > get CommentR
 -- > (comment :: Comment) <- requireJSONResponse
+--
+-- @since 1.6.9
 requireJSONResponse :: (HasCallStack, FromJSON a) => YesodExample site a
 requireJSONResponse = do
   withResponse $ \(SResponse _status headers body) -> do
