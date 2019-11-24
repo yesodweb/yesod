@@ -2,7 +2,7 @@
 
 ## 1.6.9
 
-Add `requireJSONResponse` function [#164](https://github.com/yesodweb/yesod/pull/164)
+Add `requireJSONResponse` function [#1646](https://github.com/yesodweb/yesod/pull/1646)
 
 ## 1.6.8
 
