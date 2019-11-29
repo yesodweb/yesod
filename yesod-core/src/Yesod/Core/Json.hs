@@ -32,6 +32,9 @@ module Yesod.Core.Json
     , jsonOrRedirect
     , jsonEncodingOrRedirect
     , acceptsJson
+
+      -- * Checking if data is JSON
+    , contentTypeHeaderIsJson
     ) where
 
 import Yesod.Core.Handler (HandlerFor, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader)
@@ -134,8 +137,8 @@ parseInsecureJsonBody = do
 parseCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseCheckJsonBody = do
     mct <- lookupHeader "content-type"
-    case fmap (B8.takeWhile (/= ';')) mct of
-        Just "application/json" -> parseInsecureJsonBody
+    case fmap contentTypeHeaderIsJson mct of
+        Just True -> parseInsecureJsonBody
         _ -> return $ J.Error $ "Non-JSON content type: " ++ show mct
 
 -- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
@@ -219,3 +222,11 @@ acceptsJson =  (maybe False ((== "application/json") . B8.takeWhile (/= ';'))
             .  reqAccept)
            `liftM` getRequest
 
+-- | Given the @Content-Type@ header, returns if it is JSON.
+--
+-- This function is currently a simple check for @application/json@, but in the future may check for
+-- alternative representations such as @<https://tools.ietf.org/html/rfc6839#section-3.1 xxx/yyy+json>@.
+--
+-- @since 1.6.17
+contentTypeHeaderIsJson :: B8.ByteString -> Bool
+contentTypeHeaderIsJson bs = B8.takeWhile (/= ';') bs == "application/json"

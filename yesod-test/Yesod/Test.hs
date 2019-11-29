@@ -171,6 +171,7 @@ import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
+import Yesod.Core.Json (contentTypeHeaderIsJson)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8, decodeUtf8With)
 import Text.XML.Cursor hiding (element)
@@ -604,7 +605,7 @@ htmlCount query count = do
 
 -- | Parses the response body from JSON into a Haskell value, throwing an error if parsing fails.
 --
--- This function also checks that the @Content-Type@ of the response is @application/json@.
+-- This function also checks that the @Content-Type@ of the response is @application\/json@.
 --
 -- ==== __Examples__
 --
@@ -619,7 +620,7 @@ requireJSONResponse :: (HasCallStack, FromJSON a) => YesodExample site a
 requireJSONResponse = do
   withResponse $ \(SResponse _status headers body) -> do
     let mContentType = lookup hContentType headers
-        isJSONContentType = maybe False (\contentType -> BS8.takeWhile (/= ';') contentType == "application/json") mContentType
+        isJSONContentType = maybe False contentTypeHeaderIsJson mContentType
     unless
         isJSONContentType
         (failure $ T.pack $ "Expected `Content-Type: application/json` in the headers, got: " ++ show headers)
