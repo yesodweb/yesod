@@ -45,7 +45,6 @@ import Control.Monad.IO.Unlift (toIO)
 import qualified Web.Cookie as Cookie
 import Data.Maybe (isNothing)
 import qualified Data.Text as T
--- import qualified Data.Aeson as A
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -587,7 +586,6 @@ app = liteApp $ do
         (sendStatusJSON status200 ([1] :: [Integer])) :: LiteHandler Value
     onStatic "get-json-wrong-content-type" $ dispatchTo $ do
         return ("[1]" :: Text)
-        -- (sendResponse "[1]") :: LiteHandler Text
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do
