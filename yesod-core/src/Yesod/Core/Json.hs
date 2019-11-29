@@ -218,3 +218,4 @@ acceptsJson =  (maybe False ((== "application/json") . B8.takeWhile (/= ';'))
             .  listToMaybe
             .  reqAccept)
            `liftM` getRequest
+

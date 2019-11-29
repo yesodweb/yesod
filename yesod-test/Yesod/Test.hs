@@ -624,8 +624,13 @@ requireJSONResponse = do
         isJSONContentType
         (failure $ T.pack $ "Expected `Content-Type: application/json` in the headers, got: " ++ show headers)
     case eitherDecode' body of
-      -- TODO: include full body in error message?
-        Left err -> failure $ T.concat ["Failed to parse JSON response; error: ", T.pack err]
+        Left err -> do
+          let characterLimit = 1024
+              textBody = TL.toStrict $ decodeUtf8 body
+              bodyPreview = if T.length textBody < characterLimit
+                then textBody
+                else T.take characterLimit textBody <> "... (use `printBody` to see complete response body)"
+          failure $ T.concat ["Failed to parse JSON response; error: ", T.pack err, "JSON: ", bodyPreview]
         Right v -> return v
 
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
