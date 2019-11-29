@@ -605,7 +605,7 @@ htmlCount query count = do
 
 -- | Parses the response body from JSON into a Haskell value, throwing an error if parsing fails.
 --
--- This function also checks that the @Content-Type@ of the response is @application\/json@.
+-- This function also checks that the @Content-Type@ of the response is @application/json@.
 --
 -- ==== __Examples__
 --
