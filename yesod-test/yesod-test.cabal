@@ -39,7 +39,7 @@ library
                    , wai-extra
                    , xml-conduit               >= 1.0
                    , xml-types                 >= 0.3
-                   , yesod-core                >= 1.6
+                   , yesod-core                >= 1.6.17
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
