@@ -125,6 +125,7 @@ module Yesod.Test
     , htmlAnyContain
     , htmlNoneContain
     , htmlCount
+    , requireJSONResponse
 
     -- * Grab information
     , getTestYesod
@@ -170,6 +171,7 @@ import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
+import Yesod.Core.Json (contentTypeHeaderIsJson)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8, decodeUtf8With)
 import Text.XML.Cursor hiding (element)
@@ -195,6 +197,9 @@ import GHC.Exts (Constraint)
 type HasCallStack = (() :: Constraint)
 #endif
 import Data.ByteArray.Encoding (convertToBase, Base(..))
+import Network.HTTP.Types.Header (hContentType)
+import Data.Aeson (FromJSON, eitherDecode')
+import Control.Monad (unless)
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -597,6 +602,37 @@ htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
   liftIO $ flip HUnit.assertBool (matches == count)
     ("Expected "++(show count)++" elements to match "++T.unpack query++", found "++(show matches))
+
+-- | Parses the response body from JSON into a Haskell value, throwing an error if parsing fails.
+--
+-- This function also checks that the @Content-Type@ of the response is @application/json@.
+--
+-- ==== __Examples__
+--
+-- > get CommentR
+-- > (comment :: Comment) <- requireJSONResponse
+--
+-- > post UserR
+-- > (json :: Value) <- requireJSONResponse
+--
+-- @since 1.6.9
+requireJSONResponse :: (HasCallStack, FromJSON a) => YesodExample site a
+requireJSONResponse = do
+  withResponse $ \(SResponse _status headers body) -> do
+    let mContentType = lookup hContentType headers
+        isJSONContentType = maybe False contentTypeHeaderIsJson mContentType
+    unless
+        isJSONContentType
+        (failure $ T.pack $ "Expected `Content-Type: application/json` in the headers, got: " ++ show headers)
+    case eitherDecode' body of
+        Left err -> do
+          let characterLimit = 1024
+              textBody = TL.toStrict $ decodeUtf8 body
+              bodyPreview = if T.length textBody < characterLimit
+                then textBody
+                else T.take characterLimit textBody <> "... (use `printBody` to see complete response body)"
+          failure $ T.concat ["Failed to parse JSON response; error: ", T.pack err, "JSON: ", bodyPreview]
+        Right v -> return v
 
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
 printBody :: YesodExample site ()

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.17
+
+Adds `contentTypeIsJson` [#1646](https://github.com/yesodweb/yesod/pull/1646)
+
 ## 1.6.16.1
 
 * Compiles with GHC 8.8.1

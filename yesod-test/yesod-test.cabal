@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.6.8
+version:            1.6.9
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -15,6 +15,7 @@ extra-source-files: README.md, LICENSE, test/main.hs, ChangeLog.md
 
 library
     build-depends:   HUnit                     >= 1.2
+                   , aeson
                    , attoparsec                >= 0.10
                    , base                      >= 4.3      && < 5
                    , blaze-builder
@@ -65,6 +66,7 @@ test-suite test
                           , http-types
                           , unliftio
                           , cookie
+                          , unliftio-core
 
 source-repository head
   type: git
