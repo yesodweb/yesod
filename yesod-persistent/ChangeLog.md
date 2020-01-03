@@ -1,5 +1,11 @@
 # ChangeLog for yesod-persistent
 
+## 1.6.0.4
+
+* Fix test suite to be compatible with latest `persistent-template`
+* See https://github.com/yesodweb/persistent/pull/1002
+* [#]()
+
 ## 1.6.0.3
 
 * Replace call to `connPrepare` with `getStmtConn`. [#1635](https://github.com/yesodweb/yesod/issues/1635)
