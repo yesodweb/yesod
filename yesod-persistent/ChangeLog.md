@@ -4,7 +4,7 @@
 
 * Fix test suite to be compatible with latest `persistent-template`
 * See https://github.com/yesodweb/persistent/pull/1002
-* [#]()
+* [#1649](https://github.com/yesodweb/yesod/pull/1649/files)
 
 ## 1.6.0.3
 
