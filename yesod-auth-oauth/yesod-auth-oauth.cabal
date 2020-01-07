@@ -13,15 +13,9 @@ homepage:        http://www.yesodweb.com/
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-auth-oauth>
 extra-source-files: README.md ChangeLog.md
 
-flag ghc7
-
 library
-    if flag(ghc7)
-        build-depends:   base                >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                >= 4         && < 4.3
     build-depends:   authenticate-oauth      >= 1.5       && < 1.7
+                   , base                    >= 4.10      && < 5
                    , bytestring              >= 0.9.1.4
                    , text                    >= 0.7
                    , unliftio

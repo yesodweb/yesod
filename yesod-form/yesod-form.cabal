@@ -19,7 +19,7 @@ flag network-uri
   default: True
 
 library
-    build-depends:   base                  >= 4        && < 5
+    build-depends:   base                  >= 4.10     && < 5
                    , aeson
                    , attoparsec            >= 0.10
                    , blaze-builder         >= 0.2.1.4

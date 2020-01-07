@@ -24,7 +24,7 @@ executable             yesod
     if os(openbsd)
         ld-options:      -Wl,-zwxneeded
 
-    build-depends:     base               >= 4.3          && < 5
+    build-depends:     base               >= 4.10         && < 5
                      , Cabal              >= 1.18
                      , bytestring         >= 0.9.1.4
                      , conduit            >= 1.3

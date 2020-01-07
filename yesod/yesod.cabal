@@ -17,7 +17,7 @@ library
     if os(windows)
         cpp-options: -DWINDOWS
 
-    build-depends:   base                      >= 4.6      && < 5
+    build-depends:   base                      >= 4.10     && < 5
                    , aeson
                    , bytestring
                    , conduit                   >= 1.3

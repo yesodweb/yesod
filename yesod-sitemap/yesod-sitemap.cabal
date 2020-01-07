@@ -14,7 +14,7 @@ description:     API docs and the README are available at <http://www.stackage.o
 extra-source-files: README.md ChangeLog.md
 
 library
-    build-depends:   base                      >= 4        && < 5
+    build-depends:   base                      >= 4.10     && < 5
                    , conduit
                    , data-default
                    , text

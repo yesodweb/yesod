@@ -14,7 +14,7 @@ description:     API docs and the README are available at <http://www.stackage.o
 extra-source-files: README.md ChangeLog.md
 
 library
-    build-depends:   base                      >= 4        && < 5
+    build-depends:   base                      >= 4.10     && < 5
                    , yesod-core                >= 1.6      && < 1.7
                    , persistent                >= 2.8      && < 2.11
                    , persistent-template       >= 2.1      && < 2.9

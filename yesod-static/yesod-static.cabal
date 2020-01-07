@@ -26,7 +26,7 @@ extra-source-files:
   README.md
 
 library
-    build-depends:   base                  >= 4        && < 5
+    build-depends:   base                  >= 4.10     && < 5
                    , async
                    , attoparsec            >= 0.10
                    , base64-bytestring     >= 0.1.0.1

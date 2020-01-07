@@ -24,7 +24,7 @@ extra-source-files:
 library
     hs-source-dirs: src
 
-    build-depends:   base                  >= 4.9      && < 5
+    build-depends:   base                  >= 4.10     && < 5
                    , aeson                 >= 1.0
                    , auto-update
                    , blaze-html            >= 0.5

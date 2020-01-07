@@ -19,7 +19,7 @@ flag network-uri
   default: True
 
 library
-    build-depends:   base                  >= 4        && < 5
+    build-depends:   base                  >= 4.10     && < 5
                    , containers            >= 0.2
                    , shakespeare           >= 2.0
                    , text                  >= 0.9
