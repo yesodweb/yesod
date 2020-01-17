@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, RecordWildCards #-}
+{-# LANGUAGE RecordWildCards #-}
 import Network.Wai.Application.Static
     ( StaticSettings (..), staticApp, defaultMimeType, defaultListing
     , defaultMimeTypes, mimeTypeByExt
@@ -25,7 +25,7 @@ data Args = Args
     , verbose :: Bool
     , mime :: [(String, String)]
     }
-    deriving (Show, Data, Typeable)
+    deriving (Show, Data)
 
 defaultArgs = Args "." ["index.html", "index.htm"] 3000 False False False []
 

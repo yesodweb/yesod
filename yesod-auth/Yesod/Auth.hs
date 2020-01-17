@@ -8,7 +8,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Auth
@@ -515,7 +514,6 @@ maybeAuthPair = runMaybeT $ do
 
 
 newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
-    deriving Typeable
 
 -- | Class which states that the given site is an instance of @YesodAuth@
 -- and that its @AuthId@ is a lookup key for the full user information in
@@ -607,7 +605,7 @@ instance YesodAuth master => RenderMessage master AuthMessage where
     renderMessage = renderAuthMessage
 
 data AuthException = InvalidFacebookResponse
-    deriving (Show, Typeable)
+    deriving Show
 instance Exception AuthException
 
 instance YesodAuth master => YesodSubDispatch Auth master where

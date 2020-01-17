@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -37,7 +36,6 @@ import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
-import           Data.Typeable                      (Typeable)
 import           GHC.Generics                       (Generic)
 import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
@@ -333,7 +331,7 @@ data ErrorResponse =
     | NotAuthenticated
     | PermissionDenied !Text
     | BadMethod !H.Method
-    deriving (Show, Eq, Typeable, Generic)
+    deriving (Show, Eq, Generic)
 instance NFData ErrorResponse
 
 ----- header stuff
@@ -411,7 +409,6 @@ data HandlerContents =
     | HCCreated !Text
     | HCWai !W.Response
     | HCWaiApp !W.Application
-    deriving Typeable
 
 instance Show HandlerContents where
     show (HCContent status (TypedContent t _)) = "HCContent " ++ show (status, t)

@@ -8,7 +8,6 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 ---------------------------------------------------------
 --
@@ -1037,7 +1036,7 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map k
 -- > redirect (NewsfeedR :#: storyId)
 --
 -- @since 1.2.9.
-data Fragment a b = a :#: b deriving (Show, Typeable)
+data Fragment a b = a :#: b deriving Show
 
 instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b) where
   toTextUrl (a :#: b) = (\ua -> T.concat [ua, "#", toPathPiece b]) <$> toTextUrl a
