@@ -1,6 +1,6 @@
 # ChangeLog for yesod-auth
 
-## 1.6.9
+## 1.6.8.1
 
 * Email: Fix typo in `defaultEmailLoginHandler` template [#1605](https://github.com/yesodweb/yesod/pull/1605)
 * Remove unnecessary deriving of Typeable

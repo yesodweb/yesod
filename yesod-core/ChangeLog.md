@@ -1,6 +1,6 @@
 # ChangeLog for yesod-core
 
-## 1.6.18
+## 1.6.17.1
 
 * Remove unnecessary deriving of Typeable
 
