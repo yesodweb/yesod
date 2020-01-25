@@ -1,7 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Rank2Types #-}
 module YesodCoreTest.Cache
     ( cacheTest
@@ -22,10 +21,8 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 data C = C
 
 newtype V1 = V1 Int
-    deriving Typeable
 
 newtype V2 = V2 Int
-    deriving Typeable
 
 mkYesod "C" [parseRoutes|
 /    RootR GET

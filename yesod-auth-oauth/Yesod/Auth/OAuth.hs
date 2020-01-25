@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, QuasiQuotes #-}
+{-# LANGUAGE OverloadedStrings, QuasiQuotes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
@@ -32,7 +32,7 @@ import           Yesod.Core
 
 data YesodOAuthException = CredentialError String Credential
                          | SessionError String
-                           deriving (Show, Typeable)
+                           deriving Show
 
 instance Exception YesodOAuthException
 

@@ -1,8 +1,12 @@
 # ChangeLog for yesod-core
 
+## 1.6.17.1
+
+* Remove unnecessary deriving of Typeable
+
 ## 1.6.17
 
-Adds `contentTypeIsJson` [#1646](https://github.com/yesodweb/yesod/pull/1646)
+* Adds `contentTypeIsJson` [#1646](https://github.com/yesodweb/yesod/pull/1646)
 
 ## 1.6.16.1
 

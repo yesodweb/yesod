@@ -1,3 +1,7 @@
+## 1.6.0.1
+
+* Remove unnecessary deriving of Typeable
+
 ## 1.6.0
 
 * Upgrade to yesod-core 1.6

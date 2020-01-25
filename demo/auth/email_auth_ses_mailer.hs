@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -15,7 +14,6 @@ import           Data.Yaml
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy.Encoding as LTE
-import           Data.Typeable (Typeable)
 import           Database.Persist.Sqlite
 import           Database.Persist.TH
 import           Network.Mail.Mime
@@ -37,7 +35,6 @@ User
     verkey Text Maybe -- Used for resetting passwords
     verified Bool
     UniqueUser email
-    deriving Typeable
 |]
 
 data App = App

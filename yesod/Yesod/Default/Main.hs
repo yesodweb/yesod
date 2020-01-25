@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 module Yesod.Default.Main

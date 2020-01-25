@@ -1,3 +1,7 @@
+## 1.6.0.2
+
+* Remove unnecessary deriving of Typeable
+
 ## 1.6.0.1
 
 * Make test suite build with GHC 8.6 [#1561](https://github.com/yesodweb/yesod/pull/1561)
