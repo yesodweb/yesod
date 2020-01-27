@@ -179,8 +179,8 @@ loadConfig :: ConfigSettings environment extra
            -> IO (AppConfig environment extra)
 loadConfig (ConfigSettings env parseExtra getFile getObject) = do
     fp <- getFile env
-    mtopObj <- decodeFile fp
-    topObj <- maybe (fail "Invalid YAML file") return mtopObj
+    etopObj <- decodeFileEither fp
+    topObj <- either (const $ fail "Invalid YAML file") return etopObj
     obj <- getObject env topObj
     m <-
         case obj of
@@ -232,9 +232,10 @@ withYamlEnvironment :: Show e
                     -> (Value -> Parser a) -- ^ what to do with the mapping
                     -> IO a
 withYamlEnvironment fp env f = do
-    mval <- decodeFile fp
+    mval <- decodeFileEither fp
     case mval of
-        Nothing -> fail $ "Invalid YAML file: " ++ show fp
-        Just (Object obj)
+        Left err ->
+          fail $ "Invalid YAML file: " ++ show fp ++ " " ++ prettyPrintParseException err
+        Right (Object obj)
             | Just v <- M.lookup (T.pack $ show env) obj -> parseMonad f v
         _ -> fail $ "Could not find environment: " ++ show env
