@@ -385,6 +385,10 @@ class ( YesodAuth site
       -> AuthHandler site TypedContent
     setPasswordHandler = defaultSetPasswordHandler
 
+
+    registerHelper :: Bool -> Bool -> Route Auth -> AuthHandler site TypedContent
+    registerHelper = defaultRegisterHelper
+
 authEmail :: (YesodAuthEmail m) => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch emailLoginHandler
@@ -516,12 +520,12 @@ parseRegister = withObject "email" (\obj -> do
                                       pass <- obj .:? "password"
                                       return (email, pass))
 
-registerHelper :: YesodAuthEmail master
-               => Bool -- ^ allow usernames?
-               -> Bool -- ^ forgot password?
-               -> Route Auth
-               -> AuthHandler master TypedContent
-registerHelper allowUsername forgotPassword dest = do
+defaultRegisterHelper :: YesodAuthEmail master
+                      => Bool -- ^ allow usernames?
+                      -> Bool -- ^ forgot password?
+                      -> Route Auth
+                      -> AuthHandler master TypedContent
+defaultRegisterHelper allowUsername forgotPassword dest = do
     y <- getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
     result <- runInputPostResult $ (,)
