@@ -113,6 +113,8 @@ module Yesod.Auth.Email
     , defaultRegisterHandler
     , defaultForgotPasswordHandler
     , defaultSetPasswordHandler
+     -- * Default helpers
+    , defaultRegisterHelper
     ) where
 
 import           Yesod.Auth
@@ -386,8 +388,33 @@ class ( YesodAuth site
     setPasswordHandler = defaultSetPasswordHandler
 
 
-    registerHelper :: Bool -> Bool -> Route Auth -> AuthHandler site TypedContent
-    registerHelper = defaultRegisterHelper
+    -- | Helper that controls what happens after a user registration
+    -- request is submitted. This method can be overridden to completely
+    -- customize what happens during the user registration process,
+    -- such as for handling additional fields in the registration form.
+    --
+    -- The default implementation is in terms of 'defaultRegisterHelper'.
+    --
+    -- @since: 1.6.9
+    registerHelper :: Route Auth
+                      -- ^ Where to sent the user in the event
+                      -- that registration fails
+                   -> AuthHandler site TypedContent
+    registerHelper = defaultRegisterHelper False False
+
+    -- | Helper that controls what happens after a forgot password
+    -- request is submitted. As with `registerHelper`, this method can
+    -- be overridden to customize the behavior when a user attempts
+    -- to recover their password.
+    --
+    -- The default implementation is in terms of 'defaultRegisterHelper'.
+    --
+    -- @since: 1.6.9
+    passwordResetHelper :: Route Auth
+                           -- ^ Where to sent the user in the event
+                           -- that the password reset fails
+                        -> AuthHandler site TypedContent
+    passwordResetHelper = defaultRegisterHelper True True
 
 authEmail :: (YesodAuthEmail m) => AuthPlugin m
 authEmail =
@@ -521,8 +548,8 @@ parseRegister = withObject "email" (\obj -> do
                                       return (email, pass))
 
 defaultRegisterHelper :: YesodAuthEmail master
-                      => Bool -- ^ allow usernames?
-                      -> Bool -- ^ forgot password?
+                      => Bool -- ^ Allow lookup via username in addition to email
+                      -> Bool -- ^ Set to `True` for forgot password flow, `False` for new account registration
                       -> Route Auth
                       -> AuthHandler master TypedContent
 defaultRegisterHelper allowUsername forgotPassword dest = do
@@ -553,7 +580,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                     _ -> Nothing
 
     case eidentifier of
-      Left route -> loginErrorMessageI dest route
+      Left failMsg -> loginErrorMessageI dest failMsg
       Right identifier -> do
             mecreds <- getEmailCreds identifier
             registerCreds <-
@@ -590,7 +617,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
 
 
 postRegisterR :: YesodAuthEmail master => AuthHandler master TypedContent
-postRegisterR = registerHelper False False registerR
+postRegisterR = registerHelper registerR
 
 getForgotPasswordR :: YesodAuthEmail master => AuthHandler master Html
 getForgotPasswordR = forgotPasswordHandler
@@ -634,7 +661,7 @@ defaultForgotPasswordHandler = do
         }
 
 postForgotPasswordR :: YesodAuthEmail master => AuthHandler master TypedContent
-postForgotPasswordR = registerHelper True True forgotPasswordR
+postForgotPasswordR = passwordResetHelper forgotPasswordR
 
 getVerifyR :: YesodAuthEmail site
            => AuthEmailId site
