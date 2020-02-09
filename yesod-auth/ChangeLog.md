@@ -2,7 +2,7 @@
 
 ## 1.6.9
 
-* Added `registerHelper` and `passwordResetHelper` methods to the `YesodAuthEmail` class, allowing for customizing behavior for user registration and forgot password requests
+* Added `registerHelper` and `passwordResetHelper` methods to the `YesodAuthEmail` class, allowing for customizing behavior for user registration and forgot password requests [#1660](https://github.com/yesodweb/yesod/pull/1660)
 * Exposed `defaultRegisterHelper` as default implementation for the above methods
 
 ## 1.6.8.1
