@@ -55,7 +55,7 @@ import           Control.Monad.Reader               (MonadReader (..))
 import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
-import UnliftIO (MonadUnliftIO (..), UnliftIO (..))
+import UnliftIO (MonadUnliftIO (..))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -437,9 +437,8 @@ instance PrimMonad (WidgetFor site) where
     primitive = liftIO . primitive
 -- | @since 1.4.38
 instance MonadUnliftIO (WidgetFor site) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = WidgetFor $ \wd ->
-                return (UnliftIO (flip unWidgetFor wd))
+  {-# INLINE withRunInIO #-}
+  withRunInIO inner = WidgetFor $ \x -> inner $ flip unWidgetFor x
 instance MonadReader (WidgetData site) (WidgetFor site) where
     ask = WidgetFor return
     local f (WidgetFor g) = WidgetFor $ g . f
@@ -476,9 +475,8 @@ instance MonadReader (HandlerData site site) (HandlerFor site) where
 
 -- | @since 1.4.38
 instance MonadUnliftIO (HandlerFor site) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = HandlerFor $ \r ->
-                return (UnliftIO (flip unHandlerFor r))
+  {-# INLINE withRunInIO #-}
+  withRunInIO inner = HandlerFor $ \x -> inner $ flip unHandlerFor x
 
 instance MonadThrow (HandlerFor site) where
     throwM = liftIO . throwM
@@ -549,9 +547,8 @@ instance MonadReader (HandlerData child master) (SubHandlerFor child master) whe
 
 -- | @since 1.4.38
 instance MonadUnliftIO (SubHandlerFor child master) where
-  {-# INLINE askUnliftIO #-}
-  askUnliftIO = SubHandlerFor $ \r ->
-                return (UnliftIO (flip unSubHandlerFor r))
+  {-# INLINE withRunInIO #-}
+  withRunInIO inner = SubHandlerFor $ \x -> inner $ flip unSubHandlerFor x
 
 instance MonadThrow (SubHandlerFor child master) where
     throwM = liftIO . throwM

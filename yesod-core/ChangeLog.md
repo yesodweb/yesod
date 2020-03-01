@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.17.3
+
+* Support for `unliftio-core` 0.2
+
 ## 1.6.17.2
 
 * Support template-haskell 2.16, build with GHC 8.10 [#1657](https://github.com/yesodweb/yesod/pull/1657)
