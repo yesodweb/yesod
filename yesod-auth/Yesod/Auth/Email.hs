@@ -212,6 +212,18 @@ class ( YesodAuth site
     -- @since 1.1.0
     sendVerifyEmail :: Email -> VerKey -> VerUrl -> AuthHandler site ()
 
+    -- | Send an email to the given address to re-verify ownership in the case of
+    -- a password reset. This can be used to send a different email when a user
+    -- goes through the 'forgot password' flow as opposed to the 'account registration'
+    -- flow.
+    --
+    -- Default: Will call 'sendVerifyEmail', resulting in the same email getting sent
+    -- for both registrations and password resets.
+    --
+    -- @since 1.6.10
+    sendForgotPasswordEmail :: Email -> VerKey -> VerUrl -> AuthHandler site ()
+    sendForgotPasswordEmail = sendVerifyEmail
+
     -- | Get the verification key for the given email ID.
     --
     -- @since 1.1.0
@@ -604,7 +616,8 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
                 Just creds@(_, False, _, _) -> sendConfirmationEmail creds
                 Just creds@(_, True, _, _) -> do
-                  if forgotPassword then sendConfirmationEmail creds
+                  if forgotPassword
+                    then sendConfirmationEmail creds
                     else case emailPreviouslyRegisteredResponse identifier of
                       Just response -> response
                       Nothing -> sendConfirmationEmail creds
@@ -612,7 +625,9 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                       render <- getUrlRender
                       tp <- getRouteToParent
                       let verUrl = render $ tp $ verifyR (toPathPiece lid) verKey (isJust mpass)
-                      sendVerifyEmail email verKey verUrl
+                      if forgotPassword
+                         then sendForgotPasswordEmail email verKey verUrl
+                         else sendVerifyEmail email verKey verUrl
                       confirmationEmailSentResponse identifier
 
 
