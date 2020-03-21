@@ -680,7 +680,10 @@ getVerifyR lid key hasSetPass = do
                 Just uid -> do
                     setCreds False $ Creds "email-verify" email [("verifiedEmail", email)] -- FIXME uid?
                     setLoginLinkKey uid
-                    let msgAv = Msg.AddressVerified
+                    let msgAv = if hasSetPass then
+                                    Msg.EmailVerified
+                                else
+                                    Msg.EmailVerifiedChangePass
                     selectRep $ do
                       provideRep $ do
                         addMessageI "success" msgAv
