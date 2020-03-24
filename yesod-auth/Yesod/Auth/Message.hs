@@ -40,6 +40,8 @@ data AuthMessage =
     | ConfirmationEmailSentTitle
     | ConfirmationEmailSent Text
     | AddressVerified
+    | EmailVerifiedChangePass
+    | EmailVerified
     | InvalidKeyTitle
     | InvalidKey
     | InvalidEmailPass
@@ -69,6 +71,7 @@ data AuthMessage =
     | LogoutTitle
     | AuthError
 {-# DEPRECATED Logout "Please, use LogoutTitle instead." #-}
+{-# DEPRECATED AddressVerified "Please, use EmailVerifiedChangePass instead." #-}
 
 -- | Defaults to 'englishMessage'.
 defaultMessage :: AuthMessage -> Text
@@ -91,7 +94,9 @@ englishMessage (ConfirmationEmailSent email) =
     "A confirmation e-mail has been sent to " `Data.Monoid.mappend`
     email `mappend`
     "."
-englishMessage AddressVerified = "Address verified, please set a new password"
+englishMessage AddressVerified = "Email address verified, please set a new password"
+englishMessage EmailVerifiedChangePass = "Email address verified, please set a new password"
+englishMessage EmailVerified = "Email address verified"
 englishMessage InvalidKeyTitle = "Invalid verification key"
 englishMessage InvalidKey = "I'm sorry, but that was an invalid verification key."
 englishMessage InvalidEmailPass = "Invalid email/password combination"
@@ -139,6 +144,8 @@ portugueseMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 portugueseMessage AddressVerified = "Endereço verificado, por favor entre com uma nova senha"
+portugueseMessage EmailVerifiedChangePass = "Endereço verificado, por favor entre com uma nova senha"
+portugueseMessage EmailVerified = "Endereço verificado"
 portugueseMessage InvalidKeyTitle = "Chave de verificação inválida"
 portugueseMessage InvalidKey = "Por favor nos desculpe, mas essa é uma chave de verificação inválida."
 portugueseMessage InvalidEmailPass = "E-mail e/ou senha inválidos"
@@ -187,6 +194,8 @@ spanishMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 spanishMessage AddressVerified = "Dirección verificada, por favor introduzca una contraseña"
+spanishMessage EmailVerifiedChangePass = "Dirección verificada, por favor introduzca una contraseña"
+spanishMessage EmailVerified = "Dirección verificada"
 spanishMessage InvalidKeyTitle = "Clave de verificación invalida"
 spanishMessage InvalidKey = "Lo sentimos, pero esa clave de verificación es inválida."
 spanishMessage InvalidEmailPass = "La combinación cuenta de correo/contraseña es inválida"
@@ -235,6 +244,8 @@ swedishMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 swedishMessage AddressVerified = "Adress verifierad, vänligen välj nytt lösenord"
+swedishMessage EmailVerifiedChangePass = "Adress verifierad, vänligen välj nytt lösenord"
+swedishMessage EmailVerified = "Adress verifierad"
 swedishMessage InvalidKeyTitle = "Ogiltig verifikationsnyckel"
 swedishMessage InvalidKey = "Tyvärr, du angav en ogiltig verifimationsnyckel."
 swedishMessage InvalidEmailPass = "Ogiltig epost/lösenord kombination"
@@ -284,6 +295,8 @@ germanMessage (ConfirmationEmailSent email) =
     email `mappend`
     " versandt."
 germanMessage AddressVerified = "Adresse bestätigt, bitte neues Passwort angeben"
+germanMessage EmailVerifiedChangePass = "Adresse bestätigt, bitte neues Passwort angeben"
+germanMessage EmailVerified = "Adresse bestätigt"
 germanMessage InvalidKeyTitle = "Ungültiger Bestätigungsschlüssel"
 germanMessage InvalidKey = "Das war leider ein ungültiger Bestätigungsschlüssel"
 germanMessage InvalidEmailPass = "Ungültiger Nutzername oder Passwort"
@@ -332,6 +345,8 @@ frenchMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 frenchMessage AddressVerified = "Votre adresse électronique a été validée, merci de choisir un nouveau mot de passe."
+frenchMessage EmailVerifiedChangePass = "Votre adresse électronique a été validée, merci de choisir un nouveau mot de passe."
+frenchMessage EmailVerified = "Votre adresse électronique a été validée"
 frenchMessage InvalidKeyTitle = "Clef de validation incorrecte"
 frenchMessage InvalidKey = "Désolé, mais cette clef de validation est incorrecte"
 frenchMessage InvalidEmailPass = "La combinaison de ce mot de passe et de cette adresse électronique n'existe pas."
@@ -379,6 +394,8 @@ norwegianBokmålMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 norwegianBokmålMessage AddressVerified = "Adresse verifisert, vennligst sett et nytt passord."
+norwegianBokmålMessage EmailVerifiedChangePass = "Adresse verifisert, vennligst sett et nytt passord."
+norwegianBokmålMessage EmailVerified = "Adresse verifisert"
 norwegianBokmålMessage InvalidKeyTitle = "Ugyldig verifiseringsnøkkel"
 norwegianBokmålMessage InvalidKey = "Beklager, men det var en ugyldig verifiseringsnøkkel."
 norwegianBokmålMessage InvalidEmailPass = "Ugyldig e-post/passord-kombinasjon"
@@ -427,6 +444,8 @@ japaneseMessage (ConfirmationEmailSent email) =
     email `mappend`
     " に送信しました"
 japaneseMessage AddressVerified = "アドレスは認証されました。新しいパスワードを設定してください"
+japaneseMessage EmailVerifiedChangePass = "アドレスは認証されました。新しいパスワードを設定してください"
+japaneseMessage EmailVerified = "アドレスは認証されました"
 japaneseMessage InvalidKeyTitle = "認証キーが無効です"
 japaneseMessage InvalidKey = "申し訳ありません。無効な認証キーです"
 japaneseMessage InvalidEmailPass = "メールアドレスまたはパスワードが無効です"
@@ -476,6 +495,8 @@ finnishMessage (ConfirmationEmailSent email) =
     "."
 
 finnishMessage AddressVerified = "Sähköpostiosoite vahvistettu. Anna uusi salasana"
+finnishMessage EmailVerifiedChangePass = "Sähköpostiosoite vahvistettu. Anna uusi salasana"
+finnishMessage EmailVerified = "Sähköpostiosoite vahvistettu"
 finnishMessage InvalidKeyTitle = "Virheellinen varmistusavain"
 finnishMessage InvalidKey = "Valitettavasti varmistusavain on virheellinen."
 finnishMessage InvalidEmailPass = "Virheellinen sähköposti tai salasana."
@@ -524,6 +545,8 @@ chineseMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 chineseMessage AddressVerified = "地址验证成功，请设置新密码"
+chineseMessage EmailVerifiedChangePass = "地址验证成功，请设置新密码"
+chineseMessage EmailVerified = "地址验证成功"
 chineseMessage InvalidKeyTitle = "无效的验证码"
 chineseMessage InvalidKey = "对不起，验证码无效。"
 chineseMessage InvalidEmailPass = "无效的邮箱/密码组合"
@@ -569,6 +592,8 @@ czechMessage ConfirmationEmailSentTitle = "Potvrzovací e-mail odeslán"
 czechMessage (ConfirmationEmailSent email) =
     "Potvrzovací e-mail byl odeslán na " `mappend` email `mappend` "."
 czechMessage AddressVerified = "Adresa byla ověřena, prosím nastavte si nové heslo"
+czechMessage EmailVerifiedChangePass = "Adresa byla ověřena, prosím nastavte si nové heslo"
+czechMessage EmailVerified = "Adresa byla ověřena"
 czechMessage InvalidKeyTitle = "Neplatný ověřovací klíč"
 czechMessage InvalidKey = "Bohužel, ověřovací klíč je neplatný."
 czechMessage InvalidEmailPass = "Neplatná kombinace e-mail/heslo"
@@ -619,6 +644,8 @@ russianMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 russianMessage AddressVerified = "Адрес подтверждён. Пожалуйста, установите новый пароль."
+russianMessage EmailVerifiedChangePass = "Адрес подтверждён. Пожалуйста, установите новый пароль."
+russianMessage EmailVerified = "Адрес подтверждён"
 russianMessage InvalidKeyTitle = "Неверный ключ подтверждения"
 russianMessage InvalidKey = "Извините, но ключ подтверждения оказался недействительным."
 russianMessage InvalidEmailPass = "Неверное сочетание эл.почты и пароля"
@@ -666,6 +693,8 @@ dutchMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 dutchMessage AddressVerified = "Adres geverifieerd, stel alstublieft een nieuwe wachtwoord in"
+dutchMessage EmailVerifiedChangePass = "Adres geverifieerd, stel alstublieft een nieuwe wachtwoord in"
+dutchMessage EmailVerified = "Adres geverifieerd"
 dutchMessage InvalidKeyTitle = "Ongeldig verificatietoken"
 dutchMessage InvalidKey = "Dat was helaas een ongeldig verificatietoken."
 dutchMessage InvalidEmailPass = "Ongeldige e-mailadres/wachtwoord combinatie"
@@ -713,6 +742,8 @@ croatianMessage PasswordResetPrompt = "Dolje unesite adresu e-pošte ili korisni
 croatianMessage ConfirmationEmailSentTitle = "E-poruka za potvrdu"
 croatianMessage (ConfirmationEmailSent email) = "E-poruka za potvrdu poslana je na adresu " <> email <> "."
 croatianMessage AddressVerified = "Adresa ovjerena, postavite novu lozinku"
+croatianMessage EmailVerifiedChangePass = "Adresa ovjerena, postavite novu lozinku"
+croatianMessage EmailVerified = "Adresa ovjerena"
 croatianMessage InvalidKeyTitle = "Ključ za ovjeru nije valjan"
 croatianMessage InvalidKey = "Nažalost, taj ključ za ovjeru nije valjan."
 croatianMessage InvalidEmailPass = "Kombinacija e-pošte i lozinke nije valjana"
@@ -757,6 +788,8 @@ danishMessage (ConfirmationEmailSent email) =
     email `mappend`
     "."
 danishMessage AddressVerified = "Adresse bekræftet, sæt venligst et nyt kodeord"
+danishMessage EmailVerifiedChangePass = "Adresse bekræftet, sæt venligst et nyt kodeord"
+danishMessage EmailVerified = "Adresse bekræftet"
 danishMessage InvalidKeyTitle = "Ugyldig verifikationsnøgle"
 danishMessage InvalidKey = "Beklager, det var en ugyldigt verifikationsnøgle."
 danishMessage InvalidEmailPass = "Ugyldigt e-mail/kodeord"
@@ -804,6 +837,8 @@ koreanMessage (ConfirmationEmailSent email) =
     email `mappend`
     "에 보냈습니다."
 koreanMessage AddressVerified = "주소가 인증되었습니다. 새 비밀번호를 설정하세요."
+koreanMessage EmailVerifiedChangePass = "주소가 인증되었습니다. 새 비밀번호를 설정하세요."
+koreanMessage EmailVerified = "주소가 인증되었습니다"
 koreanMessage InvalidKeyTitle = "인증키가 잘못되었습니다"
 koreanMessage InvalidKey = "죄송합니다. 잘못된 인증키입니다."
 koreanMessage InvalidEmailPass = "이메일 주소나 비밀번호가 잘못되었습니다"

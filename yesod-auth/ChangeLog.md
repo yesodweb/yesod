@@ -1,5 +1,12 @@
 # ChangeLog for yesod-auth
 
+## 1.6.10
+
+* Updated `AuthMessage` data type in `Yesod.Auth.Message` to accommodate registration flow where password is supplied initially: deprecated `AddressVerified` and split into `EmailVerifiedChangePass` and `EmailVerified`
+* Fixed a bug in `getVerifyR` related to the above, where the incorrect message was displayed when password was set during registration
+* Added `sendForgotPasswordEmail` to `YesodAuthEmail` typeclass, allowing for different emails for account registration vs. forgot password
+* See pull request [#1662](https://github.com/yesodweb/yesod/pull/1662)
+
 ## 1.6.9
 
 * Added `registerHelper` and `passwordResetHelper` methods to the `YesodAuthEmail` class, allowing for customizing behavior for user registration and forgot password requests [#1660](https://github.com/yesodweb/yesod/pull/1660)
