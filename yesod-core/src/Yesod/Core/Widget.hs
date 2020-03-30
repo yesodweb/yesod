@@ -8,6 +8,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE QuasiQuotes #-}
+
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Core.Widget
