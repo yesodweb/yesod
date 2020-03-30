@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18
+
+* Add functions for setting description and OG meta [#1663](https://github.com/yesodweb/yesod/pull/1663)
+
 ## 1.6.17.3
 
 * Support for `unliftio-core` 0.2

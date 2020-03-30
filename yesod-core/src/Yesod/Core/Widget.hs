@@ -8,6 +8,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE QuasiQuotes #-}
+
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Core.Widget
@@ -29,6 +31,10 @@ module Yesod.Core.Widget
       -- ** Head of page
     , setTitle
     , setTitleI
+    , setDescription
+    , setDescriptionI
+    , setOGType
+    , setOGImage
       -- ** CSS
     , addStylesheet
     , addStylesheetAttrs
@@ -160,17 +166,82 @@ instance ToWidgetHead site Javascript where
 instance ToWidgetHead site Html where
     toWidgetHead = toWidgetHead . const
 
--- | Set the page title. Calling 'setTitle' multiple times overrides previously
--- set values.
+-- | Set the page title.
+--
+-- Calling @setTitle@ or @setTitleI@ multiple times overrides previously set
+-- values.
+--
+-- SEO Notes:
+--
+--    * Title tags are the second most important on-page factor for SEO, after
+--      content
+--    * Every page should have a unique title tag
+--    * Start your title tag with your main targeted keyword
+--    * Don't stuff your keywords
+--    * Google typically shows 55-64 characters, so aim to keep your title
+--      length under 60 characters
 setTitle :: MonadWidget m => Html -> m ()
 setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
--- | Set the page title. Calling 'setTitle' multiple times overrides previously
--- set values.
+-- | Set the localised page title.
+--
+-- n.b. See comments for @setTitle@
 setTitleI :: (MonadWidget m, RenderMessage (HandlerSite m) msg) => msg -> m ()
 setTitleI msg = do
     mr <- getMessageRender
     setTitle $ toHtml $ mr msg
+
+-- | Add description meta tag to the head of the page
+--
+-- Google does not use the description tag as a ranking signal, but the
+-- contents of this tag will likely affect your click-through rate since it
+-- shows up in search results.
+--
+-- The average length of the description shown in Google's search results is
+-- about 160 characters on desktop, and about 130 characters on mobile, at time
+-- of writing.
+--
+-- Source: https://www.advancedwebranking.com/blog/meta-tags-important-in-seo/
+--
+-- @since 1.6.18
+setDescription :: MonadWidget m => Text -> m ()
+setDescription description =
+    toWidgetHead $ [hamlet|<meta name=description content=#{description}>|]
+
+-- | Add translated description meta tag to the head of the page
+--
+-- n.b. See comments for @setDescription@.
+--
+-- @since 1.6.18
+setDescriptionI
+  :: (MonadWidget m, RenderMessage (HandlerSite m) msg)
+  => msg -> m ()
+setDescriptionI msg = do
+    mr <- getMessageRender
+    toWidgetHead $ [hamlet|<meta name=description content=#{mr msg}>|]
+
+-- | Add OpenGraph type meta tag to the head of the page
+--
+-- See all available OG types here: https://ogp.me/#types
+--
+-- @since 1.6.18
+setOGType :: MonadWidget m => Text -> m ()
+setOGType a = toWidgetHead $ [hamlet|<meta name="og:type" content=#{a}>|]
+
+-- | Add OpenGraph image meta tag to the head of the page
+--
+-- Best practices:
+--
+--    * Use custom images for shareable pages, e.g., homepage, articles, etc.
+--    * Use your logo or any other branded image for the rest of your pages.
+--    * Use images with a 1.91:1 ratio and minimum recommended dimensions of
+--      1200x630 for optimal clarity across all devices.
+--
+-- Source: https://ahrefs.com/blog/open-graph-meta-tags/
+--
+-- @since 1.6.18
+setOGImage :: MonadWidget m => Text -> m ()
+setOGImage a = toWidgetHead $ [hamlet|<meta name="og:image" content=#{a}>|]
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: MonadWidget m => Route (HandlerSite m) -> m ()
