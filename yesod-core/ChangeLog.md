@@ -4,6 +4,11 @@
 
 * Add functions for setting description and OG meta [#1663](https://github.com/yesodweb/yesod/pull/1663)
 
+* Use `DeriveLift` to implement the `Lift` instances for `ResourceTree`,
+  `Resource`, `Piece`, and `Dispatch`. Among other benefits, this provides
+  implementations of `liftTyped` on `template-haskell-2.16` (GHC 8.10) or
+  later. [#1664](https://github.com/yesodweb/yesod/pull/1664)
+
 ## 1.6.17.3
 
 * Support for `unliftio-core` 0.2
