@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveLift #-}
 -- | Warning! This module is considered internal and may have breaking changes
 module Yesod.Routes.TH.Types
     ( -- * Data types
@@ -21,7 +21,7 @@ import Language.Haskell.TH.Syntax
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
     | ResourceParent String CheckOverlap [Piece typ] [ResourceTree typ]
-    deriving (Show, Functor)
+    deriving (Lift, Show, Functor)
 
 resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
@@ -31,10 +31,6 @@ resourceTreeName :: ResourceTree typ -> String
 resourceTreeName (ResourceLeaf r) = resourceName r
 resourceTreeName (ResourceParent x _ _ _) = x
 
-instance Lift t => Lift (ResourceTree t) where
-    lift (ResourceLeaf r) = [|ResourceLeaf $(lift r)|]
-    lift (ResourceParent a b c d) = [|ResourceParent $(lift a) $(lift b) $(lift c) $(lift d)|]
-
 data Resource typ = Resource
     { resourceName :: String
     , resourcePieces :: [Piece typ]
@@ -42,23 +38,16 @@ data Resource typ = Resource
     , resourceAttrs :: [String]
     , resourceCheck :: CheckOverlap
     }
-    deriving (Show, Functor)
+    deriving (Lift, Show, Functor)
 
 type CheckOverlap = Bool
 
-instance Lift t => Lift (Resource t) where
-    lift (Resource a b c d e) = [|Resource a b c d e|]
-
 data Piece typ = Static String | Dynamic typ
-    deriving Show
+    deriving (Lift, Show)
 
 instance Functor Piece where
     fmap _ (Static s)  = Static s
     fmap f (Dynamic t) = Dynamic (f t)
-
-instance Lift t => Lift (Piece t) where
-    lift (Static s)  = [|Static  $(lift s)|]
-    lift (Dynamic t) = [|Dynamic $(lift t)|]
 
 data Dispatch typ =
     Methods
@@ -69,16 +58,11 @@ data Dispatch typ =
         { subsiteType :: typ
         , subsiteFunc :: String
         }
-    deriving Show
+    deriving (Lift, Show)
 
 instance Functor Dispatch where
     fmap f (Methods a b) = Methods (fmap f a) b
     fmap f (Subsite a b) = Subsite (f a) b
-
-instance Lift t => Lift (Dispatch t) where
-    lift (Methods Nothing b) = [|Methods Nothing $(lift b)|]
-    lift (Methods (Just t) b) = [|Methods (Just $(lift t)) $(lift b)|]
-    lift (Subsite t b) = [|Subsite $(lift t) $(lift b)|]
 
 resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
