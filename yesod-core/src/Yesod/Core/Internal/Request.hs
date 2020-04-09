@@ -51,7 +51,7 @@ limitRequestBody maxLen req = do
     ref <- newIORef maxLen
     return req
         { W.requestBody = do
-            bs <- W.getRequestBodyChunk req
+            bs <- W.requestBody req
             remaining <- readIORef ref
             let len = fromIntegral $ S8.length bs
                 remaining' = remaining - len

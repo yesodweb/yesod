@@ -1430,7 +1430,7 @@ rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
-            bs <- liftIO $ W.getRequestBodyChunk req
+            bs <- liftIO $ W.requestBody req
             unless (S.null bs) $ do
                 yield bs
                 loop
