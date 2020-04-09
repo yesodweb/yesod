@@ -51,7 +51,7 @@ limitRequestBody maxLen req = do
     ref <- newIORef maxLen
     return req
         { W.requestBody = do
-            bs <- W.requestBody req
+            bs <- W.getRequestBodyChunk req
             remaining <- readIORef ref
             let len = fromIntegral $ S8.length bs
                 remaining' = remaining - len
@@ -66,7 +66,7 @@ tooLargeResponse :: Word64 -> Word64 -> W.Response
 tooLargeResponse maxLen bodyLen = W.responseLBS
     (Status 413 "Too Large")
     [("Content-Type", "text/plain")]
-    (L.concat 
+    (L.concat
         [ "Request body too large to be processed. The maximum size is "
         , (LS8.pack (show maxLen))
         , " bytes; your request body was "

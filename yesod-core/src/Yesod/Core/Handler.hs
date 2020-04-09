@@ -247,7 +247,6 @@ import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
-import           Yesod.Routes.Class            (Route)
 import           Data.ByteString.Builder (Builder)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
@@ -1431,7 +1430,7 @@ rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
-            bs <- liftIO $ W.requestBody req
+            bs <- liftIO $ W.getRequestBodyChunk req
             unless (S.null bs) $ do
                 yield bs
                 loop

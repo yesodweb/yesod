@@ -36,7 +36,7 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
-import           Yesod.Routes.Class           (Route, renderRoute)
+import           Yesod.Routes.Class           (renderRoute)
 import           Control.DeepSeq              (($!!), NFData)
 import           UnliftIO.Exception
 
@@ -343,7 +343,6 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
           yar <- runInternalState (runHandler rhe handler yreq') is
           yarToResponse yar saveSession yreq' req is sendResponse
   where
-    mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
 
 yesodRender :: Yesod y

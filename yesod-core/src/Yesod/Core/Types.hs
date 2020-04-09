@@ -28,7 +28,6 @@ import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
 import           Data.Monoid                        (Endo (..), Last (..))
-import           Data.Semigroup                     (Semigroup(..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
