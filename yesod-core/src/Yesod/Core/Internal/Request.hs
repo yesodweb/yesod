@@ -129,7 +129,7 @@ parseWaiRequest env session useToken mmaxBodySize =
                 -- Already have a token, use it.
                 Just bs -> Left $ Just $ decodeUtf8With lenientDecode bs
                 -- Don't have a token, get a random generator and make a new one.
-                Nothing -> Right $ fmap Just . randomString 10
+                Nothing -> Right $ fmap Just . randomString 40
         | otherwise = Left Nothing
 
 textQueryString :: W.Request -> [(Text, Text)]
