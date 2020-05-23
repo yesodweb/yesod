@@ -77,7 +77,7 @@ defaultMainLog load getApp = do
   where
     shouldLog' = Warp.defaultShouldDisplayException
 
--- | Run your application continously, listening for SIGINT and exiting
+-- | Run your application continuously, listening for SIGINT and exiting
 --   when received
 --
 --   > withYourSite :: AppConfig DefaultEnv -> Logger -> (Application -> IO a) -> IO ()
