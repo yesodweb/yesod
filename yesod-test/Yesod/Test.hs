@@ -745,7 +745,7 @@ htmlNoneContain query search = do
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > get HomeR
--- > htmlNoneContain "p" 3 -- There are exactly 3 <p> tags in the response
+-- > htmlCount "p" 3 -- There are exactly 3 <p> tags in the response
 htmlCount :: HasCallStack => Query -> Int -> YesodExample site ()
 htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
