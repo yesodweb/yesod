@@ -2,7 +2,7 @@
 
 ## 1.6.9.1
 
-* Improve documentation
+* Improve documentation [#1676](https://github.com/yesodweb/yesod/pull/1676)
 
 ## 1.6.9
 
