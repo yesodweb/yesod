@@ -3,6 +3,7 @@
 ## 1.6.9.1
 
 * Improve documentation [#1676](https://github.com/yesodweb/yesod/pull/1676)
+* Require GHC 8.2 (base >= 4.10)
 
 ## 1.6.9
 
