@@ -278,6 +278,9 @@ import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
 import Data.Aeson (FromJSON, eitherDecode')
 import Control.Monad (unless)
+import qualified Data.Set as Set
+import qualified Yesod.Core.Content as Content
+import qualified Data.ByteString.Lazy as LBS
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -569,17 +572,63 @@ assertEqualNoShow :: (HasCallStack, Eq a) => String -> a -> a -> YesodExample si
 assertEqualNoShow msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
 -- | Assert the last response status is as expected.
+-- If the status code doesn't match, a portion of the body is also printed to aid in debugging.
 --
 -- ==== __Examples__
 --
 -- > get HomeR
 -- > statusIs 200
 statusIs :: HasCallStack => Int -> YesodExample site ()
-statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
-  liftIO $ flip HUnit.assertBool (H.statusCode s == number) $ concat
-    [ "Expected status was ", show number
-    , " but received status was ", show $ H.statusCode s
-    ]
+statusIs number = do
+  withResponse $ \(SResponse status headers body) -> do
+    let mContentType = lookup hContentType headers
+        isUTF8ContentType = maybe False contentTypeHeaderIsUtf8 mContentType
+
+    liftIO $ flip HUnit.assertBool (H.statusCode status == number) $ concat
+      [ "Expected status was ", show number
+      , " but received status was ", show $ H.statusCode status
+      , if isUTF8ContentType
+          then ". For debugging, the body was: " <> (T.unpack $ getBodyTextPreview body)
+          else ""
+      ]
+
+-- | Helper function to determine if we can print a body as plain text, for debugging purposes
+contentTypeHeaderIsUtf8 :: BS8.ByteString -> Bool
+contentTypeHeaderIsUtf8 contentTypeBS =
+      -- Convert to Text, so we can use T.splitOn
+  let contentTypeText = T.toLower $ TE.decodeUtf8 contentTypeBS
+      isUTF8FromCharset = case T.splitOn "charset=" contentTypeText of
+        -- Either a specific designation as UTF-8, or ASCII (which is a subset of UTF-8)
+        [_, charSet] -> any (`T.isInfixOf` charSet) ["utf-8", "us-ascii"]
+        _ -> False
+
+      isInferredUTF8FromContentType = BS8.takeWhile (/= ';') contentTypeBS `Set.member` assumedUTF8ContentTypes
+
+  in isUTF8FromCharset || isInferredUTF8FromContentType
+
+-- | List of Content-Types that are assumed to be UTF-8 (e.g. JSON)
+assumedUTF8ContentTypes :: Set.Set BS8.ByteString
+assumedUTF8ContentTypes = Set.fromList $ map Content.simpleContentType
+  [ Content.typeHtml
+  , Content.typePlain
+  , Content.typeJson
+  , Content.typeXml
+  , Content.typeAtom
+  , Content.typeRss
+  , Content.typeSvg
+  , Content.typeJavascript
+  , Content.typeCss
+  ]
+
+-- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8
+-- This function is used to preview the body in case of an assertion failure
+getBodyTextPreview :: LBS.ByteString -> T.Text
+getBodyTextPreview body =
+  let characterLimit = 1024
+      textBody = TL.toStrict $ decodeUtf8 body
+  in if T.length textBody < characterLimit
+        then textBody
+        else T.take characterLimit textBody <> "... (use `printBody` to see complete response body)"
 
 -- | Assert the given header key/value pair was returned.
 --
@@ -774,13 +823,7 @@ requireJSONResponse = do
         isJSONContentType
         (failure $ T.pack $ "Expected `Content-Type: application/json` in the headers, got: " ++ show headers)
     case eitherDecode' body of
-        Left err -> do
-          let characterLimit = 1024
-              textBody = TL.toStrict $ decodeUtf8 body
-              bodyPreview = if T.length textBody < characterLimit
-                then textBody
-                else T.take characterLimit textBody <> "... (use `printBody` to see complete response body)"
-          failure $ T.concat ["Failed to parse JSON response; error: ", T.pack err, "JSON: ", bodyPreview]
+        Left err -> failure $ T.concat ["Failed to parse JSON response; error: ", T.pack err, "JSON: ", getBodyTextPreview body]
         Right v -> return v
 
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec). Useful for debugging.
