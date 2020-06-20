@@ -10,7 +10,6 @@ module Yesod.Test.Internal
   , assumedUTF8ContentTypes
   ) where
 
-
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Set as Set

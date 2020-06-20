@@ -2,6 +2,9 @@
 
 ## 1.6.9.2
 
+* `statusIs` assertion failures now print a preview of the response body, if the response body is UTF-8 or ASCII.
+* Adds an `Yesod.Test.Internal`, which exposes functions that yesod-test uses. These functions do _not_ constitute a stable API.
+
 ## 1.6.9.1
 
 * Improve documentation [#1676](https://github.com/yesodweb/yesod/pull/1676)
