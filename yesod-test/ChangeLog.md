@@ -1,5 +1,7 @@
 # ChangeLog for yesod-test
 
+## 1.6.9.2
+
 ## 1.6.9.1
 
 * Improve documentation [#1676](https://github.com/yesodweb/yesod/pull/1676)

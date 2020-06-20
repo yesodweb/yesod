@@ -249,7 +249,6 @@ import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
-import Yesod.Core.Json (contentTypeHeaderIsJson)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8, decodeUtf8With)
 import Text.XML.Cursor hiding (element)
@@ -278,9 +277,8 @@ import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
 import Data.Aeson (FromJSON, eitherDecode')
 import Control.Monad (unless)
-import qualified Data.Set as Set
-import qualified Yesod.Core.Content as Content
-import qualified Data.ByteString.Lazy as LBS
+
+import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -591,44 +589,6 @@ statusIs number = do
           then ". For debugging, the body was: " <> (T.unpack $ getBodyTextPreview body)
           else ""
       ]
-
--- | Helper function to determine if we can print a body as plain text, for debugging purposes
-contentTypeHeaderIsUtf8 :: BS8.ByteString -> Bool
-contentTypeHeaderIsUtf8 contentTypeBS =
-      -- Convert to Text, so we can use T.splitOn
-  let contentTypeText = T.toLower $ TE.decodeUtf8 contentTypeBS
-      isUTF8FromCharset = case T.splitOn "charset=" contentTypeText of
-        -- Either a specific designation as UTF-8, or ASCII (which is a subset of UTF-8)
-        [_, charSet] -> any (`T.isInfixOf` charSet) ["utf-8", "us-ascii"]
-        _ -> False
-
-      isInferredUTF8FromContentType = BS8.takeWhile (/= ';') contentTypeBS `Set.member` assumedUTF8ContentTypes
-
-  in isUTF8FromCharset || isInferredUTF8FromContentType
-
--- | List of Content-Types that are assumed to be UTF-8 (e.g. JSON)
-assumedUTF8ContentTypes :: Set.Set BS8.ByteString
-assumedUTF8ContentTypes = Set.fromList $ map Content.simpleContentType
-  [ Content.typeHtml
-  , Content.typePlain
-  , Content.typeJson
-  , Content.typeXml
-  , Content.typeAtom
-  , Content.typeRss
-  , Content.typeSvg
-  , Content.typeJavascript
-  , Content.typeCss
-  ]
-
--- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8
--- This function is used to preview the body in case of an assertion failure
-getBodyTextPreview :: LBS.ByteString -> T.Text
-getBodyTextPreview body =
-  let characterLimit = 1024
-      textBody = TL.toStrict $ decodeUtf8 body
-  in if T.length textBody < characterLimit
-        then textBody
-        else T.take characterLimit textBody <> "... (use `printBody` to see complete response body)"
 
 -- | Assert the given header key/value pair was returned.
 --
