@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | This module exposes functions that are used internally by yesod-test.
--- The functions exposed here are **not** a stable API—they may be changed or removed without any major version bump.
+-- The functions exposed here are _not_ a stable API—they may be changed or removed without any major version bump.
 --
 -- That said, you may find them useful if your application can accept API breakage.
 module Yesod.Test.Internal
@@ -20,8 +20,8 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as DTLE
 import qualified Yesod.Core.Content as Content
 
--- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8
--- This function is used to preview the body in case of an assertion failure
+-- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8.
+-- This function is used to preview the body in case of an assertion failure.
 --
 -- @since 1.6.9.2
 getBodyTextPreview :: LBS.ByteString -> T.Text
@@ -32,7 +32,7 @@ getBodyTextPreview body =
         then textBody
         else T.take characterLimit textBody <> "... (use `printBody` to see complete response body)"
 
--- | Helper function to determine if we can print a body as plain text, for debugging purposes
+-- | Helper function to determine if we can print a body as plain text, for debugging purposes.
 --
 -- @since 1.6.9.2
 contentTypeHeaderIsUtf8 :: BS8.ByteString -> Bool
@@ -48,7 +48,7 @@ contentTypeHeaderIsUtf8 contentTypeBS =
 
   in isUTF8FromCharset || isInferredUTF8FromContentType
 
--- | List of Content-Types that are assumed to be UTF-8 (e.g. JSON)
+-- | List of Content-Types that are assumed to be UTF-8 (e.g. JSON).
 --
 -- @since 1.6.9.2
 assumedUTF8ContentTypes :: Set.Set BS8.ByteString
