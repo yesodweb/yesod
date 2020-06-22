@@ -23,7 +23,7 @@ import Data.Semigroup (Semigroup(..))
 -- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8.
 -- This function is used to preview the body in case of an assertion failure.
 --
--- @since 1.6.9.2
+-- @since 1.6.10
 getBodyTextPreview :: LBS.ByteString -> T.Text
 getBodyTextPreview body =
   let characterLimit = 1024
@@ -34,7 +34,7 @@ getBodyTextPreview body =
 
 -- | Helper function to determine if we can print a body as plain text, for debugging purposes.
 --
--- @since 1.6.9.2
+-- @since 1.6.10
 contentTypeHeaderIsUtf8 :: BS8.ByteString -> Bool
 contentTypeHeaderIsUtf8 contentTypeBS =
       -- Convert to Text, so we can use T.splitOn
@@ -50,7 +50,7 @@ contentTypeHeaderIsUtf8 contentTypeBS =
 
 -- | List of Content-Types that are assumed to be UTF-8 (e.g. JSON).
 --
--- @since 1.6.9.2
+-- @since 1.6.10
 assumedUTF8ContentTypes :: Set.Set BS8.ByteString
 assumedUTF8ContentTypes = Set.fromList $ map Content.simpleContentType
   [ Content.typeHtml
