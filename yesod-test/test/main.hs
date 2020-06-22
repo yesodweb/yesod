@@ -45,6 +45,7 @@ import Control.Monad.IO.Unlift (toIO)
 import qualified Web.Cookie as Cookie
 import Data.Maybe (isNothing)
 import qualified Data.Text as T
+import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -125,6 +126,19 @@ main = hspec $ do
                         ]
                     ]
              in HD.parseLBS html @?= doc
+    describe "identifying text-based bodies" $ do
+        it "matches content-types with an explicit UTF-8 charset" $ do
+            contentTypeHeaderIsUtf8 "application/custom; charset=UTF-8" @?= True
+            contentTypeHeaderIsUtf8 "application/custom; charset=utf-8" @?= True
+        it "matches content-types with an ASCII charset" $ do
+            contentTypeHeaderIsUtf8 "application/custom; charset=us-ascii" @?= True
+        it "matches content-types that we assume are UTF-8" $ do
+            contentTypeHeaderIsUtf8 "text/html" @?= True
+            contentTypeHeaderIsUtf8 "application/json" @?= True
+        it "doesn't match content-type headers that are binary data" $ do
+            contentTypeHeaderIsUtf8 "image/gif" @?= False
+            contentTypeHeaderIsUtf8 "application/pdf" @?= False
+
     describe "basic usage" $ yesodSpec app $ do
         ydescribe "tests1" $ do
             yit "tests1a" $ do
