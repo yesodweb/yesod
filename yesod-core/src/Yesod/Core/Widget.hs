@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
@@ -57,6 +58,7 @@ module Yesod.Core.Widget
 
 import Data.Monoid
 import qualified Text.Blaze.Html5 as H
+import Text.Blaze.Html5.Attributes (type_)
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
@@ -143,6 +145,12 @@ instance render ~ RY site => ToWidgetBody site (render -> Javascript) where
     toWidgetBody j = toWidget $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetBody site Javascript where
     toWidgetBody j = toWidget $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
+instance render ~ RY site => ToWidgetBody site (render -> JavascriptModule) where
+    toWidgetBody j = toWidget $
+      \r -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptUrl r (fmap unModule j)
+instance ToWidgetBody site JavascriptModule where
+    toWidgetBody j = toWidget $
+      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascript (unModule j)
 instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
@@ -163,6 +171,13 @@ instance render ~ RY site => ToWidgetHead site (render -> Javascript) where
     toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetHead site Javascript where
     toWidgetHead j = toWidgetHead $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
+instance render ~ RY site => ToWidgetHead site (render -> JavascriptModule) where
+    toWidgetHead j = toWidgetHead $
+      \r -> H.script H.! type_ "module" $
+            preEscapedLazyText $ renderJavascriptUrl r (fmap unModule j)
+instance ToWidgetHead site JavascriptModule where
+    toWidgetHead j = toWidgetHead $
+      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascript (unModule j)
 instance ToWidgetHead site Html where
     toWidgetHead = toWidgetHead . const
 
