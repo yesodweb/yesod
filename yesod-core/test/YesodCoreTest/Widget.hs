@@ -9,6 +9,7 @@ module YesodCoreTest.Widget
 import Test.Hspec
 
 import Yesod.Core
+import Text.Julius (juliusModule)
 import Network.Wai
 import Network.Wai.Test
 
@@ -75,7 +76,9 @@ getTowidgetR :: Handler Html
 getTowidgetR = defaultLayout $ do
     toWidget [julius|toWidget|] :: Widget
     toWidgetHead [julius|toHead|]
+    toWidgetHead [juliusModule|toHeadModule|]
     toWidgetBody [julius|toBody|]
+    toWidgetBody [juliusModule|toBodyModule|]
 
     toWidget [lucius|toWidget{bar:baz}|]
     toWidgetHead [lucius|toHead{bar:baz}|]
@@ -95,7 +98,7 @@ widgetTest = describe "Test.Widget" $ do
     res <- request defaultRequest
         { pathInfo = ["towidget"]
         }
-    assertBody "<!DOCTYPE html>\n<html><head><title></title><script>toHead</script><toHead></toHead>\n<style>toWidget{bar:baz}toHead{bar:baz}</style></head><body><script>toBody</script><p>toWidget</p>\n<p>toBody</p>\n<script>toWidget</script></body></html>" res
+    assertBody "<!DOCTYPE html>\n<html><head><title></title><script>toHead</script><script type=\"module\">toHeadModule</script><toHead></toHead>\n<style>toWidget{bar:baz}toHead{bar:baz}</style></head><body><script>toBody</script><script type=\"module\">toBodyModule</script><p>toWidget</p>\n<p>toBody</p>\n<script>toWidget</script></body></html>" res
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f
