@@ -22,7 +22,7 @@ import Conduit
 import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
-import Text.Julius (juliusFile, juliusFileReload)
+import Text.Julius (juliusFile, juliusFileReload, juliusModuleFile, juliusModuleFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)
 import Text.Hamlet (HamletSettings, defaultHamletSettings)
 import Data.Maybe (catMaybes)
@@ -73,10 +73,11 @@ data TemplateLanguage = TemplateLanguage
 
 defaultTemplateLanguages :: HamletSettings -> [TemplateLanguage]
 defaultTemplateLanguages hset =
-    [ TemplateLanguage False "hamlet"  whamletFile' whamletFile'
-    , TemplateLanguage True  "cassius" cassiusFile  cassiusFileReload
-    , TemplateLanguage True  "julius"  juliusFile   juliusFileReload
-    , TemplateLanguage True  "lucius"  luciusFile   luciusFileReload
+    [ TemplateLanguage False "hamlet"  whamletFile'     whamletFile'
+    , TemplateLanguage True  "cassius" cassiusFile      cassiusFileReload
+    , TemplateLanguage True  "julius"  juliusFile       juliusFileReload
+    , TemplateLanguage True  "mjulius" juliusModuleFile juliusModuleFileReload
+    , TemplateLanguage True  "lucius"  luciusFile       luciusFileReload
     ]
   where
     whamletFile' = whamletFileWithSettings hset
