@@ -147,10 +147,10 @@ instance ToWidgetBody site Javascript where
     toWidgetBody j = toWidget $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
 instance render ~ RY site => ToWidgetBody site (render -> JavascriptModule) where
     toWidgetBody j = toWidget $
-      \r -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptUrl r (fmap unModule j)
+      \r -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptModuleUrl r j
 instance ToWidgetBody site JavascriptModule where
     toWidgetBody j = toWidget $
-      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascript (unModule j)
+      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptModule j
 instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
@@ -174,10 +174,10 @@ instance ToWidgetHead site Javascript where
 instance render ~ RY site => ToWidgetHead site (render -> JavascriptModule) where
     toWidgetHead j = toWidgetHead $
       \r -> H.script H.! type_ "module" $
-            preEscapedLazyText $ renderJavascriptUrl r (fmap unModule j)
+            preEscapedLazyText $ renderJavascriptModuleUrl r j
 instance ToWidgetHead site JavascriptModule where
     toWidgetHead j = toWidgetHead $
-      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascript (unModule j)
+      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptModule j
 instance ToWidgetHead site Html where
     toWidgetHead = toWidgetHead . const
 
