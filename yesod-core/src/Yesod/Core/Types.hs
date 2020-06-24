@@ -47,7 +47,7 @@ import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr
 import           Network.Wai.Logger                 (DateCacheGetter)
 import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
-import           Text.Julius                        (JavascriptUrl)
+import           Text.Julius                        (JavascriptUrl, JavascriptModuleUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
@@ -377,22 +377,23 @@ instance Semigroup (Body url) where
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 
 data GWData a = GWData
-    { gwdBody        :: !(Body a)
-    , gwdTitle       :: !(Last Title)
-    , gwdScripts     :: !(UniqueList (Script a))
-    , gwdStylesheets :: !(UniqueList (Stylesheet a))
-    , gwdCss         :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
-    , gwdJavascript  :: !(Maybe (JavascriptUrl a))
-    , gwdHead        :: !(Head a)
+    { gwdBody             :: !(Body a)
+    , gwdTitle            :: !(Last Title)
+    , gwdScripts          :: !(UniqueList (Script a))
+    , gwdStylesheets      :: !(UniqueList (Stylesheet a))
+    , gwdCss              :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
+    , gwdJavascript       :: !(Maybe (JavascriptUrl a))
+    , gwdJavascriptModule :: !(Maybe (JavascriptModuleUrl a))
+    , gwdHead             :: !(Head a)
     }
 instance Monoid (GWData a) where
-    mempty = GWData mempty mempty mempty mempty mempty mempty mempty
+    mempty = GWData mempty mempty mempty mempty mempty mempty mempty mempty
 #if !(MIN_VERSION_base(4,11,0))
     mappend = (<>)
 #endif
 instance Semigroup (GWData a) where
-    GWData a1 a2 a3 a4 a5 a6 a7 <>
-      GWData b1 b2 b3 b4 b5 b6 b7 = GWData
+    GWData a1 a2 a3 a4 a5 a6 a7 a8 <>
+      GWData b1 b2 b3 b4 b5 b6 b7 b8 = GWData
         (mappend a1 b1)
         (mappend a2 b2)
         (mappend a3 b3)
@@ -400,6 +401,7 @@ instance Semigroup (GWData a) where
         (unionWith mappend a5 b5)
         (mappend a6 b6)
         (mappend a7 b7)
+        (mappend a8 b8)
 
 data HandlerContents =
       HCContent !H.Status !TypedContent
