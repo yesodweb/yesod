@@ -1,3 +1,7 @@
+## 1.6.0.2
+
+* Replace deprecated decodeFile with decodeFileEither. This should have no semantic impact, but silences a deprecation warning. [#1658](https://github.com/yesodweb/yesod/pull/1658)
+
 ## 1.6.0.1
 
 * Remove unnecessary deriving of Typeable
