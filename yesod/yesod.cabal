@@ -8,12 +8,13 @@ synopsis:        Creation of type-safe, RESTful web applications.
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod>
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.10
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files: README.md ChangeLog.md
 
 library
+    default-language: Haskell2010
     if os(windows)
         cpp-options: -DWINDOWS
 
