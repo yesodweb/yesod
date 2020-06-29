@@ -62,18 +62,18 @@ addHandlerInteractive :: IO ()
 addHandlerInteractive = do
     cabal <- getCabal
     let routeInput = do
-        putStr "Name of route (without trailing R): "
-        hFlush stdout
-        name <- getLine
-        checked <- checkRoute name cabal
-        case checked of
-            Left err@EmptyRoute -> (error . show) err
-            Left err@RouteCaseError -> print err >> routeInput
-            Left err@(RouteExists _) -> do
-              print err
-              putStrLn "Try another name or leave blank to exit"
-              routeInput
-            Right p -> return p
+          putStr "Name of route (without trailing R): "
+          hFlush stdout
+          name <- getLine
+          checked <- checkRoute name cabal
+          case checked of
+              Left err@EmptyRoute -> (error . show) err
+              Left err@RouteCaseError -> print err >> routeInput
+              Left err@(RouteExists _) -> do
+                print err
+                putStrLn "Try another name or leave blank to exit"
+                routeInput
+              Right p -> return p
 
     routePair <- routeInput
     putStr "Enter route pattern (ex: /entry/#EntryId): "
