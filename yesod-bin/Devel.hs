@@ -345,7 +345,8 @@ devel opts passThroughArgs = do
         myPath <- getExecutablePath
         let procConfig = setStdout createSource
                        $ setStderr createSource
-                       $ setDelegateCtlc True $ proc "stack" $
+                       $ setCreateGroup True -- because need when yesod-bin killed and kill child ghc
+                       $ proc "stack" $
                 [ "build"
                 , "--fast"
                 , "--file-watch"
