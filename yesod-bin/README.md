@@ -83,6 +83,7 @@ Now some weird notes:
   `yesod devel` also writes to a file
   `yesod-devel/devel-terminate`. Your devel script should respect this
   file and shutdown whenever it exists.
+  (It may be fixed in 1.6.0.5.)
 * If your .cabal file defines them, `yesod devel` will tell Stack to
   build with the flags `dev` and `library-only`. You can use this to
   speed up compile times (biggest win: skip building executables, thus
