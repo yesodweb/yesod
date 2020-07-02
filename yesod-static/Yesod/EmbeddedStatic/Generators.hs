@@ -49,6 +49,7 @@ import qualified System.Process as Proc
 import System.Exit (ExitCode (ExitSuccess))
 import Control.Concurrent.Async (Concurrently (..))
 import System.IO (hClose)
+import Data.List (sort)
 
 import Yesod.EmbeddedStatic.Types
 
@@ -80,7 +81,7 @@ getRecursiveContents :: Location -- ^ The directory to search
                      -> FilePath   -- ^ The prefix to add to the filenames
                      -> IO [(Location,FilePath)]
 getRecursiveContents prefix topdir = do
-  names <- getDirectoryContents topdir
+  names <- sort <$> getDirectoryContents topdir
   let properNames = filter (`notElem` [".", ".."]) names
   paths <- forM properNames $ \name -> do
     let path = topdir </> name
