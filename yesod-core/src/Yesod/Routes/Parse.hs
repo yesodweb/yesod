@@ -35,9 +35,15 @@ parseRoutes = QuasiQuoter { quoteExp = x }
             [] -> lift res
             z -> error $ unlines $ "Overlapping routes: " : map show z
 
+-- | Same as 'parseRoutes', but uses an external file instead of quasiquotation.
+--
+-- The recommended file extension is @.yesodroutes@.
 parseRoutesFile :: FilePath -> Q Exp
 parseRoutesFile = parseRoutesFileWith parseRoutes
 
+-- | Same as 'parseRoutesNoCheck', but uses an external file instead of quasiquotation.
+--
+-- The recommended file extension is @.yesodroutes@.
 parseRoutesFileNoCheck :: FilePath -> Q Exp
 parseRoutesFileNoCheck = parseRoutesFileWith parseRoutesNoCheck
 

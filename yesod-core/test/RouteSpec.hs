@@ -227,7 +227,7 @@ main = hspec $ do
     describe "routing table parsing" $ do
         it "recognizes trailing backslashes as line continuation directives" $ do
             let routes :: [ResourceTree String]
-                routes = $(parseRoutesFile "test/fixtures/routes_with_line_continuations")
+                routes = $(parseRoutesFile "test/fixtures/routes_with_line_continuations.yesodroutes")
             length routes @?= 3
 
     describe "overlap checking" $ do

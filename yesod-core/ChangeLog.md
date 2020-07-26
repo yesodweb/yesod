@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.2
+
+* Recommends `.yesodroutes` as the file extension for Yesod routes files. []()
+
 ## 1.6.18.1
 
 * Increase the size of CSRF token
