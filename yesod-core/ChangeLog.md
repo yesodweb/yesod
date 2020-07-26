@@ -2,7 +2,7 @@
 
 ## 1.6.18.2
 
-* Recommends `.yesodroutes` as the file extension for Yesod routes files. []()
+* Recommends `.yesodroutes` as the file extension for Yesod routes files. [#1686](https://github.com/yesodweb/yesod/pull/1686)
 
 ## 1.6.18.1
 
