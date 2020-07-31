@@ -32,7 +32,6 @@ library
                    , email-validate        >= 1.0
                    , persistent
                    , resourcet
-                   , semigroups
                    , shakespeare           >= 2.0
                    , text                  >= 0.9
                    , time                  >= 1.1.4

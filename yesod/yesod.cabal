@@ -26,7 +26,6 @@ library
                    , directory
                    , fast-logger
                    , monad-logger
-                   , semigroups
                    , shakespeare
                    , streaming-commons
                    , template-haskell
