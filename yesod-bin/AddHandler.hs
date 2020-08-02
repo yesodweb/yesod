@@ -84,13 +84,22 @@ addHandlerInteractive = do
     methods <- getLine
     addHandlerFiles cabal routePair pattern methods
 
+getRoutesFilePath :: IO FilePath
+getRoutesFilePath = do
+    let oldPath = "config/routes"
+    oldExists <- doesFileExist oldPath
+    pure $ if oldExists
+        then oldPath
+        else "config/routes.yesodroutes"
+
 addHandlerFiles :: FilePath -> (String, FilePath) -> String -> String -> IO ()
 addHandlerFiles cabal (name, handlerFile) pattern methods = do
     src <- getSrcDir cabal
     let applicationFile = concat [src, "/Application.hs"]
     modify applicationFile $ fixApp name
     modify cabal $ fixCabal name
-    modify "config/routes" $ fixRoutes name pattern methods
+    routesPath <- getRoutesFilePath
+    modify routesPath $ fixRoutes name pattern methods
     writeFile handlerFile $ mkHandler name pattern methods
     specExists <- doesFileExist specFile
     unless specExists $
