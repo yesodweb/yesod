@@ -67,6 +67,7 @@ globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 -- | `globFile` but returned path is absolute and within the package the Q Exp is evaluated
+-- @since 1.6.1.0
 globFilePackage :: String -> String -> Q FilePath
 globFilePackage = (makeRelativeToProject <$>) . globFile
 
