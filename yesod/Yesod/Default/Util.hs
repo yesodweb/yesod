@@ -5,6 +5,7 @@
 module Yesod.Default.Util
     ( addStaticContentExternal
     , globFile
+    , globFilePackage
     , widgetFileNoReload
     , widgetFileReload
     , TemplateLanguage (..)
@@ -15,6 +16,7 @@ module Yesod.Default.Util
     ) where
 
 import qualified Data.ByteString.Lazy as L
+import Data.FileEmbed (makeRelativeToProject)
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
 import Control.Monad (when, unless)
@@ -63,6 +65,10 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
 -- | expects a file extension for each type, e.g: hamlet lucius julius
 globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
+
+-- | `globFile` but returned path is absolute and within the package the Q Exp is evaluated
+globFilePackage :: String -> String -> Q FilePath
+globFilePackage = (makeRelativeToProject <$>) . globFile
 
 data TemplateLanguage = TemplateLanguage
     { tlRequiresToWidget :: Bool

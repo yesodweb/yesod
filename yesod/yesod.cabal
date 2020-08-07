@@ -25,6 +25,7 @@ library
                    , data-default-class
                    , directory
                    , fast-logger
+                   , file-embed
                    , monad-logger
                    , shakespeare
                    , streaming-commons
