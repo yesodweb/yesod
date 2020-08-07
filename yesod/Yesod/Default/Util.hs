@@ -130,7 +130,7 @@ warnUnlessExists :: Bool
                  -> Bool -- ^ requires toWidget wrap
                  -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 warnUnlessExists shouldWarn x wrap glob f = do
-    let fn = globFile glob x
+    fn <- globFilePackage glob x
     e <- qRunIO $ doesFileExist fn
     when (shouldWarn && not e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
     if e
