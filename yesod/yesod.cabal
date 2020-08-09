@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.6.0.2
+version:         1.6.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -25,6 +25,7 @@ library
                    , data-default-class
                    , directory
                    , fast-logger
+                   , file-embed
                    , monad-logger
                    , shakespeare
                    , streaming-commons
