@@ -369,10 +369,10 @@ getPostParams = do
 getCurrentRoute :: MonadHandler m => m (Maybe (Route (HandlerSite m)))
 getCurrentRoute = rheRoute <$> askHandlerEnv
 
--- | Returns a function that runs 'HandlerT' actions inside @IO@.
+-- | Returns a function that runs 'HandlerFor' actions inside @IO@.
 --
--- Sometimes you want to run an inner 'HandlerT' action outside
--- the control flow of an HTTP request (on the outer 'HandlerT'
+-- Sometimes you want to run an inner 'HandlerFor' action outside
+-- the control flow of an HTTP request (on the outer 'HandlerFor'
 -- action).  For example, you may want to spawn a new thread:
 --
 -- @
@@ -380,30 +380,30 @@ getCurrentRoute = rheRoute <$> askHandlerEnv
 -- getFooR = do
 --   runInnerHandler <- handlerToIO
 --   liftIO $ forkIO $ runInnerHandler $ do
---     /Code here runs inside GHandler but on a new thread./
---     /This is the inner GHandler./
+--     /Code here runs inside HandlerFor but on a new thread./
+--     /This is the inner HandlerFor./
 --     ...
 --   /Code here runs inside the request's control flow./
---   /This is the outer GHandler./
+--   /This is the outer HandlerFor./
 --   ...
 -- @
 --
 -- Another use case for this function is creating a stream of
--- server-sent events using 'GHandler' actions (see
+-- server-sent events using 'HandlerFor' actions (see
 -- @yesod-eventsource@).
 --
--- Most of the environment from the outer 'GHandler' is preserved
--- on the inner 'GHandler', however:
+-- Most of the environment from the outer 'HandlerFor' is preserved
+-- on the inner 'HandlerFor', however:
 --
 --  * The request body is cleared (otherwise it would be very
 --  difficult to prevent huge memory leaks).
 --
 --  * The cache is cleared (see 'CacheKey').
 --
--- Changes to the response made inside the inner 'GHandler' are
+-- Changes to the response made inside the inner 'HandlerFor' are
 -- ignored (e.g., session variables, cookies, response headers).
--- This allows the inner 'GHandler' to outlive the outer
--- 'GHandler' (e.g., on the @forkIO@ example above, a response
+-- This allows the inner 'HandlerFor' to outlive the outer
+-- 'HandlerFor' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
 handlerToIO :: MonadIO m => HandlerFor site (HandlerFor site a -> m a)
 handlerToIO =
