@@ -2,7 +2,7 @@
 
 ## 1.6.18.3
 
-* Remove mention of an oudated Yesod type (`GHandler`) from the docs for `handlerToIO`. []()
+* Remove mention of an oudated Yesod type (`GHandler`) from the docs for `handlerToIO`. [https://github.com/yesodweb/yesod/pull/1695](#1695)
 
 ## 1.6.18.2
 
