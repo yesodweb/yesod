@@ -398,7 +398,7 @@ getCurrentRoute = rheRoute <$> askHandlerEnv
 --  * The request body is cleared (otherwise it would be very
 --  difficult to prevent huge memory leaks).
 --
---  * The cache is cleared (see 'CacheKey').
+--  * The cache is cleared (see 'cached').
 --
 -- Changes to the response made inside the inner 'HandlerFor' are
 -- ignored (e.g., session variables, cookies, response headers).
@@ -428,7 +428,7 @@ handlerToIO =
     -- xx From this point onwards, no references to oldHandlerData xx
     liftIO $ evaluate (newReq `seq` oldEnv `seq` newState `seq` ())
 
-    -- Return GHandler running function.
+    -- Return HandlerFor running function.
     return $ \(HandlerFor f) ->
       liftIO $
       runResourceT $ withInternalState $ \resState -> do
