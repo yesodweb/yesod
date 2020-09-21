@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.3
+
+* Remove mention of an oudated Yesod type (`GHandler`) from the docs for `handlerToIO`. [https://github.com/yesodweb/yesod/pull/1695](#1695)
+
 ## 1.6.18.2
 
 * Recommends `.yesodroutes` as the file extension for Yesod routes files. [#1686](https://github.com/yesodweb/yesod/pull/1686)
