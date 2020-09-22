@@ -17,7 +17,7 @@ extra-source-files:
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
   test/en.msg
   test/test.hs
-  test/fixtures/routes_with_line_continuations
+  test/fixtures/routes_with_line_continuations.yesodroutes
   ChangeLog.md
   README.md
 
