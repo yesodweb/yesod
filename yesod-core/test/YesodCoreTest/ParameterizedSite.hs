@@ -11,12 +11,14 @@ import Yesod.Core.Dispatch (toWaiApp)
 
 import YesodCoreTest.ParameterizedSite.PolyAny (PolyAny (..))
 import YesodCoreTest.ParameterizedSite.PolyShow (PolyShow (..))
+import YesodCoreTest.ParameterizedSite.Compat (Compat (..))
 
 -- These are actually tests for template haskell. So if it compiles, it works
 parameterizedSiteTest :: Spec
 parameterizedSiteTest = describe "Polymorphic Yesod sites" $ do
     it "Polymorphic unconstrained stub" $ runStub (PolyAny ())
     it "Polymorphic stub with Show" $ runStub' "1337" (PolyShow 1337)
+    it "Polymorphic unconstrained stub, old-style" $ runStub (Compat () ())
 
 runStub :: YesodDispatch a => a -> IO ()
 runStub stub =

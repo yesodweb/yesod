@@ -157,6 +157,7 @@ test-suite tests
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
                    YesodCoreTest.ParameterizedSite
+                   YesodCoreTest.ParameterizedSite.Compat
                    YesodCoreTest.ParameterizedSite.PolyAny
                    YesodCoreTest.ParameterizedSite.PolyShow
                    YesodCoreTest.RawResponse
