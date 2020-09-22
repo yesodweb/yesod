@@ -156,6 +156,9 @@ test-suite tests
                    YesodCoreTest.MediaData
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
+                   YesodCoreTest.ParameterizedSite
+                   YesodCoreTest.ParameterizedSite.PolyAny
+                   YesodCoreTest.ParameterizedSite.PolyShow
                    YesodCoreTest.RawResponse
                    YesodCoreTest.Redirect
                    YesodCoreTest.Reps

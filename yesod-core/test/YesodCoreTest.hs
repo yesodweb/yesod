@@ -11,6 +11,7 @@ import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
+import YesodCoreTest.ParameterizedSite
 import qualified YesodCoreTest.WaiSubsite as WaiSubsite
 import qualified YesodCoreTest.Redirect as Redirect
 import qualified YesodCoreTest.JsLoader as JsLoader
@@ -43,6 +44,7 @@ specs = do
       internalRequestTest
       errorHandlingTest
       cacheTest
+      parameterizedSiteTest
       WaiSubsite.specs
       Redirect.specs
       JsLoader.specs
