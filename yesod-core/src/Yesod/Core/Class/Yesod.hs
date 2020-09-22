@@ -531,8 +531,8 @@ widgetToPageContent :: Yesod site
                     => WidgetFor site ()
                     -> HandlerFor site (PageContent (Route site))
 widgetToPageContent w = do
-  jsAttrs <- jsAttributesHandler
-  HandlerFor $ \hd -> do
+ jsAttrs <- jsAttributesHandler
+ HandlerFor $ \hd -> do
   master <- unHandlerFor getYesod hd
   ref <- newIORef mempty
   unWidgetFor w WidgetData
