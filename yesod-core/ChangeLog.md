@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.5
+
+Document `ErrorResponse` []()
+
 ## 1.6.18.4
 
 * Fixed a bug where `mkYesod` and other TH functions didn't work for datatypes with explicitly stated type variables, including the case with typeclass constraints. [https://github.com/yesodweb/yesod/pull/1697](#1697)
