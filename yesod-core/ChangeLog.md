@@ -2,7 +2,7 @@
 
 ## 1.6.18.5
 
-Document `ErrorResponse` []()
+Document `ErrorResponse` [#1698](https://github.com/yesodweb/yesod/pull/1698)
 
 ## 1.6.18.4
 
