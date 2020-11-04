@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.6.10
+version:         1.6.10.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -43,7 +43,7 @@ library
                    , http-types
                    , memory
                    , nonce                   >= 1.0.2     && < 1.1
-                   , persistent              >= 2.8       && < 2.11
+                   , persistent              >= 2.8       && < 2.12
                    , random                  >= 1.0.0.2
                    , safe
                    , shakespeare
