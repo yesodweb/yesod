@@ -117,8 +117,8 @@ webSocketsOptionsWith wsConnOpts buildAr inner = do
                     rhead
                     (\pconn -> do
                         conn <- WS.acceptRequestWith pconn ar
-                        WS.forkPingThread conn 30
-                        runInIO $ runReaderT inner conn)
+                        WS.withPingThread conn 30 (pure ()) $
+                            runInIO $ runReaderT inner conn)
                     src
                     sink
 
