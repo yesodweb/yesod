@@ -1,3 +1,6 @@
+## 0.3.0.3
+* Removed the use of the deprecated forkPingThread and replaced it with the recommended withPingThread. [#1700](https://github.com/yesodweb/yesod/pull/1700)
+
 ## 0.3.0.2
 
 * `sendClose` and `sendPing` correctly find the `Connection` from `WebSocketsT`
