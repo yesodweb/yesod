@@ -1,3 +1,4 @@
+cabal-version:       1.10
 name:                yesod-websockets
 version:             0.3.0.3
 synopsis:            WebSockets support for Yesod
@@ -8,11 +9,11 @@ author:              Michael Snoyman
 maintainer:          michael@snoyman.com
 category:            Web
 build-type:          Simple
-cabal-version:       >=1.8
 description:         API docs and the README are available at <http://www.stackage.org/package/yesod-websockets>
 extra-source-files:  README.md ChangeLog.md
 
 library
+  default-language:    Haskell2010
   exposed-modules:     Yesod.WebSockets
   build-depends:       base              >= 4.10 && < 5
                      , conduit           >= 1.3
