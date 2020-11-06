@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies #-}
 {-# LANGUAGE EmptyDataDecls, FlexibleContexts, GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
