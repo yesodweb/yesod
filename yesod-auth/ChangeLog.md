@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.10.1
+
+* Add support for Persistent 2.11 [#1701](https://github.com/yesodweb/yesod/pull/1701)
+
 ## 1.6.10
 
 * Updated `AuthMessage` data type in `Yesod.Auth.Message` to accommodate registration flow where password is supplied initially: deprecated `AddressVerified` and split into `EmailVerifiedChangePass` and `EmailVerified`
