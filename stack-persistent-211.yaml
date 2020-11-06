@@ -1,0 +1,20 @@
+resolver: lts-16.20
+packages:
+- ./yesod-core
+- ./yesod-static
+- ./yesod-persistent
+- ./yesod-newsfeed
+- ./yesod-form
+- ./yesod-form-multi
+- ./yesod-auth
+- ./yesod-auth-oauth
+- ./yesod-sitemap
+- ./yesod-test
+- ./yesod-bin
+- ./yesod
+- ./yesod-eventsource
+- ./yesod-websockets
+extra-deps:
+- persistent-2.11.0.1@rev:0
+- persistent-template-2.9.1.0@rev:0
+- persistent-sqlite-2.11.0.0@rev:0

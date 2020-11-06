@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+    pull_request:
+    push:
+        branches:
+        - master
+
+jobs:
+  build:
+    name: CI
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        args:
+        - "--resolver nightly"
+        - "--resolver lts-16"
+        - "--resolver lts-14"
+        - "--resolver lts-12"
+        - "--resolver lts-11"
+        - "--stack-yaml stack-persistent-211.yaml"
+        # Bugs in GHC make it crash too often to be worth running
+        exclude:
+          - os: windows-latest
+            args: "--resolver nightly"
+          - os: windows-latest
+            args: "--resolver lts-16"
+          - os: windows-latest
+            args: "--stack-yaml stack-persistent-211.yaml"
+
+    steps:
+      - name: Clone project
+        uses: actions/checkout@v2
+
+# Getting weird OS X errors...
+#      - name: Cache dependencies
+#        uses: actions/cache@v1
+#        with:
+#          path: ~/.stack
+#          key: ${{ runner.os }}-${{ matrix.resolver }}-${{ hashFiles('stack.yaml') }}
+#          restore-keys: |
+#            ${{ runner.os }}-${{ matrix.resolver }}-
+
+      - name: Build and run tests
+        shell: bash
+        run: |
+            set -ex
+            stack upgrade
+            stack --version
+            stack test --fast --no-terminal ${{ matrix.args }}
