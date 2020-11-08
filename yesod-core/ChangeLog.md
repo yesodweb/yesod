@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.6
+
+* Update documentation from `HandlerT` to `HandlerFor` [#1703](https://github.com/yesodweb/yesod/pull/1703)
+
 ## 1.6.18.5
 
 Document `ErrorResponse` [#1698](https://github.com/yesodweb/yesod/pull/1698)
