@@ -63,9 +63,9 @@ sourceToSource src =
             Just x -> yield (Chunk x) >> yield Flush
 
 
--- | Return a Server-Sent Event stream given a 'HandlerT' action
+-- | Return a Server-Sent Event stream given a 'HandlerFor' action
 -- that is repeatedly called.  A state is threaded for the action
--- so that it may avoid using @IORefs@.  The @HandlerT@ action
+-- so that it may avoid using @IORefs@.  The @HandlerFor@ action
 -- may sleep or block while waiting for more data.  The HTTP
 -- socket is flushed after every list of simultaneous events.
 -- The connection is closed as soon as an 'ES.CloseEvent' is

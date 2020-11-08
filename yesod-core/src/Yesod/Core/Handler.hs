@@ -1464,8 +1464,8 @@ respond ct = return . TypedContent ct . toContent
 
 -- | Use a @Source@ for the response body.
 --
--- Note that, for ease of use, the underlying monad is a @HandlerT@. This
--- implies that you can run any @HandlerT@ action. However, since a streaming
+-- Note that, for ease of use, the underlying monad is a @HandlerFor@. This
+-- implies that you can run any @HandlerFor@ action. However, since a streaming
 -- response occurs after the response headers have already been sent, some
 -- actions make no sense here. For example: short-circuit responses, setting
 -- headers, changing status codes, etc.
@@ -1476,8 +1476,8 @@ respondSource :: ContentType
               -> HandlerFor site TypedContent
 respondSource ctype src = HandlerFor $ \hd ->
     -- Note that this implementation relies on the fact that the ResourceT
-    -- environment provided by the server is the same one used in HandlerT.
-    -- This is a safe assumption assuming the HandlerT is run correctly.
+    -- environment provided by the server is the same one used in HandlerFor.
+    -- This is a safe assumption assuming the HandlerFor is run correctly.
     return $ TypedContent ctype $ ContentSource
            $ transPipe (lift . flip unHandlerFor hd) src
 

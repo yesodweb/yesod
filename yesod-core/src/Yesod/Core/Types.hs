@@ -231,7 +231,7 @@ data GHState = GHState
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
--- the 'HandlerT' monad and template haskell code should hide it away.
+-- the 'HandlerFor' monad and template haskell code should hide it away.
 type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 
 -- | A generic widget, allowing specification of both the subsite and master
@@ -473,7 +473,7 @@ instance MonadLogger (WidgetFor site) where
 instance MonadLoggerIO (WidgetFor site) where
     askLoggerIO = WidgetFor $ return . rheLog . handlerEnv . wdHandler
 
--- Instances for HandlerT
+-- Instances for HandlerFor
 instance Applicative (HandlerFor site) where
     pure = HandlerFor . const . return
     (<*>) = ap
