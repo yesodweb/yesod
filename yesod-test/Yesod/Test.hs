@@ -245,6 +245,7 @@ import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Conduit (MonadThrow)
 import Control.Monad.IO.Class
+import Control.Monad.State.Class
 import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
@@ -1600,6 +1601,11 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
 -- @since 1.6.0
 newtype SIO s a = SIO (ReaderT (IORef s) IO a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
+
+instance MonadState s (SIO s)
+  where
+  get = getSIO
+  put = putSIO
 
 getSIO :: SIO s s
 getSIO = SIO $ ReaderT readIORef
