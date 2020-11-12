@@ -34,6 +34,7 @@ library
                    , pretty-show               >= 1.6
                    , text
                    , time
+                   , mtl                       >= 2.0.0
                    , transformers              >= 0.2.2
                    , wai                       >= 3.0
                    , wai-extra
