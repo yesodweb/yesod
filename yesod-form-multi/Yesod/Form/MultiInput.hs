@@ -17,7 +17,9 @@ module Yesod.Form.MultiInput
     , mmulti
     , amulti
     , bs3Settings
+    , bs3FASettings
     , bs4Settings
+    , bs4FASettings
     ) where
 
 import Control.Arrow (second)
@@ -45,6 +47,8 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
     , msDelClass :: Text -- ^ Class to be applied to the "delete" button.
+    , msAddInner :: Maybe Html -- ^ Inner Html of add button, defaults to "Add Another". Useful for adding icons inside buttons.
+    , msDelInner :: Maybe Html -- ^ Inner Html of delete button, defaults to "Delete". Useful for adding icons inside buttons.
     , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
     }
 
@@ -60,7 +64,7 @@ data MultiView site = MultiView
 --
 -- @since 1.6.0
 bs3Settings :: MultiSettings site
-bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" (Just errW)
+bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" Nothing Nothing (Just errW)
     where
         errW err = 
             [whamlet|
@@ -71,8 +75,34 @@ bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" (Just errW)
 --
 -- @since 1.6.0
 bs4Settings :: MultiSettings site
-bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" (Just errW)
+bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" Nothing Nothing (Just errW)
     where
+        errW err =
+            [whamlet|
+                <div .invalid-feedback>#{err}
+            |]
+
+-- | 'MultiSettings' for Bootstrap 3 with Font Awesome 5 Icons.
+--
+-- @since 1.6.0
+bs3FASettings :: MultiSettings site
+bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" addIcon delIcon (Just errW)
+    where
+        addIcon = Just [shamlet|<i class="fas fa-plus">|]
+        delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
+        errW err = 
+            [whamlet|
+                <span .help-block .error-block>#{err}
+            |]
+
+-- | 'MultiSettings' for Bootstrap 4 with Font Awesome 5 Icons.
+--
+-- @since 1.6.0
+bs4FASettings :: MultiSettings site
+bs4FASettings = MultiSettings "btn btn-basic" "btn btn-danger" addIcon delIcon (Just errW)
+    where
+        addIcon = Just [shamlet|<i class="fas fa-plus">|]
+        delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
         errW err =
             [whamlet|
                 <div .invalid-feedback>#{err}
@@ -209,7 +239,11 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
         mkDelBtn fieldId = do
             let delBtnId = delBtnPrefix <> fieldId
             [whamlet|
-                <button ##{delBtnId} .#{msDelClass} style="margin-bottom: 1rem; margin-left: 1rem" type="button">Delete
+                <button ##{delBtnId} .#{msDelClass} style="margin-bottom: 1rem; margin-left: 1rem" type="button">
+                    $maybe inner <- msDelInner
+                        #{inner}
+                    $nothing
+                        Delete
             |]
             toWidget
                 [julius|
@@ -249,7 +283,11 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
         -- also includes some styling / functions that we only want to include once
         btnWidget = do
             [whamlet|
-                <button ##{addBtnId} .#{msAddClass} type="button">Add Another
+                <button ##{addBtnId} .#{msAddClass} type="button">
+                    $maybe inner <- msAddInner
+                        #{inner}
+                    $nothing
+                        Add Another
             |]
             toWidget
                 [lucius|
