@@ -26,7 +26,7 @@ import Control.Arrow (second)
 import Control.Monad (liftM)
 import Control.Monad.Trans.RWS (ask, tell)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, listToMaybe, fromMaybe)
+import Data.Maybe (fromJust, listToMaybe, fromMaybe, isJust)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Yesod.Core
@@ -47,6 +47,7 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
     , msDelClass :: Text -- ^ Class to be applied to the "delete" button.
+    , msWrapperErrClass :: Text -- ^ Class to be applied to the wrapper if it's field has an error.
     , msAddInner :: Maybe Html -- ^ Inner Html of add button, defaults to "Add Another". Useful for adding icons inside buttons.
     , msDelInner :: Maybe Html -- ^ Inner Html of delete button, defaults to "Delete". Useful for adding icons inside buttons.
     , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
@@ -64,18 +65,18 @@ data MultiView site = MultiView
 --
 -- @since 1.6.0
 bs3Settings :: MultiSettings site
-bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" Nothing Nothing (Just errW)
+bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" Nothing Nothing (Just errW)
     where
         errW err = 
             [whamlet|
-                <span .help-block .error-block>#{err}
+                <span .help-block>#{err}
             |]
 
 -- | 'MultiSettings' for Bootstrap 4.
 --
 -- @since 1.6.0
 bs4Settings :: MultiSettings site
-bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" Nothing Nothing (Just errW)
+bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" "has-error" Nothing Nothing (Just errW)
     where
         errW err =
             [whamlet|
@@ -86,20 +87,20 @@ bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" Nothing Nothing (Ju
 --
 -- @since 1.6.0
 bs3FASettings :: MultiSettings site
-bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" addIcon delIcon (Just errW)
+bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
         errW err = 
             [whamlet|
-                <span .help-block .error-block>#{err}
+                <span .help-block>#{err}
             |]
 
 -- | 'MultiSettings' for Bootstrap 4 with Font Awesome 5 Icons.
 --
 -- @since 1.6.0
 bs4FASettings :: MultiSettings site
-bs4FASettings = MultiSettings "btn btn-basic" "btn btn-danger" addIcon delIcon (Just errW)
+bs4FASettings = MultiSettings "btn btn-basic" "btn btn-danger" "has-error" addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
@@ -130,10 +131,6 @@ amulti field fs defs minVals ms = formToAForm $
 
                         $forall fv <- mvFields
                             ^{fvInput fv}
-
-                            $maybe err <- fvErrors fv
-                                $maybe errW <- msErrWidget ms
-                                    ^{errW err}
 
                         ^{fvInput mvAddBtn}
                     |]
@@ -206,7 +203,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
         Just p -> mkRes intField cfs p mfs cName onMissingFail FormSuccess
 
     -- generate counter view
-    cView <- mkView intField cfs cr Nothing cid cName True
+    cView <- mkView intField cfs cr Nothing Nothing msWrapperErrClass cid cName True
 
     let counter = case cRes of
             FormSuccess c -> c
@@ -232,14 +229,14 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                     if (numFields == 1)
                         field.val("");
                     else
-                        field.parent().remove();
+                        field.parent().parent().remove();
                 }
             |]
 
         mkDelBtn fieldId = do
             let delBtnId = delBtnPrefix <> fieldId
             [whamlet|
-                <button ##{delBtnId} .#{msDelClass} style="margin-bottom: 1rem; margin-left: 1rem" type="button">
+                <button ##{delBtnId} .#{msDelClass} style="margin-left: 1rem" type="button">
                     $maybe inner <- msDelInner
                         #{inner}
                     $nothing
@@ -257,7 +254,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
     (rs, fvs) <- do
         let mkView' ((n,i), r@(res, _)) = do
                 let del = Just (mkDelBtn i, wrapperClass)
-                fv <- mkView field fs r del i n False
+                fv <- mkView field fs r del msErrWidget msWrapperErrClass i n False
                 return (res, fv)
             xs = zip (mkNames counter) results
             notSuccNothing (_, (r,_)) = not $ isSuccNothing r
@@ -292,6 +289,9 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             toWidget
                 [lucius|
                     .#{wrapperClass} {
+                        margin-bottom: 1rem;
+                    }
+                    .#{wrapperClass}-inner {
                         display: flex;
                         flex-direction: row;
                     }
@@ -309,12 +309,14 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         var newDelId = #{delBtnPrefix} + newId;
                         
                         var newWrapper = $("." + #{wrapperClass}).first().clone();
-                        var newField = newWrapper.children("[id^=" + #{theId} + "]"); 
+                        newWrapper.children( ":not(." + #{wrapperClass} + "-inner)" ).remove(); // remove error messages
+
+                        var newField = newWrapper.find("[id^=" + #{theId} + "]"); 
                         newField.val("").attr('name', newName).attr('id', newId);
 
-                        var newDelBtn = newWrapper.children("[id^=" + #{delBtnPrefix} + "]");
+                        var newDelBtn = newWrapper.find("[id^=" + #{delBtnPrefix} + "]");
                         newDelBtn.attr('id', newDelId);
-                        newDelBtn.click(() => deleteField(newField));                      
+                        newDelBtn.click(() => deleteField(newField));
 
                         newWrapper.insertBefore("#" + #{addBtnId});
                     });
@@ -360,21 +362,32 @@ mkView :: (site ~ HandlerSite m, MonadHandler m)
     => Field m a
     -> FieldSettings site
     -> (FormResult b, Either Text a)
-    -> Maybe (WidgetFor site (), Text) -- ^ Delete button widget and class for div wrapping each field with it's delete button.
+    -> Maybe (WidgetFor site (), Text) -- Delete button widget and class for div wrapping each field with it's delete button.
+    -> Maybe (Html -> WidgetFor site ()) -- Function to display error messages.
+    -> Text
     -> Text
     -> Text
     -> Bool
     -> MForm m (FieldView site)
-mkView Field {..} FieldSettings {..} (res, val) mdel theId name isReq = do
+mkView Field {..} FieldSettings {..} (res, val) mdel merrW errClass theId name isReq = do
     (_, site, langs) <- ask
     let mr2 = renderMessage site langs
+        merr = case res of
+                FormFailure [e] -> Just $ toHtml e
+                _ -> Nothing
         fv' = fieldView theId name fsAttrs val isReq
         fv = do
             [whamlet|
                 $maybe (delBtn, wrapperClass) <- mdel
-                    <div .#{wrapperClass}>
-                        ^{fv'}
-                        ^{delBtn}
+                    <div .#{wrapperClass} :isJust merr:.#{errClass}>
+                        <div .#{wrapperClass}-inner>
+                            ^{fv'}
+                            ^{delBtn}
+                            
+                        $maybe err <- merr
+                            $maybe errW <- merrW
+                                ^{errW err}
+                        
                 $nothing
                     ^{fv'}
             |]
@@ -383,9 +396,6 @@ mkView Field {..} FieldSettings {..} (res, val) mdel theId name isReq = do
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
         , fvId = theId
         , fvInput = fv
-        , fvErrors =
-            case res of
-                FormFailure [e] -> Just $ toHtml e
-                _ -> Nothing
+        , fvErrors = merr
         , fvRequired = isReq
         }
