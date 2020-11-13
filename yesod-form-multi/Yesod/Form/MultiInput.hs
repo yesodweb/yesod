@@ -76,7 +76,7 @@ bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" Nothi
 --
 -- @since 1.6.0
 bs4Settings :: MultiSettings site
-bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" "has-error" Nothing Nothing (Just errW)
+bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "has-error" Nothing Nothing (Just errW)
     where
         errW err =
             [whamlet|
@@ -100,7 +100,7 @@ bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" add
 --
 -- @since 1.6.0
 bs4FASettings :: MultiSettings site
-bs4FASettings = MultiSettings "btn btn-basic" "btn btn-danger" "has-error" addIcon delIcon (Just errW)
+bs4FASettings = MultiSettings "btn btn-secondary" "btn btn-danger" "has-error" addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
@@ -236,7 +236,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
         mkDelBtn fieldId = do
             let delBtnId = delBtnPrefix <> fieldId
             [whamlet|
-                <button ##{delBtnId} .#{msDelClass} style="margin-left: 1rem" type="button">
+                <button ##{delBtnId} .#{msDelClass} style="margin-left: 0.75rem" type="button">
                     $maybe inner <- msDelInner
                         #{inner}
                     $nothing
