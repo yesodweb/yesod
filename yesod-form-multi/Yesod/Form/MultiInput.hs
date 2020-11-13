@@ -44,6 +44,7 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 -- @since 1.6.0
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
+    , msDelClass :: Text -- ^ Class to be applied to the "delete" button.
     , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
     }
 
@@ -52,13 +53,14 @@ data MultiView site = MultiView
     { mvCounter :: FieldView site -- ^ Hidden counter field.
     , mvFields :: [FieldView site] -- ^ Input fields.
     , mvAddBtn :: FieldView site -- ^ Button to add another field.
+    , mvWrapperClass :: Text -- ^ Class applied to a div wrapping each field with it's delete button.
     }
 
 -- | 'MultiSettings' for Bootstrap 3.
 --
 -- @since 1.6.0
 bs3Settings :: MultiSettings site
-bs3Settings = MultiSettings "btn btn-default" (Just errW)
+bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" (Just errW)
     where
         errW err = 
             [whamlet|
@@ -69,7 +71,7 @@ bs3Settings = MultiSettings "btn btn-default" (Just errW)
 --
 -- @since 1.6.0
 bs4Settings :: MultiSettings site
-bs4Settings = MultiSettings "btn btn-basic" (Just errW)
+bs4Settings = MultiSettings "btn btn-basic" "btn btn-danger" (Just errW)
     where
         errW err =
             [whamlet|
@@ -130,11 +132,10 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mmulti field fs@FieldSettings {..} defs minVals ms = do
-    fieldClass <- newFormIdent
-    let fs' = fs {fsAttrs = addClass fieldClass fsAttrs}
-        minVals' = if minVals < 0 then 0 else minVals
-    mhelperMulti field fs' fieldClass defs minVals' ms
+mmulti field fs defs minVals' ms = do
+    wrapperClass <- newFormIdent
+    let minVals = if minVals' < 0 then 0 else minVals'
+    mhelperMulti field fs wrapperClass defs minVals ms
 
 -- Helper function, does most of the work for mmulti.
 mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
@@ -145,14 +146,15 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals MultiSettings {..} = do
+mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals MultiSettings {..} = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
     theId <- maybe newFormIdent return fsId
     cName <- newFormIdent
     cid <- newFormIdent
-    addBtnId <- newFormIdent 
+    addBtnId <- newFormIdent
+    delBtnPrefix <- newFormIdent
 
     let mr2 = renderMessage site langs
         cDef = length defs
@@ -174,7 +176,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
         Just p -> mkRes intField cfs p mfs cName onMissingFail FormSuccess
 
     -- generate counter view
-    cView <- mkView intField cfs cr cid cName True
+    cView <- mkView intField cfs cr Nothing cid cName True
 
     let counter = case cRes of
             FormSuccess c -> c
@@ -188,10 +190,40 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
                 else [(FormMissing, Right d) | d <- defs]
         Just p -> mapM (\n -> mkRes field fs p mfs n onMissingSucc (FormSuccess . Just)) (map fst $ mkNames counter)
 
+    -- delete button
+
+    -- The delFunction is included down with the add button rather than with
+    -- each delete button to ensure that the function only gets included once.
+    let delFunction = toWidget
+            [julius|
+                function deleteField(field) {
+                    var numFields = $("." + #{wrapperClass}).length;
+
+                    if (numFields == 1)
+                        field.val("");
+                    else
+                        field.parent().remove();
+                }
+            |]
+
+        mkDelBtn fieldId = do
+            let delBtnId = delBtnPrefix <> fieldId
+            [whamlet|
+                <button ##{delBtnId} .#{msDelClass} style="margin-bottom: 1rem; margin-left: 1rem" type="button">Delete
+            |]
+            toWidget
+                [julius|
+                    $("#" + #{delBtnId}).click(function() {
+                        var field = $("#" + #{fieldId});
+                        deleteField(field);
+                    });                    
+                |]
+
     -- generate field views
     (rs, fvs) <- do
         let mkView' ((n,i), r@(res, _)) = do
-                fv <- mkView field fs r i n False
+                let del = Just (mkDelBtn i, wrapperClass)
+                fv <- mkView field fs r del i n False
                 return (res, fv)
             xs = zip (mkNames counter) results
             notSuccNothing (_, (r,_)) = not $ isSuccNothing r
@@ -214,10 +246,19 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
                 fRes -> (fRes, False)
     
         -- create add button
+        -- also includes some styling / functions that we only want to include once
         btnWidget = do
             [whamlet|
                 <button ##{addBtnId} .#{msAddClass} type="button">Add Another
             |]
+            toWidget
+                [lucius|
+                    .#{wrapperClass} {
+                        display: flex;
+                        flex-direction: row;
+                    }
+                |]
+            delFunction -- function used by delete buttons, included here so that it only gets included once
             toWidget
                 [julius|
                     var extraFields = 0;
@@ -227,10 +268,17 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
                         $("#" + #{cid}).val(newNumber);
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
+                        var newDelId = #{delBtnPrefix} + newId;
                         
-                        var newElem = $("." + #{fieldClass}).first().clone();
-                        newElem.val("").attr('name', newName).attr('id', newId);
-                        newElem.insertBefore("#" + #{addBtnId})
+                        var newWrapper = $("." + #{wrapperClass}).first().clone();
+                        var newField = newWrapper.children("[id^=" + #{theId} + "]"); 
+                        newField.val("").attr('name', newName).attr('id', newId);
+
+                        var newDelBtn = newWrapper.children("[id^=" + #{delBtnPrefix} + "]");
+                        newDelBtn.attr('id', newDelId);
+                        newDelBtn.click(() => deleteField(newField));                      
+
+                        newWrapper.insertBefore("#" + #{addBtnId});
                     });
                 |]
 
@@ -243,7 +291,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} fieldClass defs minVals Mult
             , fvRequired = False
             }
 
-    return (res, MultiView cView fvs btnView)
+    return (res, MultiView cView fvs btnView wrapperClass)
 
 -- Search for the given field's name in the environment,
 -- parse any values found and construct a FormResult.
@@ -274,18 +322,29 @@ mkView :: (site ~ HandlerSite m, MonadHandler m)
     => Field m a
     -> FieldSettings site
     -> (FormResult b, Either Text a)
+    -> Maybe (WidgetFor site (), Text) -- ^ Delete button widget and class for div wrapping each field with it's delete button.
     -> Text
     -> Text
     -> Bool
     -> MForm m (FieldView site)
-mkView Field {..} FieldSettings {..} (res, val) theId name isReq = do
+mkView Field {..} FieldSettings {..} (res, val) mdel theId name isReq = do
     (_, site, langs) <- ask
     let mr2 = renderMessage site langs
+        fv' = fieldView theId name fsAttrs val isReq
+        fv = do
+            [whamlet|
+                $maybe (delBtn, wrapperClass) <- mdel
+                    <div .#{wrapperClass}>
+                        ^{fv'}
+                        ^{delBtn}
+                $nothing
+                    ^{fv'}
+            |]
     return $ FieldView
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
         , fvId = theId
-        , fvInput = fieldView theId name fsAttrs val isReq
+        , fvInput = fv
         , fvErrors =
             case res of
                 FormFailure [e] -> Just $ toHtml e
