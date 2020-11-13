@@ -47,6 +47,7 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
     , msDelClass :: Text -- ^ Class to be applied to the "delete" button.
+    , msTooltipClass :: Text -- ^ Only used in applicative forms. Class to be applied to the tooltip.
     , msWrapperErrClass :: Text -- ^ Class to be applied to the wrapper if it's field has an error.
     , msAddInner :: Maybe Html -- ^ Inner Html of add button, defaults to "Add Another". Useful for adding icons inside buttons.
     , msDelInner :: Maybe Html -- ^ Inner Html of delete button, defaults to "Delete". Useful for adding icons inside buttons.
@@ -65,7 +66,7 @@ data MultiView site = MultiView
 --
 -- @since 1.6.0
 bs3Settings :: MultiSettings site
-bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" Nothing Nothing (Just errW)
+bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "has-error" Nothing Nothing (Just errW)
     where
         errW err = 
             [whamlet|
@@ -76,7 +77,7 @@ bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" Nothi
 --
 -- @since 1.6.0
 bs4Settings :: MultiSettings site
-bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "has-error" Nothing Nothing (Just errW)
+bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "has-error" Nothing Nothing (Just errW)
     where
         errW err =
             [whamlet|
@@ -87,7 +88,7 @@ bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "has-error" Not
 --
 -- @since 1.6.0
 bs3FASettings :: MultiSettings site
-bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" addIcon delIcon (Just errW)
+bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "has-error" addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
@@ -100,7 +101,7 @@ bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "has-error" add
 --
 -- @since 1.6.0
 bs4FASettings :: MultiSettings site
-bs4FASettings = MultiSettings "btn btn-secondary" "btn btn-danger" "has-error" addIcon delIcon (Just errW)
+bs4FASettings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "has-error" addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
@@ -125,8 +126,12 @@ amulti field fs defs minVals ms = formToAForm $
         mform = do
             (fr, MultiView {..}) <- mmulti field fs defs minVals ms
 
-            let widget = do
+            let (fv : _) = mvFields
+                widget = do
                     [whamlet|
+                        $maybe tooltip <- fvTooltip fv
+                            <span .#{msTooltipClass ms}>#{tooltip}
+
                         ^{fvInput mvCounter}
 
                         $forall fv <- mvFields
@@ -134,7 +139,6 @@ amulti field fs defs minVals ms = formToAForm $
 
                         ^{fvInput mvAddBtn}
                     |]
-                (fv : _) = mvFields
                 view = FieldView
                     { fvLabel = fvLabel fv
                     , fvTooltip = Nothing
