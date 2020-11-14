@@ -43,6 +43,11 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 #endif
 #endif
 
+-- | By default delete buttons have a @margin-left@ property of @0.75rem@.
+-- You can override this by specifying an alternative value in a class
+-- which is then passed inside 'MultiSettings'. Note that you might have
+-- to use @!important@.
+--
 -- @since 1.6.0
 data MultiSettings site = MultiSettings
     { msAddClass :: Text -- ^ Class to be applied to the "add another" button.
@@ -54,6 +59,34 @@ data MultiSettings site = MultiSettings
     , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
     }
 
+-- | The general structure of each individually generated field is as follows.
+-- There is an external wrapper element containing both an inner wrapper and any
+-- error messages that apply to that specific field. The inner wrapper contains
+-- both the field and it's corresponding delete button.
+--
+-- The structure is illustrated by the following:
+-- @
+-- <div .#{wrapperClass}>
+--     <div .#{wrapperClass}-inner>
+--         ^{fieldWidget}
+--         ^{deleteButton}
+--     ^{maybeErrorMessages}
+-- @
+--
+-- Each wrapper element has the same class which is automatically generated. This class
+-- is returned in the 'MultiView' should you wish to change the styling. The inner wrapper
+-- uses the same class followed by @-inner@. By default the wrapper and inner wrapper has
+-- classes are as follows:
+-- @
+-- .#{wrapperClass} {
+--     margin-bottom: 1rem;
+-- }
+-- .#{wrapperClass}-inner {
+--     display: flex;
+--     flex-direction: row;
+-- }
+-- @
+--
 -- @since 1.6.0
 data MultiView site = MultiView
     { mvCounter :: FieldView site -- ^ Hidden counter field.
@@ -85,8 +118,9 @@ bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "h
             |]
 
 -- | 'MultiSettings' for Bootstrap 3 with Font Awesome 5 Icons.
+-- Uses @fa-plus@ for the add button and @fa-trash-alt@ for the delete button.
 --
--- @since 1.6.0
+-- @since 1.7.0
 bs3FASettings :: MultiSettings site
 bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "has-error" addIcon delIcon (Just errW)
     where
@@ -98,8 +132,9 @@ bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "h
             |]
 
 -- | 'MultiSettings' for Bootstrap 4 with Font Awesome 5 Icons.
+-- Uses @fa-plus@ for the add button and @fa-trash-alt@ for the delete button.
 --
--- @since 1.6.0
+-- @since 1.7.0
 bs4FASettings :: MultiSettings site
 bs4FASettings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "has-error" addIcon delIcon (Just errW)
     where
@@ -111,6 +146,10 @@ bs4FASettings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" 
             |]
 
 -- | Applicative equivalent of 'mmulti'.
+--
+-- Note about tooltips:
+-- Rather than displaying the tooltip alongside each field the
+-- tooltip is displayed once at the top of the multi-field set.
 --
 -- @since 1.6.0
 amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
