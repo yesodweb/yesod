@@ -45,8 +45,7 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 
 -- | By default delete buttons have a @margin-left@ property of @0.75rem@.
 -- You can override this by specifying an alternative value in a class
--- which is then passed inside 'MultiSettings'. Note that you might have
--- to use @!important@.
+-- which is then passed inside 'MultiSettings'.
 --
 -- @since 1.6.0
 data MultiSettings site = MultiSettings
@@ -65,27 +64,26 @@ data MultiSettings site = MultiSettings
 -- both the field and it's corresponding delete button.
 --
 -- The structure is illustrated by the following:
--- @
--- <div .#{wrapperClass}>
---     <div .#{wrapperClass}-inner>
---         ^{fieldWidget}
---         ^{deleteButton}
---     ^{maybeErrorMessages}
--- @
+-- 
+-- > <div .#{wrapperClass}>
+-- >     <div .#{wrapperClass}-inner>
+-- >         ^{fieldWidget}
+-- >         ^{deleteButton}
+-- >     ^{maybeErrorMessages}
 --
 -- Each wrapper element has the same class which is automatically generated. This class
 -- is returned in the 'MultiView' should you wish to change the styling. The inner wrapper
 -- uses the same class followed by @-inner@. By default the wrapper and inner wrapper has
 -- classes are as follows:
--- @
--- .#{wrapperClass} {
---     margin-bottom: 1rem;
--- }
--- .#{wrapperClass}-inner {
---     display: flex;
---     flex-direction: row;
--- }
--- @
+-- 
+-- > .#{wrapperClass} {
+-- >     margin-bottom: 1rem;
+-- > }
+-- >
+-- > .#{wrapperClass}-inner {
+-- >     display: flex;
+-- >     flex-direction: row;
+-- > }
 --
 -- @since 1.6.0
 data MultiView site = MultiView
