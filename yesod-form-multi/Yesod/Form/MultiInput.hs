@@ -292,7 +292,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                 }
             |]
 
-        mkDelBtn fieldId wrapperClass = do
+        mkDelBtn fieldId = do
             let delBtnId = delBtnPrefix <> fieldId
             [whamlet|
                 <button ##{delBtnId} .#{msDelClass} style="margin-left: 0.75rem" type="button">
@@ -312,8 +312,8 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
     -- generate field views
     (rs, fvs) <- do
         let mkView' ((c, (n,i)), r@(res, _)) = do
-                let del = Just (mkDelBtn i wrapperClass, wrapperClass, c)
-                fv <- mkView field fs r del msErrWidget msWrapperErrClass i n False
+                let del = Just (mkDelBtn i, wrapperClass, c)
+                fv <- mkView field fs r del msErrWidget msWrapperErrClass i n True
                 return (res, fv)
             xs = zip (mkNames counter) results
             notSuccNothing (_, (r,_)) = not $ isSuccNothing r
@@ -399,10 +399,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         });
 
                         // set new counter on wrapper
-                        newWrapper.data("counter", newNumber);
-
-                        //var newField = newWrapper.find("[id^=" + #{theId} + "]"); 
-                        //newField.val("").attr('name', newName).attr('id', newId);
+                        newWrapper.attr("data-counter", newNumber);
 
                         var newDelBtn = newWrapper.find("[id^=" + #{delBtnPrefix} + "]");
                         newDelBtn.prop('id', newDelId);
