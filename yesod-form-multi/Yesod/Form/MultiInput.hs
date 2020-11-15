@@ -229,7 +229,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
         cfs = FieldSettings "" Nothing (Just cid) (Just cName) [("hidden", "true")]
         mkName i = name `T.append` (T.pack $ '-' : show i)
         mkId i = theId `T.append` (T.pack $ '-' : show i)
-        mkNames c = [(mkName i, mkId i) | i <- [0 .. c]]
+        mkNames c = [(i, (mkName i, mkId i)) | i <- [0 .. c]]
         onMissingSucc _ _ = FormSuccess Nothing
         onMissingFail m l = FormFailure [renderMessage m l MsgValueRequired]
         isSuccNothing r = case r of
@@ -256,7 +256,9 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             if cDef == 0
                 then [(FormMissing, Left "")]
                 else [(FormMissing, Right d) | d <- defs]
-        Just p -> mapM (\n -> mkRes field fs p mfs n onMissingSucc (FormSuccess . Just)) (map fst $ mkNames counter)
+        Just p -> mapM
+            (\n -> mkRes field fs p mfs n onMissingSucc (FormSuccess . Just))
+            (map (fst . snd) $ mkNames counter)
 
     -- delete button
 
@@ -264,17 +266,33 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
     -- each delete button to ensure that the function only gets included once.
     let delFunction = toWidget
             [julius|
-                function deleteField(field) {
+                function deleteField(wrapper) {
                     var numFields = $("." + #{wrapperClass}).length;
 
                     if (numFields == 1)
-                        field.val("");
+                    {
+                        wrapper.find("*").each(function() {
+                            removeVals($(this));
+                        });
+                    }
                     else
-                        field.parent().parent().remove();
+                        wrapper.remove();
+                }
+
+                // input types where we don't want to reset the value
+                const keepValueTypes = ["radio", "checkbox", "button"];
+
+                function removeVals(e) {
+                    // uncheck any checkboxes or radio fields and empty any text boxes
+                    if(e.prop('checked') == true)
+                        e.prop('checked', false);
+
+                    if(!keepValueTypes.includes(e.prop('type')))
+                        e.val("");
                 }
             |]
 
-        mkDelBtn fieldId = do
+        mkDelBtn fieldId wrapperClass = do
             let delBtnId = delBtnPrefix <> fieldId
             [whamlet|
                 <button ##{delBtnId} .#{msDelClass} style="margin-left: 0.75rem" type="button">
@@ -287,20 +305,20 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                 [julius|
                     $("#" + #{delBtnId}).click(function() {
                         var field = $("#" + #{fieldId});
-                        deleteField(field);
+                        deleteField(field.parents("." + #{wrapperClass}));
                     });                    
                 |]
 
     -- generate field views
     (rs, fvs) <- do
-        let mkView' ((n,i), r@(res, _)) = do
-                let del = Just (mkDelBtn i, wrapperClass)
+        let mkView' ((c, (n,i)), r@(res, _)) = do
+                let del = Just (mkDelBtn i wrapperClass, wrapperClass, c)
                 fv <- mkView field fs r del msErrWidget msWrapperErrClass i n False
                 return (res, fv)
             xs = zip (mkNames counter) results
             notSuccNothing (_, (r,_)) = not $ isSuccNothing r
             ys = case filter notSuccNothing xs of
-                [] -> [((mkName 0, mkId 0), (FormSuccess Nothing, Left ""))] -- always need at least one value to generate a field
+                [] -> [((0, (mkName 0, mkId 0)), (FormSuccess Nothing, Left ""))] -- always need at least one value to generate a field
                 zs -> zs
         rvs <- mapM mkView' ys
         return $ unzip rvs
@@ -349,15 +367,46 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         var newId = #{theId} + "-" + newNumber;
                         var newDelId = #{delBtnPrefix} + newId;
                         
+                        // get new wrapper and remove old error messages
                         var newWrapper = $("." + #{wrapperClass}).first().clone();
-                        newWrapper.children( ":not(." + #{wrapperClass} + "-inner)" ).remove(); // remove error messages
+                        newWrapper.children( ":not(." + #{wrapperClass} + "-inner)" ).remove();
 
-                        var newField = newWrapper.find("[id^=" + #{theId} + "]"); 
-                        newField.val("").attr('name', newName).attr('id', newId);
+                        // get counter from wrapper
+                        var oldCount = newWrapper.data("counter");
+                        var oldName = #{name} + "-" + oldCount;
+                        var oldId = #{theId} + "-" + oldCount;
+                        var oldDelBtn = #{delBtnPrefix} + oldId;
+
+                        // replace any id, name or for attributes that began with
+                        // the old values and replace them with the new values
+                        var idRegex = new RegExp("^" + oldId);
+                        var nameRegex = new RegExp("^" + oldName);
+
+                        var els = newWrapper.find("*");
+                        els.each(function() {
+                            var e = $(this);
+
+                            if(e.prop('id') != undefined)
+                                e.prop('id', e.prop('id').replace(idRegex, newId));
+
+                            if(e.prop('name') != undefined)
+                                e.prop('name', e.prop('name').replace(nameRegex, newName));
+
+                            if(e.prop('for') != undefined)
+                                e.prop('for', e.prop('for').replace(idRegex, newId)); // radio fields use id in for attribute
+
+                            removeVals(e);
+                        });
+
+                        // set new counter on wrapper
+                        newWrapper.data("counter", newNumber);
+
+                        //var newField = newWrapper.find("[id^=" + #{theId} + "]"); 
+                        //newField.val("").attr('name', newName).attr('id', newId);
 
                         var newDelBtn = newWrapper.find("[id^=" + #{delBtnPrefix} + "]");
-                        newDelBtn.attr('id', newDelId);
-                        newDelBtn.click(() => deleteField(newField));
+                        newDelBtn.prop('id', newDelId);
+                        newDelBtn.click(() => deleteField(newWrapper));
 
                         newWrapper.insertBefore("#" + #{addBtnId});
                     });
@@ -403,7 +452,9 @@ mkView :: (site ~ HandlerSite m, MonadHandler m)
     => Field m a
     -> FieldSettings site
     -> (FormResult b, Either Text a)
-    -> Maybe (WidgetFor site (), Text) -- Delete button widget and class for div wrapping each field with it's delete button.
+    -- Delete button widget, class for div wrapping each field with it's delete button and counter value for that field.
+    -- Nothing if the field passed doesn't need a delete button e.g. if it is the counter field.
+    -> Maybe (WidgetFor site (), Text, Int)
     -> Maybe (Html -> WidgetFor site ()) -- Function to display error messages.
     -> Text
     -> Text
@@ -419,8 +470,8 @@ mkView Field {..} FieldSettings {..} (res, val) mdel merrW errClass theId name i
         fv' = fieldView theId name fsAttrs val isReq
         fv = do
             [whamlet|
-                $maybe (delBtn, wrapperClass) <- mdel
-                    <div .#{wrapperClass} :isJust merr:.#{errClass}>
+                $maybe (delBtn, wrapperClass, counter) <- mdel
+                    <div .#{wrapperClass} :isJust merr:.#{errClass} data-counter=#{counter}>
                         <div .#{wrapperClass}-inner>
                             ^{fv'}
                             ^{delBtn}
