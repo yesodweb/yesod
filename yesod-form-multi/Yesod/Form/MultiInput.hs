@@ -97,7 +97,12 @@ data MultiView site = MultiView
 --
 -- @since 1.6.0
 bs3Settings :: MultiSettings site
-bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "has-error" Nothing Nothing (Just errW)
+bs3Settings = MultiSettings
+    "btn btn-default"
+    "btn btn-danger"
+    "help-block"
+    "has-error"
+    Nothing Nothing (Just errW)
     where
         errW err = 
             [whamlet|
@@ -108,7 +113,12 @@ bs3Settings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "has
 --
 -- @since 1.6.0
 bs4Settings :: MultiSettings site
-bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "has-error" Nothing Nothing (Just errW)
+bs4Settings = MultiSettings
+    "btn btn-secondary"
+    "btn btn-danger"
+    "form-text text-muted"
+    "has-error"
+    Nothing Nothing (Just errW)
     where
         errW err =
             [whamlet|
@@ -120,7 +130,12 @@ bs4Settings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "h
 --
 -- @since 1.7.0
 bs3FASettings :: MultiSettings site
-bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "has-error" addIcon delIcon (Just errW)
+bs3FASettings = MultiSettings
+    "btn btn-default"
+    "btn btn-danger"
+    "help-block"
+    "has-error"
+    addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
@@ -134,7 +149,12 @@ bs3FASettings = MultiSettings "btn btn-default" "btn btn-danger" "help-block" "h
 --
 -- @since 1.7.0
 bs4FASettings :: MultiSettings site
-bs4FASettings = MultiSettings "btn btn-secondary" "btn btn-danger" "help-block" "has-error" addIcon delIcon (Just errW)
+bs4FASettings = MultiSettings
+    "btn btn-secondary"
+    "btn btn-danger"
+    "form-text text-muted"
+    "has-error"
+    addIcon delIcon (Just errW)
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
@@ -167,7 +187,7 @@ amulti field fs defs minVals ms = formToAForm $
                 widget = do
                     [whamlet|
                         $maybe tooltip <- fvTooltip fv
-                            <span .#{msTooltipClass ms}>#{tooltip}
+                            <small .#{msTooltipClass ms}>#{tooltip}
 
                         ^{fvInput mvCounter}
 
