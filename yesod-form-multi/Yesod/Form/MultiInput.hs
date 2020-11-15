@@ -51,11 +51,11 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 data MultiSettings site = MultiSettings
     { msAddClass :: !Text -- ^ Class to be applied to the "add another" button.
     , msDelClass :: !Text -- ^ Class to be applied to the "delete" button.
-    , msTooltipClass :: !Text -- ^ Only used in applicative forms. Class to be applied to the tooltip.
+    , msTooltipClass :: Text -- ^ Only used in applicative forms. Class to be applied to the tooltip.
     , msWrapperErrClass :: !Text -- ^ Class to be applied to the wrapper if it's field has an error.
     , msAddInner :: !(Maybe Html) -- ^ Inner Html of add button, defaults to "Add Another". Useful for adding icons inside buttons.
     , msDelInner :: !(Maybe Html) -- ^ Inner Html of delete button, defaults to "Delete". Useful for adding icons inside buttons.
-    , msErrWidget :: !(Maybe (Html -> WidgetFor site ())) -- ^ Only used in applicative forms. Create a widget for displaying errors.
+    , msErrWidget :: Maybe (Html -> WidgetFor site ()) -- ^ Only used in applicative forms. Create a widget for displaying errors.
     }
 
 -- | The general structure of each individually generated field is as follows.
