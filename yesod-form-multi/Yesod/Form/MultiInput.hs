@@ -308,7 +308,9 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         e.prop('checked', false);
 
                     if(!keepValueTypes.includes(e.prop('type')))
-                        e.val("");
+                        e.val("").trigger("change");
+                        // trigger change is to ensure WYSIWYG editors are updated
+                        // when their hidden code field is cleared
                 }
             |]
 
