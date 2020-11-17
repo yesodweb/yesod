@@ -315,7 +315,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             |]
 
         mkDelBtn fieldId = do
-            let delBtnId = delBtnPrefix <> fieldId
+            let delBtnId = delBtnPrefix `T.append` fieldId
             [whamlet|
                 <button ##{delBtnId} .#{msDelClass} style="margin-left: 0.75rem" type="button">
                     $maybe inner <- msDelInner
