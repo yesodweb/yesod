@@ -47,7 +47,7 @@ instance ToJavascript Text where toJavascript = toJavascript . toJSON
 -- You can override this by specifying an alternative value in a class
 -- which is then passed inside 'MultiSettings'.
 --
--- @since 1.6.0
+-- @since 1.7.0
 data MultiSettings site = MultiSettings
     { msAddClass :: !Text -- ^ Class to be applied to the "add another" button.
     , msDelClass :: !Text -- ^ Class to be applied to the "delete" button.
@@ -85,7 +85,7 @@ data MultiSettings site = MultiSettings
 -- >     flex-direction: row;
 -- > }
 --
--- @since 1.6.0
+-- @since 1.7.0
 data MultiView site = MultiView
     { mvCounter :: FieldView site -- ^ Hidden counter field.
     , mvFields :: [FieldView site] -- ^ Input fields.
