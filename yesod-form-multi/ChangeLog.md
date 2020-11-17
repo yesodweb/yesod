@@ -2,6 +2,8 @@
 
 ## 1.7.0
 
+[#1707](https://github.com/yesodweb/yesod/pull/1707)
+
 * Added delete buttons
 * Added support for custom text or icons inside add/delete buttons
 * Added new presets for Bootstrap + Font Awesome icons
@@ -13,4 +15,6 @@
 
 ## 1.6.0
 
-* Added `Yesod.Form.MultiInput` which supports multi-input forms without needing to submit the form to add an input field [#1601](https://github.com/yesodweb/yesod/pull/1601)
+[#1601](https://github.com/yesodweb/yesod/pull/1601)
+
+* Added `Yesod.Form.MultiInput` which supports multi-input forms without needing to submit the form to add an input field
