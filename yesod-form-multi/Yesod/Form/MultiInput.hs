@@ -29,6 +29,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust, listToMaybe, fromMaybe, isJust)
 import Data.Text (Text)
 import qualified Data.Text as T
+import Text.Julius (rawJS)
 import Yesod.Core
 import Yesod.Form.Fields (intField)
 import Yesod.Form.Functions
@@ -221,7 +222,7 @@ mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
 mmulti field fs defs minVals' ms = do
-    wrapperClass <- newFormIdent
+    wrapperClass <- lift newIdent
     let minVals = if minVals' < 0 then 0 else minVals'
     mhelperMulti field fs wrapperClass defs minVals ms
 
@@ -238,11 +239,11 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
-    theId <- maybe newFormIdent return fsId
+    theId <- lift $ maybe newIdent return fsId
     cName <- newFormIdent
-    cid <- newFormIdent
-    addBtnId <- newFormIdent
-    delBtnPrefix <- newFormIdent
+    cid <- lift newIdent
+    addBtnId <- lift newIdent
+    delBtnPrefix <- lift newIdent
 
     let mr2 = renderMessage site langs
         cDef = length defs
@@ -286,7 +287,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
     -- each delete button to ensure that the function only gets included once.
     let delFunction = toWidget
             [julius|
-                function deleteField(wrapper) {
+                function deleteField_#{rawJS theId}(wrapper) {
                     var numFields = $("." + #{wrapperClass}).length;
 
                     if (numFields == 1)
@@ -327,7 +328,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                 [julius|
                     $("#" + #{delBtnId}).click(function() {
                         var field = $("#" + #{fieldId});
-                        deleteField(field.parents("." + #{wrapperClass}));
+                        deleteField_#{rawJS theId}(field.parents("." + #{wrapperClass}));
                     });                    
                 |]
 
@@ -380,10 +381,10 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             delFunction -- function used by delete buttons, included here so that it only gets included once
             toWidget
                 [julius|
-                    var extraFields = 0;
+                    var extraFields_#{rawJS theId} = 0;
                     $("#" + #{addBtnId}).click(function() {
-                        extraFields++;
-                        var newNumber = parseInt(#{show counter}) + extraFields;
+                        extraFields_#{rawJS theId}++;
+                        var newNumber = parseInt(#{show counter}) + extraFields_#{rawJS theId};
                         $("#" + #{cid}).val(newNumber);
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
@@ -425,7 +426,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
 
                         var newDelBtn = newWrapper.find("[id^=" + #{delBtnPrefix} + "]");
                         newDelBtn.prop('id', newDelId);
-                        newDelBtn.click(() => deleteField(newWrapper));
+                        newDelBtn.click(() => deleteField_#{rawJS theId}(newWrapper));
 
                         newWrapper.insertBefore("#" + #{addBtnId});
                     });
