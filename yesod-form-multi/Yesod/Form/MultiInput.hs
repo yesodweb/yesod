@@ -299,10 +299,10 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         wrapper.remove();
                 }
 
-                // input types where we don't want to reset the value
-                const keepValueTypes = ["radio", "checkbox", "button"];
-
                 function removeVals(e) {
+                    // input types where we don't want to reset the value
+                    const keepValueTypes = ["radio", "checkbox", "button"];
+
                     // uncheck any checkboxes or radio fields and empty any text boxes
                     if(e.prop('checked') == true)
                         e.prop('checked', false);
