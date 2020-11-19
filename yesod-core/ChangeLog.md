@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.7
+
+* Fix functions generating Open Graph metadata[#1709](https://github.com/yesodweb/yesod/pull/1709)
+
 ## 1.6.18.6
 
 * Update documentation from `HandlerT` to `HandlerFor` [#1703](https://github.com/yesodweb/yesod/pull/1703)
