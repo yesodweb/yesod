@@ -288,7 +288,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
     let delFunction = toWidget
             [julius|
                 function deleteField_#{rawJS theId}(wrapper) {
-                    var numFields = $("." + #{wrapperClass}).length;
+                    var numFields = $('.#{rawJS wrapperClass}').length;
 
                     if (numFields == 1)
                     {
@@ -326,9 +326,9 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             |]
             toWidget
                 [julius|
-                    $("#" + #{delBtnId}).click(function() {
-                        var field = $("#" + #{fieldId});
-                        deleteField_#{rawJS theId}(field.parents("." + #{wrapperClass}));
+                    $('##{rawJS delBtnId}').click(function() {
+                        var field = $('##{rawJS fieldId}');
+                        deleteField_#{rawJS theId}(field.parents('.#{rawJS wrapperClass}'));
                     });                    
                 |]
 
@@ -382,7 +382,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             toWidget
                 [julius|
                     var extraFields_#{rawJS theId} = 0;
-                    $("#" + #{addBtnId}).click(function() {
+                    $('##{rawJS addBtnId}').click(function() {
                         extraFields_#{rawJS theId}++;
                         var newNumber = parseInt(#{show counter}) + extraFields_#{rawJS theId};
                         $("#" + #{cid}).val(newNumber);
@@ -391,8 +391,8 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         var newDelId = #{delBtnPrefix} + newId;
                         
                         // get new wrapper and remove old error messages
-                        var newWrapper = $("." + #{wrapperClass}).first().clone();
-                        newWrapper.children( ":not(." + #{wrapperClass} + "-inner)" ).remove();
+                        var newWrapper = $('.#{rawJS wrapperClass}').first().clone();
+                        newWrapper.children( ':not(.#{rawJS wrapperClass}-inner)' ).remove();
 
                         // get counter from wrapper
                         var oldCount = newWrapper.data("counter");
@@ -424,11 +424,11 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         // set new counter on wrapper
                         newWrapper.attr("data-counter", newNumber);
 
-                        var newDelBtn = newWrapper.find("[id^=" + #{delBtnPrefix} + "]");
+                        var newDelBtn = newWrapper.find('[id^=#{rawJS delBtnPrefix}]');
                         newDelBtn.prop('id', newDelId);
                         newDelBtn.click(() => deleteField_#{rawJS theId}(newWrapper));
 
-                        newWrapper.insertBefore("#" + #{addBtnId});
+                        newWrapper.insertBefore('##{rawJS addBtnId}');
                     });
                 |]
 
