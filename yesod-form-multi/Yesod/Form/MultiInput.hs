@@ -393,6 +393,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         // get new wrapper and remove old error messages
                         var newWrapper = $('.#{rawJS wrapperClass}').first().clone();
                         newWrapper.children( ':not(.#{rawJS wrapperClass}-inner)' ).remove();
+                        newWrapper.removeClass(#{msWrapperErrClass});
 
                         // get counter from wrapper
                         var oldCount = newWrapper.data("counter");
