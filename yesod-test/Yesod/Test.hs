@@ -500,7 +500,8 @@ testClearCookies = do
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
-withResponse' :: (state -> Maybe SResponse)
+withResponse' :: HasCallStack
+              => (state -> Maybe SResponse)
               -> [T.Text]
               -> (SResponse -> SIO state a)
               -> SIO state a
@@ -514,7 +515,7 @@ withResponse' getter errTrace f = maybe err f . getter =<< getSIO
 
 -- | Performs a given action using the last response. Use this to create
 -- response-level assertions
-withResponse :: (SResponse -> YesodExample site a) -> YesodExample site a
+withResponse :: HasCallStack => (SResponse -> YesodExample site a) -> YesodExample site a
 withResponse = withResponse' yedResponse []
 
 -- | Use HXT to parse a value from an HTML tag.
@@ -523,7 +524,8 @@ parseHTML :: HtmlLBS -> Cursor
 parseHTML html = fromDocument $ HD.parseLBS html
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
-htmlQuery' :: (state -> Maybe SResponse)
+htmlQuery' :: HasCallStack
+           => (state -> Maybe SResponse)
            -> [T.Text]
            -> Query
            -> SIO state [HtmlLBS]
@@ -533,7 +535,7 @@ htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQu
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
-htmlQuery :: Query -> YesodExample site [HtmlLBS]
+htmlQuery :: HasCallStack => Query -> YesodExample site [HtmlLBS]
 htmlQuery = htmlQuery' yedResponse []
 
 -- | Asserts that the two given values are equal.
@@ -803,7 +805,7 @@ printBody = withResponse $ \ SResponse { simpleBody = b } ->
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > get HomeR
 -- > printMatches "h1" -- Prints all h1 tags
-printMatches :: Query -> YesodExample site ()
+printMatches :: HasCallStack => Query -> YesodExample site ()
 printMatches query = do
   matches <- htmlQuery query
   liftIO $ hPutStrLn stderr $ show matches
@@ -863,7 +865,7 @@ addFile name path mimetype = do
 
 -- |
 -- This looks up the name of a field based on the contents of the label pointing to it.
-genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
+genericNameFromLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericNameFromLabel match label = do
   mres <- fmap rbdResponse getSIO
   res <-
@@ -1135,7 +1137,7 @@ fileByLabelSuffix = fileByLabelWithMatch T.isSuffixOf
 --
 -- > request $ do
 -- >   addToken_ "#formID"
-addToken_ :: Query -> RequestBuilder site ()
+addToken_ :: HasCallStack => Query -> RequestBuilder site ()
 addToken_ scope = do
   matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> " input[name=_token][type=hidden][value]"
   case matches of
@@ -1149,7 +1151,7 @@ addToken_ scope = do
 --
 -- > request $ do
 -- >   addToken
-addToken :: RequestBuilder site ()
+addToken :: HasCallStack => RequestBuilder site ()
 addToken = addToken_ ""
 
 -- | Calls 'addTokenFromCookieNamedToHeaderNamed' with the 'defaultCsrfCookieName' and 'defaultCsrfHeaderName'.
@@ -1162,7 +1164,7 @@ addToken = addToken_ ""
 -- >   addTokenFromCookie
 --
 -- Since 1.4.3.2
-addTokenFromCookie :: RequestBuilder site ()
+addTokenFromCookie :: HasCallStack => RequestBuilder site ()
 addTokenFromCookie = addTokenFromCookieNamedToHeaderNamed defaultCsrfCookieName defaultCsrfHeaderName
 
 -- | Looks up the CSRF token stored in the cookie with the given name and adds it to the request headers. An error is thrown if the cookie can't be found.
@@ -1178,7 +1180,8 @@ addTokenFromCookie = addTokenFromCookieNamedToHeaderNamed defaultCsrfCookieName 
 -- >   addTokenFromCookieNamedToHeaderNamed "cookieName" (CI "headerName")
 --
 -- Since 1.4.3.2
-addTokenFromCookieNamedToHeaderNamed :: ByteString -- ^ The name of the cookie
+addTokenFromCookieNamedToHeaderNamed :: HasCallStack
+                                     => ByteString -- ^ The name of the cookie
                                      -> CI ByteString -- ^ The name of the header
                                      -> RequestBuilder site ()
 addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
@@ -1201,7 +1204,7 @@ addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
 -- >   liftIO $ putStrLn $ "Cookies are: " ++ show cookies
 --
 -- Since 1.4.3.2
-getRequestCookies :: RequestBuilder site Cookies
+getRequestCookies :: HasCallStack => RequestBuilder site Cookies
 getRequestCookies = do
   requestBuilderData <- getSIO
   headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
@@ -1363,7 +1366,7 @@ setUrl url' = do
 -- > clickOn "a#idofthelink"
 --
 -- @since 1.5.7 
-clickOn :: Yesod site => Query -> YesodExample site ()
+clickOn :: (HasCallStack, Yesod site) => Query -> YesodExample site ()
 clickOn query = do
   withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
     case findAttributeBySelector (simpleBody res) query "href" of
