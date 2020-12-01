@@ -1567,7 +1567,7 @@ parseSetCookies :: [H.Header] -> [Cookie.SetCookie]
 parseSetCookies headers = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ headers
 
 -- Yes, just a shortcut
-failure :: (MonadIO a) => T.Text -> a b
+failure :: (HasCallStack, MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
 
 type TestApp site = (site, Middleware)
