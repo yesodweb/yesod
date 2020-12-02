@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.11
+
+* Add missing `HasCallStack`s [#1710](https://github.com/yesodweb/yesod/pull/1710)
+
 ## 1.6.10
 
 * `statusIs` assertion failures now print a preview of the response body, if the response body is UTF-8 or ASCII. [#1680](https://github.com/yesodweb/yesod/pull/1680/files)
