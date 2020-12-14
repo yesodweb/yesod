@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.8
+
+* Fix test suite for wai-extra change around vary header
+
 ## 1.6.18.7
 
 * Fix functions generating Open Graph metadata[#1709](https://github.com/yesodweb/yesod/pull/1709)

@@ -98,7 +98,7 @@ widgetTest = describe "Test.Widget" $ do
     assertBody "<!DOCTYPE html>\n<html><head><title></title><script>toHead</script><toHead></toHead>\n<style>toWidget{bar:baz}toHead{bar:baz}</style></head><body><script>toBody</script><p>toWidget</p>\n<p>toBody</p>\n<script>toWidget</script></body></html>" res
 
 runner :: Session () -> IO ()
-runner f = toWaiApp Y >>= runSession f
+runner f = toWaiAppPlain Y >>= runSession f
 
 case_addJuliusBody :: IO ()
 case_addJuliusBody = runner $ do
