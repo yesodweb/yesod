@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## Unreleased
+
+* Fix import in cookie example [#1713](https://github.com/yesodweb/yesod/pull/1713)
+
 ## 1.6.11
 
 * Add missing `HasCallStack`s [#1710](https://github.com/yesodweb/yesod/pull/1710)
