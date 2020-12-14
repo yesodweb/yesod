@@ -462,7 +462,7 @@ testModifySite newSiteFn = do
 --
 -- ==== __Examples__
 --
--- > import qualified Data.Cookie as Cookie
+-- > import qualified Web.Cookie as Cookie
 -- > :set -XOverloadedStrings
 -- > testSetCookie Cookie.defaultSetCookie { Cookie.setCookieName = "name" }
 --
