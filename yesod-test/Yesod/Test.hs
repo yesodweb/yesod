@@ -7,6 +7,7 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
@@ -245,6 +246,7 @@ import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Conduit (MonadThrow)
 import Control.Monad.IO.Class
+import qualified Control.Monad.State.Class as MS
 import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
@@ -1600,6 +1602,11 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
 -- @since 1.6.0
 newtype SIO s a = SIO (ReaderT (IORef s) IO a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
+
+instance MS.MonadState s (SIO s)
+  where
+  get = getSIO
+  put = putSIO
 
 getSIO :: SIO s s
 getSIO = SIO $ ReaderT readIORef
