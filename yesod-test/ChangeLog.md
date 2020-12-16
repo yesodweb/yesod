@@ -1,8 +1,9 @@
 # ChangeLog for yesod-test
 
-## Unreleased
+## 1.6.12
 
 * Fix import in cookie example [#1713](https://github.com/yesodweb/yesod/pull/1713)
+* Add `MonadState` instance for `SIO`
 
 ## 1.6.11
 
