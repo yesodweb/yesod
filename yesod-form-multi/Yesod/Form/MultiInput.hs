@@ -304,11 +304,14 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                     // input types where we don't want to reset the value
                     const keepValueTypes = ["radio", "checkbox", "button"];
 
+                    var shouldKeep = keepValueTypes.includes(e.prop('type'))
+                                        || e.prop("tagName") == "OPTION";
+
                     // uncheck any checkboxes or radio fields and empty any text boxes
                     if(e.prop('checked') == true)
                         e.prop('checked', false);
 
-                    if(!keepValueTypes.includes(e.prop('type')))
+                    if(!shouldKeep)
                         e.val("").trigger("change");
                         // trigger change is to ensure WYSIWYG editors are updated
                         // when their hidden code field is cleared
