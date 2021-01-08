@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0.1
+
+[#1716](https://github.com/yesodweb/yesod/pull/1716)
+
+* Fixed bug where duplicating `<option>` tags caused the `value` field to be cleared
+
 ## 1.7.0
 
 [#1707](https://github.com/yesodweb/yesod/pull/1707)
