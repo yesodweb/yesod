@@ -9,6 +9,7 @@ module Devel
     ) where
 
 import           Control.Applicative                   ((<|>))
+import           Control.Arrow                         ((&&&))
 import           UnliftIO                              (race_)
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.STM
@@ -18,6 +19,7 @@ import           Control.Monad                         (forever, unless, void,
 import Data.ByteString (ByteString, isInfixOf)
 import qualified Data.ByteString.Lazy                  as LB
 import           Conduit
+import           Data.Bitraversable                    (bisequence)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (isJust)
@@ -56,7 +58,7 @@ import           Network.Wai                           (requestHeaderHost,
                                                         responseLBS)
 import           Network.Wai.Handler.Warp              (defaultSettings, runSettings,
                                                         setPort, setHost)
-import           Network.Wai.Handler.WarpTLS           (runTLS,
+import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettings,
                                                         tlsSettingsMemory)
 import           Network.Wai.Parse                     (parseHttpAccept)
 import           Say
@@ -126,6 +128,8 @@ data DevelOpts = DevelOpts
       , proxyTimeout    :: Int
       , useReverseProxy :: Bool
       , develHost       :: Maybe String
+      , certPath        :: Maybe FilePath
+      , keyPath         :: Maybe FilePath
       } deriving (Show, Eq)
 
 -- | Run a reverse proxy from the develPort and develTlsPort ports to
@@ -170,10 +174,11 @@ reverseProxy opts appPortVar = do
                 manager
         defaultSettings' = maybe id (setHost . fromString) (develHost opts) defaultSettings
         runProxyTls port app = do
-          let cert = $(embedFile "certificate.pem")
-              key = $(embedFile "key.pem")
-              tlsSettings = tlsSettingsMemory cert key
-          runTLS tlsSettings (setPort port defaultSettings') $ \req send -> do
+          let certDef = $(embedFile "certificate.pem")
+              keyDef = $(embedFile "key.pem")
+              certOpts = bisequence $ (certPath &&& keyPath) opts
+              theSettings = maybe (tlsSettingsMemory certDef keyDef) (uncurry tlsSettings) certOpts
+          runTLS theSettings (setPort port defaultSettings') $ \req send -> do
             let req' = req
                     { requestHeaders
                         = ("X-Forwarded-Proto", "https")
