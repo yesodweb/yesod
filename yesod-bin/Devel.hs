@@ -174,28 +174,28 @@ reverseProxy opts appPortVar = do
                 manager
         defaultSettings' = maybe id (setHost . fromString) (develHost opts) defaultSettings
         runProxyTls port app = do
-          let certDef = $(embedFile "certificate.pem")
-              keyDef = $(embedFile "key.pem")
-              certOpts = bisequence $ (certPath &&& keyPath) opts
-              theSettings = maybe (tlsSettingsMemory certDef keyDef) (uncurry tlsSettings) certOpts
-          runTLS theSettings (setPort port defaultSettings') $ \req send -> do
-            let req' = req
-                    { requestHeaders
-                        = ("X-Forwarded-Proto", "https")
-                        -- Workaround for
-                        -- https://github.com/yesodweb/wai/issues/478, where
-                        -- the Host headers aren't set. Without this, generated
-                        -- URLs from guestApproot are incorrect, see:
-                        -- https://github.com/yesodweb/yesod-scaffold/issues/114
-                        : (case lookup "host" (requestHeaders req) of
-                            Nothing ->
-                                case requestHeaderHost req of
-                                    Just host -> (("Host", host):)
-                                    Nothing -> id
-                            Just _ -> id)
-                          (requestHeaders req)
-                    }
-            app req' send
+            let certDef = $(embedFile "certificate.pem")
+                keyDef = $(embedFile "key.pem")
+                certOpts = bisequence $ (certPath &&& keyPath) opts
+                theSettings = maybe (tlsSettingsMemory certDef keyDef) (uncurry tlsSettings) certOpts
+            runTLS theSettings (setPort port defaultSettings') $ \req send -> do
+                let req' = req
+                        { requestHeaders
+                            = ("X-Forwarded-Proto", "https")
+                            -- Workaround for
+                            -- https://github.com/yesodweb/wai/issues/478, where
+                            -- the Host headers aren't set. Without this, generated
+                            -- URLs from guestApproot are incorrect, see:
+                            -- https://github.com/yesodweb/yesod-scaffold/issues/114
+                            : (case lookup "host" (requestHeaders req) of
+                                Nothing ->
+                                    case requestHeaderHost req of
+                                        Just host -> (("Host", host):)
+                                        Nothing -> id
+                                Just _ -> id)
+                            (requestHeaders req)
+                        }
+                app req' send
         httpProxy = runSettings (setPort (develPort opts) defaultSettings') proxyApp
         httpsProxy = runProxyTls (develTlsPort opts) proxyApp
     say "Application can be accessed at:\n"
