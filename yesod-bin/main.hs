@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards             #-}
 module Main (main) where
 
+import           Data.Bitraversable     (bisequence)
 import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
@@ -36,8 +37,7 @@ data Command = Init [String]
                      , proxyTimeout     :: Int
                      , noReverseProxy   :: Bool
                      , develHost        :: Maybe String
-                     , certPath         :: Maybe FilePath
-                     , keyPath          :: Maybe FilePath
+                     , cert             :: Maybe (FilePath, FilePath)
                      }
              | DevelSignal
              | Test
@@ -92,8 +92,7 @@ main = do
                              , proxyTimeout = proxyTimeout
                              , useReverseProxy = not noReverseProxy
                              , develHost    = develHost
-                             , certPath     = certPath
-                             , keyPath      = keyPath
+                             , cert         = cert
                              } develExtraArgs
     DevelSignal     -> develSignal
   where
@@ -171,10 +170,15 @@ develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "C
                             <> help "Disable reverse proxy" )
                      <*> optStr (long "host" <> metavar "HOST"
                             <> help "Host interface to bind to; IP address, '*' for all interfaces, '*4' for IP4, '*6' for IP6")
-                     <*> optStr (long "cert" <> metavar "CERT"
-                            <> help "Path to TLS certificate file, does nothing if --key is not also defined")
-                     <*> optStr (long "key" <> metavar "KEY"
-                            <> help "Path to TLS key file, does nothing if --cert is not also defined")
+                     <*> optionPair
+                            (strOption (long "cert" <> metavar "CERT"
+                                   <> help "Path to TLS certificate file, requires that --key is also defined"))
+                            (strOption (long "key" <> metavar "KEY"
+                                   <> help "Path to TLS key file, requires that --cert is also defined"))
+
+optionPair :: Parser a -> Parser b -> Parser (Maybe (a,b))
+optionPair pa pb = Just <$> liftA2 (,) pa pb
+                   <|> pure Nothing
 
 extraStackArgs :: Parser [String]
 extraStackArgs = many (strOption ( long "extra-stack-arg" <> short 'e' <> metavar "ARG"

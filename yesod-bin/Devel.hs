@@ -128,8 +128,7 @@ data DevelOpts = DevelOpts
       , proxyTimeout    :: Int
       , useReverseProxy :: Bool
       , develHost       :: Maybe String
-      , certPath        :: Maybe FilePath
-      , keyPath         :: Maybe FilePath
+      , cert            :: Maybe (FilePath, FilePath)
       } deriving (Show, Eq)
 
 -- | Run a reverse proxy from the develPort and develTlsPort ports to
@@ -176,8 +175,9 @@ reverseProxy opts appPortVar = do
         runProxyTls port app = do
           let certDef = $(embedFile "certificate.pem")
               keyDef = $(embedFile "key.pem")
-              certOpts = bisequence $ (certPath &&& keyPath) opts
-              theSettings = maybe (tlsSettingsMemory certDef keyDef) (uncurry tlsSettings) certOpts
+              theSettings = case cert opts of
+                Nothing -> tlsSettingsMemory certDef keyDef
+                Just (c,k) -> tlsSettings c k
           runTLS theSettings (setPort port defaultSettings') $ \req send -> do
             let req' = req
                     { requestHeaders
