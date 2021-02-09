@@ -9,7 +9,6 @@ module Devel
     ) where
 
 import           Control.Applicative                   ((<|>))
-import           Control.Arrow                         ((&&&))
 import           UnliftIO                              (race_)
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.STM
@@ -19,7 +18,6 @@ import           Control.Monad                         (forever, unless, void,
 import Data.ByteString (ByteString, isInfixOf)
 import qualified Data.ByteString.Lazy                  as LB
 import           Conduit
-import           Data.Bitraversable                    (bisequence)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (isJust)

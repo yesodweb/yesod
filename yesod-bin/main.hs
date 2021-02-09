@@ -2,7 +2,6 @@
 {-# LANGUAGE RecordWildCards             #-}
 module Main (main) where
 
-import           Data.Bitraversable     (bisequence)
 import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
