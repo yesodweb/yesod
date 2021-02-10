@@ -1,5 +1,9 @@
 # ChangeLog for yesod-bin
 
+## 1.6.1
+
+Added command line options `cert` and `key` to allow TLS certificate and key files to be passed to `yesod devel` [#1717](https://github.com/yesodweb/yesod/pull/1717)
+
 ## 1.6.0.6
 
 Fix the `add-handler` subcommand to support both the old default routes filename (`routes`) and the new one (`routes.yesodroutes`) [#1688](https://github.com/yesodweb/yesod/pull/1688)
