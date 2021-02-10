@@ -169,15 +169,11 @@ develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "C
                             <> help "Disable reverse proxy" )
                      <*> optStr (long "host" <> metavar "HOST"
                             <> help "Host interface to bind to; IP address, '*' for all interfaces, '*4' for IP4, '*6' for IP6")
-                     <*> optionPair
-                            (strOption (long "cert" <> metavar "CERT"
-                                   <> help "Path to TLS certificate file, requires that --key is also defined"))
-                            (strOption (long "key" <> metavar "KEY"
-                                   <> help "Path to TLS key file, requires that --cert is also defined"))
-
-optionPair :: Parser a -> Parser b -> Parser (Maybe (a,b))
-optionPair pa pb = Just <$> liftA2 (,) pa pb
-                   <|> pure Nothing
+                     <*> optional ( (,)
+                            <$> strOption (long "cert" <> metavar "CERT"
+                                   <> help "Path to TLS certificate file, requires that --key is also defined")
+                            <*> strOption (long "key" <> metavar "KEY"
+                                   <> help "Path to TLS key file, requires that --cert is also defined") )
 
 extraStackArgs :: Parser [String]
 extraStackArgs = many (strOption ( long "extra-stack-arg" <> short 'e' <> metavar "ARG"
