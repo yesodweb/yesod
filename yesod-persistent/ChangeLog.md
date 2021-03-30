@@ -1,6 +1,6 @@
 # ChangeLog for yesod-persistent
 
-## 1.6.0.2
+## 1.6.0.6
 
 * Add support for persistent 2.12
 
