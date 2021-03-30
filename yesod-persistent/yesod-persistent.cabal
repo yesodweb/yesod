@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-persistent
-version:         1.6.0.5
+version:         1.6.0.6
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -17,8 +17,8 @@ library
     default-language: Haskell2010
     build-depends:   base                      >= 4.10     && < 5
                    , yesod-core                >= 1.6      && < 1.7
-                   , persistent                >= 2.8      && < 2.12
-                   , persistent-template       >= 2.1      && < 2.10
+                   , persistent                >= 2.8
+                   , persistent-template       >= 2.1
                    , transformers              >= 0.2.2
                    , blaze-builder
                    , conduit

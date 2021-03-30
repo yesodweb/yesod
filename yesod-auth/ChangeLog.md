@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.10.2
+
+* Relax bounds for persistent 2.12
+
 ## 1.6.10.1
 
 * Add support for Persistent 2.11 [#1701](https://github.com/yesodweb/yesod/pull/1701)

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-persistent
 
+## 1.6.0.2
+
+* Add support for persistent 2.12
+
 ## 1.6.0.5
 
 * Add support for Persistent 2.11 [#1701](https://github.com/yesodweb/yesod/pull/1701)

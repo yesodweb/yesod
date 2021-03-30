@@ -196,7 +196,11 @@ insert400 datum = do
     conflict <- checkUnique datum
     case conflict of
         Just unique ->
+#if MIN_VERSION_persistent(2, 12, 0)
+            badRequest' $ map (unFieldNameHS . fst) $ persistUniqueToFieldNames unique
+#else
             badRequest' $ map (unHaskellName . fst) $ persistUniqueToFieldNames unique
+#endif
         Nothing -> insert datum
 
 -- | Same as 'insert400', but doesn’t return a key.

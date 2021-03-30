@@ -21,6 +21,7 @@ jobs:
         - "--resolver lts-12"
         - "--resolver lts-11"
         - "--stack-yaml stack-persistent-211.yaml"
+        - "--stack-yaml stack-persistent-212.yaml"
         # Bugs in GHC make it crash too often to be worth running
         exclude:
           - os: windows-latest
@@ -29,6 +30,8 @@ jobs:
             args: "--resolver lts-16"
           - os: windows-latest
             args: "--stack-yaml stack-persistent-211.yaml"
+          - os: windows-latest
+            args: "--stack-yaml stack-persistent-212.yaml"
 
     steps:
       - name: Clone project
