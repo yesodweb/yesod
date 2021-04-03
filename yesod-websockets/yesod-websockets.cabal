@@ -1,4 +1,4 @@
-cabal-version:       1.10
+cabal-version:       >=1.10
 name:                yesod-websockets
 version:             0.3.0.3
 synopsis:            WebSockets support for Yesod
