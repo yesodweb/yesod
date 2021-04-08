@@ -1238,6 +1238,10 @@ cacheBySet key value = do
 -- If a matching language is not found the default language will be used.
 --
 -- This is handled by parseWaiRequest (not exposed).
+--
+-- __NOTE__: Before version @1.6.18.9@, this function prioritized the session
+-- variable above all other sources.
+--
 languages :: MonadHandler m => m [Text]
 languages = reqLangs <$> getRequest
 

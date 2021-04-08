@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.18.9
+
+* Change order of priority in `languages`[#1721](https://github.com/yesodweb/yesod/pull/1721)
+
 ## 1.6.18.8
 
 * Fix test suite for wai-extra change around vary header
