@@ -1239,7 +1239,7 @@ cacheBySet key value = do
 --
 -- This is handled by parseWaiRequest (not exposed).
 --
--- __NOTE__: Before version @1.6.18.9@, this function prioritized the session
+-- __NOTE__: Before version @1.6.19.0@, this function prioritized the session
 -- variable above all other sources.
 --
 languages :: MonadHandler m => m [Text]

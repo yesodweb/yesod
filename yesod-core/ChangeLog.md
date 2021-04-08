@@ -1,6 +1,6 @@
 # ChangeLog for yesod-core
 
-## 1.6.18.9
+## 1.6.19.0
 
 * Change order of priority in `languages`[#1721](https://github.com/yesodweb/yesod/pull/1721)
 
