@@ -1226,9 +1226,9 @@ cacheBySet key value = do
 -- Languages are determined based on the following (in descending order
 -- of preference):
 --
--- * The _LANG user session variable.
---
 -- * The _LANG get parameter.
+--
+-- * The _LANG user session variable.
 --
 -- * The _LANG cookie.
 --
@@ -1238,11 +1238,12 @@ cacheBySet key value = do
 -- If a matching language is not found the default language will be used.
 --
 -- This is handled by parseWaiRequest (not exposed).
+--
+-- __NOTE__: Before version @1.6.19.0@, this function prioritized the session
+-- variable above all other sources.
+--
 languages :: MonadHandler m => m [Text]
-languages = do
-    mlang <- lookupSession langKey
-    langs <- reqLangs <$> getRequest
-    return $ maybe id (:) mlang langs
+languages = reqLangs <$> getRequest
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
