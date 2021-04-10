@@ -45,6 +45,7 @@ module Yesod.Form.Fields
     , selectFieldHelper
     , selectField
     , selectFieldList
+    , selectFieldListGrouped
     , radioField
     , radioFieldList
     , checkboxesField
@@ -54,6 +55,7 @@ module Yesod.Form.Fields
     , Option (..)
     , OptionList (..)
     , mkOptionList
+    , mkOptionListGrouped
     , optionsPersist
     , optionsPersistKey
     , optionsPairs
@@ -427,7 +429,13 @@ selectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg
                 -> Field (HandlerFor site) a
 selectFieldList = selectField . optionsPairs
 
--- | Creates a @\<select>@ tag for selecting one option. Example usage:
+-- | Creates a @\<select>@ tag with @\<optgroup>@s for selecting one option.
+selectFieldListGrouped :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
+                => [(msg, [(msg, a)])]
+                -> Field (HandlerFor site) a
+selectFieldListGrouped = selectField . optionsPairsGrouped
+
+-- | Creates a @\<select>@ tag with optional @\<optgroup>@s for selecting one option. Example usage:
 --
 -- > areq (selectField $ optionsPairs [(MsgValue1, "value1"),(MsgValue2, "value2")]) "Which value?" Nothing
 selectField :: (Eq a, RenderMessage site FormMessage)
@@ -446,6 +454,9 @@ $newline never
 $newline never
 <option value=#{value} :isSel:selected>#{text}
 |]) -- inside
+    (Just $ \label -> [whamlet|
+<optgroup label=#{label}>
+|]) -- group label
 
 -- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectFieldList :: (Eq a, RenderMessage site msg)
@@ -531,6 +542,7 @@ $newline never
         <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
         \#{text}
 |])
+     Nothing
 
 -- | Creates a group of radio buttons to answer the question given in the message. Radio buttons are used to allow differentiating between an empty response (@Nothing@) and a no response (@Just False@). Consider using the simpler 'checkBoxField' if you don't need to make this distinction.
 --
@@ -598,10 +610,20 @@ $newline never
         showVal = either (\_ -> False)
 
 -- | A structure holding a list of options. Typically you can use a convenience function like 'mkOptionList' or 'optionsPairs' instead of creating this directly.
-data OptionList a = OptionList
+data OptionList a
+  = OptionList
     { olOptions :: [Option a]
     , olReadExternal :: Text -> Maybe a -- ^ A function mapping from the form's value ('optionExternalValue') to the selected Haskell value ('optionInternalValue').
     }
+  | OptionListGrouped
+    { olOptionsGrouped :: [(Text, [Option a])]
+    , olReadExternalGrouped :: Text -> Maybe a -- ^ A function mapping from the form's value ('optionExternalValue') to the selected Haskell value ('optionInternalValue').
+    }
+
+-- | Convert grouped 'OptionList' to a normal one.
+flattenOptionList :: OptionList a -> OptionList a
+flattenOptionList (OptionListGrouped os re) = OptionList (concatMap snd os) re
+flattenOptionList ol = ol
 
 -- | Since 1.4.6
 instance Functor OptionList where
@@ -613,6 +635,13 @@ mkOptionList :: [Option a] -> OptionList a
 mkOptionList os = OptionList
     { olOptions = os
     , olReadExternal = flip Map.lookup $ Map.fromList $ map (optionExternalValue &&& optionInternalValue) os
+    }
+
+-- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternalGrouped' function.
+mkOptionListGrouped :: [(Text, [Option a])] -> OptionList a
+mkOptionListGrouped os = OptionListGrouped
+    { olOptionsGrouped = os
+    , olReadExternalGrouped = flip Map.lookup $ Map.fromList $ map (optionExternalValue &&& optionInternalValue) $ concatMap snd os
     }
 
 data Option a = Option
@@ -636,6 +665,28 @@ optionsPairs opts = do
                  , optionExternalValue = pack $ show external
                  }
   return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
+
+-- | Creates an 'OptionList' from a list of (display-value, internal value) pairs.
+optionsPairsGrouped
+  :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
+  => [(msg, [(msg, a)])] -> m (OptionList a)
+optionsPairsGrouped opts = do
+  mr <- getMessageRender
+  let mkOption (external, (display, internal)) =
+          Option { optionDisplay       = mr display
+                 , optionInternalValue = internal
+                 , optionExternalValue = pack $ show external
+                 }
+      opts' = enumerateSublists opts -- :: [(grp, [(Int, (msg, a))])]
+      opts'' = map (\(x, ys) -> (mr x, map mkOption ys)) opts'
+  return $ mkOptionListGrouped opts''
+
+-- | Helper to enumerate sublists with one consecutive index.
+enumerateSublists :: [(a, [b])] -> [(a, [(Int, b)])]
+enumerateSublists xss =
+  let --yss :: [(Int, (a, [b]))]
+      yss = snd $ foldl (\(i, res) xs -> (i + (length.snd) xs, res ++ [(i, xs)])) (1, []) xss
+   in map (\(i, (x, ys)) -> (x, zip [i :: Int ..] ys)) yss
 
 -- | Creates an 'OptionList' from an 'Enum', using its 'Show' instance for the user-facing value.
 optionsEnum :: (MonadHandler m, Show a, Enum a, Bounded a) => m (OptionList a)
@@ -731,7 +782,7 @@ optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
         }) pairs
 
 -- |
--- A helper function for constucting 'selectField's. You may want to use this when you define your custom 'selectField's or 'radioField's.
+-- A helper function for constucting 'selectField's with optional option groups. You may want to use this when you define your custom 'selectField's or 'radioField's.
 --
 -- @since 1.6.2
 selectFieldHelper
@@ -739,23 +790,26 @@ selectFieldHelper
         => (Text -> Text -> [(Text, Text)] -> WidgetFor site () -> WidgetFor site ()) -- ^ Outermost part of the field
         -> (Text -> Text -> Bool -> WidgetFor site ()) -- ^ An option for None if the field is optional
         -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> WidgetFor site ()) -- ^ Other options
+        -> (Maybe (Text -> WidgetFor site ())) -- ^ Group headers placed inbetween options
         -> HandlerFor site (OptionList a)
         -> Field (HandlerFor site) a
-selectFieldHelper outside onOpt inside opts' = Field
+selectFieldHelper outside onOpt inside grpHdr opts' = Field
     { fieldParse = \x _ -> do
-        opts <- opts'
+        opts <- fmap flattenOptionList opts'
         return $ selectParser opts x
     , fieldView = \theId name attrs val isReq -> do
-        opts <- fmap olOptions $ handlerToWidget opts'
         outside theId name attrs $ do
-            unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
-            forM_ opts $ \opt -> inside
-                theId
-                name
-                ((if isReq then (("required", "required"):) else id) attrs)
-                (optionExternalValue opt)
-                ((render opts val) == optionExternalValue opt)
-                (optionDisplay opt)
+          optsFlat <- fmap (olOptions.flattenOptionList) $ handlerToWidget opts'
+          unless isReq $ onOpt theId name $ not $ render optsFlat val `elem` map optionExternalValue optsFlat
+          opts'' <- handlerToWidget opts'
+          case opts'' of
+            (OptionList{}) -> constructOptions theId name attrs val isReq optsFlat
+            (OptionListGrouped{olOptionsGrouped=grps}) -> do
+                  forM_ grps $ \(grp, opts) -> do
+                    case grpHdr of
+                      Just hdr -> hdr grp
+                      Nothing -> return ()
+                    constructOptions theId name attrs val isReq opts
     , fieldEnctype = UrlEncoded
     }
   where
@@ -768,6 +822,14 @@ selectFieldHelper outside onOpt inside opts' = Field
             x -> case olReadExternal opts x of
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                     Just y -> Right $ Just y
+    constructOptions theId name attrs val isReq opts =
+      forM_ opts $ \opt -> inside
+                           theId
+                           name
+                           ((if isReq then (("required", "required"):) else id) attrs)
+                           (optionExternalValue opt)
+                           ((render opts val) == optionExternalValue opt)
+                           (optionDisplay opt)
 
 -- | Creates an input with @type="file"@.
 fileField :: Monad m
