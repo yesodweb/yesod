@@ -80,7 +80,7 @@ import Database.Persist (Entity (..), SqlType (SqlString), PersistRecordBackend,
 import Database.Persist (Entity (..), SqlType (SqlString), PersistEntity, PersistQuery, PersistEntityBackend)
 #endif
 import Text.HTML.SanitizeXSS (sanitizeBalance)
-import Control.Monad (when, unless)
+import Control.Monad (when, unless, forM_)
 import Data.Either (partitionEithers)
 import Data.Maybe (listToMaybe, fromMaybe)
 
@@ -749,7 +749,7 @@ selectFieldHelper outside onOpt inside opts' = Field
         opts <- fmap olOptions $ handlerToWidget opts'
         outside theId name attrs $ do
             unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
-            flip mapM_ opts $ \opt -> inside
+            forM_ opts $ \opt -> inside
                 theId
                 name
                 ((if isReq then (("required", "required"):) else id) attrs)
