@@ -679,14 +679,14 @@ optionsPairsGrouped opts = do
                  , optionInternalValue = internal
                  , optionExternalValue = pack $ show external
                  }
-      opts' = enumerateSublists opts -- :: [(grp, [(Int, (msg, a))])]
+      opts' = enumerateSublists opts -- :: [(msg, [(Int, (msg, a))])]
       opts'' = map (\(x, ys) -> (mr x, map mkOption ys)) opts'
   return $ mkOptionListGrouped opts''
 
 -- | Helper to enumerate sublists with one consecutive index.
 enumerateSublists :: [(a, [b])] -> [(a, [(Int, b)])]
 enumerateSublists xss =
-  let --yss :: [(Int, (a, [b]))]
+  let -- yss :: [(Int, (a, [b]))]
       yss = snd $ foldl (\(i, res) xs -> (i + (length.snd) xs, res ++ [(i, xs)])) (1, []) xss
    in map (\(i, (x, ys)) -> (x, zip [i :: Int ..] ys)) yss
 
