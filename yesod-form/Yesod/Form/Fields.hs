@@ -59,6 +59,7 @@ module Yesod.Form.Fields
     , optionsPersist
     , optionsPersistKey
     , optionsPairs
+    , optionsPairsGrouped
     , optionsEnum
     ) where
 
