@@ -627,8 +627,10 @@ flattenOptionList ol = ol
 
 -- | Since 1.4.6
 instance Functor OptionList where
-    fmap f (OptionList options readExternal) = 
+    fmap f (OptionList options readExternal) =
       OptionList ((fmap.fmap) f options) (fmap f . readExternal)
+    fmap f (OptionListGrouped options readExternal) =
+      OptionListGrouped (map (\(g, os) -> (g, (fmap.fmap) f os)) options) (fmap f . readExternal)
 
 -- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternal' function.
 mkOptionList :: [Option a] -> OptionList a
