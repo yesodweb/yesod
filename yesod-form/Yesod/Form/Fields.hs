@@ -175,7 +175,7 @@ timeField = timeFieldTypeTime
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
--- Since 1.4.2
+-- @since 1.4.2
 timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
 timeFieldTypeTime = timeFieldOfType "time"
 
@@ -185,7 +185,7 @@ timeFieldTypeTime = timeFieldOfType "time"
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
--- Since 1.4.2
+-- @since 1.4.2
 timeFieldTypeText :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeFieldTypeText = timeFieldOfType "text"
 
@@ -365,7 +365,7 @@ $newline never
 
 -- | Creates an input with @type="email"@ with the <http://w3c.github.io/html/sec-forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
 --
--- Since 1.3.7
+-- @since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
 multiEmailField = Field
     { fieldParse = parseHelper $
@@ -431,6 +431,8 @@ selectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg
 selectFieldList = selectField . optionsPairs
 
 -- | Creates a @\<select>@ tag with @\<optgroup>@s for selecting one option.
+--
+-- @since 1.7.0
 selectFieldListGrouped :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                 => [(msg, [(msg, a)])]
                 -> Field (HandlerFor site) a
@@ -611,6 +613,8 @@ $newline never
         showVal = either (\_ -> False)
 
 -- | A structure holding a list of options. Typically you can use a convenience function like 'mkOptionList' or 'optionsPairs' instead of creating this directly.
+--
+-- Extended by 'OptionListGrouped' in 1.7.0.
 data OptionList a
   = OptionList
     { olOptions :: [Option a]
@@ -622,11 +626,13 @@ data OptionList a
     }
 
 -- | Convert grouped 'OptionList' to a normal one.
+--
+-- @since 1.7.0
 flattenOptionList :: OptionList a -> OptionList a
 flattenOptionList (OptionListGrouped os re) = OptionList (concatMap snd os) re
 flattenOptionList ol = ol
 
--- | Since 1.4.6
+-- | @since 1.4.6
 instance Functor OptionList where
     fmap f (OptionList options readExternal) =
       OptionList ((fmap.fmap) f options) (fmap f . readExternal)
@@ -641,6 +647,8 @@ mkOptionList os = OptionList
     }
 
 -- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternalGrouped' function.
+--
+-- @since 1.7.0
 mkOptionListGrouped :: [(Text, [Option a])] -> OptionList a
 mkOptionListGrouped os = OptionListGrouped
     { olOptionsGrouped = os
@@ -653,7 +661,7 @@ data Option a = Option
     , optionExternalValue :: Text -- ^ The representation of this value stored in the form.
     }
 
--- | Since 1.4.6
+-- | @since 1.4.6
 instance Functor Option where
     fmap f (Option display internal external) = Option display (f internal) external
 
@@ -670,6 +678,8 @@ optionsPairs opts = do
   return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
 
 -- | Creates an 'OptionList' from a list of (display-value, internal value) pairs.
+--
+-- @since 1.7.0
 optionsPairsGrouped
   :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
   => [(msg, [(msg, a)])] -> m (OptionList a)
@@ -746,7 +756,7 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 -- | An alternative to 'optionsPersist' which returns just the 'Key' instead of
 -- the entire 'Entity'.
 --
--- Since 1.3.2
+-- @since 1.3.2
 #if MIN_VERSION_persistent(2,5,0)
 optionsPersistKey
   :: (YesodPersist site

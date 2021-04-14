@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.0
+
+* Extended `OptionList` by `OptionListGrouped` and implemented grouped select fields (`<select>` with `<optgroup>`) [#1722](https://github.com/yesodweb/yesod/pull/1722)
+
 ## 1.6.7
 
 * Added equivalent version of `mreqMsg` for `areq` and `wreq` correspondingly [#1628](https://github.com/yesodweb/yesod/pull/1628)
