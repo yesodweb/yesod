@@ -813,11 +813,11 @@ selectFieldHelper outside onOpt inside grpHdr opts' = Field
     , fieldView = \theId name attrs val isReq -> do
         outside theId name attrs $ do
           optsFlat <- fmap (olOptions.flattenOptionList) $ handlerToWidget opts'
-          unless isReq $ onOpt theId name $ not $ render optsFlat val `elem` map optionExternalValue optsFlat
+          unless isReq $ onOpt theId name $ render optsFlat val `notElem` map optionExternalValue optsFlat
           opts'' <- handlerToWidget opts'
           case opts'' of
-            (OptionList{}) -> constructOptions theId name attrs val isReq optsFlat
-            (OptionListGrouped{olOptionsGrouped=grps}) -> do
+            OptionList{} -> constructOptions theId name attrs val isReq optsFlat
+            OptionListGrouped{olOptionsGrouped=grps} -> do
                   forM_ grps $ \(grp, opts) -> do
                     case grpHdr of
                       Just hdr -> hdr grp
@@ -841,7 +841,7 @@ selectFieldHelper outside onOpt inside grpHdr opts' = Field
                            name
                            ((if isReq then (("required", "required"):) else id) attrs)
                            (optionExternalValue opt)
-                           ((render opts val) == optionExternalValue opt)
+                           (render opts val == optionExternalValue opt)
                            (optionDisplay opt)
 
 -- | Creates an input with @type="file"@.
@@ -939,7 +939,7 @@ prependZero t0 = if T.null t1
                            then "-0." `T.append` (T.drop 2 t1)
                            else t1
 
-  where t1 = T.dropWhile ((==) ' ') t0
+  where t1 = T.dropWhile (==' ') t0
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.
