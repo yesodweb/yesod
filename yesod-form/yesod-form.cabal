@@ -1,3 +1,4 @@
+cabal-version:   >= 1.10
 name:            yesod-form
 version:         1.7.0
 license:         MIT
@@ -7,7 +8,6 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Form handling support for Yesod Web Framework
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-form>.  Third-party packages which you can find useful: <http://hackage.haskell.org/package/yesod-form-richtext yesod-form-richtext> - richtext form fields (currntly it provides only Summernote support).
@@ -19,6 +19,7 @@ flag network-uri
   default: True
 
 library
+    default-language: Haskell2010
     build-depends:   base                  >= 4.10     && < 5
                    , aeson
                    , attoparsec            >= 0.10
@@ -70,6 +71,7 @@ library
     ghc-options:     -Wall
 
 test-suite test
+    default-language: Haskell2010
     type: exitcode-stdio-1.0
     main-is: main.hs
     hs-source-dirs: test

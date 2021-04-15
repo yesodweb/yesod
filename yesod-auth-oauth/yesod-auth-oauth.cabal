@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-auth-oauth
-version:         1.6.0.2
+version:         1.6.0.3
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii

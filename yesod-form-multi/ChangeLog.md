@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0.2
+
+* Allow yesod-form 1.7
+
 ## 1.7.0.1
 
 [#1716](https://github.com/yesodweb/yesod/pull/1716)

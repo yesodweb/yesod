@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.10.3
+
+* Relax bounds for yesod-form 1.7
+
 ## 1.6.10.2
 
 * Relax bounds for persistent 2.12

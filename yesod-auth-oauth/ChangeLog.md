@@ -1,3 +1,9 @@
+# ChangeLog for yesod-auth-oauth
+
+## 1.6.0.3
+
+* Allow yesod-form 1.7
+
 ## 1.6.0.2
 
 * Remove unnecessary deriving of Typeable
