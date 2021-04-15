@@ -57,7 +57,7 @@ library
                    , unordered-containers
                    , wai                     >= 1.4
                    , yesod-core              >= 1.6       && < 1.7
-                   , yesod-form              >= 1.6       && < 1.7
+                   , yesod-form              >= 1.6       && < 1.8
                    , yesod-persistent        >= 1.6
 
     if flag(network-uri)

@@ -21,7 +21,7 @@ data Wiki = Wiki
     }
 
 -- | A typeclass that all master sites that want a Wiki must implement. A
--- master must be able to render form messages, as we use yesod-forms for
+-- master must be able to render form messages, as we use yesod-form for
 -- processing user input.
 class (RenderMessage master FormMessage, Yesod master) => YesodWiki master where
     -- | Write protection. By default, no protection.
