@@ -1,3 +1,9 @@
+# ChangeLog for yesod
+
+## 1.6.1.1
+
+* Allow yesod-form 1.7
+
 ## 1.6.1.0
 
 * `widgetFileReload` and `widgetFileNoReload` now use absolute paths via the new `globFilePackage` Q Exp which can provide absolute templates paths within the project [#1691](https://github.com/yesodweb/yesod/pull/1691)
