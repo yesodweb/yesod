@@ -25,6 +25,7 @@ module Yesod.Persist.Core
 import Database.Persist
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 
+import Data.Foldable (toList)
 import Yesod.Core
 import Data.Conduit
 import Blaze.ByteString.Builder (Builder)
@@ -33,6 +34,9 @@ import Control.Monad.Trans.Resource
 import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
+#if MIN_VERSION_persistent(2,13,0)
+import qualified Database.Persist.SqlBackend.Internal as SQL
+#endif
 
 unSqlPersistT :: a -> a
 unSqlPersistT = id
@@ -197,7 +201,11 @@ insert400 datum = do
     case conflict of
         Just unique ->
 #if MIN_VERSION_persistent(2, 12, 0)
-            badRequest' $ map (unFieldNameHS . fst) $ persistUniqueToFieldNames unique
+-- toList is called here because persistent-2.13 changed this
+-- to a nonempty list. for versions of persistent prior to 2.13, toList
+-- will be a no-op. for persistent-2.13, it'll convert the NonEmptyList to
+-- a List.
+            badRequest' $ map (unFieldNameHS . fst) $ toList $ persistUniqueToFieldNames unique
 #else
             badRequest' $ map (unHaskellName . fst) $ persistUniqueToFieldNames unique
 #endif

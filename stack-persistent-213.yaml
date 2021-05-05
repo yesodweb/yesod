@@ -1,0 +1,25 @@
+resolver: nightly-2021-03-31
+packages:
+- ./yesod-core
+- ./yesod-static
+- ./yesod-persistent
+- ./yesod-newsfeed
+- ./yesod-form
+- ./yesod-form-multi
+- ./yesod-auth
+- ./yesod-auth-oauth
+- ./yesod-sitemap
+- ./yesod-test
+- ./yesod-bin
+- ./yesod
+- ./yesod-eventsource
+- ./yesod-websockets
+extra-deps:
+- lift-type-0.1.0.1
+- git: git@github.com:yesodweb/persistent
+  commit: 315ae91349ef4fbc2f4f2595cb7d3423e79ef80f
+  subdirs:
+    - persistent
+    - persistent-sqlite
+    - persistent-mysql
+    - persistent-postgresql
