@@ -16,10 +16,7 @@ packages:
 - ./yesod-websockets
 extra-deps:
 - lift-type-0.1.0.1
-- git: git@github.com:yesodweb/persistent
-  commit: 315ae91349ef4fbc2f4f2595cb7d3423e79ef80f
-  subdirs:
-    - persistent
-    - persistent-sqlite
-    - persistent-mysql
-    - persistent-postgresql
+- persistent-2.13.0.0
+- persistent-mysql-2.13.0.0
+- persistent-sqlite-2.13.0.0
+- persistent-postgrseql-2.13.0.0
