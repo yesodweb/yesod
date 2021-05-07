@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-persistent
-version:         1.6.0.6
+version:         1.6.0.7
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
