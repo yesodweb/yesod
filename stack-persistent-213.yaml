@@ -19,4 +19,5 @@ extra-deps:
 - persistent-2.13.0.0
 - persistent-mysql-2.13.0.0
 - persistent-sqlite-2.13.0.0
-- persistent-postgrseql-2.13.0.0
+- persistent-postgresql-2.13.0.0
+- persistent-template-2.12.0.0
