@@ -1,5 +1,10 @@
 # ChangeLog for yesod-core
 
+## 1.6.20
+
+* Generate CSRF tokens using a secure entropy source [#1726](https://github.com/yesodweb/yesod/pull/1726)
+* Change semantics of `yreGen` and `defaultGen`
+
 ## 1.6.19.0
 
 * Change order of priority in `languages`[#1721](https://github.com/yesodweb/yesod/pull/1721)

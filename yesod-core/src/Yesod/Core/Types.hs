@@ -196,7 +196,13 @@ data YesodRunnerEnv site = YesodRunnerEnv
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
     , yreGen            :: !(IO Int)
-    -- ^ Generate a random number
+    -- ^ Generate a random number uniformly distributed in the full
+    -- range of 'Int'.
+    --
+    -- Note: Before 1.6.20, the default value generates pseudo-random
+    -- number in an unspecified range. The range size may not be a power
+    -- of 2. Since 1.6.20, the default value uses a secure entropy source
+    -- and generates in the full range of 'Int'.
     , yreGetMaxExpires  :: !(IO Text)
     }
 
