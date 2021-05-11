@@ -1,6 +1,6 @@
 # ChangeLog for yesod-core
 
-## 1.7.0
+## 1.6.20
 
 * Generate CSRF tokens using a secure entropy source [#1726](https://github.com/yesodweb/yesod/pull/1726)
 * Change semantics of `yreGen` and `defaultGen`
