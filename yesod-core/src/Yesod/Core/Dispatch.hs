@@ -46,6 +46,7 @@ import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
 
+import Data.Bits ((.|.), finiteBitSize, shiftL)
 import Data.Text (Text)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as BL
@@ -59,7 +60,7 @@ import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
 import Text.Read (readMaybe)
 import System.Environment (getEnvironment)
-import qualified System.Random as Random
+import System.Entropy (getEntropy)
 import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
 
@@ -92,8 +93,19 @@ toWaiAppPlain site = do
             , yreGetMaxExpires = getMaxExpires
             }
 
+-- | Generate a random number uniformly distributed in the full range
+-- of 'Int'.
+--
+-- Note: Before 1.7.0, this generates pseudo-random number in an
+-- unspecified range. The range size may not be a power of 2. Since
+-- 1.7.0, this uses a secure entropy source and generates in the full
+-- range of 'Int'.
 defaultGen :: IO Int
-defaultGen = Random.getStdRandom Random.next
+defaultGen = bsToInt <$> getEntropy bytes
+  where
+    bits = finiteBitSize (undefined :: Int)
+    bytes = div (bits + 7) 8
+    bsToInt = S.foldl' (\v i -> shiftL v 8 .|. fromIntegral i) 0
 
 -- | Pure low level function to construct WAI application. Usefull
 -- when you need not standard way to run your app, or want to embed it
