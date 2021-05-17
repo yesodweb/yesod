@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Core.Class.Breadcrumbs where
 
 import Yesod.Core.Handler
@@ -15,7 +16,7 @@ class YesodBreadcrumbs site where
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: YesodBreadcrumbs site => HandlerFor site (Text, [(Route site, Text)])
+breadcrumbs :: (YesodBreadcrumbs site, Eq (Route site)) => HandlerFor site (Text, [(Route site, Text)])
 breadcrumbs = do
     x <- getCurrentRoute
     case x of
@@ -28,4 +29,8 @@ breadcrumbs = do
     go back Nothing = return back
     go back (Just this) = do
         (title, next) <- breadcrumb this
-        go ((this, title) : back) next
+        if next `elem` (map (Just . fst) back)
+        then
+          error $ "infinite recursion in breadcrumbs at" <> show title
+        else
+          go ((this, title) : back) next
