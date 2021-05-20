@@ -31,6 +31,6 @@ breadcrumbs = do
         (title, next) <- breadcrumb this
         if this `elem` map fst back
         then
-          error $ "yesod-core: infinite recursion in breadcrumbs at " <> show title
+          error $ "yesod-core: infinite recursion in breadcrumbs at " ++ show title
         else
           go ((this, title) : back) next
