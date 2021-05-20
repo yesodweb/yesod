@@ -29,8 +29,8 @@ breadcrumbs = do
     go back Nothing = return back
     go back (Just this) = do
         (title, next) <- breadcrumb this
-        if next `elem` (map (Just . fst) back)
+        if this `elem` map fst back
         then
-          error $ "infinite recursion in breadcrumbs at" <> show title
+          error $ "yesod-core: infinite recursion in breadcrumbs at " <> show title
         else
           go ((this, title) : back) next
