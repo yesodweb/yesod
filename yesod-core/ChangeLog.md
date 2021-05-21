@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.20.1
+
+* Throw an error in `breadcrumbs` if the trail of breadcrumbs is circular. [#1727](https://github.com/yesodweb/yesod/issues/1727)
+
 ## 1.6.20
 
 * Generate CSRF tokens using a secure entropy source [#1726](https://github.com/yesodweb/yesod/pull/1726)
