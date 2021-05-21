@@ -16,7 +16,7 @@ class YesodBreadcrumbs site where
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: (YesodBreadcrumbs site, Eq (Route site)) => HandlerFor site (Text, [(Route site, Text)])
+breadcrumbs :: (YesodBreadcrumbs site, Show (Route site), Eq (Route site)) => HandlerFor site (Text, [(Route site, Text)])
 breadcrumbs = do
     x <- getCurrentRoute
     case x of
@@ -27,10 +27,8 @@ breadcrumbs = do
             return (title, z)
   where
     go back Nothing = return back
-    go back (Just this) = do
-        (title, next) <- breadcrumb this
-        if this `elem` map fst back
-        then
-          error $ "yesod-core: infinite recursion in breadcrumbs at " ++ show title
-        else
+    go back (Just this)
+      | this `elem` map fst back = error $ "yesod-core: infinite recursion in breadcrumbs at " ++ show this
+      | otherwise = do
+          (title, next) <- breadcrumb this
           go ((this, title) : back) next
