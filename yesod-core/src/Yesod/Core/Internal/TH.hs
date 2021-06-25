@@ -107,9 +107,9 @@ mkYesodDispatch name = fmap snd . mkYesodWithParser name False return
 -- | Get the Handler and Widget type synonyms for the given site.
 masterTypeSyns :: [Name] -> Type -> [Dec] -- FIXME remove from here, put into the scaffolding itself?
 masterTypeSyns vs site =
-    [ TySynD (mkName "Handler") (fmap PlainTV vs)
+    [ TySynD (mkName "Handler") (fmap plainTV vs)
       $ ConT ''HandlerFor `AppT` site
-    , TySynD (mkName "Widget")  (fmap PlainTV vs)
+    , TySynD (mkName "Widget")  (fmap plainTV vs)
       $ ConT ''WidgetFor `AppT` site `AppT` ConT ''()
     ]
 
