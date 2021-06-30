@@ -113,7 +113,11 @@ combine func file isReload tls = do
             , show file
             , ", but no templates were found."
             ]
+#if MIN_VERSION_template_haskell(2,17,0)
+        exps -> return $ DoE Nothing $ map NoBindS exps
+#else
         exps -> return $ DoE $ map NoBindS exps
+#endif
   where
     qmexps :: Q [Maybe Exp]
     qmexps = mapM go tls
