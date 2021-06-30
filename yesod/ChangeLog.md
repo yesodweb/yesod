@@ -1,5 +1,9 @@
 # ChangeLog for yesod
 
+## 1.6.1.2
+
+* Fix compatibility with template-haskell 2.17 [#1730](https://github.com/yesodweb/yesod/pull/1730)
+
 ## 1.6.1.1
 
 * Allow yesod-form 1.7
