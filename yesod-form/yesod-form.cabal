@@ -10,7 +10,7 @@ category:        Web, Yesod
 stability:       Stable
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:     API docs and the README are available at <http://www.stackage.org/package/yesod-form>.  Third-party packages which you can find useful: <http://hackage.haskell.org/package/yesod-form-richtext yesod-form-richtext> - richtext form fields (currntly it provides only Summernote support).
+description:     API docs and the README are available at <http://www.stackage.org/package/yesod-form>.  Third-party packages which you can find useful: <http://hackage.haskell.org/package/yesod-form-richtext yesod-form-richtext> - richtext form fields (currently it provides only Summernote support).
 extra-source-files: ChangeLog.md
                     README.md
 
