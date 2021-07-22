@@ -15,24 +15,16 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         args:
-        - "--resolver nightly"
+        #- "--resolver nightly"
+        - "--resolver lts-18"
         - "--resolver lts-16"
         - "--resolver lts-14"
         - "--resolver lts-12"
         - "--resolver lts-11"
-        - "--stack-yaml stack-persistent-211.yaml"
-        - "--stack-yaml stack-persistent-212.yaml"
-        - "--stack-yaml stack-persistent-213.yaml"
         # Bugs in GHC make it crash too often to be worth running
         exclude:
           - os: windows-latest
             args: "--resolver nightly"
-          - os: windows-latest
-            args: "--resolver lts-16"
-          - os: windows-latest
-            args: "--stack-yaml stack-persistent-211.yaml"
-          - os: windows-latest
-            args: "--stack-yaml stack-persistent-212.yaml"
 
     steps:
       - name: Clone project
@@ -51,6 +43,8 @@ jobs:
         shell: bash
         run: |
             set -ex
-            stack upgrade
-            stack --version
-            stack test --fast --no-terminal ${{ matrix.args }}
+            mkdir -p ../_newstack
+            stack upgrade --force-download --local-bin-path ../_newstack
+            ../_newstack/stack --version
+            ../_newstack/stack
+            ../_newstack/stack test --fast --no-terminal ${{ matrix.args }}
