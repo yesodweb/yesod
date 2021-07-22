@@ -17,6 +17,7 @@ module Yesod.Core.Dispatch
     , mkYesodDispatch
     , mkYesodSubDispatch
       -- *** Helpers
+    , defaultGen
     , getGetMaxExpires
       -- ** Path pieces
     , PathPiece (..)
@@ -100,6 +101,8 @@ toWaiAppPlain site = do
 -- unspecified range. The range size may not be a power of 2. Since
 -- 1.6.20, this uses a secure entropy source and generates in the full
 -- range of 'Int'.
+--
+-- @since 1.6.21.0
 defaultGen :: IO Int
 defaultGen = bsToInt <$> getEntropy bytes
   where
