@@ -1,7 +1,9 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeFamilies      #-}
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -215,6 +217,9 @@ class RenderRoute site => Yesod site where
     maximumContentLengthIO :: site -> Maybe (Route site) -> IO (Maybe Word64)
     maximumContentLengthIO a b = pure $ maximumContentLength a b
 
+    type SiteLogger site :: *
+    type SiteLogger site = Logger
+
     -- | Creates a @Logger@ to use for log messages.
     --
     -- Note that a common technique (endorsed by the scaffolding) is to create
@@ -223,7 +228,8 @@ class RenderRoute site => Yesod site where
     -- same @Logger@ for printing messages during app initialization.
     --
     -- Default: the 'defaultMakeLogger' function.
-    makeLogger :: site -> IO Logger
+    makeLogger :: site -> IO (SiteLogger site)
+    default makeLogger :: (SiteLogger site ~ Logger) => site -> IO (SiteLogger site)
     makeLogger _ = defaultMakeLogger
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
@@ -231,12 +237,20 @@ class RenderRoute site => Yesod site where
     -- Default: the 'defaultMessageLoggerSource' function, using
     -- 'shouldLogIO' to check whether we should log.
     messageLoggerSource :: site
-                        -> Logger
+                        -> SiteLogger site
                         -> Loc -- ^ position in source code
                         -> LogSource
                         -> LogLevel
                         -> LogStr -- ^ message
                         -> IO ()
+    default messageLoggerSource :: (SiteLogger site ~ Logger)
+                                => site
+                                -> SiteLogger site
+                                -> Loc
+                                -> LogSource
+                                -> LogLevel
+                                -> LogStr
+                                -> IO ()
     messageLoggerSource site = defaultMessageLoggerSource $ shouldLogIO site
 
     -- | Where to Load sripts from. We recommend the default value,

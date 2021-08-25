@@ -151,7 +151,7 @@ import Network.Wai (Application)
 
 runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
-               -> (site -> Logger)
+               -> (site -> SiteLogger site)
                -> site
                -> HandlerT site IO a
                -> m (Either ErrorResponse a)

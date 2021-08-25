@@ -15,7 +15,7 @@ import Control.Monad.IO.Class (MonadIO)
 --
 -- > unsafeHandler = Unsafe.fakeHandlerGetLogger appLogger
 fakeHandlerGetLogger :: (Yesod site, MonadIO m)
-                     => (site -> Logger)
+                     => (site -> SiteLogger site)
                      -> site
                      -> HandlerFor site a
                      -> m a

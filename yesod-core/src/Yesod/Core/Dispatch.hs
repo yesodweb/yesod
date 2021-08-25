@@ -83,11 +83,11 @@ import Data.Version (showVersion)
 -- used middlewares, please use 'toWaiApp'.
 toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain site = do
-    logger <- makeLogger site
+    waiLogger <- defaultMakeLogger
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
     return $ toWaiAppYre YesodRunnerEnv
-            { yreLogger = logger
+            { yreLogger = waiLogger
             , yreSite = site
             , yreSessionBackend = sb
             , yreGen = defaultGen
@@ -158,15 +158,16 @@ toWaiAppYre yre req =
 -- * Accept header override with the _accept query string parameter
 toWaiApp :: YesodDispatch site => site -> IO W.Application
 toWaiApp site = do
-    logger <- makeLogger site
-    toWaiAppLogger logger site
+    waiLogger <- defaultMakeLogger
+    toWaiAppLogger waiLogger site
 
 toWaiAppLogger :: YesodDispatch site => Logger -> site -> IO W.Application
-toWaiAppLogger logger site = do
+toWaiAppLogger waiLogger site = do
+    logger <- makeLogger site
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
     let yre = YesodRunnerEnv
-                { yreLogger = logger
+                { yreLogger = waiLogger
                 , yreSite = site
                 , yreSessionBackend = sb
                 , yreGen = defaultGen
@@ -179,7 +180,7 @@ toWaiAppLogger logger site = do
         "yesod-core"
         LevelInfo
         (toLogStr ("Application launched" :: S.ByteString))
-    middleware <- mkDefaultMiddlewares logger
+    middleware <- mkDefaultMiddlewares waiLogger
     return $ middleware $ toWaiAppYre yre
 
 -- | A convenience method to run an application using the Warp webserver on the
@@ -194,7 +195,7 @@ toWaiAppLogger logger site = do
 warp :: YesodDispatch site => Int -> site -> IO ()
 warp port site = do
     logger <- makeLogger site
-    toWaiAppLogger logger site >>= Network.Wai.Handler.Warp.runSettings (
+    toWaiApp site >>= Network.Wai.Handler.Warp.runSettings (
         Network.Wai.Handler.Warp.setPort port $
         Network.Wai.Handler.Warp.setServerName serverValue $
         Network.Wai.Handler.Warp.setOnException (\_ e ->

@@ -238,7 +238,7 @@ safeEh log' er req = do
 -- @HandlerFor@'s return value.
 runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
-               -> (site -> Logger)
+               -> (site -> SiteLogger site)
                -> site
                -> HandlerFor site a
                -> m (Either ErrorResponse a)
@@ -304,6 +304,7 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> Maybe (Route site)
             -> Application
 yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
+  logger <- liftIO $ makeLogger yreSite
   mmaxLen <- maximumContentLengthIO yreSite route
   case (mmaxLen, requestBodyLength req) of
     (Just maxLen, KnownLength len) | maxLen < len -> sendResponse (tooLargeResponse maxLen len)
@@ -318,7 +319,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
                   Left yreq' -> yreq'
                   Right needGen -> needGen yreGen
       let ra = resolveApproot yreSite req
-      let log' = messageLoggerSource yreSite yreLogger
+      let log' = messageLoggerSource yreSite logger
           -- We set up two environments: the first one has a "safe" error handler
           -- which will never throw an exception. The second one uses the
           -- user-provided errorHandler function. If that errorHandler function
