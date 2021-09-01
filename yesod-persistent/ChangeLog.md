@@ -1,5 +1,17 @@
 # ChangeLog for yesod-persistent
 
+## 1.6.0.7
+
+* Add support for persistent 2.13. [#1723](https://github.com/yesodweb/yesod/pull/1723)
+
+## 1.6.0.6
+
+* Add support for persistent 2.12
+
+## 1.6.0.5
+
+* Add support for Persistent 2.11 [#1701](https://github.com/yesodweb/yesod/pull/1701)
+
 ## 1.6.0.4
 
 * Fix test suite to be compatible with latest `persistent-template`

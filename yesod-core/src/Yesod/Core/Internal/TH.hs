@@ -107,9 +107,9 @@ mkYesodDispatch name = fmap snd . mkYesodWithParser name False return
 -- | Get the Handler and Widget type synonyms for the given site.
 masterTypeSyns :: [Name] -> Type -> [Dec] -- FIXME remove from here, put into the scaffolding itself?
 masterTypeSyns vs site =
-    [ TySynD (mkName "Handler") (fmap PlainTV vs)
+    [ TySynD (mkName "Handler") (fmap plainTV vs)
       $ ConT ''HandlerFor `AppT` site
-    , TySynD (mkName "Widget")  (fmap PlainTV vs)
+    , TySynD (mkName "Widget")  (fmap plainTV vs)
       $ ConT ''WidgetFor `AppT` site `AppT` ConT ''()
     ]
 
@@ -141,9 +141,12 @@ mkYesodGeneral appCxt' namestr mtys isSub f resS = do
     let name = mkName namestr
     -- Generate as many variable names as the arity indicates
     vns <- replicateM (arity - length mtys) $ newName "t"
-        -- Base type (site type with variables)
+    -- types that you apply to get a concrete site name
     let argtypes = fmap nameToType mtys ++ fmap VarT vns
-        site = foldl' AppT (ConT name) argtypes
+    -- typevars that should appear in synonym head
+    let argvars = (fmap mkName . filter isTvar) mtys ++ vns
+        -- Base type (site type with variables)
+    let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstance appCxt site res
     routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
@@ -160,7 +163,7 @@ mkYesodGeneral appCxt' namestr mtys isSub f resS = do
             , renderRouteDec
             , [routeAttrsDec]
             , resourcesDec
-            , if isSub then [] else masterTypeSyns vns site
+            , if isSub then [] else masterTypeSyns argvars site
             ]
     return (dataDec, dispatchDec)
 

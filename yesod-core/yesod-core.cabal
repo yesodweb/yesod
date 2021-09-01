@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.18.1
+version:         1.6.21.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -8,7 +8,7 @@ synopsis:        Creation of type-safe, RESTful web applications.
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-core>
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.8
+cabal-version:   >= 1.10
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files:
@@ -17,11 +17,12 @@ extra-source-files:
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
   test/en.msg
   test/test.hs
-  test/fixtures/routes_with_line_continuations
+  test/fixtures/routes_with_line_continuations.yesodroutes
   ChangeLog.md
   README.md
 
 library
+    default-language: Haskell2010
     hs-source-dirs: src
 
     build-depends:   base                  >= 4.10     && < 5
@@ -38,6 +39,7 @@ library
                    , containers            >= 0.2
                    , cookie                >= 0.4.3    && < 0.5
                    , deepseq               >= 1.3
+                   , entropy
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
                    , memory
@@ -46,7 +48,7 @@ library
                    , parsec                >= 2        && < 3.2
                    , path-pieces           >= 0.1.2    && < 0.3
                    , primitive             >= 0.6
-                   , random                >= 1.0.0.2  && < 1.2
+                   , random                >= 1.0.0.2  && < 1.3
                    , resourcet             >= 1.2
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11
@@ -97,14 +99,12 @@ library
                      Yesod.Routes.TH.RouteAttrs
 
     ghc-options:     -Wall
-    -- Following line added due to: https://github.com/yesodweb/yesod/issues/545
-    -- This looks like a GHC bug
-    extensions:      MultiParamTypeClasses
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
-    extensions:      TemplateHaskell
+    other-extensions:      TemplateHaskell
 
 test-suite test-routes
+    default-language: Haskell2010
     type: exitcode-stdio-1.0
     main-is: RouteSpec.hs
     hs-source-dirs: test, src
@@ -121,7 +121,7 @@ test-suite test-routes
                    Yesod.Routes.TH.Types
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
-    extensions:      TemplateHaskell
+    other-extensions:      TemplateHaskell
 
     build-depends: base
                  , hspec
@@ -134,6 +134,7 @@ test-suite test-routes
                  , HUnit
 
 test-suite tests
+    default-language: Haskell2010
     type: exitcode-stdio-1.0
     main-is: test.hs
     hs-source-dirs: test
@@ -156,6 +157,10 @@ test-suite tests
                    YesodCoreTest.MediaData
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
+                   YesodCoreTest.ParameterizedSite
+                   YesodCoreTest.ParameterizedSite.Compat
+                   YesodCoreTest.ParameterizedSite.PolyAny
+                   YesodCoreTest.ParameterizedSite.PolyShow
                    YesodCoreTest.RawResponse
                    YesodCoreTest.Redirect
                    YesodCoreTest.Reps
@@ -197,9 +202,10 @@ test-suite tests
                   , warp
                   , yesod-core
     ghc-options:     -Wall -threaded
-    extensions: TemplateHaskell
+    other-extensions: TemplateHaskell
 
 benchmark widgets
+    default-language: Haskell2010
     type: exitcode-stdio-1.0
     hs-source-dirs: bench
     build-depends:  base

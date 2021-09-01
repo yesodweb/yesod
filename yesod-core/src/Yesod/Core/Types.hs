@@ -196,7 +196,13 @@ data YesodRunnerEnv site = YesodRunnerEnv
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
     , yreGen            :: !(IO Int)
-    -- ^ Generate a random number
+    -- ^ Generate a random number uniformly distributed in the full
+    -- range of 'Int'.
+    --
+    -- Note: Before 1.6.20, the default value generates pseudo-random
+    -- number in an unspecified range. The range size may not be a power
+    -- of 2. Since 1.6.20, the default value uses a secure entropy source
+    -- and generates in the full range of 'Int'.
     , yreGetMaxExpires  :: !(IO Text)
     }
 
@@ -231,7 +237,7 @@ data GHState = GHState
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
--- the 'HandlerT' monad and template haskell code should hide it away.
+-- the 'HandlerFor' monad and template haskell code should hide it away.
 type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 
 -- | A generic widget, allowing specification of both the subsite and master
@@ -326,11 +332,28 @@ newtype DontFullyEvaluate a = DontFullyEvaluate { unDontFullyEvaluate :: a }
 -- | Responses to indicate some form of an error occurred.
 data ErrorResponse =
       NotFound
+        -- ^ The requested resource was not found.
+        -- Examples of when this occurs include when an incorrect URL is used, or @yesod-persistent@'s 'get404' doesn't find a value.
+        -- HTTP status: 404.
     | InternalError !Text
+        -- ^ Some sort of unexpected exception.
+        -- If your application uses `throwIO` or `error` to throw an exception, this is the form it would take.
+        -- HTTP status: 500.
     | InvalidArgs ![Text]
+        -- ^ Indicates some sort of invalid or missing argument, like a missing query parameter or malformed JSON body.
+        -- Examples Yesod functions that send this include 'requireCheckJsonBody' and @Yesod.Auth.GoogleEmail2@.
+        -- HTTP status: 400.
     | NotAuthenticated
+        -- ^ Indicates the user is not logged in.
+        -- This is thrown when 'isAuthorized' returns 'AuthenticationRequired'.
+        -- HTTP code: 401.
     | PermissionDenied !Text
+        -- ^ Indicates the user doesn't have permission to access the requested resource.
+        -- This is thrown when 'isAuthorized' returns 'Unauthorized'.
+        -- HTTP code: 403.
     | BadMethod !H.Method
+        -- ^ Indicates the URL would have been valid if used with a different HTTP method (e.g. a GET was used, but only POST is handled.)
+        -- HTTP code: 405.
     deriving (Show, Eq, Generic)
 instance NFData ErrorResponse
 
@@ -458,7 +481,7 @@ instance MonadLogger (WidgetFor site) where
 instance MonadLoggerIO (WidgetFor site) where
     askLoggerIO = WidgetFor $ return . rheLog . handlerEnv . wdHandler
 
--- Instances for HandlerT
+-- Instances for HandlerFor
 instance Applicative (HandlerFor site) where
     pure = HandlerFor . const . return
     (<*>) = ap

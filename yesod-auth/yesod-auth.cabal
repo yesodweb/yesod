@@ -1,5 +1,6 @@
+cabal-version:   >=1.10
 name:            yesod-auth
-version:         1.6.10
+version:         1.6.10.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -7,7 +8,6 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Authentication for Yesod.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-auth>
@@ -20,6 +20,7 @@ flag network-uri
   default: True
 
 library
+    default-language: Haskell2010
     build-depends:   base                    >= 4.10      && < 5
                    , aeson                   >= 0.7
                    , authenticate            >= 1.3.4
@@ -43,7 +44,7 @@ library
                    , http-types
                    , memory
                    , nonce                   >= 1.0.2     && < 1.1
-                   , persistent              >= 2.8       && < 2.11
+                   , persistent              >= 2.8
                    , random                  >= 1.0.0.2
                    , safe
                    , shakespeare
@@ -56,7 +57,7 @@ library
                    , unordered-containers
                    , wai                     >= 1.4
                    , yesod-core              >= 1.6       && < 1.7
-                   , yesod-form              >= 1.6       && < 1.7
+                   , yesod-form              >= 1.6       && < 1.8
                    , yesod-persistent        >= 1.6
 
     if flag(network-uri)

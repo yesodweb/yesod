@@ -1,5 +1,6 @@
+cabal-version:   >= 1.10
 name:            yesod-eventsource
-version:         1.6.0
+version:         1.6.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Felipe Lessa <felipe.lessa@gmail.com>
@@ -7,13 +8,13 @@ maintainer:      Felipe Lessa <felipe.lessa@gmail.com>
 synopsis:        Server-sent events support for Yesod apps.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-eventsource>
 extra-source-files: README.md ChangeLog.md
 
 library
+    default-language: Haskell2010
     build-depends:   base                  >= 4.10     && < 5
                    , blaze-builder
                    , conduit               >= 1.3

@@ -30,12 +30,13 @@ data Command = Init [String]
              | Build { buildExtraArgs   :: [String] }
              | Touch
              | Devel { develSuccessHook :: Maybe String
-                     , develExtraArgs    :: [String]
+                     , develExtraArgs   :: [String]
                      , develPort        :: Int
                      , develTlsPort     :: Int
                      , proxyTimeout     :: Int
                      , noReverseProxy   :: Bool
                      , develHost        :: Maybe String
+                     , cert             :: Maybe (FilePath, FilePath)
                      }
              | DevelSignal
              | Test
@@ -90,6 +91,7 @@ main = do
                              , proxyTimeout = proxyTimeout
                              , useReverseProxy = not noReverseProxy
                              , develHost    = develHost
+                             , cert         = cert
                              } develExtraArgs
     DevelSignal     -> develSignal
   where
@@ -167,6 +169,11 @@ develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "C
                             <> help "Disable reverse proxy" )
                      <*> optStr (long "host" <> metavar "HOST"
                             <> help "Host interface to bind to; IP address, '*' for all interfaces, '*4' for IP4, '*6' for IP6")
+                     <*> optional ( (,)
+                            <$> strOption (long "cert" <> metavar "CERT"
+                                   <> help "Path to TLS certificate file, requires that --key is also defined")
+                            <*> strOption (long "key" <> metavar "KEY"
+                                   <> help "Path to TLS key file, requires that --cert is also defined") )
 
 extraStackArgs :: Parser [String]
 extraStackArgs = many (strOption ( long "extra-stack-arg" <> short 'e' <> metavar "ARG"

@@ -245,7 +245,7 @@ setDescriptionI msg = do
 --
 -- @since 1.6.18
 setOGType :: MonadWidget m => Text -> m ()
-setOGType a = toWidgetHead $ [hamlet|<meta name="og:type" content=#{a}>|]
+setOGType a = toWidgetHead $ [hamlet|<meta property="og:type" content=#{a}>|]
 
 -- | Add OpenGraph image meta tag to the head of the page
 --
@@ -260,7 +260,7 @@ setOGType a = toWidgetHead $ [hamlet|<meta name="og:type" content=#{a}>|]
 --
 -- @since 1.6.18
 setOGImage :: MonadWidget m => Text -> m ()
-setOGImage a = toWidgetHead $ [hamlet|<meta name="og:image" content=#{a}>|]
+setOGImage a = toWidgetHead $ [hamlet|<meta property="og:image" content=#{a}>|]
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: MonadWidget m => Route (HandlerSite m) -> m ()

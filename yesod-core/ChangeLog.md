@@ -1,5 +1,54 @@
 # ChangeLog for yesod-core
 
+## 1.6.21.0
+
+* Export `Yesod.Core.Dispatch.defaultGen` so that users may reuse it for their own `YesodRunnerEnv`s [#1734](https://github.com/yesodweb/yesod/pull/1734)
+
+## 1.6.20.2
+
+* Fix compatibility with template-haskell 2.17 [#1729](https://github.com/yesodweb/yesod/pull/1729)
+
+## 1.6.20.1
+
+* Throw an error in `breadcrumbs` if the trail of breadcrumbs is circular. [#1727](https://github.com/yesodweb/yesod/issues/1727)
+
+## 1.6.20
+
+* Generate CSRF tokens using a secure entropy source [#1726](https://github.com/yesodweb/yesod/pull/1726)
+* Change semantics of `yreGen` and `defaultGen`
+
+## 1.6.19.0
+
+* Change order of priority in `languages`[#1721](https://github.com/yesodweb/yesod/pull/1721)
+
+## 1.6.18.8
+
+* Fix test suite for wai-extra change around vary header
+
+## 1.6.18.7
+
+* Fix functions generating Open Graph metadata[#1709](https://github.com/yesodweb/yesod/pull/1709)
+
+## 1.6.18.6
+
+* Update documentation from `HandlerT` to `HandlerFor` [#1703](https://github.com/yesodweb/yesod/pull/1703)
+
+## 1.6.18.5
+
+Document `ErrorResponse` [#1698](https://github.com/yesodweb/yesod/pull/1698)
+
+## 1.6.18.4
+
+* Fixed a bug where `mkYesod` and other TH functions didn't work for datatypes with explicitly stated type variables, including the case with typeclass constraints. [https://github.com/yesodweb/yesod/pull/1697](#1697)
+
+## 1.6.18.3
+
+* Remove mention of an oudated Yesod type (`GHandler`) from the docs for `handlerToIO`. [https://github.com/yesodweb/yesod/pull/1695](#1695)
+
+## 1.6.18.2
+
+* Recommends `.yesodroutes` as the file extension for Yesod routes files. [#1686](https://github.com/yesodweb/yesod/pull/1686)
+
 ## 1.6.18.1
 
 * Increase the size of CSRF token

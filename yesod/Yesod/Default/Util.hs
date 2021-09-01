@@ -5,6 +5,7 @@
 module Yesod.Default.Util
     ( addStaticContentExternal
     , globFile
+    , globFilePackage
     , widgetFileNoReload
     , widgetFileReload
     , TemplateLanguage (..)
@@ -15,6 +16,7 @@ module Yesod.Default.Util
     ) where
 
 import qualified Data.ByteString.Lazy as L
+import Data.FileEmbed (makeRelativeToProject)
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
 import Control.Monad (when, unless)
@@ -64,6 +66,11 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
 globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
+-- | `globFile` but returned path is absolute and within the package the Q Exp is evaluated
+-- @since 1.6.1.0
+globFilePackage :: String -> String -> Q FilePath
+globFilePackage = (makeRelativeToProject <$>) . globFile
+
 data TemplateLanguage = TemplateLanguage
     { tlRequiresToWidget :: Bool
     , tlExtension :: String
@@ -107,7 +114,11 @@ combine func file isReload tls = do
             , show file
             , ", but no templates were found."
             ]
+#if MIN_VERSION_template_haskell(2,17,0)
+        exps -> return $ DoE Nothing $ map NoBindS exps
+#else
         exps -> return $ DoE $ map NoBindS exps
+#endif
   where
     qmexps :: Q [Maybe Exp]
     qmexps = mapM go tls
@@ -125,7 +136,7 @@ warnUnlessExists :: Bool
                  -> Bool -- ^ requires toWidget wrap
                  -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 warnUnlessExists shouldWarn x wrap glob f = do
-    let fn = globFile glob x
+    fn <- globFilePackage glob x
     e <- qRunIO $ doesFileExist fn
     when (shouldWarn && not e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
     if e

@@ -181,7 +181,7 @@ evalFallback contents val = catchAny
     (fmap ((mempty, ) . HCError) . toErrorHandler)
 
 -- | Function used internally by Yesod in the process of converting a
--- 'HandlerT' into an 'Application'. Should not be needed by users.
+-- 'HandlerFor' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
            => RunHandlerEnv site site
            -> HandlerFor site c
@@ -216,26 +216,26 @@ safeEh log' er req = do
         (toContent ("Internal Server Error" :: S.ByteString))
         (reqSession req)
 
--- | Run a 'HandlerT' completely outside of Yesod.  This
+-- | Run a 'HandlerFor' completely outside of Yesod.  This
 -- function comes with many caveats and you shouldn't use it
 -- unless you fully understand what it's doing and how it works.
 --
 -- As of now, there's only one reason to use this function at
--- all: in order to run unit tests of functions inside 'HandlerT'
+-- all: in order to run unit tests of functions inside 'HandlerFor'
 -- but that aren't easily testable with a full HTTP request.
 -- Even so, it's better to use @wai-test@ or @yesod-test@ instead
 -- of using this function.
 --
 -- This function will create a fake HTTP request (both @wai@'s
 -- 'Request' and @yesod@'s 'Request') and feed it to the
--- @HandlerT@.  The only useful information the @HandlerT@ may
+-- @HandlerFor@.  The only useful information the @HandlerFor@ may
 -- get from the request is the session map, which you must supply
 -- as argument to @runFakeHandler@.  All other fields contain
 -- fake information, which means that they can be accessed but
 -- won't have any useful information.  The response of the
--- @HandlerT@ is completely ignored, including changes to the
+-- @HandlerFor@ is completely ignored, including changes to the
 -- session, cookies or headers.  We only return you the
--- @HandlerT@'s return value.
+-- @HandlerFor@'s return value.
 runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
                -> (site -> Logger)

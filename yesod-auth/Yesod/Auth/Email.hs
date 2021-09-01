@@ -485,13 +485,13 @@ defaultEmailLoginHandler toParent = do
         let userRes = UserLoginForm Control.Applicative.<$> emailRes
                                     Control.Applicative.<*> passwordRes
         let widget = do
-            [whamlet|
-                #{extra}
-                <div>
-                    ^{fvInput emailView}
-                <div>
-                    ^{fvInput passwordView}
-            |]
+              [whamlet|
+                  #{extra}
+                  <div>
+                      ^{fvInput emailView}
+                  <div>
+                      ^{fvInput passwordView}
+              |]
 
         return (userRes, widget)
     emailSettings emailMsg = do
@@ -545,11 +545,11 @@ defaultRegisterHandler = do
 
             let userRes = UserForm <$> emailRes
             let widget = do
-                [whamlet|
-                    #{extra}
-                    ^{fvLabel emailView}
-                    ^{fvInput emailView}
-                |]
+                  [whamlet|
+                      #{extra}
+                      ^{fvLabel emailView}
+                      ^{fvInput emailView}
+                  |]
 
             return (userRes, widget)
 
@@ -659,11 +659,11 @@ defaultForgotPasswordHandler = do
 
         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
         let widget = do
-            [whamlet|
-                #{extra}
-                ^{fvLabel emailView}
-                ^{fvInput emailView}
-            |]
+              [whamlet|
+                  #{extra}
+                  ^{fvLabel emailView}
+                  ^{fvInput emailView}
+              |]
         return (forgotPasswordRes, widget)
 
     emailSettings =
@@ -808,29 +808,29 @@ defaultSetPasswordHandler needOld = do
 
         let passwordFormRes = PasswordForm <$> currentPasswordRes <*> newPasswordRes <*> confirmPasswordRes
         let widget = do
-            [whamlet|
-                #{extra}
-                <table>
-                    $if needOld
-                        <tr>
-                            <th>
-                                ^{fvLabel currentPasswordView}
-                            <td>
-                                ^{fvInput currentPasswordView}
-                    <tr>
-                        <th>
-                            ^{fvLabel newPasswordView}
-                        <td>
-                            ^{fvInput newPasswordView}
-                    <tr>
-                        <th>
-                            ^{fvLabel confirmPasswordView}
-                        <td>
-                            ^{fvInput confirmPasswordView}
-                    <tr>
-                        <td colspan="2">
-                            <input type=submit value=_{Msg.SetPassTitle}>
-            |]
+              [whamlet|
+                  #{extra}
+                  <table>
+                      $if needOld
+                          <tr>
+                              <th>
+                                  ^{fvLabel currentPasswordView}
+                              <td>
+                                  ^{fvInput currentPasswordView}
+                      <tr>
+                          <th>
+                              ^{fvLabel newPasswordView}
+                          <td>
+                              ^{fvInput newPasswordView}
+                      <tr>
+                          <th>
+                              ^{fvLabel confirmPasswordView}
+                          <td>
+                              ^{fvInput confirmPasswordView}
+                      <tr>
+                          <td colspan="2">
+                              <input type=submit value=_{Msg.SetPassTitle}>
+              |]
 
         return (passwordFormRes, widget)
     currentPasswordSettings =

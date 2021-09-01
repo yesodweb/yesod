@@ -71,7 +71,7 @@ import Data.FileEmbed (embedDir)
 import Yesod.Core
 import Yesod.Core.Types
 
-import Data.List (intercalate)
+import Data.List (intercalate, sort)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax as TH
 
@@ -192,7 +192,7 @@ getFileListPieces = flip evalStateT M.empty . flip go id
        -> ([String] -> [String])
        -> StateT (M.Map String String) IO [[String]]
     go fp front = do
-        allContents <- liftIO $ filter notHidden `fmap` getDirectoryContents fp
+        allContents <- liftIO $ (sort . filter notHidden) `fmap` getDirectoryContents fp
         let fullPath :: String -> String
             fullPath f = fp ++ '/' : f
         files <- liftIO $ filterM (doesFileExist . fullPath) allContents

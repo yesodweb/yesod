@@ -62,18 +62,18 @@ addHandlerInteractive :: IO ()
 addHandlerInteractive = do
     cabal <- getCabal
     let routeInput = do
-        putStr "Name of route (without trailing R): "
-        hFlush stdout
-        name <- getLine
-        checked <- checkRoute name cabal
-        case checked of
-            Left err@EmptyRoute -> (error . show) err
-            Left err@RouteCaseError -> print err >> routeInput
-            Left err@(RouteExists _) -> do
-              print err
-              putStrLn "Try another name or leave blank to exit"
-              routeInput
-            Right p -> return p
+          putStr "Name of route (without trailing R): "
+          hFlush stdout
+          name <- getLine
+          checked <- checkRoute name cabal
+          case checked of
+              Left err@EmptyRoute -> (error . show) err
+              Left err@RouteCaseError -> print err >> routeInput
+              Left err@(RouteExists _) -> do
+                print err
+                putStrLn "Try another name or leave blank to exit"
+                routeInput
+              Right p -> return p
 
     routePair <- routeInput
     putStr "Enter route pattern (ex: /entry/#EntryId): "
@@ -84,13 +84,22 @@ addHandlerInteractive = do
     methods <- getLine
     addHandlerFiles cabal routePair pattern methods
 
+getRoutesFilePath :: IO FilePath
+getRoutesFilePath = do
+    let oldPath = "config/routes"
+    oldExists <- doesFileExist oldPath
+    pure $ if oldExists
+        then oldPath
+        else "config/routes.yesodroutes"
+
 addHandlerFiles :: FilePath -> (String, FilePath) -> String -> String -> IO ()
 addHandlerFiles cabal (name, handlerFile) pattern methods = do
     src <- getSrcDir cabal
     let applicationFile = concat [src, "/Application.hs"]
     modify applicationFile $ fixApp name
     modify cabal $ fixCabal name
-    modify "config/routes" $ fixRoutes name pattern methods
+    routesPath <- getRoutesFilePath
+    modify routesPath $ fixRoutes name pattern methods
     writeFile handlerFile $ mkHandler name pattern methods
     specExists <- doesFileExist specFile
     unless specExists $

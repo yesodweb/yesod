@@ -56,7 +56,7 @@ import           Network.Wai                           (requestHeaderHost,
                                                         responseLBS)
 import           Network.Wai.Handler.Warp              (defaultSettings, runSettings,
                                                         setPort, setHost)
-import           Network.Wai.Handler.WarpTLS           (runTLS,
+import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettings,
                                                         tlsSettingsMemory)
 import           Network.Wai.Parse                     (parseHttpAccept)
 import           Say
@@ -126,6 +126,7 @@ data DevelOpts = DevelOpts
       , proxyTimeout    :: Int
       , useReverseProxy :: Bool
       , develHost       :: Maybe String
+      , cert            :: Maybe (FilePath, FilePath)
       } deriving (Show, Eq)
 
 -- | Run a reverse proxy from the develPort and develTlsPort ports to
@@ -170,10 +171,12 @@ reverseProxy opts appPortVar = do
                 manager
         defaultSettings' = maybe id (setHost . fromString) (develHost opts) defaultSettings
         runProxyTls port app = do
-          let cert = $(embedFile "certificate.pem")
-              key = $(embedFile "key.pem")
-              tlsSettings = tlsSettingsMemory cert key
-          runTLS tlsSettings (setPort port defaultSettings') $ \req send -> do
+          let certDef = $(embedFile "certificate.pem")
+              keyDef = $(embedFile "key.pem")
+              theSettings = case cert opts of
+                Nothing -> tlsSettingsMemory certDef keyDef
+                Just (c,k) -> tlsSettings c k
+          runTLS theSettings (setPort port defaultSettings') $ \req send -> do
             let req' = req
                     { requestHeaders
                         = ("X-Forwarded-Proto", "https")
@@ -345,7 +348,8 @@ devel opts passThroughArgs = do
         myPath <- getExecutablePath
         let procConfig = setStdout createSource
                        $ setStderr createSource
-                       $ setDelegateCtlc True $ proc "stack" $
+                       $ setCreateGroup True -- because need when yesod-bin killed and kill child ghc
+                       $ proc "stack" $
                 [ "build"
                 , "--fast"
                 , "--file-watch"

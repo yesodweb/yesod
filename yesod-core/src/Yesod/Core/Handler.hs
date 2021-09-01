@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -369,10 +370,10 @@ getPostParams = do
 getCurrentRoute :: MonadHandler m => m (Maybe (Route (HandlerSite m)))
 getCurrentRoute = rheRoute <$> askHandlerEnv
 
--- | Returns a function that runs 'HandlerT' actions inside @IO@.
+-- | Returns a function that runs 'HandlerFor' actions inside @IO@.
 --
--- Sometimes you want to run an inner 'HandlerT' action outside
--- the control flow of an HTTP request (on the outer 'HandlerT'
+-- Sometimes you want to run an inner 'HandlerFor' action outside
+-- the control flow of an HTTP request (on the outer 'HandlerFor'
 -- action).  For example, you may want to spawn a new thread:
 --
 -- @
@@ -380,30 +381,30 @@ getCurrentRoute = rheRoute <$> askHandlerEnv
 -- getFooR = do
 --   runInnerHandler <- handlerToIO
 --   liftIO $ forkIO $ runInnerHandler $ do
---     /Code here runs inside GHandler but on a new thread./
---     /This is the inner GHandler./
+--     /Code here runs inside HandlerFor but on a new thread./
+--     /This is the inner HandlerFor./
 --     ...
 --   /Code here runs inside the request's control flow./
---   /This is the outer GHandler./
+--   /This is the outer HandlerFor./
 --   ...
 -- @
 --
 -- Another use case for this function is creating a stream of
--- server-sent events using 'GHandler' actions (see
+-- server-sent events using 'HandlerFor' actions (see
 -- @yesod-eventsource@).
 --
--- Most of the environment from the outer 'GHandler' is preserved
--- on the inner 'GHandler', however:
+-- Most of the environment from the outer 'HandlerFor' is preserved
+-- on the inner 'HandlerFor', however:
 --
 --  * The request body is cleared (otherwise it would be very
 --  difficult to prevent huge memory leaks).
 --
---  * The cache is cleared (see 'CacheKey').
+--  * The cache is cleared (see 'cached').
 --
--- Changes to the response made inside the inner 'GHandler' are
+-- Changes to the response made inside the inner 'HandlerFor' are
 -- ignored (e.g., session variables, cookies, response headers).
--- This allows the inner 'GHandler' to outlive the outer
--- 'GHandler' (e.g., on the @forkIO@ example above, a response
+-- This allows the inner 'HandlerFor' to outlive the outer
+-- 'HandlerFor' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
 handlerToIO :: MonadIO m => HandlerFor site (HandlerFor site a -> m a)
 handlerToIO =
@@ -428,7 +429,7 @@ handlerToIO =
     -- xx From this point onwards, no references to oldHandlerData xx
     liftIO $ evaluate (newReq `seq` oldEnv `seq` newState `seq` ())
 
-    -- Return GHandler running function.
+    -- Return HandlerFor running function.
     return $ \(HandlerFor f) ->
       liftIO $
       runResourceT $ withInternalState $ \resState -> do
@@ -1225,9 +1226,9 @@ cacheBySet key value = do
 -- Languages are determined based on the following (in descending order
 -- of preference):
 --
--- * The _LANG user session variable.
---
 -- * The _LANG get parameter.
+--
+-- * The _LANG user session variable.
 --
 -- * The _LANG cookie.
 --
@@ -1237,11 +1238,12 @@ cacheBySet key value = do
 -- If a matching language is not found the default language will be used.
 --
 -- This is handled by parseWaiRequest (not exposed).
+--
+-- __NOTE__: Before version @1.6.19.0@, this function prioritized the session
+-- variable above all other sources.
+--
 languages :: MonadHandler m => m [Text]
-languages = do
-    mlang <- lookupSession langKey
-    langs <- reqLangs <$> getRequest
-    return $ maybe id (:) mlang langs
+languages = reqLangs <$> getRequest
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
@@ -1463,8 +1465,8 @@ respond ct = return . TypedContent ct . toContent
 
 -- | Use a @Source@ for the response body.
 --
--- Note that, for ease of use, the underlying monad is a @HandlerT@. This
--- implies that you can run any @HandlerT@ action. However, since a streaming
+-- Note that, for ease of use, the underlying monad is a @HandlerFor@. This
+-- implies that you can run any @HandlerFor@ action. However, since a streaming
 -- response occurs after the response headers have already been sent, some
 -- actions make no sense here. For example: short-circuit responses, setting
 -- headers, changing status codes, etc.
@@ -1475,8 +1477,8 @@ respondSource :: ContentType
               -> HandlerFor site TypedContent
 respondSource ctype src = HandlerFor $ \hd ->
     -- Note that this implementation relies on the fact that the ResourceT
-    -- environment provided by the server is the same one used in HandlerT.
-    -- This is a safe assumption assuming the HandlerT is run correctly.
+    -- environment provided by the server is the same one used in HandlerFor.
+    -- This is a safe assumption assuming the HandlerFor is run correctly.
     return $ TypedContent ctype $ ContentSource
            $ transPipe (lift . flip unHandlerFor hd) src
 

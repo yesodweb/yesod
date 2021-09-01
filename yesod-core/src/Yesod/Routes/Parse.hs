@@ -11,6 +11,7 @@ module Yesod.Routes.Parse
     , TypeTree (..)
     , dropBracket
     , nameToType
+    , isTvar
     ) where
 
 import Language.Haskell.TH.Syntax
@@ -35,9 +36,15 @@ parseRoutes = QuasiQuoter { quoteExp = x }
             [] -> lift res
             z -> error $ unlines $ "Overlapping routes: " : map show z
 
+-- | Same as 'parseRoutes', but uses an external file instead of quasiquotation.
+--
+-- The recommended file extension is @.yesodroutes@.
 parseRoutesFile :: FilePath -> Q Exp
 parseRoutesFile = parseRoutesFileWith parseRoutes
 
+-- | Same as 'parseRoutesNoCheck', but uses an external file instead of quasiquotation.
+--
+-- The recommended file extension is @.yesodroutes@.
 parseRoutesFileNoCheck :: FilePath -> Q Exp
 parseRoutesFileNoCheck = parseRoutesFileWith parseRoutesNoCheck
 
@@ -258,8 +265,13 @@ ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
 nameToType :: String -> Type
-nameToType t@(h:_) | isLower h = VarT $ mkName t
-nameToType t = ConT $ mkName t
+nameToType t = if isTvar t
+               then VarT $ mkName t
+               else ConT $ mkName t
+
+isTvar :: String -> Bool
+isTvar (h:_) = isLower h
+isTvar _     = False
 
 pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
 pieceFromString ('#':'!':x) = Right $ (False, Dynamic $ dropBracket x)

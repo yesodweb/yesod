@@ -3,7 +3,7 @@
 Form handling for Yesod, in the same style as formlets. See [the forms
 chapter](http://www.yesodweb.com/book/forms) of the Yesod book.
 
-This package provies a set of basic form inputs such as text, number, time,
+This package provides a set of basic form inputs such as text, number, time,
 checkbox, select, textarea, and etc. via `Yesod.Form.Fields` module.  Also,
 there is `Yesod.Form.Nic` module providing richtext field using Nic editor.
 However, this module is grandfathered now and Nic editor is not actively

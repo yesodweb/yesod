@@ -26,3 +26,4 @@ tarballs/
 
 # OS X
 .DS_Store
+*.yaml.lock

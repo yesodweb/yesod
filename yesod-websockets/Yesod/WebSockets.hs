@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.WebSockets
@@ -117,8 +118,14 @@ webSocketsOptionsWith wsConnOpts buildAr inner = do
                     rhead
                     (\pconn -> do
                         conn <- WS.acceptRequestWith pconn ar
+                        let app = runInIO $ runReaderT inner conn
+#if MIN_VERSION_websockets(0,12,6)
+                        WS.withPingThread conn 30 (pure ()) $ app
+#else
                         WS.forkPingThread conn 30
-                        runInIO $ runReaderT inner conn)
+                        app
+#endif
+                    )
                     src
                     sink
 
