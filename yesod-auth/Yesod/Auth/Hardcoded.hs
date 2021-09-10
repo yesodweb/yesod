@@ -159,6 +159,7 @@ authHardcoded :: YesodAuthHardcoded m => AuthPlugin m
 authHardcoded =
   AuthPlugin "hardcoded" dispatch loginWidget
   where
+    dispatch :: YesodAuthHardcoded m => Text -> [Text] -> AuthHandler m TypedContent
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
     dispatch _ _ = notFound
     loginWidget toMaster = do

@@ -31,16 +31,16 @@
 -- = Using JSON Endpoints
 --
 -- We are assuming that you have declared auth route as follows
--- 
+--
 -- @
 --    /auth AuthR Auth getAuth
 -- @
--- 
+--
 -- If you are using a different route, then you have to adjust the
 -- endpoints accordingly.
 --
 --     * Registration
--- 
+--
 -- @
 --       Endpoint: \/auth\/page\/email\/register
 --       Method: POST
@@ -49,9 +49,9 @@
 --                      "password": "myStrongPassword" (optional)
 --                  }
 -- @
--- 
+--
 --     * Forgot password
---  
+--
 -- @
 --       Endpoint: \/auth\/page\/email\/forgot-password
 --       Method: POST
@@ -59,16 +59,16 @@
 -- @
 --
 --     * Login
---  
+--
 -- @
 --       Endpoint: \/auth\/page\/email\/login
 --       Method: POST
---       JSON Data: { 
+--       JSON Data: {
 --                      "email": "myemail@domain.com",
 --                      "password": "myStrongPassword"
 --                  }
 -- @
--- 
+--
 --     * Set new password
 --
 -- @
@@ -139,6 +139,7 @@ import qualified Text.Email.Validate
 import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
 import           Data.Maybe (isJust)
 import Data.ByteArray (convert)
+import Yesod.Core.Types (TypedContent(TypedContent))
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -240,7 +241,7 @@ class ( YesodAuth site
     --
     -- @since 1.4.20
     hashAndSaltPassword :: Text -> AuthHandler site SaltedPass
-    hashAndSaltPassword = liftIO . saltPass
+    hashAndSaltPassword password = liftIO $ saltPass password
 
     -- | Verify a password matches the stored password for the given account.
     --
@@ -432,6 +433,7 @@ authEmail :: (YesodAuthEmail m) => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch emailLoginHandler
   where
+    dispatch :: YesodAuthEmail m => Text -> [Text] -> AuthHandler m TypedContent
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
     dispatch "GET" ["forgot-password"] = getForgotPasswordR >>= sendResponse
@@ -779,8 +781,8 @@ getPasswordR = do
     maid <- maybeAuthId
     case maid of
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
-        Just _ -> do
-            needOld <- maybe (return True) needOldPassword maid
+        Just aid -> do
+            needOld <- needOldPassword aid
             setPasswordHandler needOld
 
 -- | Default implementation of 'setPasswordHandler'.
@@ -932,7 +934,7 @@ postPasswordR = do
 
                      mr <- getMessageRender
                      selectRep $ do
-                         provideRep $ 
+                         provideRep $
                             fmap asHtml $ redirect $ afterPasswordRoute y
                          provideJsonMessage (mr msgOk)
 

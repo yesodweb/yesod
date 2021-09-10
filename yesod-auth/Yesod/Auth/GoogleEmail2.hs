@@ -247,7 +247,9 @@ authPlugin storeToken clientID clientSecret =
         -- User's access token is saved for further access to API
         when storeToken $ setSession accessTokenKey accessToken'
 
-        personValue <- makeHttpRequest =<< personValueRequest token
+        personValReq <- personValueRequest token
+        personValue <- makeHttpRequest personValReq
+
         person <- case parseEither parseJSON personValue of
                 Left e -> error e
                 Right x -> return x

@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | Provides a dummy authentication module that simply lets a user specify
 -- their identifier. This is not intended for real world use, just for
@@ -49,6 +50,7 @@ authDummy :: YesodAuth m => AuthPlugin m
 authDummy =
     AuthPlugin "dummy" dispatch login
   where
+    dispatch :: Text -> [Text] -> AuthHandler m TypedContent
     dispatch "POST" [] = do
         (jsonResult :: Result Value) <- parseCheckJsonBody
         eIdent <- case jsonResult of
