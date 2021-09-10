@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.10.4
+
+* Add support for GHC 9 [#1737](https://github.com/yesodweb/yesod/pull/1737)
+
 ## 1.6.10.3
 
 * Relax bounds for yesod-form 1.7

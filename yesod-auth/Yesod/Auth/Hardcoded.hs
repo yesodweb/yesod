@@ -131,10 +131,9 @@ module Yesod.Auth.Hardcoded
   , loginR )
   where
 
-import           Yesod.Auth          (AuthPlugin (..), AuthRoute,
+import           Yesod.Auth          (AuthHandler, AuthPlugin (..), AuthRoute,
                                       Creds (..), Route (..), YesodAuth,
-                                      loginErrorMessageI, setCredsRedirect,
-                                      AuthHandler)
+                                      loginErrorMessageI, setCredsRedirect)
 import qualified Yesod.Auth.Message  as Msg
 import           Yesod.Core
 import           Yesod.Form          (ireq, runInputPost, textField)
@@ -159,8 +158,9 @@ authHardcoded :: YesodAuthHardcoded m => AuthPlugin m
 authHardcoded =
   AuthPlugin "hardcoded" dispatch loginWidget
   where
+    dispatch :: YesodAuthHardcoded m => Text -> [Text] -> AuthHandler m TypedContent
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
-    dispatch _ _ = notFound
+    dispatch _ _              = notFound
     loginWidget toMaster = do
       request <- getRequest
       [whamlet|

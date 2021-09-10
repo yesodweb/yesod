@@ -1,8 +1,9 @@
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- | Provides a dummy authentication module that simply lets a user specify
 -- their identifier. This is not intended for real world use, just for
 -- testing. This plugin supports form submissions via JSON (since 1.6.8).
@@ -35,12 +36,12 @@ module Yesod.Auth.Dummy
     ( authDummy
     ) where
 
-import Yesod.Auth
-import Yesod.Form (runInputPost, textField, ireq)
-import Yesod.Core
-import Data.Text (Text)
-import Data.Aeson.Types (Result(..), Parser)
+import           Data.Aeson.Types (Parser, Result (..))
 import qualified Data.Aeson.Types as A (parseEither, withObject)
+import           Data.Text        (Text)
+import           Yesod.Auth
+import           Yesod.Core
+import           Yesod.Form       (ireq, runInputPost, textField)
 
 identParser :: Value -> Parser Text
 identParser = A.withObject "Ident" (.: "ident")
@@ -49,6 +50,7 @@ authDummy :: YesodAuth m => AuthPlugin m
 authDummy =
     AuthPlugin "dummy" dispatch login
   where
+    dispatch :: Text -> [Text] -> AuthHandler m TypedContent
     dispatch "POST" [] = do
         (jsonResult :: Result Value) <- parseCheckJsonBody
         eIdent <- case jsonResult of
