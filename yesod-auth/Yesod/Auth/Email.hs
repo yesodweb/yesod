@@ -117,29 +117,30 @@ module Yesod.Auth.Email
     , defaultRegisterHelper
     ) where
 
-import           Yesod.Auth
-import qualified Yesod.Auth.Message       as Msg
-import           Yesod.Core
-import           Yesod.Form
-import qualified Yesod.Auth.Util.PasswordStore as PS
-import           Control.Applicative      ((<$>), (<*>))
-import qualified Crypto.Hash              as H
-import qualified Crypto.Nonce             as Nonce
-import           Data.ByteString.Base16   as B16
-import           Data.Text                (Text)
-import qualified Data.Text                as TS
-import qualified Data.Text                as T
-import           Data.Text.Encoding       (decodeUtf8With, encodeUtf8)
-import qualified Data.Text.Encoding       as TE
-import           Data.Text.Encoding.Error (lenientDecode)
-import           Data.Time                (addUTCTime, getCurrentTime)
-import           Safe                     (readMay)
-import           System.IO.Unsafe         (unsafePerformIO)
+import           Control.Applicative           ((<$>), (<*>))
+import qualified Crypto.Hash                   as H
+import qualified Crypto.Nonce                  as Nonce
+import           Data.Aeson.Types              (Parser, Result (..), parseMaybe,
+                                                withObject, (.:?))
+import           Data.ByteArray                (convert)
+import           Data.ByteString.Base16        as B16
+import           Data.Maybe                    (isJust)
+import           Data.Text                     (Text)
+import qualified Data.Text                     as T
+import qualified Data.Text                     as TS
+import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
+import qualified Data.Text.Encoding            as TE
+import           Data.Text.Encoding.Error      (lenientDecode)
+import           Data.Time                     (addUTCTime, getCurrentTime)
+import           Safe                          (readMay)
+import           System.IO.Unsafe              (unsafePerformIO)
 import qualified Text.Email.Validate
-import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
-import           Data.Maybe (isJust)
-import Data.ByteArray (convert)
-import Yesod.Core.Types (TypedContent(TypedContent))
+import           Yesod.Auth
+import qualified Yesod.Auth.Message            as Msg
+import qualified Yesod.Auth.Util.PasswordStore as PS
+import           Yesod.Core
+import           Yesod.Core.Types              (TypedContent (TypedContent))
+import           Yesod.Form
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -440,7 +441,7 @@ authEmail =
     dispatch "POST" ["forgot-password"] = postForgotPasswordR >>= sendResponse
     dispatch "GET" ["verify", eid, verkey] =
         case fromPathPiece eid of
-            Nothing -> notFound
+            Nothing   -> notFound
             Just eid' -> getVerifyR eid' verkey False >>= sendResponse
     dispatch "GET" ["verify", eid, verkey, hasSetPass] =
         case fromPathPiece eid of
@@ -578,7 +579,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                  _ -> do
                      (creds :: Result Value) <- parseCheckJsonBody
                      return $ case creds of
-                                  Error _ -> Nothing
+                                  Error _     -> Nothing
                                   Success val -> parseMaybe parseRegister val
 
     let eidentifier = case creds of
@@ -591,7 +592,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
 
     let mpass = case (forgotPassword, creds) of
                     (False, Just (_, mp)) -> mp
-                    _ -> Nothing
+                    _                     -> Nothing
 
     case eidentifier of
       Left failMsg -> loginErrorMessageI dest failMsg
@@ -622,7 +623,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                     then sendConfirmationEmail creds
                     else case emailPreviouslyRegisteredResponse identifier of
                       Just response -> response
-                      Nothing -> sendConfirmationEmail creds
+                      Nothing       -> sendConfirmationEmail creds
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
@@ -741,7 +742,7 @@ postLoginR = do
                      _ -> do
                        (creds :: Result Value) <- parseCheckJsonBody
                        case creds of
-                         Error _ -> return Nothing
+                         Error _     -> return Nothing
                          Success val -> return $ parseMaybe parseCreds val
 
     case midentifier of
@@ -872,7 +873,7 @@ postPasswordR = do
     maid <- maybeAuthId
     (creds :: Result Value) <- parseCheckJsonBody
     let jcreds = case creds of
-                   Error _ -> Nothing
+                   Error _     -> Nothing
                    Success val -> parseMaybe parsePassword val
     let doJsonParsing = isJust jcreds
     case maid of
@@ -884,7 +885,7 @@ postPasswordR = do
                 res <- runInputPostResult $ ireq textField "current"
                 let fcurrent = case res of
                                  FormSuccess currentPass -> Just currentPass
-                                 _ -> Nothing
+                                 _                       -> Nothing
                 let current = if doJsonParsing
                               then getThird jcreds
                               else fcurrent
@@ -903,9 +904,9 @@ postPasswordR = do
   where
     msgOk = Msg.PassUpdated
     getThird (Just (_,_,t)) = t
-    getThird Nothing = Nothing
+    getThird Nothing        = Nothing
     getNewConfirm (Just (a,b,_)) = Just (a,b)
-    getNewConfirm _ = Nothing
+    getNewConfirm _              = Nothing
     confirmPassword aid tm jcreds = do
         res <- runInputPostResult $ (,)
             <$> ireq textField "new"
@@ -914,7 +915,7 @@ postPasswordR = do
                     then getNewConfirm jcreds
                     else case res of
                            FormSuccess res' -> Just res'
-                           _ -> Nothing
+                           _                -> Nothing
         case creds of
           Nothing -> loginErrorMessageI setpassR Msg.PassMismatch
           Just (new, confirm) ->

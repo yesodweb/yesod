@@ -53,55 +53,55 @@ module Yesod.Auth.GoogleEmail2
     , pid
     ) where
 
-import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
-                                           AuthRoute, Creds (Creds),
-                                           Route (PluginR), YesodAuth,
-                                           runHttpRequest, setCredsRedirect,
-                                           logoutDest, AuthHandler)
-import qualified Yesod.Auth.Message       as Msg
-import           Yesod.Core               (HandlerSite, MonadHandler,
-                                           TypedContent, getRouteToParent,
-                                           getUrlRender, invalidArgs,
-                                           liftIO, lookupGetParam,
-                                           lookupSession, notFound, redirect,
-                                           setSession, whamlet, (.:),
-                                           addMessage, getYesod,
-                                           toHtml, liftSubHandler)
+import           Yesod.Auth                  (Auth, AuthHandler,
+                                              AuthPlugin (AuthPlugin),
+                                              AuthRoute, Creds (Creds),
+                                              Route (PluginR), YesodAuth,
+                                              logoutDest, runHttpRequest,
+                                              setCredsRedirect)
+import qualified Yesod.Auth.Message          as Msg
+import           Yesod.Core                  (HandlerSite, MonadHandler,
+                                              TypedContent, addMessage,
+                                              getRouteToParent, getUrlRender,
+                                              getYesod, invalidArgs, liftIO,
+                                              liftSubHandler, lookupGetParam,
+                                              lookupSession, notFound, redirect,
+                                              setSession, toHtml, whamlet, (.:))
 
 
-import           Blaze.ByteString.Builder (fromByteString, toByteString)
-import           Control.Applicative      ((<$>), (<*>))
-import           Control.Arrow            (second)
-import           Control.Monad            (unless, when)
-import           Control.Monad.IO.Class   (MonadIO)
-import qualified Crypto.Nonce             as Nonce
-import           Data.Aeson               ((.:?))
-import qualified Data.Aeson               as A
+import           Blaze.ByteString.Builder    (fromByteString, toByteString)
+import           Control.Applicative         ((<$>), (<*>))
+import           Control.Arrow               (second)
+import           Control.Monad               (unless, when)
+import           Control.Monad.IO.Class      (MonadIO)
+import qualified Crypto.Nonce                as Nonce
+import           Data.Aeson                  ((.:?))
+import qualified Data.Aeson                  as A
 #if MIN_VERSION_aeson(1,0,0)
-import qualified Data.Aeson.Text          as A
+import qualified Data.Aeson.Text             as A
 #else
-import qualified Data.Aeson.Encode        as A
+import qualified Data.Aeson.Encode           as A
 #endif
-import           Data.Aeson.Parser        (json')
-import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
-                                           parseMaybe, withObject, withText)
+import           Data.Aeson.Parser           (json')
+import           Data.Aeson.Types            (FromJSON (parseJSON), parseEither,
+                                              parseMaybe, withObject, withText)
 import           Data.Conduit
-import           Data.Conduit.Attoparsec  (sinkParser)
-import qualified Data.HashMap.Strict      as M
-import           Data.Maybe               (fromMaybe)
-import           Data.Monoid              (mappend)
-import           Data.Text                (Text)
-import qualified Data.Text                as T
-import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
-import qualified Data.Text.Lazy           as TL
-import qualified Data.Text.Lazy.Builder   as TL
-import           Network.HTTP.Client      (Manager, requestHeaders,
-                                           responseBody, urlEncodedBody)
-import qualified Network.HTTP.Client      as HTTP
+import           Data.Conduit.Attoparsec     (sinkParser)
+import qualified Data.HashMap.Strict         as M
+import           Data.Maybe                  (fromMaybe)
+import           Data.Monoid                 (mappend)
+import           Data.Text                   (Text)
+import qualified Data.Text                   as T
+import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Lazy              as TL
+import qualified Data.Text.Lazy.Builder      as TL
+import           Network.HTTP.Client         (Manager, requestHeaders,
+                                              responseBody, urlEncodedBody)
+import qualified Network.HTTP.Client         as HTTP
 import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
-import           Network.HTTP.Conduit (http)
-import           Network.HTTP.Types       (renderQueryText)
-import           System.IO.Unsafe         (unsafePerformIO)
+import           Network.HTTP.Conduit        (http)
+import           Network.HTTP.Types          (renderQueryText)
+import           System.IO.Unsafe            (unsafePerformIO)
 
 
 -- | Plugin identifier. This is used to identify the plugin used for
@@ -239,7 +239,7 @@ authPlugin storeToken clientID clientSecret =
         value <- makeHttpRequest req
         token@(Token accessToken' tokenType') <-
             case parseEither parseJSON value of
-                Left e -> error e
+                Left e  -> error e
                 Right t -> return t
 
         unless (tokenType' == "Bearer") $ error $ "Unknown token type: " ++ show tokenType'
@@ -251,14 +251,14 @@ authPlugin storeToken clientID clientSecret =
         personValue <- makeHttpRequest personValReq
 
         person <- case parseEither parseJSON personValue of
-                Left e -> error e
+                Left e  -> error e
                 Right x -> return x
 
         email <-
             case map emailValue $ filter (\e -> emailType e == EmailAccount) $ personEmails person of
                 [e] -> return e
-                [] -> error "No account email"
-                x -> error $ "Too many account emails: " ++ show x
+                []  -> error "No account email"
+                x   -> error $ "Too many account emails: " ++ show x
         setCredsRedirect $ Creds pid email $ allPersonInfo personValue
 
     dispatch _ _ = notFound
@@ -452,16 +452,16 @@ data RelationshipStatus = Single              -- ^ Person is single
 
 instance FromJSON RelationshipStatus where
     parseJSON = withText "RelationshipStatus" $ \t -> return $ case t of
-                  "single"                    -> Single
-                  "in_a_relationship"         -> InRelationship
-                  "engaged"                   -> Engaged
-                  "married"                   -> Married
-                  "its_complicated"           -> Complicated
-                  "open_relationship"         -> OpenRelationship
-                  "widowed"                   -> Widowed
-                  "in_domestic_partnership"   -> DomesticPartnership
-                  "in_civil_union"            -> CivilUnion
-                  _                           -> RelationshipStatus t
+                  "single"                  -> Single
+                  "in_a_relationship"       -> InRelationship
+                  "engaged"                 -> Engaged
+                  "married"                 -> Married
+                  "its_complicated"         -> Complicated
+                  "open_relationship"       -> OpenRelationship
+                  "widowed"                 -> Widowed
+                  "in_domestic_partnership" -> DomesticPartnership
+                  "in_civil_union"          -> CivilUnion
+                  _                         -> RelationshipStatus t
 
 --------------------------------------------------------------------------------
 -- | The URI of the person's profile photo.
