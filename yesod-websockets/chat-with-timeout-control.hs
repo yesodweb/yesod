@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings, ScopedTypeVariables #-}
 import Yesod.Core
 import Yesod.WebSockets
 import qualified Data.Text.Lazy as TL
@@ -10,6 +10,7 @@ import Conduit
 import Data.Monoid ((<>))
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text)
+import UnliftIO.Exception (try, SomeException)
 
 data App = App (TChan Text)
 
@@ -28,10 +29,14 @@ chatApp = do
     readChan <- atomically $ do
         writeTChan writeChan $ name <> " has joined the chat"
         dupTChan writeChan
-    race_
+    (e :: Either SomeException ()) <- try $ race_
         (forever $ atomically (readTChan readChan) >>= sendTextData)
         (sourceWS $$ mapM_C (\msg ->
             atomically $ writeTChan writeChan $ name <> ": " <> msg))
+
+    atomically $ case e of
+        Left _ -> writeTChan writeChan $ name <> " has left the chat"
+        Right () -> return ()
 
 getHomeR :: Handler Html
 getHomeR = do

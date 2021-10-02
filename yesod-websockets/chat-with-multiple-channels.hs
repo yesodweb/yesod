@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings, ScopedTypeVariables #-}
 import Yesod.Core
 import Yesod.WebSockets
 import qualified Data.Text.Lazy as TL
@@ -11,14 +11,24 @@ import Data.Monoid ((<>))
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text)
 import qualified Data.Map as M
+import UnliftIO.Exception (try, SomeException)
 
-data App = App (TVar (M.Map Text (TChan Text)))
+data App = App (TVar (M.Map Text (TChan Text, Int)))
 
 instance Yesod App
 
 mkYesod "App" [parseRoutes|
 / HomeR GET
 |]
+
+cleanupChannel :: (Eq a1, Num a1) => Maybe (a2, a1) -> Maybe (a2, a1)
+cleanupChannel Nothing = Nothing
+cleanupChannel (Just (writeChan, 1)) = Nothing
+cleanupChannel (Just c) = Just c
+
+userJoinedChannel :: Num b => Maybe (a, b) -> Maybe (a, b)
+userJoinedChannel Nothing = Nothing
+userJoinedChannel (Just (writeChan, numUsers)) = Just (writeChan, numUsers + 1)
 
 chatApp :: WebSocketsT Handler ()
 chatApp = do
@@ -37,17 +47,27 @@ chatApp = do
     writeChan <- atomically $ case maybeChan of
                                 Nothing -> do
                                     chan <- newBroadcastTChan
-                                    writeTVar channelMapTVar $ M.insert channelId chan channelMap
+                                    writeTVar channelMapTVar $ M.insert channelId (chan, 1) channelMap
                                     return chan
-                                Just writeChan -> return writeChan
+                                Just (writeChan, _) -> do
+                                    writeTVar channelMapTVar $ M.alter userJoinedChannel channelId channelMap
+                                    return writeChan
 
     readChan <- atomically $ do
         writeTChan writeChan $ name <> " has joined the chat"
         dupTChan writeChan
-    race_
+    (e :: Either SomeException ()) <- try $ race_
         (forever $ atomically (readTChan readChan) >>= sendTextData)
         (sourceWS $$ mapM_C (\msg ->
             atomically $ writeTChan writeChan $ name <> ": " <> msg))
+
+    atomically $ case e of
+        Left _ -> do
+            -- clean up your resources when user disconnects here
+            let newChannelMap = M.alter cleanupChannel channelId channelMap
+            writeTVar channelMapTVar newChannelMap
+            writeTChan writeChan $ name <> " has left the chat"
+        Right () -> return ()
 
 getHomeR :: Handler Html
 getHomeR = do
