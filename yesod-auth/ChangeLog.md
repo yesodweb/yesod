@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.10.5
+
+* Fix German translations of AuthMessage [#1741](https://github.com/yesodweb/yesod/pull/1741)
+
 ## 1.6.10.4
 
 * Add support for GHC 9 [#1737](https://github.com/yesodweb/yesod/pull/1737)
