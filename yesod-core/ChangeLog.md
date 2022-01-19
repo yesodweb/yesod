@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## Unreleased
+
+* Add missing list to documentation for ``Yesod.Core.Dispatch.warp``. [#1745](https://github.com/yesodweb/yesod/pull/1745)
+
 ## 1.6.21.0
 
 * Export `Yesod.Core.Dispatch.defaultGen` so that users may reuse it for their own `YesodRunnerEnv`s [#1734](https://github.com/yesodweb/yesod/pull/1734)
