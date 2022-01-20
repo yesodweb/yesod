@@ -187,6 +187,16 @@ toWaiAppLogger logger site = do
 -- middlewares. This set may change at any point without a breaking version
 -- number. Currently, it includes:
 --
+-- * Logging
+--
+-- * GZIP compression
+--
+-- * Automatic HEAD method handling
+--
+-- * Request method override with the _method query string parameter
+--
+-- * Accept header override with the _accept query string parameter
+--
 -- If you need more fine-grained control of middlewares, please use 'toWaiApp'
 -- directly.
 --
