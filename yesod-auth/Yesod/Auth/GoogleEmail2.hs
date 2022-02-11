@@ -87,7 +87,6 @@ import           Data.Aeson.Types            (FromJSON (parseJSON), parseEither,
                                               parseMaybe, withObject, withText)
 import           Data.Conduit
 import           Data.Conduit.Attoparsec     (sinkParser)
-import qualified Data.HashMap.Strict         as M
 import           Data.Maybe                  (fromMaybe)
 import           Data.Monoid                 (mappend)
 import           Data.Text                   (Text)
@@ -102,6 +101,13 @@ import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
 import           Network.HTTP.Conduit        (http)
 import           Network.HTTP.Types          (renderQueryText)
 import           System.IO.Unsafe            (unsafePerformIO)
+
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.Key
+import qualified Data.Aeson.KeyMap
+#else
+import qualified Data.HashMap.Strict         as M
+#endif
 
 
 -- | Plugin identifier. This is used to identify the plugin used for
@@ -587,9 +593,19 @@ instance FromJSON EmailType where
         _         -> EmailType t
 
 allPersonInfo :: A.Value -> [(Text, Text)]
-allPersonInfo (A.Object o) = map enc $ M.toList o
-    where enc (key, A.String s) = (key, s)
-          enc (key, v) = (key, TL.toStrict $ TL.toLazyText $ A.encodeToTextBuilder v)
+allPersonInfo (A.Object o) = map enc $ mapToList o
+  where
+    enc (key, A.String s) = (keyToText key, s)
+    enc (key, v) = (keyToText key, TL.toStrict $ TL.toLazyText $ A.encodeToTextBuilder v)
+
+#if MIN_VERSION_aeson(2, 0, 0)
+    keyToText = Data.Aeson.Key.toText
+    mapToList = Data.Aeson.KeyMap.toList
+#else
+    keyToText = id
+    mapToList = M.toList
+#endif
+
 allPersonInfo _ = []
 
 
