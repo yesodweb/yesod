@@ -52,7 +52,6 @@ import Control.Monad.Trans.Maybe
 import UnliftIO                      (withRunInIO, MonadUnliftIO)
 
 import Yesod.Auth.Routes
-import Data.Aeson hiding (json)
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)
@@ -452,7 +451,7 @@ $nothing
     <p>Not logged in.
 |]
     jsonCreds creds =
-        Object $ Map.fromList
+        toJSON $ Map.fromList
             [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
             ]
 
