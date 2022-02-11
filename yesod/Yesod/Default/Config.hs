@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
 module Yesod.Default.Config
@@ -19,11 +20,16 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Yaml
 import Data.Maybe (fromMaybe)
-import qualified Data.HashMap.Strict as M
 import System.Environment (getArgs, getProgName, getEnvironment)
 import System.Exit (exitFailure)
 import Data.Streaming.Network (HostPreference)
 import Data.String (fromString)
+
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.KeyMap as M
+#else
+import qualified Data.HashMap.Strict as M
+#endif
 
 -- | A yesod-provided @'AppEnv'@, allows for Development, Testing, and
 --   Production environments
@@ -143,7 +149,7 @@ configSettings env0 = ConfigSettings
                 Object obj -> return obj
                 _ -> fail "Expected Object"
         let senv = show env
-            tenv = T.pack senv
+            tenv = fromString senv
         maybe
             (error $ "Could not find environment: " ++ senv)
             return
@@ -237,5 +243,5 @@ withYamlEnvironment fp env f = do
         Left err ->
           fail $ "Invalid YAML file: " ++ show fp ++ " " ++ prettyPrintParseException err
         Right (Object obj)
-            | Just v <- M.lookup (T.pack $ show env) obj -> parseMonad f v
+            | Just v <- M.lookup (fromString $ show env) obj -> parseMonad f v
         _ -> fail $ "Could not find environment: " ++ show env

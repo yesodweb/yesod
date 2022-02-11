@@ -30,7 +30,6 @@ import Data.Yaml.Config
 
 import Data.Semigroup
 import Data.Aeson
-import qualified Data.HashMap.Strict as H
 import System.Environment (getEnvironment)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
@@ -42,6 +41,12 @@ import System.Directory (doesFileExist)
 import Network.Wai.Logger (clockDateCacher)
 import Yesod.Core.Types (Logger (Logger))
 import System.Log.FastLogger (LoggerSet)
+
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.KeyMap as H
+#else
+import qualified Data.HashMap.Strict as H
+#endif
 
 #ifndef mingw32_HOST_OS
 import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
