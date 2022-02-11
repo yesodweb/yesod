@@ -16,6 +16,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         args:
         #- "--resolver nightly"
+        - "--resolver nightly-2022-02-11"
         - "--resolver lts-18"
         - "--resolver lts-16"
         - "--resolver lts-14"
