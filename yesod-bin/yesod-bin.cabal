@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.6.1
+version:         1.6.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -61,6 +61,7 @@ executable             yesod
                      , warp-tls           >= 3.0.1
                      , yaml               >= 0.8          && < 0.12
                      , zlib               >= 0.5
+                     , aeson
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs

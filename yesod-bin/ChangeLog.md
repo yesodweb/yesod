@@ -1,5 +1,9 @@
 # ChangeLog for yesod-bin
 
+## 1.6.2
+
+* aeson 2.0
+
 ## 1.6.1
 
 Added command line options `cert` and `key` to allow TLS certificate and key files to be passed to `yesod devel` [#1717](https://github.com/yesodweb/yesod/pull/1717)

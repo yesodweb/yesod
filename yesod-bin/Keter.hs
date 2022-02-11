@@ -1,10 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Keter
     ( keter
     ) where
 
 import Data.Yaml
+
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.KeyMap as Map
+#else
 import qualified Data.HashMap.Strict as Map
+#endif
 import qualified Data.Text as T
 import System.Environment (getEnvironment)
 import System.Exit
