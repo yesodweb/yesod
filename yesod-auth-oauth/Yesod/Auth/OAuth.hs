@@ -18,7 +18,6 @@ import           Control.Applicative      as A ((<$>), (<*>))
 import           Control.Arrow            ((***))
 import           UnliftIO.Exception
 import           Control.Monad.IO.Class
-import           UnliftIO                 (MonadUnliftIO)
 import           Data.ByteString          (ByteString)
 import           Data.Maybe
 import           Data.Text                (Text)
@@ -53,14 +52,9 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
     oauthSessionName = "__oauth_token_secret"
 
     dispatch
-      :: ( MonadHandler m
-         , master ~ HandlerSite m
-         , Auth ~ SubHandlerSite m
-         , MonadUnliftIO m
-         )
-      => Text
+      :: Text
       -> [Text]
-      -> m TypedContent
+      -> AuthHandler master TypedContent
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
         tm <- getRouteToParent

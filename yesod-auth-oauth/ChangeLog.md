@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth-oauth
 
+## 1.6.1
+
+* Allow newer GHC
+
 ## 1.6.0.3
 
 * Allow yesod-form 1.7
