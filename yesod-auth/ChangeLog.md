@@ -1,8 +1,12 @@
 # ChangeLog for yesod-auth
 
-## 1.6.10.5
+## 1.6.11
 
 * Add support for aeson 2
+
+## 1.6.10.5
+
+* Fix German translations of AuthMessage [#1741](https://github.com/yesodweb/yesod/pull/1741)
 
 ## 1.6.10.4
 
