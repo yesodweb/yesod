@@ -24,3 +24,4 @@ germanFormMessage (MsgInvalidBool t) = "Ungültiger Wahrheitswert: " `mappend` t
 germanFormMessage MsgBoolYes = "Ja"
 germanFormMessage MsgBoolNo = "Nein"
 germanFormMessage MsgDelete = "Löschen?"
+germanFormMessage (MsgInvalidHexColorFormat t) = "Ungültige Farbe, muss im Hexadezimalformat #rrggbb vorliegen: " `mappend` t

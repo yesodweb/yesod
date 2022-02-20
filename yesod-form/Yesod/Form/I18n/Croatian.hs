@@ -24,3 +24,4 @@ croatianFormMessage (MsgInvalidBool t)    = "Logička vrijednost nije valjana: "
 croatianFormMessage MsgBoolYes            = "Da"
 croatianFormMessage MsgBoolNo             = "Ne"
 croatianFormMessage MsgDelete             = "Izbrisati?"
+croatianFormMessage (MsgInvalidHexColorFormat t) = "Nevažeća boja, mora biti u #rrggbb heksadecimalnom formatu: " `mappend` t

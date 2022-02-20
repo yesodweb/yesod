@@ -229,4 +229,5 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgBoolYes
                  | MsgBoolNo
                  | MsgDelete
+                 | MsgInvalidHexColorFormat Text
     deriving (Show, Eq, Read)

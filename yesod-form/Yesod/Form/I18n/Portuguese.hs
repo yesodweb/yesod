@@ -24,3 +24,4 @@ portugueseFormMessage (MsgInvalidBool t) = "Booleano inválido: " `mappend` t
 portugueseFormMessage MsgBoolYes = "Sim"
 portugueseFormMessage MsgBoolNo = "Não"
 portugueseFormMessage MsgDelete = "Remover?"
+portugueseFormMessage (MsgInvalidHexColorFormat t) = "Cor inválida, deve estar no formato #rrggbb hexadecimal: " `mappend` t

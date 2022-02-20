@@ -24,3 +24,4 @@ russianFormMessage (MsgInvalidBool t) = "Неверное логическое �
 russianFormMessage MsgBoolYes = "Да"
 russianFormMessage MsgBoolNo = "Нет"
 russianFormMessage MsgDelete = "Удалить?"
+russianFormMessage (MsgInvalidHexColorFormat t) = "Недопустимое значение цвета, должен быть в шестнадцатеричном формате #rrggbb: " `mappend` t

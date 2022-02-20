@@ -24,3 +24,4 @@ japaneseFormMessage (MsgInvalidBool t) = "無効なbool値です: " `mappend` t
 japaneseFormMessage MsgBoolYes = "はい"
 japaneseFormMessage MsgBoolNo = "いいえ"
 japaneseFormMessage MsgDelete = "削除しますか?"
+japaneseFormMessage (MsgInvalidHexColorFormat t) = "無効な色。＃rrggbb16進形式である必要があります: " `mappend` t

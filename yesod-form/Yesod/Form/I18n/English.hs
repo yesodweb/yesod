@@ -24,3 +24,4 @@ englishFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
 englishFormMessage MsgBoolYes = "Yes"
 englishFormMessage MsgBoolNo = "No"
 englishFormMessage MsgDelete = "Delete?"
+englishFormMessage (MsgInvalidHexColorFormat t) = "Invalid color, must be in #rrggbb hexadecimal format: " `mappend` t

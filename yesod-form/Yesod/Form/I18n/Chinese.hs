@@ -24,3 +24,4 @@ chineseFormMessage (MsgInvalidBool t) = "无效的逻辑值: " `mappend` t
 chineseFormMessage MsgBoolYes = "是"
 chineseFormMessage MsgBoolNo = "否"
 chineseFormMessage MsgDelete = "删除?"
+chineseFormMessage (MsgInvalidHexColorFormat t) = "颜色无效，必须为 #rrggbb 十六进制格式: " `mappend` t
