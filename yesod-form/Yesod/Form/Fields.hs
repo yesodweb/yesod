@@ -954,6 +954,8 @@ prependZero t0 = if T.null t1
 
 -- | Creates an input with @type="color"@.
 --   The input value must be provided in hexadecimal format #rrggbb.
+--
+-- @since 1.7.1 
 colorField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 colorField = Field
     { fieldParse = parseHelper $ \s ->
