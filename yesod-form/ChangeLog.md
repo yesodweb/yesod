@@ -2,7 +2,7 @@
 
 ## 1.7.1
 
-* Added `colorField` for creating a html color field (`<input type="color">`) ciukstar:color-field [#1748](https://github.com/yesodweb/yesod/pull/1748)
+* Added `colorField` for creating a html color field (`<input type="color">`) [#1748](https://github.com/yesodweb/yesod/pull/1748)
 
 ## 1.7.0
 
