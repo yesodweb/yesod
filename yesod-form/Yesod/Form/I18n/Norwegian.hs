@@ -24,3 +24,4 @@ norwegianBokmålFormMessage MsgBoolYes = "Ja"
 norwegianBokmålFormMessage MsgBoolNo = "Nei"
 norwegianBokmålFormMessage MsgDelete = "Slette?"
 norwegianBokmålFormMessage MsgCsrfWarning = "Som beskyttelse mot «cross-site request forgery»-angrep, vennligst bekreft innsendt skjema."
+norwegianBokmålFormMessage (MsgInvalidHexColorFormat t) = "Ugyldig farge, må være i #rrggbb heksadesimalt format: " `mappend` t

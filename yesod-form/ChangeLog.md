@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.1
+
+* Added `colorField` for creating a html color field (`<input type="color">`) [#1748](https://github.com/yesodweb/yesod/pull/1748)
+
 ## 1.7.0
 
 * Extended `OptionList` by `OptionListGrouped` and implemented grouped select fields (`<select>` with `<optgroup>`) [#1722](https://github.com/yesodweb/yesod/pull/1722)

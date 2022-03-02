@@ -25,3 +25,4 @@ spanishFormMessage (MsgInvalidBool t) = "Booleano inválido: " `mappend` t
 spanishFormMessage MsgBoolYes = "Sí"
 spanishFormMessage MsgBoolNo = "No"
 spanishFormMessage MsgDelete = "¿Eliminar?"
+spanishFormMessage (MsgInvalidHexColorFormat t) = "Color no válido, debe estar en formato hexadecimal #rrggbb: " `mappend` t

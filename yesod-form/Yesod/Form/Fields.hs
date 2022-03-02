@@ -62,6 +62,7 @@ module Yesod.Form.Fields
     , optionsPairs
     , optionsPairsGrouped
     , optionsEnum
+    , colorField
     ) where
 
 import Yesod.Form.Types
@@ -116,6 +117,8 @@ import Data.String (IsString)
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
 #endif
+
+import Data.Char (isHexDigit)
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -948,3 +951,23 @@ prependZero t0 = if T.null t1
 -- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
 -- 
 -- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.
+
+-- | Creates an input with @type="color"@.
+--   The input value must be provided in hexadecimal format #rrggbb.
+--
+-- @since 1.7.1 
+colorField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
+colorField = Field
+    { fieldParse = parseHelper $ \s ->
+        if isHexColor $ unpack s then Right s
+        else Left $ MsgInvalidHexColorFormat s
+    , fieldView = \theId name attrs val _ -> [whamlet|
+$newline never
+<input ##{theId} name=#{name} *{attrs} type=color value=#{either id id val}>
+|]
+    , fieldEnctype = UrlEncoded
+    }
+  where
+      isHexColor :: String -> Bool
+      isHexColor ['#',a,b,c,d,e,f] = all isHexDigit [a,b,c,d,e,f]
+      isHexColor _ = False

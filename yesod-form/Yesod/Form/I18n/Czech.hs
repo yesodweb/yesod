@@ -24,3 +24,4 @@ czechFormMessage (MsgInvalidBool t) = "Neplatná pravdivostní hodnota: " `mappe
 czechFormMessage MsgBoolYes = "Ano"
 czechFormMessage MsgBoolNo = "Ne"
 czechFormMessage MsgDelete = "Smazat?"
+czechFormMessage (MsgInvalidHexColorFormat t) = "Neplatná barva, musí být v #rrggbb hexadecimálním formátu: " `mappend` t
