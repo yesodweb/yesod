@@ -117,12 +117,19 @@ module Yesod.Test
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
+    , yesodExampleDataFromApp
+    , yesodExampleDataFromTestApp
     , TestApp
     , YSpec
     , testApp
+    , minimalTestApp
     , YesodSpecTree (..)
     , ydescribe
     , yit
+
+    -- * Hooks
+    , beforeApp
+    , beforeWithApp
 
     -- * Modify test site
     , testModifySite
@@ -220,9 +227,11 @@ module Yesod.Test
     , htmlQuery
     , parseHTML
     , withResponse
+    -- * YesodExa
     ) where
 
 import qualified Test.Hspec.Core.Spec as Hspec
+import qualified Test.Hspec.Core.Hooks as Hspec
 import qualified Data.List as DL
 import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
@@ -287,13 +296,36 @@ import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 
 -- | The state used in a single test case defined using 'yit'
 --
--- Since 1.2.4
+-- @since 1.2.4
 data YesodExampleData site = YesodExampleData
     { yedApp :: !Application
     , yedSite :: !site
     , yedCookies :: !Cookies
     , yedResponse :: !(Maybe SResponse)
     }
+
+-- |
+--
+-- @since TODO
+yesodExampleDataFromApp :: YesodDispatch site => site -> IO (YesodExampleData site)
+yesodExampleDataFromApp site = do
+    app <- toWaiAppPlain site
+    pure YesodExampleData
+        { yedApp = app
+        , yedSite = site
+        , yedCookies = M.empty
+        , yedResponse = Nothing
+        }
+
+-- |
+--
+-- @since TODO
+yesodExampleDataFromTestApp :: YesodDispatch site => TestApp site -> IO (YesodExampleData site)
+yesodExampleDataFromTestApp (site, middleware) = do
+    yed <- yesodExampleDataFromApp site
+    pure yed
+        { yedApp = middleware (yedApp yed)
+        }
 
 -- | A single test case, to be run with 'yit'.
 --
@@ -366,13 +398,8 @@ yesodSpec site yspecs =
   where
     unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
-        app <- toWaiAppPlain site
-        evalSIO y YesodExampleData
-            { yedApp = app
-            , yedSite = site
-            , yedCookies = M.empty
-            , yedResponse = Nothing
-            }
+        yed <- yesodExampleDataFromApp site
+        evalSIO y yed
 
 -- | Same as yesodSpec, but instead of taking already built site it
 -- takes an action which produces site for each test.
@@ -397,13 +424,8 @@ yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
       unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
       unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ \a -> do
         site <- getSiteAction' a
-        app <- toWaiAppPlain site
-        evalSIO y YesodExampleData
-            { yedApp = app
-            , yedSite = site
-            , yedCookies = M.empty
-            , yedResponse = Nothing
-            }
+        yed <- yesodExampleDataFromApp site
+        evalSIO y yed
 
 -- | Same as yesodSpec, but instead of taking a site it
 -- takes an action which produces the 'Application' for each test.
@@ -431,7 +453,7 @@ yit :: String -> YesodExample site () -> YesodSpec site
 yit label example = tell [YesodSpecItem label example]
 
 -- | Modifies the site ('yedSite') of the test, and creates a new WAI app ('yedApp') for it.
--- 
+--
 -- yesod-test allows sending requests to your application to test that it handles them correctly.
 -- In rare cases, you may wish to modify that application in the middle of a test.
 -- This may be useful if you wish to, for example, test your application under a certain configuration,
@@ -455,7 +477,7 @@ testModifySite :: YesodDispatch site
                => (site -> IO (site, Middleware)) -- ^ A function from the existing site, to a new site and middleware for a WAI app.
                -> YesodExample site ()
 testModifySite newSiteFn = do
-  currentSite <- getTestYesod 
+  currentSite <- getTestYesod
   (newSite, middleware) <- liftIO $ newSiteFn currentSite
   app <- liftIO $ toWaiAppPlain newSite
   modifySIO $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
@@ -812,7 +834,7 @@ printMatches query = do
   matches <- htmlQuery query
   liftIO $ hPutStrLn stderr $ show matches
 
--- | Add a parameter with the given name and value to the request body. 
+-- | Add a parameter with the given name and value to the request body.
 -- This function can be called multiple times to add multiple parameters, and be mixed with calls to 'addFile'.
 --
 -- "Post parameter" is an informal description of what is submitted by making an HTTP POST with an HTML @\<form\>@.
@@ -1367,7 +1389,7 @@ setUrl url' = do
 -- > get "/foobar"
 -- > clickOn "a#idofthelink"
 --
--- @since 1.5.7 
+-- @since 1.5.7
 clickOn :: (HasCallStack, Yesod site) => Query -> YesodExample site ()
 clickOn query = do
   withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
@@ -1576,8 +1598,16 @@ failure :: (HasCallStack, MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
 
 type TestApp site = (site, Middleware)
+
 testApp :: site -> Middleware -> TestApp site
 testApp site middleware = (site, middleware)
+
+-- | Creates a 'TestApp' and provides a no-op middleware.
+--
+-- @since TODO
+minimalTestApp :: site -> TestApp site
+minimalTestApp site = (site, id)
+
 type YSpec site = Hspec.SpecWith (TestApp site)
 
 instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) where
@@ -1585,17 +1615,80 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
 
     evaluateExample example params action =
         Hspec.evaluateExample
-            (action $ \(site, middleware) -> do
-                app <- toWaiAppPlain site
-                _ <- evalSIO example YesodExampleData
-                    { yedApp = middleware app
-                    , yedSite = site
-                    , yedCookies = M.empty
-                    , yedResponse = Nothing
-                    }
+            (action $ \testApp -> do
+                yed <- yesodExampleDataFromTestApp testApp
+                _ <- evalSIO example yed
                 return ())
             params
             ($ ())
+
+instance YesodDispatch site => Hspec.Example (r -> SIO (YesodExampleData site) a) where
+    type Arg (r -> SIO (YesodExampleData site) a) =
+        (TestApp site, r)
+
+    evaluateExample example params action =
+        Hspec.evaluateExample
+            (action $ \(testApp, r) -> do
+                yed <- yesodExampleDataFromTestApp testApp
+                _ <- evalSIO (example r) yed
+                return ())
+            params
+            ($ ())
+
+-- | Like 'Test.Hspec.before' from "Test.Hspec", but works with the 'YesodExample'
+-- type. Allows you to provide extra context to a group of test cases.
+--
+-- @
+-- spec :: Spec
+-- spec = withApp $ do
+--     'beforeApp' createAndAuthenticateUser $ do
+--         'it' "has a user" $ \\user -> do
+--             'post' (MyRouteR ('entityKey' user))
+--             'statusIs' 200
+-- @
+--
+-- @since TODO
+beforeApp
+    :: (YesodDispatch site)
+    => YesodExample site a
+    -> Hspec.SpecWith (TestApp site, a)
+    -> Hspec.SpecWith (TestApp site)
+beforeApp action =
+    Hspec.beforeWith $ \testapp -> do
+        yesodExampleData <- yesodExampleDataFromTestApp testapp
+        a <- evalSIO action yesodExampleData
+        pure (testapp, a)
+
+-- | Like 'Test.Hspec.beforeWith', but this works with 'YesodExample' type.
+--
+-- Useful to modify the existing context as provided by 'beforeApp'. This
+-- allows you to create shared contexts among a group of spec items.
+--
+-- @
+-- spec :: Spec
+-- spec = withApp $ do
+--     'beforeApp' createAndAuthenticateUser $ do
+--         'it' "has a user" $ \\user -> do
+--             'post' (MyRouteR ('entityKey' user))
+--             'statusIs' 200
+--
+--         'beforeWithApp' createOrganizationForUser $ do
+--             'it' "has an organization, too" $ \(user, organization) -> do
+--                 'post' (OtherRouteR ('entityKey' user) ('entityKey' organization))
+--                 'statusIs' 200
+-- @
+--
+-- @since TODO
+beforeWithApp
+  :: YesodDispatch site
+  => (a -> YesodExample site b)
+  -> Hspec.SpecWith (TestApp site, b)
+  -> Hspec.SpecWith (TestApp site, a)
+beforeWithApp action =
+    Hspec.beforeWith $ \(testapp, a) -> do
+        yesodExampleData <- yesodExampleDataFromTestApp testapp
+        b <- evalSIO (action a) yesodExampleData
+        pure (testapp, b)
 
 -- | State + IO
 --

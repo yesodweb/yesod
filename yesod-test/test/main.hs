@@ -502,6 +502,23 @@ main = hspec $ do
             statusIs 200
             (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
 
+    describe "Hooks" $ do
+        before (pure $ minimalTestApp app) $ do
+            it "can run regular tests" $ do
+                get ("get-json-response" :: Text)
+                statusIs 200
+                xs <- requireJSONResponse
+                assertEq "The value is [1]" xs [1 :: Integer]
+            describe "Root Route" $ do
+                beforeApp (get ("/" :: Text)) $ do
+                    it "can do stuff" $ \() -> do
+                        liftIO $ pendingWith "This test currently fails because the SIO type can't share the state. When we do an `evalSIO` in `beforeApp`, that throws away all the changes made, so requests are not persisted."
+                        statusIs 200
+
+
+
+
+
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
 
