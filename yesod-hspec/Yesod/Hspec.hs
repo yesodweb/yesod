@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingStrategies, GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -239,6 +240,7 @@ import Control.Monad.Trans.Reader (ReaderT (..))
 import Conduit (MonadThrow)
 import Control.Monad.IO.Class
 import qualified Control.Monad.State.Class as MS
+import Control.Monad.State.Class hiding (get)
 import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
@@ -279,7 +281,8 @@ data YesodExampleData site = YesodExampleData
 -- | A single test case, to be run with 'yit'.
 --
 -- Since 1.2.0
-type YesodExample site = SIO (YesodExampleData site)
+newtype YesodExample site a = YesodExample { unYesodExample :: SIO (YesodExampleData site) a }
+    deriving newtype (Functor, Applicative, Monad, MonadIO, MonadState (YesodExampleData site))
 
 -- | Mapping from cookie name to value.
 --
@@ -302,13 +305,13 @@ data YesodSpecTree site
 --
 -- Since 1.2.0
 getTestYesod :: YesodExample site site
-getTestYesod = fmap yedSite getSIO
+getTestYesod = fmap yedSite MS.get
 
 -- | Get the most recently provided response value, if available.
 --
 -- Since 1.2.0
 getResponse :: YesodExample site (Maybe SResponse)
-getResponse = fmap yedResponse getSIO
+getResponse = fmap yedResponse MS.get
 
 data RequestBuilderData site = RequestBuilderData
     { rbdPostData :: RBDPostData
@@ -348,7 +351,7 @@ yesodSpec site yspecs =
     unYesod (YesodSpecGroup x y) = specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = specItem x $ do
         app <- toWaiAppPlain site
-        evalSIO y YesodExampleData
+        evalSIO (unYesodExample y) YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
@@ -379,7 +382,7 @@ yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
       unYesod getSiteAction' (YesodSpecItem x y) = specItem x $ \a -> do
         site <- getSiteAction' a
         app <- toWaiAppPlain site
-        evalSIO y YesodExampleData
+        evalSIO (unYesodExample y) YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
@@ -400,7 +403,7 @@ yesodSpecApp site getApp yspecs =
     unYesod (YesodSpecGroup x y) = specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = specItem x $ do
         app <- getApp
-        evalSIO y YesodExampleData
+        evalSIO (unYesodExample y) YesodExampleData
             { yedApp = app
             , yedSite = site
             , yedCookies = M.empty
@@ -439,7 +442,7 @@ testModifySite newSiteFn = do
   currentSite <- getTestYesod
   (newSite, middleware) <- liftIO $ newSiteFn currentSite
   app <- liftIO $ toWaiAppPlain newSite
-  modifySIO $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
+  modify $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
 
 -- | Sets a cookie
 --
@@ -453,7 +456,7 @@ testModifySite newSiteFn = do
 testSetCookie :: Cookie.SetCookie -> YesodExample site ()
 testSetCookie cookie = do
   let key = Cookie.setCookieName cookie
-  modifySIO $ \yed -> yed { yedCookies = M.insert key cookie (yedCookies yed) }
+  modify $ \yed -> yed { yedCookies = M.insert key cookie (yedCookies yed) }
 
 -- | Deletes the cookie of the given name
 --
@@ -465,30 +468,31 @@ testSetCookie cookie = do
 -- @since 1.6.6
 testDeleteCookie :: ByteString -> YesodExample site ()
 testDeleteCookie k = do
-  modifySIO $ \yed -> yed { yedCookies = M.delete k (yedCookies yed) }
+  modify $ \yed -> yed { yedCookies = M.delete k (yedCookies yed) }
 
 -- | Modify the current cookies with the given mapping function
 --
 -- @since 1.6.6
 testModifyCookies :: (Cookies -> Cookies) -> YesodExample site ()
 testModifyCookies f = do
-  modifySIO $ \yed -> yed { yedCookies = f (yedCookies yed) }
+  modify $ \yed -> yed { yedCookies = f (yedCookies yed) }
 
 -- | Clears the current cookies
 --
 -- @since 1.6.6
 testClearCookies :: YesodExample site ()
 testClearCookies = do
-  modifySIO $ \yed -> yed { yedCookies = M.empty }
+  modify $ \yed -> yed { yedCookies = M.empty }
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
-withResponse' :: HasCallStack
-              => (state -> Maybe SResponse)
-              -> [T.Text]
-              -> (SResponse -> SIO state a)
-              -> SIO state a
-withResponse' getter errTrace f = maybe err f . getter =<< getSIO
+withResponse'
+    :: (HasCallStack, MonadState state m, MonadIO m)
+    => (state -> Maybe SResponse)
+    -> [T.Text]
+    -> (SResponse -> m a)
+    -> m a
+withResponse' getter errTrace f = maybe err f . getter =<< MS.get
  where err = failure msg
        msg = if null errTrace
              then "There was no response, you should make a request."
@@ -507,11 +511,12 @@ parseHTML :: HtmlLBS -> Cursor
 parseHTML html = fromDocument $ HD.parseLBS html
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
-htmlQuery' :: HasCallStack
-           => (state -> Maybe SResponse)
-           -> [T.Text]
-           -> Query
-           -> SIO state [HtmlLBS]
+htmlQuery'
+    :: (HasCallStack, MonadState state m, MonadIO m)
+    => (state -> Maybe SResponse)
+    -> [T.Text]
+    -> Query
+    -> m [HtmlLBS]
 htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQuery' in order to read HTML of a previous response." : errTrace) $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
@@ -1165,10 +1170,11 @@ get = performMethod "GET"
 -- ==== __Examples__
 --
 -- > performMethod "DELETE" HomeR
-performMethod :: (Yesod site, RedirectUrl site url)
-          => ByteString
-          -> url
-          -> YesodExample site ()
+performMethod
+    :: (Yesod site, RedirectUrl site url)
+    => ByteString
+    -> url
+    -> YesodExample site ()
 performMethod method url = request $ do
   setMethod method
   setUrl url
@@ -1337,7 +1343,7 @@ addBasicAuthHeader username password =
 request :: RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
-    YesodExampleData app site oldCookies mRes <- getSIO
+    YesodExampleData app site oldCookies mRes <- MS.get
 
     RequestBuilderData {..} <- liftIO $ execSIO reqBuilder RequestBuilderData
       { rbdPostData = MultipleItemsPostData []
@@ -1379,7 +1385,7 @@ request reqBuilder = do
         }) app
     let newCookies = parseSetCookies $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
-    putSIO $ YesodExampleData app site cookies' (Just response)
+    put $ YesodExampleData app site cookies' (Just response)
   where
     isFile (ReqFilePart _ _ _ _) = True
     isFile _ = False
