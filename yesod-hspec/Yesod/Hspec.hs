@@ -120,7 +120,6 @@ module Yesod.Hspec
     , TestApp (..)
     , YSpec
     , mkTestApp
-    , YesodSpecTree (..)
     , ydescribe
     , yit
 
@@ -294,13 +293,6 @@ type Cookies = M.Map ByteString Cookie.SetCookie
 type YesodSpec site = SpecWith (YesodExampleData site)
 
 type YesodSpecWith site r = SpecWith (YesodExampleData site, r)
-
--- | Internal data structure, corresponding to hspec\'s "SpecTree".
---
--- Since 1.2.0
-data YesodSpecTree site
-    = YesodSpecGroup String [YesodSpecTree site]
-    | YesodSpecItem String (YesodExample site ())
 
 -- | Get the foundation value used for the current test.
 --
