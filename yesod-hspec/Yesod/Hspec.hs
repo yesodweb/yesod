@@ -10,7 +10,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 {-|
-Yesod.Test is a pragmatic framework for testing web applications built
+Yesod.Hspec is a pragmatic framework for testing web applications built
 using wai.
 
 By pragmatic I may also mean 'dirty'. Its main goal is to encourage integration
@@ -108,7 +108,7 @@ yesod-test provides a handful of assertion functions that are already lifted, su
 
 -}
 
-module Yesod.Test
+module Yesod.Hspec
     ( -- * Declaring and running your test suite
       yesodSpec
     , YesodSpec
@@ -1337,7 +1337,7 @@ setUrl url' = do
     site <- fmap rbdSite getSIO
     eurl <- Yesod.Core.Unsafe.runFakeHandler
         M.empty
-        (const $ error "Yesod.Test: No logger available")
+        (const $ error "Yesod.Hspec: No logger available")
         site
         (toTextUrl url')
     url <- either (error . show) return eurl
