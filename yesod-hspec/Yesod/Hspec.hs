@@ -264,7 +264,7 @@ import GHC.Stack (HasCallStack)
 import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
 import Data.Aeson (FromJSON, eitherDecode')
-import Control.Monad (unless)
+import Control.Monad
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 
@@ -292,7 +292,7 @@ type Cookies = M.Map ByteString Cookie.SetCookie
 -- | Corresponds to hspec\'s 'Spec'.
 --
 -- Since 1.2.0
-type YesodSpec site = Writer [YesodSpecTree site] ()
+type YesodSpec site = SpecWith (YesodExampleData site)
 
 -- | Internal data structure, corresponding to hspec\'s "SpecTree".
 --
@@ -339,18 +339,15 @@ type RequestBuilder site = SIO (RequestBuilderData site)
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
 ydescribe :: String -> YesodSpec site -> YesodSpec site
-ydescribe label yspecs = tell [YesodSpecGroup label $ execWriter yspecs]
+ydescribe = describe
 
 yesodSpec :: YesodDispatch site
           => site
           -> YesodSpec site
           -> Spec
-yesodSpec site yspecs =
-    fromSpecList $ map unYesod $ execWriter yspecs
-  where
-    unYesod (YesodSpecGroup x y) = specGroup x $ map unYesod y
-    unYesod (YesodSpecItem x y) = specItem x $ do
-        evalSIO (unYesodExample y) YesodExampleData
+yesodSpec site =
+    before $ do
+        pure YesodExampleData
             { yedApp = toWaiAppPlain
             , yedSite = site
             , yedCookies = M.empty
@@ -374,14 +371,10 @@ yesodSpecWithSiteGeneratorAndArgument :: YesodDispatch site
                            => (a -> IO site)
                            -> YesodSpec site
                            -> SpecWith a
-yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
-    fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
-    where
-      unYesod getSiteAction' (YesodSpecGroup x y) = specGroup x $ map (unYesod getSiteAction') y
-      unYesod getSiteAction' (YesodSpecItem x y) = specItem x $ \a -> do
-        site <- getSiteAction' a
-        app <- toWaiAppPlain site
-        evalSIO (unYesodExample y) YesodExampleData
+yesodSpecWithSiteGeneratorAndArgument getSiteAction =
+    beforeWith $ \a -> do
+        site <- getSiteAction a
+        pure YesodExampleData
             { yedApp = toWaiAppPlain
             , yedSite = site
             , yedCookies = M.empty
@@ -397,12 +390,9 @@ yesodSpecApp
     -> IO Application
     -> YesodSpec site
     -> Spec
-yesodSpecApp site getApp yspecs =
-    fromSpecList $ map unYesod $ execWriter yspecs
-  where
-    unYesod (YesodSpecGroup x y) = specGroup x $ map unYesod y
-    unYesod (YesodSpecItem x y) = specItem x $ do
-        evalSIO (unYesodExample y) YesodExampleData
+yesodSpecApp site getApp =
+    before $ do
+        pure YesodExampleData
             { yedApp = const getApp
             , yedSite = site
             , yedCookies = M.empty
@@ -410,8 +400,8 @@ yesodSpecApp site getApp yspecs =
             }
 
 -- | Describe a single test that keeps cookies, and a reference to the last response.
-yit :: String -> YesodExample site () -> YesodSpec site
-yit label example = tell [YesodSpecItem label example]
+yit :: YesodDispatch site => String -> YesodExample site () -> YesodSpec site
+yit = it
 
 -- | Modifies the site ('yedSite') of the test, and creates a new WAI app ('yedApp') for it.
 --
@@ -424,7 +414,7 @@ yit label example = tell [YesodSpecItem label example]
 --
 -- > post SendEmailR
 -- > -- Assert email not created in database
--- > testModifySite (\site -> pure (site { siteSettingsStoreEmail = True }, id))
+-- > testModifySite (\site -> pure )
 -- > post SendEmailR
 -- > -- Assert email created in database
 --
@@ -1506,6 +1496,28 @@ mkTestApp site = TestApp
     }
 
 type YSpec site = SpecWith (TestApp site)
+
+instance YesodDispatch site => Example (r -> YesodExample site a) where
+    type Arg (r -> YesodExample site a) = (YesodExampleData site, r)
+
+    evaluateExample example params action =
+        evaluateExample
+            (action $ \(yed, r) ->
+                void $ evalSIO (unYesodExample (example r)) yed
+            )
+            params
+            ($ ())
+
+instance YesodDispatch site => Example (YesodExample site a) where
+    type Arg (YesodExample site a) = YesodExampleData site
+
+    evaluateExample example params action =
+        evaluateExample
+            (action $ \yed ->
+                void $ evalSIO (unYesodExample example) yed
+            )
+            params
+            ($ ())
 
 instance YesodDispatch site => Example (SIO (YesodExampleData site) a) where
     type Arg (SIO (YesodExampleData site) a) = TestApp site
