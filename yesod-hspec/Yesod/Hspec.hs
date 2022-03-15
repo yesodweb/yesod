@@ -272,7 +272,7 @@ import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 --
 -- Since 1.2.4
 data YesodExampleData site = YesodExampleData
-    { yedApp :: !Application
+    { yedApp :: !(site -> IO Application)
     , yedSite :: !site
     , yedCookies :: !Cookies
     , yedResponse :: !(Maybe SResponse)
@@ -350,9 +350,8 @@ yesodSpec site yspecs =
   where
     unYesod (YesodSpecGroup x y) = specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = specItem x $ do
-        app <- toWaiAppPlain site
         evalSIO (unYesodExample y) YesodExampleData
-            { yedApp = app
+            { yedApp = toWaiAppPlain
             , yedSite = site
             , yedCookies = M.empty
             , yedResponse = Nothing
@@ -383,7 +382,7 @@ yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
         site <- getSiteAction' a
         app <- toWaiAppPlain site
         evalSIO (unYesodExample y) YesodExampleData
-            { yedApp = app
+            { yedApp = toWaiAppPlain
             , yedSite = site
             , yedCookies = M.empty
             , yedResponse = Nothing
@@ -392,19 +391,19 @@ yesodSpecWithSiteGeneratorAndArgument getSiteAction yspecs =
 -- | Same as yesodSpec, but instead of taking a site it
 -- takes an action which produces the 'Application' for each test.
 -- This lets you use your middleware from makeApplication
-yesodSpecApp :: YesodDispatch site
-             => site
-             -> IO Application
-             -> YesodSpec site
-             -> Spec
+yesodSpecApp
+    :: YesodDispatch site
+    => site
+    -> IO Application
+    -> YesodSpec site
+    -> Spec
 yesodSpecApp site getApp yspecs =
     fromSpecList $ map unYesod $ execWriter yspecs
   where
     unYesod (YesodSpecGroup x y) = specGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = specItem x $ do
-        app <- getApp
         evalSIO (unYesodExample y) YesodExampleData
-            { yedApp = app
+            { yedApp = const getApp
             , yedSite = site
             , yedCookies = M.empty
             , yedResponse = Nothing
@@ -441,8 +440,10 @@ testModifySite :: YesodDispatch site
 testModifySite newSiteFn = do
   currentSite <- getTestYesod
   (newSite, middleware) <- liftIO $ newSiteFn currentSite
-  app <- liftIO $ toWaiAppPlain newSite
-  modify $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
+  modify $ \yed -> yed
+    { yedSite = newSite
+    , yedApp = \_ -> middleware <$> toWaiAppPlain newSite
+    }
 
 -- | Sets a cookie
 --
@@ -1327,6 +1328,12 @@ addBasicAuthHeader username password =
   let credentials = convertToBase Base64 $ CI.original $ username <> ":" <> password
   in addRequestHeader ("Authorization", "Basic " <> credentials)
 
+mkApplication :: (MonadState (YesodExampleData site) m, MonadIO m) => m Application
+mkApplication = do
+    mkApp <- MS.gets yedApp
+    site <- MS.gets yedSite
+    liftIO $ mkApp site
+
 -- | The general interface for performing requests. 'request' takes a 'RequestBuilder',
 -- constructs a request, and executes it.
 --
@@ -1343,7 +1350,10 @@ addBasicAuthHeader username password =
 request :: RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
-    YesodExampleData app site oldCookies mRes <- MS.get
+    app <- mkApplication
+    site <- MS.gets yedSite
+    mRes <- MS.gets yedResponse
+    oldCookies <- MS.gets yedCookies
 
     RequestBuilderData {..} <- liftIO $ execSIO reqBuilder RequestBuilderData
       { rbdPostData = MultipleItemsPostData []
@@ -1385,7 +1395,7 @@ request reqBuilder = do
         }) app
     let newCookies = parseSetCookies $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
-    put $ YesodExampleData app site cookies' (Just response)
+    modify $ \e -> e { yedCookies = cookies', yedResponse = Just response }
   where
     isFile (ReqFilePart _ _ _ _) = True
     isFile _ = False
@@ -1505,7 +1515,7 @@ instance YesodDispatch site => Example (SIO (YesodExampleData site) a) where
             (action $ \testApp -> do
                 app <- toWaiAppPlain (testAppSite testApp)
                 _ <- evalSIO example YesodExampleData
-                    { yedApp = testAppMiddleware testApp app
+                    { yedApp = \_ -> testAppMiddleware testApp <$> toWaiAppPlain (testAppSite testApp)
                     , yedSite = testAppSite testApp
                     , yedCookies = M.empty
                     , yedResponse = Nothing
