@@ -29,7 +29,7 @@ library
                    , hspec-core                == 2.*
                    , html-conduit              >= 0.1
                    , http-types                >= 0.7
-                   , network                   >= 2.2
+                   , network                   >= 3.0
                    , memory
                    , pretty-show               >= 1.6
                    , text
