@@ -248,7 +248,6 @@ import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8, decodeUtf8With)
 import Text.XML.Cursor hiding (element)
 import qualified Text.XML.Cursor as C
 import qualified Text.HTML.DOM as HD
-import Control.Monad.Trans.Writer
 import Data.IORef
 import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
@@ -1517,7 +1516,6 @@ instance YesodDispatch site => Example (SIO (YesodExampleData site) a) where
     evaluateExample example params action =
         evaluateExample
             (action $ \testApp -> do
-                app <- toWaiAppPlain (testAppSite testApp)
                 _ <- evalSIO example YesodExampleData
                     { yedApp = \_ -> testAppMiddleware testApp <$> toWaiAppPlain (testAppSite testApp)
                     , yedSite = testAppSite testApp
