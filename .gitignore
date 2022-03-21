@@ -4,6 +4,7 @@
 *.hi
 dist/
 dist-stack/
+dist-newstyle/
 stack.yaml.lock
 .stack-work
 *.swp

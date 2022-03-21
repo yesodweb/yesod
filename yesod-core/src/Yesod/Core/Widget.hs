@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
@@ -57,6 +58,7 @@ module Yesod.Core.Widget
 
 import Data.Monoid
 import qualified Text.Blaze.Html5 as H
+import Text.Blaze.Html5.Attributes (type_)
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
@@ -87,19 +89,23 @@ class ToWidget site a where
     toWidget :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidget site (render -> Html) where
-    toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
+    toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty mempty
 instance render ~ RY site => ToWidget site (render -> Css) where
     toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
 instance ToWidget site Css where
     toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . const x
 instance render ~ RY site => ToWidget site (render -> CssBuilder) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
+    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty mempty
 instance ToWidget site CssBuilder where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty
+    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty mempty
 instance render ~ RY site => ToWidget site (render -> Javascript) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
+    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty mempty
 instance ToWidget site Javascript where
-    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just $ const x) mempty
+    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just $ const x) mempty mempty
+instance render ~ RY site => ToWidget site (render -> JavascriptModule) where
+    toWidget x = tell $ GWData mempty mempty mempty mempty mempty mempty (Just x) mempty
+instance ToWidget site JavascriptModule where
+    toWidget x = tell $ GWData mempty mempty mempty mempty mempty mempty (Just $ const x) mempty
 instance (site' ~ site, a ~ ()) => ToWidget site' (WidgetFor site a) where
     toWidget = liftWidget
 instance ToWidget site Html where
@@ -130,9 +136,9 @@ instance render ~ RY site => ToWidgetMedia site (render -> Css) where
 instance ToWidgetMedia site Css where
     toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . const x
 instance render ~ RY site => ToWidgetMedia site (render -> CssBuilder) where
-    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
+    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty mempty
 instance ToWidgetMedia site CssBuilder where
-    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
+    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty mempty
 
 class ToWidgetBody site a where
     toWidgetBody :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
@@ -143,6 +149,12 @@ instance render ~ RY site => ToWidgetBody site (render -> Javascript) where
     toWidgetBody j = toWidget $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetBody site Javascript where
     toWidgetBody j = toWidget $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
+instance render ~ RY site => ToWidgetBody site (render -> JavascriptModule) where
+    toWidgetBody j = toWidget $
+      \r -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptModuleUrl r j
+instance ToWidgetBody site JavascriptModule where
+    toWidgetBody j = toWidget $
+      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptModule j
 instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
@@ -150,7 +162,7 @@ class ToWidgetHead site a where
     toWidgetHead :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidgetHead site (render -> Html) where
-    toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
+    toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty mempty . Head
 instance render ~ RY site => ToWidgetHead site (render -> Css) where
     toWidgetHead = toWidget
 instance ToWidgetHead site Css where
@@ -163,6 +175,13 @@ instance render ~ RY site => ToWidgetHead site (render -> Javascript) where
     toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetHead site Javascript where
     toWidgetHead j = toWidgetHead $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
+instance render ~ RY site => ToWidgetHead site (render -> JavascriptModule) where
+    toWidgetHead j = toWidgetHead $
+      \r -> H.script H.! type_ "module" $
+            preEscapedLazyText $ renderJavascriptModuleUrl r j
+instance ToWidgetHead site JavascriptModule where
+    toWidgetHead j = toWidgetHead $
+      \_ -> H.script H.! type_ "module" $ preEscapedLazyText $ renderJavascriptModule j
 instance ToWidgetHead site Html where
     toWidgetHead = toWidgetHead . const
 
@@ -181,7 +200,7 @@ instance ToWidgetHead site Html where
 --    * Google typically shows 55-64 characters, so aim to keep your title
 --      length under 60 characters
 setTitle :: MonadWidget m => Html -> m ()
-setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
+setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty mempty
 
 -- | Set the localised page title.
 --
@@ -252,7 +271,7 @@ addStylesheetAttrs :: MonadWidget m
                    => Route (HandlerSite m)
                    -> [(Text, Text)]
                    -> m ()
-addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
+addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
 addStylesheetRemote :: MonadWidget m => Text -> m ()
@@ -260,7 +279,7 @@ addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
 addStylesheetRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
+addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty mempty
 
 addStylesheetEither :: MonadWidget m
                     => Either (Route (HandlerSite m)) Text
@@ -278,7 +297,7 @@ addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
 addScriptAttrs :: MonadWidget m => Route (HandlerSite m) -> [(Text, Text)] -> m ()
-addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
+addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
 addScriptRemote :: MonadWidget m => Text -> m ()
@@ -286,7 +305,7 @@ addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
 addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
+addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty mempty
 
 whamlet :: QuasiQuoter
 whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings

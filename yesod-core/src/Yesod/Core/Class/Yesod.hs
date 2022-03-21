@@ -539,7 +539,7 @@ widgetToPageContent w = do
     { wdRef = ref
     , wdHandler = hd
     }
-  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
+  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript jsmodule (Head head') <- readIORef ref
   let title = maybe mempty unTitle mTitle
       scripts = runUniqueList scripts'
       stylesheets = runUniqueList stylesheets'
@@ -566,6 +566,14 @@ widgetToPageContent w = do
                 x <- addStaticContent "js" "text/javascript; charset=utf-8"
                    $ encodeUtf8 $ renderJavascriptUrl render s
                 return $ renderLoc x
+    jsModule <-
+        case jsmodule of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "mjs" "module; charset=utf-8"
+                   $ encodeUtf8 $ renderJavascriptModuleUrl render s
+                return $ renderLoc x
+
 
     -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
