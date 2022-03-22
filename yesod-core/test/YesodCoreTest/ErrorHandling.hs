@@ -17,6 +17,7 @@ import Network.Wai.Test
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
+import           UnliftIO.Exception(finally)
 import Network.HTTP.Types (Status, mkStatus)
 import Data.ByteString.Builder (Builder, toLazyByteString)
 import Data.Monoid (mconcat)
@@ -119,14 +120,15 @@ getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
 
 getAlocationLimitR :: Handler Html
-getAlocationLimitR = do
+getAlocationLimitR =
+  (do
   liftIO $ do
     Mem.setAllocationCounter 1 -- very low limit
     Mem.enableAllocationLimit
   defaultLayout $ [whamlet|
         <p> this will trigger https://hackage.haskell.org/package/base-4.16.0.0/docs/Control-Exception.html#t:AllocationLimitExceeded
             which we need to catch
-  |]
+  |]) `finally` (liftIO $ Mem.disableAllocationLimit)
 
 -- this handler kills it's own thread
 getThreadKilledR :: Handler Html

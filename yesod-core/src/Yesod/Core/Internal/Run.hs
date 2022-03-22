@@ -70,7 +70,6 @@ unsafeAsyncCatch
   -> (e -> m a) -- ^ handler
   -> m a
 unsafeAsyncCatch f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
-    liftIO Sync.disableAllocationLimit -- otherwise it can throw again on rendering the 500 page
     run (g e)
 
 -- | Convert a synchronous exception into an ErrorResponse
@@ -97,7 +96,7 @@ basicRunHandler :: ToTypedContent c
                 -> YesodRequest
                 -> InternalState
                 -> IO (GHState, HandlerContents)
-basicRunHandler rhe handler yreq resState = do
+basicRunHandler rhe handler yreq resState = mask $ \unmask -> do
     -- Create a mutable ref to hold the state. We use mutable refs so
     -- that the updates will survive runtime exceptions.
     istate <- I.newIORef defState
@@ -105,7 +104,7 @@ basicRunHandler rhe handler yreq resState = do
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
     contents' <- unsafeAsyncCatch
-        (do
+        (unmask $ do
             res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
             -- Success! Wrap it up in an @HCContent@
@@ -219,9 +218,9 @@ runHandler :: ToTypedContent c
            => RunHandlerEnv site site
            -> HandlerFor site c
            -> YesodApp
-runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> do
+runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> mask $ \unmask -> do
     -- Get the raw state and original contents
-    (state, contents0) <- basicRunHandler rhe handler yreq resState
+    (state, contents0) <- unmask $ basicRunHandler rhe handler yreq resState
 
     -- Evaluate the unfortunately-lazy session and headers,
     -- propagating exceptions into the contents
