@@ -1,8 +1,9 @@
 # ChangeLog for yesod-core
 
-## Unreleased
+## 1.6.21.1
 
 * Add missing list to documentation for ``Yesod.Core.Dispatch.warp``. [#1745](https://github.com/yesodweb/yesod/pull/1745)
+* Support template-haskell 2.18 [#1754](https://github.com/yesodweb/yesod/pull/1754)
 
 ## 1.6.21.0
 
