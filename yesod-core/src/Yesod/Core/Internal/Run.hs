@@ -21,6 +21,8 @@ module Yesod.Core.Internal.Run
   )
   where
 
+import qualified GHC.Conc.Sync as Sync
+import qualified Control.Exception as EUnsafe
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
 import qualified Data.ByteString.Lazy         as BL
@@ -52,6 +54,24 @@ import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!), NFData)
 import           UnliftIO.Exception
+import           UnliftIO(MonadUnliftIO, withRunInIO)
+
+-- | like `catch` but doesn't check for async exceptions,
+--   thereby catching them too.
+--   This is desirable for letting yesod generate a 500 error page
+--   rather then warp.
+--
+--   Normally this is VERY dubious. you need to rethrow.
+--   recovrery from async isn't allowed.
+--   see async section: https://www.fpcomplete.com/blog/2018/04/async-exception-handling-haskell/
+unsafeAsyncCatch
+  :: (MonadUnliftIO m, Exception e)
+  => m a -- ^ action
+  -> (e -> m a) -- ^ handler
+  -> m a
+unsafeAsyncCatch f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
+    liftIO Sync.disableAllocationLimit -- otherwise it can throw again on rendering the 500 page
+    run (g e)
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
@@ -84,7 +104,7 @@ basicRunHandler rhe handler yreq resState = do
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
-    contents' <- catchAny
+    contents' <- unsafeAsyncCatch
         (do
             res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
