@@ -67,7 +67,7 @@ mkRenderRouteClauses =
         let cnt = length $ filter isDynamic pieces
         dyns <- replicateM cnt $ newName "dyn"
         child <- newName "child"
-        let pat = ConP (mkName name) $ map VarP $ dyns ++ [child]
+        let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
 
         pack' <- [|pack|]
         tsp <- [|toPathPiece|]
@@ -100,7 +100,7 @@ mkRenderRouteClauses =
             case resourceDispatch res of
                 Subsite{} -> return <$> newName "sub"
                 _ -> return []
-        let pat = ConP (mkName $ resourceName res) $ map VarP $ dyns ++ sub
+        let pat = conPCompat (mkName $ resourceName res) $ map VarP $ dyns ++ sub
 
         pack' <- [|pack|]
         tsp <- [|toPathPiece|]
@@ -182,3 +182,10 @@ notStrict = Bang NoSourceUnpackedness NoSourceStrictness
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
+
+conPCompat :: Name -> [Pat] -> Pat
+conPCompat n pats = ConP n
+#if MIN_VERSION_template_haskell(2,18,0)
+                         []
+#endif
+                         pats

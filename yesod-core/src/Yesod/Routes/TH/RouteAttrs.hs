@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
 module Yesod.Routes.TH.RouteAttrs
@@ -26,7 +27,11 @@ goTree front (ResourceParent name _check pieces trees) =
     toIgnore = length $ filter isDynamic pieces
     isDynamic Dynamic{} = True
     isDynamic Static{} = False
-    front' = front . ConP (mkName name) . ignored
+    front' = front . ConP (mkName name)
+#if MIN_VERSION_template_haskell(2,18,0)
+                          []
+#endif
+                   . ignored
 
 goRes :: (Pat -> Pat) -> Resource a -> Q Clause
 goRes front Resource {..} =
