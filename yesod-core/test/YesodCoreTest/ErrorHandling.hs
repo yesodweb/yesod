@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE ViewPatterns #-}
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
@@ -53,6 +54,7 @@ mkYesod "App" [parseRoutes|
 
 /allocation-limit AlocationLimitR GET
 /thread-killed ThreadKilledR GET
+/async-session AsyncSessionR GET
 |]
 
 overrideStatus :: Status
@@ -128,7 +130,7 @@ getAlocationLimitR =
   defaultLayout $ [whamlet|
         <p> this will trigger https://hackage.haskell.org/package/base-4.16.0.0/docs/Control-Exception.html#t:AllocationLimitExceeded
             which we need to catch
-  |]) `finally` (liftIO $ Mem.disableAllocationLimit)
+  |]) `finally` liftIO Mem.disableAllocationLimit
 
 -- this handler kills it's own thread
 getThreadKilledR :: Handler Html
@@ -137,6 +139,14 @@ getThreadKilledR = do
   liftIO $ Async.withAsync (Conc.killThread x) Async.wait
   pure "unreachablle"
 
+getAsyncSessionR :: Handler Html
+getAsyncSessionR = do
+  setSession "jap" $ foldMap (pack . show) [0..999999999999999999999999] -- it's going to take a while to figure this one out
+  x <- liftIO Conc.myThreadId
+  liftIO $ forkIO $ do
+     liftIO $ Conc.threadDelay 100_000
+     Conc.killThread x
+  pure "reachable"
 
 getErrorR :: Int -> Handler ()
 getErrorR 1 = setSession undefined "foo"
@@ -183,10 +193,10 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "accept video, bad method -> 405" caseVideoBadMethod
       it "thread killed = 500" caseThreadKilled500
       it "allocation limit = 500" caseAllocationLimit500
+      it "async session exception = 500" asyncSessionKilled500
 
 runner :: Session a -> IO a
 runner f = toWaiApp App >>= runSession f
-
 
 caseNotFound :: IO ()
 caseNotFound = runner $ do
@@ -331,5 +341,11 @@ caseAllocationLimit500 = runner $ do
 caseThreadKilled500 :: IO ()
 caseThreadKilled500 = runner $ do
   res <- request defaultRequest { pathInfo = ["thread-killed"] }
+  assertStatus 500 res
+  assertBodyContains "Internal Server Error" res
+
+asyncSessionKilled500 :: IO ()
+asyncSessionKilled500 = runner $ do
+  res <- request defaultRequest { pathInfo = ["async-session"] }
   assertStatus 500 res
   assertBodyContains "Internal Server Error" res

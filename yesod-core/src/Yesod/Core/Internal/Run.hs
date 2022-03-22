@@ -21,7 +21,6 @@ module Yesod.Core.Internal.Run
   )
   where
 
-import qualified GHC.Conc.Sync as Sync
 import qualified Control.Exception as EUnsafe
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
@@ -71,6 +70,12 @@ unsafeAsyncCatch
   -> m a
 unsafeAsyncCatch f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
     run (g e)
+
+unsafeAsyncCatchAny :: (MonadUnliftIO m)
+  => m a -- ^ action
+  -> (SomeException -> m a) -- ^ handler
+  -> m a
+unsafeAsyncCatchAny = unsafeAsyncCatch
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
@@ -204,11 +209,13 @@ handleContents handleError' finalSession headers contents =
 -- | Evaluate the given value. If an exception is thrown, use it to
 -- replace the provided contents and then return @mempty@ in place of the
 -- evaluated value.
+--
+-- Note that this also catches async exceptions.
 evalFallback :: (Monoid w, NFData w)
              => HandlerContents
              -> w
              -> IO (w, HandlerContents)
-evalFallback contents val = catchAny
+evalFallback contents val = unsafeAsyncCatchAny
     (fmap (, contents) (evaluate $!! val))
     (fmap ((mempty, ) . HCError) . toErrorHandler)
 
