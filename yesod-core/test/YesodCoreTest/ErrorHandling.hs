@@ -6,6 +6,10 @@ module YesodCoreTest.ErrorHandling
     , Widget
     , resourcesApp
     ) where
+
+import qualified System.Mem as Mem
+import qualified Control.Concurrent.Async as Async
+import Control.Concurrent as Conc
 import Yesod.Core
 import Test.Hspec
 import Network.Wai
@@ -45,6 +49,9 @@ mkYesod "App" [parseRoutes|
 /auth-not-adequate AuthNotAdequateR GET
 /args-not-valid ArgsNotValidR POST
 /only-plain-text OnlyPlainTextR GET
+
+/allocation-limit AlocationLimitR GET
+/thread-killed ThreadKilledR GET
 |]
 
 overrideStatus :: Status
@@ -111,6 +118,24 @@ goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
 
+getAlocationLimitR :: Handler Html
+getAlocationLimitR = do
+  liftIO $ do
+    Mem.setAllocationCounter 1 -- very low limit
+    Mem.enableAllocationLimit
+  defaultLayout $ [whamlet|
+        <p> this will trigger https://hackage.haskell.org/package/base-4.16.0.0/docs/Control-Exception.html#t:AllocationLimitExceeded
+            which we need to catch
+  |]
+
+-- this handler kills it's own thread
+getThreadKilledR :: Handler Html
+getThreadKilledR = do
+  x <- liftIO Conc.myThreadId
+  liftIO $ Async.withAsync (Conc.killThread x) Async.wait
+  pure "unreachablle"
+
+
 getErrorR :: Int -> Handler ()
 getErrorR 1 = setSession undefined "foo"
 getErrorR 2 = setSession "foo" undefined
@@ -154,9 +179,12 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "accept CSS, permission denied -> 403" caseCssPermissionDenied
       it "accept image, non-existent path -> 404" caseImageNotFound
       it "accept video, bad method -> 405" caseVideoBadMethod
+      it "thread killed = 500" caseThreadKilled500
+      it "allocation limit = 500" caseAllocationLimit500
 
 runner :: Session a -> IO a
 runner f = toWaiApp App >>= runSession f
+
 
 caseNotFound :: IO ()
 caseNotFound = runner $ do
@@ -291,3 +319,15 @@ caseVideoBadMethod = runner $ do
                 ("accept", "video/webm") : requestHeaders defaultRequest
             }
     assertStatus 405 res
+
+caseAllocationLimit500 :: IO ()
+caseAllocationLimit500 = runner $ do
+  res <- request defaultRequest { pathInfo = ["allocation-limit"] }
+  assertStatus 500 res
+  assertBodyContains "Internal Server Error" res
+
+caseThreadKilled500 :: IO ()
+caseThreadKilled500 = runner $ do
+  res <- request defaultRequest { pathInfo = ["thread-killed"] }
+  assertStatus 500 res
+  assertBodyContains "Internal Server Error" res
