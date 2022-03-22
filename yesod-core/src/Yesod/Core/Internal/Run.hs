@@ -5,8 +5,21 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE FlexibleContexts  #-}
-module Yesod.Core.Internal.Run where
-
+module Yesod.Core.Internal.Run
+  ( toErrorHandler
+  , errFromShow
+  , basicRunHandler
+  , handleError
+  , handleContents
+  , evalFallback
+  , runHandler
+  , safeEh
+  , runFakeHandler
+  , yesodRunner
+  , yesodRender
+  , resolveApproot
+  )
+  where
 
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
