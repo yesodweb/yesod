@@ -16,6 +16,9 @@ import Distribution.PackageDescription.Parse (readGenericPackageDescription)
 #else
 import Distribution.PackageDescription.Parse (readPackageDescription)
 #endif
+#if MIN_VERSION_Cabal(3, 6, 0)
+import Distribution.Utils.Path
+#endif
 import Distribution.PackageDescription.Configuration (flattenPackageDescription)
 import Distribution.PackageDescription (allBuildInfo, hsSourceDirs)
 import Distribution.Verbosity (normal)
@@ -247,4 +250,8 @@ getSrcDir cabal = do
 #endif
     let buildInfo = allBuildInfo pd
         srcDirs = concatMap hsSourceDirs buildInfo
+#if MIN_VERSION_Cabal(3, 6, 0)
+    return $ maybe "." getSymbolicPath $ listToMaybe srcDirs
+#else
     return $ fromMaybe "." $ listToMaybe srcDirs
+#endif
