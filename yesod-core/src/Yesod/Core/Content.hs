@@ -64,6 +64,7 @@ import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
 import Data.Text.Lazy.Builder (toLazyText)
+import Data.Void (Void, absurd)
 import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
 import Text.Julius (Javascript, unJavascript)
@@ -103,6 +104,8 @@ instance ToContent Html where
     toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
 instance ToContent () where
     toContent () = toContent B.empty
+instance ToContent Void where
+    toContent = absurd
 instance ToContent (ContentType, Content) where
     toContent = snd
 instance ToContent TypedContent where
@@ -276,6 +279,8 @@ instance ToTypedContent TypedContent where
     toTypedContent = id
 instance ToTypedContent () where
     toTypedContent () = TypedContent typePlain (toContent ())
+instance ToTypedContent Void where
+    toTypedContent = absurd
 instance ToTypedContent (ContentType, Content) where
     toTypedContent (ct, content) = TypedContent ct content
 instance ToTypedContent RepJson where
