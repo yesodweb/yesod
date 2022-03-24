@@ -5,6 +5,7 @@
 * Add missing list to documentation for ``Yesod.Core.Dispatch.warp``. [#1745](https://github.com/yesodweb/yesod/pull/1745)
 * Add instances for `ToContent Void`, `ToTypedContent Void`. [#1752](https://github.com/yesodweb/yesod/pull/1752)
 * Handle async exceptions within yesod rather then warp. [#1753](https://github.com/yesodweb/yesod/pull/1753)
+* Support template-haskell 2.18 [#1754](https://github.com/yesodweb/yesod/pull/1754)
 
 ## 1.6.21.0
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards, TemplateHaskell, ViewPatterns #-}
 module Yesod.Routes.TH.Dispatch
     ( MkDispatchSettings (..)
@@ -73,7 +74,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
     handlePiece (Static str) = return (LitP $ StringL str, Nothing)
     handlePiece (Dynamic _) = do
         x <- newName "dyn"
-        let pat = ViewP (VarE 'fromPathPiece) (ConP 'Just [VarP x])
+        let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x])
         return (pat, Just $ VarE x)
 
     handlePieces :: [Piece a] -> Q ([Pat], [Exp])
@@ -86,7 +87,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
     mkPathPat final =
         foldr addPat final
       where
-        addPat x y = ConP '(:) [x, y]
+        addPat x y = conPCompat '(:) [x, y]
 
     go :: SDC -> ResourceTree a -> Q Clause
     go sdc (ResourceParent name _check pieces children) = do
@@ -124,11 +125,11 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                 Methods multi methods -> do
                     (finalPat, mfinalE) <-
                         case multi of
-                            Nothing -> return (ConP '[] [], Nothing)
+                            Nothing -> return (conPCompat '[] [], Nothing)
                             Just _ -> do
                                 multiName <- newName "multi"
                                 let pat = ViewP (VarE 'fromPathMultiPiece)
-                                                (ConP 'Just [VarP multiName])
+                                                (conPCompat 'Just [VarP multiName])
                                 return (pat, Just $ VarE multiName)
 
                     let dynsMulti =
@@ -200,3 +201,10 @@ mkDispatchClause MkDispatchSettings {..} resources = do
 defaultGetHandler :: Maybe String -> String -> Q Exp
 defaultGetHandler Nothing s = return $ VarE $ mkName $ "handle" ++ s
 defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method ++ s
+
+conPCompat :: Name -> [Pat] -> Pat
+conPCompat n pats = ConP n
+#if MIN_VERSION_template_haskell(2,18,0)
+                         []
+#endif
+                         pats
