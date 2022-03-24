@@ -1,6 +1,5 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE ViewPatterns #-}
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
@@ -144,7 +143,7 @@ getAsyncSessionR = do
   setSession "jap" $ foldMap (pack . show) [0..999999999999999999999999] -- it's going to take a while to figure this one out
   x <- liftIO Conc.myThreadId
   liftIO $ forkIO $ do
-     liftIO $ Conc.threadDelay 100_000
+     liftIO $ Conc.threadDelay 100000
      Conc.killThread x
   pure "reachable"
 
