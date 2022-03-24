@@ -1,11 +1,10 @@
 # ChangeLog for yesod-core
 
-## Unreleased
-
 ## 1.6.22.0
 
 * Add missing list to documentation for ``Yesod.Core.Dispatch.warp``. [#1745](https://github.com/yesodweb/yesod/pull/1745)
 * Add instances for `ToContent Void`, `ToTypedContent Void`. [#1752](https://github.com/yesodweb/yesod/pull/1752)
+* Handle async exceptions within yesod rather then warp. [#1753](https://github.com/yesodweb/yesod/pull/1753)
 
 ## 1.6.21.0
 
