@@ -51,7 +51,6 @@ mkYesod "App" [parseRoutes|
 /args-not-valid ArgsNotValidR POST
 /only-plain-text OnlyPlainTextR GET
 
-/allocation-limit AlocationLimitR GET
 /thread-killed ThreadKilledR GET
 /async-session AsyncSessionR GET
 |]
@@ -120,17 +119,6 @@ goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
 
-getAlocationLimitR :: Handler Html
-getAlocationLimitR =
-  (do
-  liftIO $ do
-    Mem.setAllocationCounter 1 -- very low limit
-    Mem.enableAllocationLimit
-  defaultLayout $ [whamlet|
-        <p> this will trigger https://hackage.haskell.org/package/base-4.16.0.0/docs/Control-Exception.html#t:AllocationLimitExceeded
-            which we need to catch
-  |]) `finally` liftIO Mem.disableAllocationLimit
-
 -- this handler kills it's own thread
 getThreadKilledR :: Handler Html
 getThreadKilledR = do
@@ -191,7 +179,6 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "accept image, non-existent path -> 404" caseImageNotFound
       it "accept video, bad method -> 405" caseVideoBadMethod
       it "thread killed = 500" caseThreadKilled500
-      it "allocation limit = 500" caseAllocationLimit500
       it "async session exception = 500" asyncSessionKilled500
 
 runner :: Session a -> IO a
@@ -330,12 +317,6 @@ caseVideoBadMethod = runner $ do
                 ("accept", "video/webm") : requestHeaders defaultRequest
             }
     assertStatus 405 res
-
-caseAllocationLimit500 :: IO ()
-caseAllocationLimit500 = runner $ do
-  res <- request defaultRequest { pathInfo = ["allocation-limit"] }
-  assertStatus 500 res
-  assertBodyContains "Internal Server Error" res
 
 caseThreadKilled500 :: IO ()
 caseThreadKilled500 = runner $ do
