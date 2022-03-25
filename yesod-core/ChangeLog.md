@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.22.1
+
++ Remove sometimes failing superfluous test. [#1756](https://github.com/yesodweb/yesod/pull/1756)
+
 ## 1.6.22.0
 
 * Add missing list to documentation for ``Yesod.Core.Dispatch.warp``. [#1745](https://github.com/yesodweb/yesod/pull/1745)
