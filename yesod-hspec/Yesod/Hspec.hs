@@ -1499,6 +1499,19 @@ instance YesodDispatch site => Example (r -> YesodExample site a) where
             params
             ($ ())
 
+withApp $ do
+    -- it :: Example a => String -> a -> SpecWith (Arg a)
+
+    -- SpecWith (YesodExampleData site)
+    it "is a yesod-test function" $ do
+        defaultPostRequest ... :: YesodExample site a
+
+    -- SpecWith (YesodExampleData site)
+    it "is a lambda" $ \yesodExampleData -> do
+        True
+        -- Example (r -> Bool)
+        -- Arg (r -> Bool) = r
+
 instance YesodDispatch site => Example (YesodExample site a) where
     type Arg (YesodExample site a) = YesodExampleData site
 
@@ -1554,3 +1567,25 @@ execSIO (SIO (ReaderT f)) s = do
   ref <- newIORef s
   f ref
   readIORef ref
+
+
+
+context "asset exists" $ do
+   it "returns audio details" $ do
+     testModifySite $ \app -> pure
+       ( app
+       & (performSynthesizeSpeechTaskL .~ const (pure ()))
+       & (getAudioFileL
+         .~ const (pure $ Just $ AudioFile "test.mp3" "test.marks")
+         )
+       , id
+       )
+     postJsonBody (V1P V1AudioR)
+       $ object ["text" .= String "test", "language" .= en]
+     statusIs 200
+     body <- getJsonBody
+     body `shouldBeJson` [aesonQQ|
+       { audio: "https://freckle-tts-dev.s3.us-east-1.amazonaws.com/test.mp3"
+       , textMarks: "https://freckle-tts-dev.s3.us-east-1.amazonaws.com/test.marks"
+       }
+     |]
