@@ -2,7 +2,7 @@
 
 ## 1.6.0.8
 
-* Add support for `persistent-2.14` [#][()
+* Add support for `persistent-2.14` [#1706](https://github.com/yesodweb/yesod/pull/1760)
 
 ## 1.6.0.7
 
