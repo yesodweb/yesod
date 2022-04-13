@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.22.2
+
+* Catches `AnnotatedException HandlerContents` so you can use `annotated-exception` with impunity in your web application code. [#1762](https://github.com/yesodweb/yesod/pull/1762)
+
 ## 1.6.22.1
 
 + Remove sometimes failing superfluous test. [#1756](https://github.com/yesodweb/yesod/pull/1756)
