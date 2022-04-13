@@ -361,7 +361,7 @@ main = hspec $ do
                 statusIs 200
             ybefore_ (post ("/cookie/foo" :: Text)) $ do
                 yit "works again" $ do
-                    statusIs 303
+                    statusIs 404
 
     describe "cookies" $ yesodSpec cookieApp $ do
         yit "should send the cookie #730" $ do
