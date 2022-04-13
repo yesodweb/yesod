@@ -37,6 +37,9 @@ import qualified Database.Persist.Sql as SQL
 #if MIN_VERSION_persistent(2,13,0)
 import qualified Database.Persist.SqlBackend.Internal as SQL
 #endif
+#if MIN_VERSION_persistent(2,14,0)
+import Database.Persist.Class.PersistEntity
+#endif
 
 unSqlPersistT :: a -> a
 unSqlPersistT = id
@@ -187,14 +190,21 @@ getBy404 key = do
 -- is violated.
 --
 -- @since 1.4.1
-#if MIN_VERSION_persistent(2,5,0)
-insert400 :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
-          => val
-          -> ReaderT backend m (Key val)
+#if MIN_VERSION_persistent(2,14,0)
+insert400
+    :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend, SafeToInsert val)
+    => val
+    -> ReaderT backend m (Key val)
+#elif MIN_VERSION_persistent(2,5,0)
+insert400
+    :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
+    => val
+    -> ReaderT backend m (Key val)
 #else
-insert400 :: (MonadIO m, PersistUnique (PersistEntityBackend val), PersistEntity val)
-          => val
-          -> ReaderT (PersistEntityBackend val) m (Key val)
+insert400
+    :: (MonadIO m, PersistUnique (PersistEntityBackend val), PersistEntity val)
+    => val
+    -> ReaderT (PersistEntityBackend val) m (Key val)
 #endif
 insert400 datum = do
     conflict <- checkUnique datum
@@ -214,7 +224,12 @@ insert400 datum = do
 -- | Same as 'insert400', but doesn’t return a key.
 --
 -- @since 1.4.1
-#if MIN_VERSION_persistent(2,5,0)
+#if MIN_VERSION_persistent(2,14,0)
+insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend, SafeToInsert val)
+           => val
+           -> ReaderT backend m ()
+
+#elif MIN_VERSION_persistent(2,5,0)
 insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
            => val
            -> ReaderT backend m ()
