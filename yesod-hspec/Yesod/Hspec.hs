@@ -123,6 +123,11 @@ module Yesod.Hspec
     , ydescribe
     , yit
 
+    -- * Hspec Hooks
+    , ybefore_
+    , ybefore
+    , ybeforeWith
+
     -- * Modify test site
     , testModifySite
 
@@ -279,7 +284,7 @@ data YesodExampleData site = YesodExampleData
 --
 -- Since 1.2.0
 newtype YesodExample site a = YesodExample { unYesodExample :: SIO (YesodExampleData site) a }
-    deriving newtype (Functor, Applicative, Monad, MonadIO, MonadState (YesodExampleData site))
+    deriving newtype (Functor, Applicative, Monad, MonadIO, MonadState (YesodExampleData site), MonadUnliftIO)
 
 -- | Mapping from cookie name to value.
 --
@@ -348,10 +353,11 @@ yesodSpec site =
 
 -- | Same as yesodSpec, but instead of taking already built site it
 -- takes an action which produces site for each test.
-yesodSpecWithSiteGenerator :: YesodDispatch site
-                           => IO site
-                           -> YesodSpec site
-                           -> Spec
+yesodSpecWithSiteGenerator
+    :: YesodDispatch site
+    => IO site
+    -> YesodSpec site
+    -> Spec
 yesodSpecWithSiteGenerator getSiteAction =
     yesodSpecWithSiteGeneratorAndArgument (const getSiteAction)
 
@@ -359,10 +365,11 @@ yesodSpecWithSiteGenerator getSiteAction =
 -- and makes that argument available to the tests.
 --
 -- @since 1.6.4
-yesodSpecWithSiteGeneratorAndArgument :: YesodDispatch site
-                           => (a -> IO site)
-                           -> YesodSpec site
-                           -> SpecWith a
+yesodSpecWithSiteGeneratorAndArgument
+    :: YesodDispatch site
+    => (a -> IO site)
+    -> YesodSpec site
+    -> SpecWith a
 yesodSpecWithSiteGeneratorAndArgument getSiteAction =
     beforeWith $ \a -> do
         site <- getSiteAction a
@@ -372,6 +379,34 @@ yesodSpecWithSiteGeneratorAndArgument getSiteAction =
             , yedCookies = M.empty
             , yedResponse = Nothing
             }
+
+ybefore_
+    :: (YesodDispatch site)
+    => YesodExample site ()
+    -> YesodSpec site
+    -> YesodSpec site
+ybefore_ action =
+    beforeWith $
+        execSIO (unYesodExample action)
+
+
+ybefore
+    :: (YesodDispatch site)
+    => YesodExample site a
+    -> YesodSpecWith site a
+    -> YesodSpec site
+ybefore action =
+    beforeWith $ \yed -> do
+        runSIO (unYesodExample action) yed
+
+ybeforeWith
+    :: (YesodDispatch site)
+    => (a -> YesodExample site b)
+    -> YesodSpecWith site b
+    -> YesodSpecWith site a
+ybeforeWith mkAction =
+    beforeWith $ \(yed, a) ->
+        runSIO (unYesodExample (mkAction a)) yed
 
 -- | Same as yesodSpec, but instead of taking a site it
 -- takes an action which produces the 'Application' for each test.
@@ -392,7 +427,7 @@ yesodSpecApp site getApp =
             }
 
 -- | Describe a single test that keeps cookies, and a reference to the last response.
-yit :: YesodDispatch site => String -> YesodExample site () -> YesodSpec site
+yit :: (HasCallStack, YesodDispatch site) => String -> YesodExample site () -> YesodSpec site
 yit = it
 
 -- | Modifies the site ('yedSite') of the test, and creates a new WAI app ('yedApp') for it.
@@ -1486,42 +1521,23 @@ mkTestApp site = TestApp
     , testAppMiddleware = id
     }
 
-type YSpec site = SpecWith (TestApp site)
+type YSpec site = SpecWith (YesodExampleData site)
 
 instance YesodDispatch site => Example (r -> YesodExample site a) where
     type Arg (r -> YesodExample site a) = (YesodExampleData site, r)
 
-    evaluateExample example params action =
+    evaluateExample example =
         evaluateExample
-            (action $ \(yed, r) ->
+            (\(yed, r) ->
                 void $ evalSIO (unYesodExample (example r)) yed
             )
-            params
-            ($ ())
-
-withApp $ do
-    -- it :: Example a => String -> a -> SpecWith (Arg a)
-
-    -- SpecWith (YesodExampleData site)
-    it "is a yesod-test function" $ do
-        defaultPostRequest ... :: YesodExample site a
-
-    -- SpecWith (YesodExampleData site)
-    it "is a lambda" $ \yesodExampleData -> do
-        True
-        -- Example (r -> Bool)
-        -- Arg (r -> Bool) = r
 
 instance YesodDispatch site => Example (YesodExample site a) where
     type Arg (YesodExample site a) = YesodExampleData site
 
-    evaluateExample example params action =
+    evaluateExample example =
         evaluateExample
-            (action $ \yed ->
-                void $ evalSIO (unYesodExample example) yed
-            )
-            params
-            ($ ())
+            (void . evalSIO (unYesodExample example))
 
 instance YesodDispatch site => Example (SIO (YesodExampleData site) a) where
     type Arg (SIO (YesodExampleData site) a) = TestApp site
@@ -1568,24 +1584,10 @@ execSIO (SIO (ReaderT f)) s = do
   f ref
   readIORef ref
 
+runSIO :: SIO s a -> s -> IO (s, a)
+runSIO (SIO r) s = do
+    ioref <- newIORef s
+    a <- runReaderT r ioref
+    s' <- readIORef ioref
+    pure (s', a)
 
-
-context "asset exists" $ do
-   it "returns audio details" $ do
-     testModifySite $ \app -> pure
-       ( app
-       & (performSynthesizeSpeechTaskL .~ const (pure ()))
-       & (getAudioFileL
-         .~ const (pure $ Just $ AudioFile "test.mp3" "test.marks")
-         )
-       , id
-       )
-     postJsonBody (V1P V1AudioR)
-       $ object ["text" .= String "test", "language" .= en]
-     statusIs 200
-     body <- getJsonBody
-     body `shouldBeJson` [aesonQQ|
-       { audio: "https://freckle-tts-dev.s3.us-east-1.amazonaws.com/test.mp3"
-       , textMarks: "https://freckle-tts-dev.s3.us-east-1.amazonaws.com/test.marks"
-       }
-     |]

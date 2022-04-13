@@ -24,7 +24,7 @@ import qualified Test.Hspec as Hspec
 
 import Yesod.Core
 import Yesod.Form
-import Yesod.Test
+import Yesod.Hspec
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
 import Text.XML
@@ -178,8 +178,8 @@ main = hspec $ do
                 request $ do
                     setMethod "POST"
                     setUrl ("/form" :: Text)
-                    byLabel "Some Label" "foo+bar%41<&baz"
-                    fileByLabel "Some File" "test/main.hs" "text/plain"
+                    byLabelExact "Some Label" "foo+bar%41<&baz"
+                    fileByLabelExact "Some File" "test/main.hs" "text/plain"
                     addToken
                 statusIs 200
                 -- The '<' and '&' get encoded to HTML entities because
@@ -192,8 +192,8 @@ main = hspec $ do
                 request $ do
                     setMethod "POST"
                     setUrl ("/wform" :: Text)
-                    byLabel "Some WLabel" "12345"
-                    fileByLabel "Some WFile" "test/main.hs" "text/plain"
+                    byLabelExact "Some WLabel" "12345"
+                    fileByLabelExact "Some WFile" "test/main.hs" "text/plain"
                     addToken
                 statusIs 200
                 bodyEquals "12345"
@@ -212,8 +212,8 @@ main = hspec $ do
                 request $ do
                     setMethod "POST"
                     setUrl ("/form" :: Text)
-                    byLabel "Some Label" "12345"
-                    fileByLabel "Some File" "test/main.hs" "text/plain"
+                    byLabelExact "Some Label" "12345"
+                    fileByLabelExact "Some File" "test/main.hs" "text/plain"
                     addToken_ "body"
                 statusIs 200
                 bodyEquals "12345"
@@ -280,15 +280,8 @@ main = hspec $ do
                 request $ do
                     setMethod "POST"
                     setUrl ("/labels" :: Text)
-                    byLabel "Foo Bar" "yes"
+                    byLabelExact "Foo Bar" "yes"
         ydescribe "byLabel-related tests" $ do
-            yit "fails with \"More than one label contained\" error" $ do
-                get ("/labels2" :: Text)
-                (bad :: Either SomeException ()) <- try (request $ do
-                    setMethod "POST"
-                    setUrl ("labels2" :: Text)
-                    byLabel "hobby" "fishing")
-                assertEq "failure wasn't called" (isLeft bad) True
             yit "byLabelExact performs an exact match over the given label name" $ do
                 get ("/labels2" :: Text)
                 (bad :: Either SomeException ()) <- try (request $ do
@@ -361,6 +354,14 @@ main = hspec $ do
                     addRequestHeader ("Expected-Content-Type","application/x-www-form-urlencoded")
                     addRequestHeader ("Content-Type","text/plain")
                 statusIs 415
+
+    describe "hooks" $ yesodSpec app $ do
+        ybefore_ (get ("/" :: Text)) $ do
+            yit "works" $ do
+                statusIs 200
+            ybefore_ (post ("/cookie/foo" :: Text)) $ do
+                yit "works again" $ do
+                    statusIs 303
 
     describe "cookies" $ yesodSpec cookieApp $ do
         yit "should send the cookie #730" $ do
