@@ -27,6 +27,7 @@ library
 
     build-depends:   base                  >= 4.10     && < 5
                    , aeson                 >= 1.0
+                   , annotated-exception   >= 0.1.0.0 
                    , auto-update
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.7.1
