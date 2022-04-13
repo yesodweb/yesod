@@ -46,6 +46,7 @@ library
                      Yesod.Test.CssQuery
                      Yesod.Test.TransversingCSS
                      Yesod.Test.Internal
+                     Yesod.Test.Internal.SIO
     ghc-options:  -Wall
 
 test-suite test
