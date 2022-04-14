@@ -1,6 +1,6 @@
 # ChangeLog for yesod-test
 
-## TODO
+## 1.6.13
 
 * Add `Yesod.Test.Internal.SIO` module to expose the `SIO` type.
 
