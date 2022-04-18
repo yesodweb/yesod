@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.13
+
+* Add `Yesod.Test.Internal.SIO` module to expose the `SIO` type.
+
 ## 1.6.12
 
 * Fix import in cookie example [#1713](https://github.com/yesodweb/yesod/pull/1713)
