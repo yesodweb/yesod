@@ -5,6 +5,7 @@ import YesodCoreTest.CleanPath
 import YesodCoreTest.Exceptions
 import YesodCoreTest.Widget
 import YesodCoreTest.Media
+import YesodCoreTest.Meta
 import YesodCoreTest.Links
 import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
@@ -63,3 +64,4 @@ specs = do
       Ssl.sameSiteSpec
       Csrf.csrfSpec
       breadcrumbTest
+      metaTest
