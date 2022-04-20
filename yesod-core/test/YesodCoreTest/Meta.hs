@@ -32,8 +32,8 @@ getTitleR = defaultLayout $ do
 
 getDescriptionR :: Handler Html
 getDescriptionR = defaultLayout $ do
-    setDescription "First description"
-    setDescription "Second description"
+    setDescriptionIdemp "First description"
+    setDescriptionIdemp "Second description"
 
 metaTest :: Spec
 metaTest = describe "Setting page metadata" $ do
@@ -43,12 +43,12 @@ metaTest = describe "Setting page metadata" $ do
                         { pathInfo = ["title"]
                         }
             assertBody "<!DOCTYPE html>\n<html><head><title>Second title</title></head><body></body></html>" res
-    describe "Yesod.Core.Widget.setDescription" $ do
+    describe "Yesod.Core.Widget.setDescriptionIdemp" $ do
         it "is idempotent" $ runner $ do
             res <- request defaultRequest
                         { pathInfo = ["desc"]
                         }
-            assertBody "<!DOCTYPE html>\n<html><head><title></title><meta type=\"description\">Second description</meta></head><body></body></html>" res
+            assertBody "<!DOCTYPE html>\n<html><head><title></title><meta type=\"description\" content=\"Second description\"></head><body></body></html>" res
 
 runner :: Session () -> IO ()
 runner f = toWaiAppPlain App >>= runSession f
