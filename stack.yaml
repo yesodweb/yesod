@@ -14,3 +14,6 @@ packages:
 - ./yesod
 - ./yesod-eventsource
 - ./yesod-websockets
+
+extra-deps:
+- annotated-exception-0.1.2.1

@@ -25,6 +25,7 @@ import qualified Control.Exception as EUnsafe
 import Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
 import qualified Data.ByteString.Lazy         as BL
+import           Control.Exception.Annotated  (AnnotatedException (..))
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
@@ -116,7 +117,7 @@ basicRunHandler rhe handler yreq resState = do
             return (HCContent defaultStatus tc))
         (\e ->
             case fromException e of
-                Just e' -> return e'
+                Just (AnnotatedException _ e') -> return e'
                 Nothing -> HCError <$> toErrorHandler e)
 
     -- Get the raw state and return
