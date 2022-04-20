@@ -252,6 +252,8 @@ setDescriptionI msg = do
 -- times will result in only a single description meta tag in the head.
 --
 -- Source: https://www.advancedwebranking.com/blog/meta-tags-important-in-seo/
+--
+-- @since 1.6.23
 setDescriptionIdemp :: MonadWidget m => Text -> m ()
 setDescriptionIdemp description = tell $ GWData mempty mempty (Last $ Just $ Description description) mempty mempty mempty mempty mempty
 
@@ -261,6 +263,8 @@ setDescriptionIdemp description = tell $ GWData mempty mempty (Last $ Just $ Des
 --
 -- Unlike 'setDescriptionI', this version is *idempotent* - calling it multiple
 -- times will result in only a single description meta tag in the head.
+--
+-- @since 1.6.23
 setDescriptionIdempI
   :: (MonadWidget m, RenderMessage (HandlerSite m) msg)
   => msg -> m ()
