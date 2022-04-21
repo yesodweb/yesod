@@ -289,9 +289,10 @@ newtype CssBuilder = CssBuilder { unCssBuilder :: TBuilder.Builder }
 --
 -- > PageContent url -> HtmlUrl url
 data PageContent url = PageContent
-    { pageTitle :: !Html
-    , pageHead  :: !(HtmlUrl url)
-    , pageBody  :: !(HtmlUrl url)
+    { pageTitle       :: !Html
+    , pageDescription :: !(Maybe Text)
+    , pageHead        :: !(HtmlUrl url)
+    , pageBody        :: !(HtmlUrl url)
     }
 
 data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and optional content length.
@@ -387,6 +388,7 @@ data Script url = Script { scriptLocation :: !(Location url), scriptAttributes :
 data Stylesheet url = Stylesheet { styleLocation :: !(Location url), styleAttributes :: ![(Text, Text)] }
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
+newtype Description = Description { unDescription :: Text }
 
 newtype Head url = Head (HtmlUrl url)
     deriving Monoid
@@ -402,6 +404,7 @@ type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 data GWData a = GWData
     { gwdBody        :: !(Body a)
     , gwdTitle       :: !(Last Title)
+    , gwdDescription :: !(Last Description)
     , gwdScripts     :: !(UniqueList (Script a))
     , gwdStylesheets :: !(UniqueList (Stylesheet a))
     , gwdCss         :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
@@ -409,20 +412,21 @@ data GWData a = GWData
     , gwdHead        :: !(Head a)
     }
 instance Monoid (GWData a) where
-    mempty = GWData mempty mempty mempty mempty mempty mempty mempty
+    mempty = GWData mempty mempty mempty mempty mempty mempty mempty mempty
 #if !(MIN_VERSION_base(4,11,0))
     mappend = (<>)
 #endif
 instance Semigroup (GWData a) where
-    GWData a1 a2 a3 a4 a5 a6 a7 <>
-      GWData b1 b2 b3 b4 b5 b6 b7 = GWData
+    GWData a1 a2 a3 a4 a5 a6 a7 a8 <>
+      GWData b1 b2 b3 b4 b5 b6 b7 b8 = GWData
         (mappend a1 b1)
         (mappend a2 b2)
         (mappend a3 b3)
         (mappend a4 b4)
-        (unionWith mappend a5 b5)
-        (mappend a6 b6)
+        (mappend a5 b5)
+        (unionWith mappend a6 b6)
         (mappend a7 b7)
+        (mappend a8 b8)
 
 data HandlerContents =
       HCContent !H.Status !TypedContent

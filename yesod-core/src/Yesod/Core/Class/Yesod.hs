@@ -87,6 +87,8 @@ class RenderRoute site => Yesod site where
             <html>
                 <head>
                     <title>#{pageTitle p}
+                    $maybe description <- pageDescription p
+                      <meta type="description" content="#{description}">
                     ^{pageHead p}
                 <body>
                     $forall (status, msg) <- msgs
@@ -539,8 +541,9 @@ widgetToPageContent w = do
     { wdRef = ref
     , wdHandler = hd
     }
-  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
+  GWData (Body body) (Last mTitle) (Last mDescription) scripts' stylesheets' style jscript (Head head') <- readIORef ref
   let title = maybe mempty unTitle mTitle
+      description = unDescription <$> mDescription
       scripts = runUniqueList scripts'
       stylesheets = runUniqueList stylesheets'
 
@@ -610,7 +613,7 @@ widgetToPageContent w = do
             ^{regularScriptLoad}
         |]
 
-    return $ PageContent title headAll $
+    return $ PageContent title description headAll $
         case jsLoader master of
             BottomOfBody -> bodyScript
             _ -> body

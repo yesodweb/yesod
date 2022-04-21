@@ -1,5 +1,13 @@
 # ChangeLog for yesod-core
 
+## 1.6.23
+
+* Add idempotent versions of `setDescription`, `setDescriptionI`. These functions
+  have odd behaviour when called multiple times, so they are now warned against.
+  This can't be a silent change - if you want to switch to the new functions, make
+  sure your layouts are updated to use `pageDescription` as well as `pageTitle`.
+  [#1765](https://github.com/yesodweb/yesod/pull/1765)
+
 ## 1.6.22.1
 
 + Remove sometimes failing superfluous test. [#1756](https://github.com/yesodweb/yesod/pull/1756)

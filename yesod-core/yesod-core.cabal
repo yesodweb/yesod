@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.22.1
+version:         1.6.23
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -155,6 +155,7 @@ test-suite tests
                    YesodCoreTest.LiteApp
                    YesodCoreTest.Media
                    YesodCoreTest.MediaData
+                   YesodCoreTest.Meta
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
                    YesodCoreTest.ParameterizedSite
