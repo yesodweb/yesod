@@ -48,7 +48,7 @@ metaTest = describe "Setting page metadata" $ do
             res <- request defaultRequest
                         { pathInfo = ["desc"]
                         }
-            assertBody "<!DOCTYPE html>\n<html><head><title></title><meta type=\"description\" content=\"Second description\"></head><body></body></html>" res
+            assertBody "<!DOCTYPE html>\n<html><head><title></title><meta name=\"description\" content=\"Second description\"></head><body></body></html>" res
 
 runner :: Session () -> IO ()
 runner f = toWaiAppPlain App >>= runSession f

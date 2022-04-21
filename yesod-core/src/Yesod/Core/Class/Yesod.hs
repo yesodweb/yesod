@@ -88,7 +88,7 @@ class RenderRoute site => Yesod site where
                 <head>
                     <title>#{pageTitle p}
                     $maybe description <- pageDescription p
-                      <meta type="description" content="#{description}">
+                      <meta name="description" content="#{description}">
                     ^{pageHead p}
                 <body>
                     $forall (status, msg) <- msgs
