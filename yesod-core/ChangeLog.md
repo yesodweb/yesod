@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.23.1
+
+* Fix typo in creation of the description `<meta>` tag in `defaultLayout`. [#1766](https://github.com/yesodweb/yesod/pull/1766)
+
 ## 1.6.23
 
 * Add idempotent versions of `setDescription`, `setDescriptionI`. These functions
