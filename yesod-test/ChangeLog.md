@@ -2,8 +2,8 @@
 
 ## 1.6.14
 
-* Fix quotes not matching in htmlContain* functions.
-* Add logging of the matches found of these functions.
+* Fix quotes not matching in htmlContain* functions [#1768](https://github.com/yesodweb/yesod/pull/1768).
+* Add logging of the matches found of these functions [#1768](https://github.com/yesodweb/yesod/pull/1768).
 
 ## 1.6.13
 
