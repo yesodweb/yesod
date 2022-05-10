@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.14
+
+* Improved failure messages from `assertEq`. [#1767](https://github.com/yesodweb/yesod/pull/1767)
+
 ## 1.6.13
 
 * Add `Yesod.Test.Internal.SIO` module to expose the `SIO` type.
