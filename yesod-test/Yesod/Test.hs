@@ -546,10 +546,8 @@ htmlQuery = htmlQuery' yedResponse []
 -- @since 1.5.2
 assertEq :: (HasCallStack, Eq a, Show a) => String -> a -> a -> YesodExample site ()
 assertEq m a b =
-  liftIO $ HUnit.assertBool msg (a == b)
-  where msg = "Assertion: " ++ m ++ "\n" ++
-              "First argument:  " ++ ppShow a ++ "\n" ++
-              "Second argument: " ++ ppShow b ++ "\n"
+  liftIO $ HUnit.assertEqual msg a b
+  where msg = "Assertion: " ++ m ++ "\n"
 
 -- | Asserts that the two given values are not equal.
 --
