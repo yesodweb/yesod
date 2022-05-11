@@ -36,6 +36,7 @@ import Network.Wai.Test (SResponse(simpleBody))
 import Data.Maybe (fromMaybe)
 import Data.Either (isLeft, isRight)
 
+import Test.HUnit.Lang
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
@@ -202,9 +203,17 @@ main = hspec $ do
                 statusIs 200
                 htmlCount "p" 2
                 htmlAllContain "p" "Hello"
+                htmlAllContain "span" "O'Kon"
                 htmlAnyContain "p" "World"
                 htmlAnyContain "p" "Moon"
+                htmlAnyContain "p" "O'Kon"
                 htmlNoneContain "p" "Sun"
+
+                -- we found it so we know the
+                -- matching on quotes works for NoneContain
+                withRunInIO $ \runInIO ->
+                  shouldThrow (runInIO (htmlNoneContain "span" "O'Kon"))
+                  (\case HUnitFailure _ _ -> True)
             yit "finds the CSRF token by css selector" $ do
                 get ("/form" :: Text)
                 statusIs 200
@@ -221,7 +230,7 @@ main = hspec $ do
               get ("/htmlWithLink" :: Text)
               clickOn "a#thelink"
               statusIs 200
-              bodyEquals "<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>"
+              bodyEquals "<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon and <span>O'Kon</span></p></body></html>"
 
               get ("/htmlWithLink" :: Text)
               bad <- tryAny (clickOn "a#nonexistentlink")
@@ -555,7 +564,7 @@ app = liteApp $ do
             FormSuccess (foo, _) -> return $ toHtml foo
             _                    -> defaultLayout widget
     onStatic "html" $ dispatchTo $
-        return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>" :: Text)
+        return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon and <span>O'Kon</span></p></body></html>" :: Text)
 
     onStatic "htmlWithLink" $ dispatchTo $
         return ("<html><head><title>A link</title></head><body><a href=\"/html\" id=\"thelink\">Link!</a></body></html>" :: Text)

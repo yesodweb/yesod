@@ -241,6 +241,8 @@ import qualified Network.Socket.Internal as Sock
 
 import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
+import qualified Text.Blaze.Renderer.String as Blaze
+import qualified Text.Blaze as Blaze
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import Control.Monad.IO.Class
@@ -708,8 +710,13 @@ htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
     [] -> failure $ "Nothing matched css query: " <> query
-    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
-          DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search  ++ " matches: " ++ show matches) $
+          DL.all (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches)
+
+-- | puts the search trough the same escaping as the matches are.
+--   this helps with matching on special characters
+escape :: String -> String
+escape = Blaze.renderMarkup . Blaze.string
 
 -- | Queries the HTML using a CSS selector, and passes if any matched
 -- element contains the given string.
@@ -726,8 +733,8 @@ htmlAnyContain query search = do
   matches <- htmlQuery query
   case matches of
     [] -> failure $ "Nothing matched css query: " <> query
-    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
-          DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search ++ " matches: " ++ show matches) $
+          DL.any (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches)
 
 -- | Queries the HTML using a CSS selector, and fails if any matched
 -- element contains the given string (in other words, it is the logical
@@ -743,7 +750,7 @@ htmlAnyContain query search = do
 htmlNoneContain :: HasCallStack => Query -> String -> YesodExample site ()
 htmlNoneContain query search = do
   matches <- htmlQuery query
-  case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
+  case DL.filter (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches) of
     [] -> return ()
     found -> failure $ "Found " <> T.pack (show $ length found) <>
                 " instances of " <> T.pack search <> " in " <> query <> " elements"
