@@ -1,0 +1,91 @@
+packages:
+  yesod-core
+  yesod-static
+  yesod-persistent
+  yesod-newsfeed
+  yesod-form
+  yesod-form-multi
+  yesod-auth
+  yesod-auth-oauth
+  yesod-sitemap
+  yesod-test
+  yesod-bin
+  yesod
+  yesod-eventsource
+  yesod-websockets
+
+-- These need hackage revisions but otherwise test fine in the repo
+allow-newer:
+      cryptohash-md5:base
+    , vault:base
+    , hashable:base
+    , hashable:bytestring
+    , hashable:ghc-bignum
+    , async:base
+    , integer-logarithms:base
+    , integer-logarithms:ghc-bignum
+    , integer-logarithms:ghc-prim
+    , scientific:base
+    , http-api-data:base
+    , split:base
+    , blaze-markup:base
+    , attoparsec:ghc-prim
+    , aeson:ghc-prim
+    , time-compat:base
+    , indexed-traversable-instances:base
+    , these:base
+    , assoc:base
+    , text-short:base
+    , text-short:ghc-prim
+    , semialign:base
+    , indexed-traversable:base
+    , data-fix:base
+    , splitmix:base
+    , OneTuple:base
+    , postgresql-simple:base
+    , bytestring-lexing:base
+    , HTTP:base
+    , quickcheck-instances:base
+    , postgresql-libpq:base
+    , hsc2hs:base
+    , wai-logger:*
+
+
+-- https://github.com/yesodweb/shakespeare/pull/267
+source-repository-package
+    type: git
+    location: https://github.com/yesodweb/shakespeare
+    tag: e24c732a7d24d1f3ffb18fb46a52e9b2dc65b226
+
+-- https://github.com/haskell-foundation/foundation/pull/564
+source-repository-package
+    type: git
+    location: https://github.com/parsonsmatt/foundation
+    tag: 688c32ccd9a951bc96dd09423a6e6684f091d510
+    subdir: basement
+    subdir: foundation
+
+-- https://github.com/GaloisInc/cereal/pull/103
+source-repository-package
+    type: git
+    location: https://github.com/parsonsmatt/cereal
+    tag: b4acf0b778a1d5da305f4de013ce7f32b53d8282
+
+-- probably an artifact from allow-newer
+source-repository-package
+    type: git
+    location: https://github.com/parsonsmatt/bson
+    tag: 3ee6ffa508f7b609ca81bc3cdaf9ccc10c1fccb1
+
+-- https://github.com/vincenthz/hs-memory/pull/93
+source-repository-package
+    type: git
+    location: https://github.com/parsonsmatt/hs-memory
+    tag: 296b79424854eae293f6ba09b5308a0bf4dfd6d5
+
+-- https://github.com/yesodweb/wai/pull/889
+source-repository-package
+    type: git
+    location: https://github.com/yesodweb/wai
+    tag: 42f27a51fe5ffd83555781dab98978b0829f0cf6
+    subdir: warp

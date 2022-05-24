@@ -34,6 +34,7 @@ test-suite test
     main-is: Spec.hs
     hs-source-dirs: test
     other-modules: Yesod.PersistSpec
+    build-tool-depends: hspec-discover:hspec-discover
     build-depends: base
                  , hspec
                  , wai-extra
