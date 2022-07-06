@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.23.2
+
+* Make catching exceptions configurable [#1772](https://github.com/yesodweb/yesod/pull/1772).
+
 ## 1.6.23.1
 
 * Fix typo in creation of the description `<meta>` tag in `defaultLayout`. [#1766](https://github.com/yesodweb/yesod/pull/1766)
