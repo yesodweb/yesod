@@ -55,7 +55,7 @@ import           Control.Monad.Reader               (MonadReader (..))
 import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
-import UnliftIO (MonadUnliftIO (..))
+import UnliftIO (MonadUnliftIO (..), SomeException)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -169,6 +169,13 @@ newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 -- @since 1.4.34
 newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
 
+-- | @since 1.6.23.2
+data CatchBehavior = Rethrow -- ^ Rethrow an exception and let the webserver deal with it (usually warp)
+                   | Catch -- ^ catch an exception and render in yesod
+
+
+-- defaultShouldCatch = pure ()
+
 data RunHandlerEnv child site = RunHandlerEnv
     { rheRender   :: !(Route site -> [(Text, Text)] -> Text)
     , rheRoute    :: !(Maybe (Route child))
@@ -182,6 +189,10 @@ data RunHandlerEnv child site = RunHandlerEnv
       --
       -- Since 1.2.0
     , rheMaxExpires :: !Text
+
+      -- | @since 1.6.23.2
+      --   should we catch an exception, or rethrow it.
+    , rheShouldCatch :: !(SomeException -> CatchBehavior)
     }
 
 data HandlerData child site = HandlerData

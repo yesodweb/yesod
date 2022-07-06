@@ -1,10 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternGuards     #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternGuards       #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Yesod.Core.Internal.Run
   ( toErrorHandler
   , errFromShow
@@ -54,6 +55,7 @@ import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!), NFData)
 import           UnliftIO.Exception
 import           UnliftIO(MonadUnliftIO, withRunInIO)
+import           Data.Proxy(Proxy(..))
 
 -- | like `catch` but doesn't check for async exceptions,
 --   thereby catching them too.
@@ -64,18 +66,15 @@ import           UnliftIO(MonadUnliftIO, withRunInIO)
 --   recovrery from async isn't allowed.
 --   see async section: https://www.fpcomplete.com/blog/2018/04/async-exception-handling-haskell/
 unsafeAsyncCatch
-  :: (MonadUnliftIO m, Exception e)
-  => m a -- ^ action
-  -> (e -> m a) -- ^ handler
-  -> m a
-unsafeAsyncCatch f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
-    run (g e)
-
-unsafeAsyncCatchAny :: (MonadUnliftIO m)
-  => m a -- ^ action
+  :: (MonadUnliftIO m)
+  => (SomeException -> CatchBehavior)
+  -> m a -- ^ action
   -> (SomeException -> m a) -- ^ handler
   -> m a
-unsafeAsyncCatchAny = unsafeAsyncCatch
+unsafeAsyncCatch catchBehavior f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
+    case catchBehavior e of
+      Catch -> run (g e)
+      Rethrow -> liftIO $ throwIO e
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
@@ -108,7 +107,7 @@ basicRunHandler rhe handler yreq resState = do
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
-    contents' <- unsafeAsyncCatch
+    contents' <- unsafeAsyncCatch (rheShouldCatch rhe)
         (do
             res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
@@ -212,10 +211,11 @@ handleContents handleError' finalSession headers contents =
 --
 -- Note that this also catches async exceptions.
 evalFallback :: (Monoid w, NFData w)
-             => HandlerContents
+             => (SomeException -> CatchBehavior)
+             -> HandlerContents
              -> w
              -> IO (w, HandlerContents)
-evalFallback contents val = unsafeAsyncCatchAny
+evalFallback shouldCatch contents val = unsafeAsyncCatch shouldCatch
     (fmap (, contents) (evaluate $!! val))
     (fmap ((mempty, ) . HCError) . toErrorHandler)
 
@@ -231,8 +231,8 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
 
     -- Evaluate the unfortunately-lazy session and headers,
     -- propagating exceptions into the contents
-    (finalSession, contents1) <- evalFallback contents0 (ghsSession state)
-    (headers, contents2) <- evalFallback contents1 (appEndo (ghsHeaders state) [])
+    (finalSession, contents1) <- evalFallback rheShouldCatch contents0 (ghsSession state)
+    (headers, contents2) <- evalFallback rheShouldCatch contents1 (appEndo (ghsHeaders state) [])
     contents3 <- (evaluate contents2) `catchAny` (fmap HCError . toErrorHandler)
 
     -- Convert the HandlerContents into the final YesodResponse
@@ -275,7 +275,7 @@ safeEh log' er req = do
 -- @HandlerFor@ is completely ignored, including changes to the
 -- session, cookies or headers.  We only return you the
 -- @HandlerFor@'s return value.
-runFakeHandler :: (Yesod site, MonadIO m) =>
+runFakeHandler :: forall site m a . (Yesod site, MonadIO m) =>
                   SessionMap
                -> (site -> Logger)
                -> site
@@ -296,6 +296,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheLog = messageLoggerSource site $ logger site
             , rheOnError = errHandler
             , rheMaxExpires = maxExpires
+            , rheShouldCatch = catchBehavior (Proxy :: Proxy site)
             }
         handler'
       errHandler err req = do
@@ -337,7 +338,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   _ <- runResourceT $ yapp fakeRequest
   I.readIORef ret
 
-yesodRunner :: (ToTypedContent res, Yesod site)
+yesodRunner :: forall res site . (ToTypedContent res, Yesod site)
             => HandlerFor site res
             -> YesodRunnerEnv site
             -> Maybe (Route site)
@@ -372,6 +373,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
               , rheLog = log'
               , rheOnError = safeEh log'
               , rheMaxExpires = maxExpires
+              , rheShouldCatch = catchBehavior (Proxy :: Proxy site)
               }
           rhe = rheSafe
               { rheOnError = runHandler rheSafe . errorHandler

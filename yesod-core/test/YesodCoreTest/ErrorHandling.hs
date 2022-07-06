@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase #-}
+
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
@@ -23,6 +25,8 @@ import Data.ByteString.Builder (Builder, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
+import qualified Network.Wai.Handler.Warp as Warp
+import qualified YesodCoreTest.ErrorHandling.CustomApp as Custom
 import Control.Monad.Trans.State (StateT (..))
 import Control.Monad.Trans.Reader (ReaderT (..))
 import qualified UnliftIO.Exception as E
@@ -52,6 +56,7 @@ mkYesod "App" [parseRoutes|
 /only-plain-text OnlyPlainTextR GET
 
 /thread-killed ThreadKilledR GET
+/connection-closed-by-peer ConnectionClosedPeerR GET
 /async-session AsyncSessionR GET
 |]
 
@@ -126,6 +131,12 @@ getThreadKilledR = do
   liftIO $ Async.withAsync (Conc.killThread x) Async.wait
   pure "unreachablle"
 
+
+getConnectionClosedPeerR :: Handler Html
+getConnectionClosedPeerR =
+  liftIO $ E.throwIO Warp.ConnectionClosedByPeer
+
+
 getAsyncSessionR :: Handler Html
 getAsyncSessionR = do
   setSession "jap" $ foldMap (pack . show) [0..999999999999999999999999] -- it's going to take a while to figure this one out
@@ -179,6 +190,8 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "accept image, non-existent path -> 404" caseImageNotFound
       it "accept video, bad method -> 405" caseVideoBadMethod
       it "thread killed = 500" caseThreadKilled500
+      it "default config exception rethrows connection closed" caseDefaultConnectionCloseRethrows
+      it "custom config rethrows an exception" caseCustomExceptionRethrows
       it "async session exception = 500" asyncSessionKilled500
 
 runner :: Session a -> IO a
@@ -323,6 +336,27 @@ caseThreadKilled500 = runner $ do
   res <- request defaultRequest { pathInfo = ["thread-killed"] }
   assertStatus 500 res
   assertBodyContains "Internal Server Error" res
+
+caseDefaultConnectionCloseRethrows :: IO ()
+caseDefaultConnectionCloseRethrows =
+  shouldThrow testcode $ \case Warp.ConnectionClosedByPeer -> True
+                               _ -> False
+
+  where
+
+  testcode = runner $ do
+      _res <- request defaultRequest { pathInfo = ["connection-closed-by-peer"] }
+      pure ()
+
+caseCustomExceptionRethrows :: IO ()
+caseCustomExceptionRethrows =
+  shouldThrow testcode $ \case Custom.MkMyException -> True
+  where
+    testcode = customAppRunner $ do
+      _res <- request defaultRequest { pathInfo = ["throw-custom-exception"] }
+      pure ()
+    customAppRunner f = toWaiApp Custom.CustomApp >>= runSession f
+
 
 asyncSessionKilled500 :: IO ()
 asyncSessionKilled500 = runner $ do

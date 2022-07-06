@@ -52,8 +52,11 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
+import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
+import UnliftIO (SomeException, fromException)
+import Data.Proxy(Proxy)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -69,6 +72,17 @@ class RenderRoute site => Yesod site where
     -- Note: Prior to yesod-core 1.5, the default value was 'ApprootRelative'.
     approot :: Approot site
     approot = guessApproot
+
+    -- | @since 1.6.23.2
+    --   Should we catch an exception, or rethrow it.
+    --   Rethrowing an exception lets the webserver deal with it
+    --   (usually warp).
+    --   catching allows yesod to render the error page.
+    --   the default 'defaultCatchBehavior' is to catch everything
+    --   (even async), except for the
+    --   'Warp.ConnectionClosedByPeer' constructor.
+    catchBehavior :: Proxy site -> SomeException -> CatchBehavior
+    catchBehavior _ = defaultCatchBehavior
 
     -- | Output error response pages.
     --
@@ -633,6 +647,12 @@ widgetToPageContent w = do
 
     runUniqueList :: Eq x => UniqueList x -> [x]
     runUniqueList (UniqueList x) = nub $ x []
+
+defaultCatchBehavior :: SomeException -> CatchBehavior
+defaultCatchBehavior exception = case fromException exception of
+  Just Warp.ConnectionClosedByPeer -> Rethrow
+  _                                -> Catch
+
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerFor site TypedContent
