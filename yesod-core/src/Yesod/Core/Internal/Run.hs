@@ -56,6 +56,7 @@ import           Control.DeepSeq              (($!!), NFData)
 import           UnliftIO.Exception
 import           UnliftIO(MonadUnliftIO, withRunInIO)
 import           Data.Proxy(Proxy(..))
+import           Yesod.Core.CatchBehavior
 
 -- | like `catch` but doesn't check for async exceptions,
 --   thereby catching them too.
@@ -67,14 +68,15 @@ import           Data.Proxy(Proxy(..))
 --   see async section: https://www.fpcomplete.com/blog/2018/04/async-exception-handling-haskell/
 unsafeAsyncCatch
   :: (MonadUnliftIO m)
-  => (SomeException -> CatchBehavior)
+  => (SomeException -> IO CatchBehavior)
   -> m a -- ^ action
   -> (SomeException -> m a) -- ^ handler
   -> m a
 unsafeAsyncCatch catchBehavior f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
-    case catchBehavior e of
-      Catch -> run (g e)
-      Rethrow -> liftIO $ throwIO e
+    caught <- liftIO $ catchBehavior e
+    if   isCatch caught
+    then run (g e)
+    else liftIO $ EUnsafe.throwIO e
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
@@ -211,7 +213,7 @@ handleContents handleError' finalSession headers contents =
 --
 -- Note that this also catches async exceptions.
 evalFallback :: (Monoid w, NFData w)
-             => (SomeException -> CatchBehavior)
+             => (SomeException -> IO CatchBehavior)
              -> HandlerContents
              -> w
              -> IO (w, HandlerContents)
@@ -296,7 +298,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheLog = messageLoggerSource site $ logger site
             , rheOnError = errHandler
             , rheMaxExpires = maxExpires
-            , rheShouldCatch = catchBehavior (Proxy :: Proxy site)
+            , rheShouldCatch = catchBehavior site
             }
         handler'
       errHandler err req = do
@@ -373,7 +375,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
               , rheLog = log'
               , rheOnError = safeEh log'
               , rheMaxExpires = maxExpires
-              , rheShouldCatch = catchBehavior (Proxy :: Proxy site)
+              , rheShouldCatch = catchBehavior yreSite
               }
           rhe = rheSafe
               { rheOnError = runHandler rheSafe . errorHandler

@@ -56,6 +56,7 @@ import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import UnliftIO (MonadUnliftIO (..), SomeException)
+import Yesod.Core.CatchBehavior
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -169,13 +170,6 @@ newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 -- @since 1.4.34
 newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
 
--- | @since 1.6.24.0
-data CatchBehavior = Rethrow -- ^ Rethrow an exception and let the webserver deal with it (usually warp)
-                   | Catch -- ^ catch an exception and render in yesod
-
-
--- defaultShouldCatch = pure ()
-
 data RunHandlerEnv child site = RunHandlerEnv
     { rheRender   :: !(Route site -> [(Text, Text)] -> Text)
     , rheRoute    :: !(Maybe (Route child))
@@ -192,7 +186,7 @@ data RunHandlerEnv child site = RunHandlerEnv
 
       -- | @since 1.6.24.0
       --   should we catch an exception, or rethrow it.
-    , rheShouldCatch :: !(SomeException -> CatchBehavior)
+    , rheShouldCatch :: !(SomeException -> IO CatchBehavior)
     }
 
 data HandlerData child site = HandlerData

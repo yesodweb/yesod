@@ -133,8 +133,10 @@ getThreadKilledR = do
 
 
 getConnectionClosedPeerR :: Handler Html
-getConnectionClosedPeerR =
-  liftIO $ E.throwIO Warp.ConnectionClosedByPeer
+getConnectionClosedPeerR = do
+  x <- liftIO Conc.myThreadId
+  liftIO $ Async.withAsync (E.throwTo x Warp.ConnectionClosedByPeer) Async.wait
+  pure "unreachablle"
 
 
 getAsyncSessionR :: Handler Html
@@ -339,8 +341,9 @@ caseThreadKilled500 = runner $ do
 
 caseDefaultConnectionCloseRethrows :: IO ()
 caseDefaultConnectionCloseRethrows =
-  shouldThrow testcode $ \case Warp.ConnectionClosedByPeer -> True
-                               _ -> False
+  shouldThrow testcode $ \e -> case E.fromExceptionUnwrap e of
+                                  Just Warp.ConnectionClosedByPeer -> True
+                                  _ -> False
 
   where
 

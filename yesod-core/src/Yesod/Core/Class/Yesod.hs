@@ -55,8 +55,9 @@ import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
-import UnliftIO (SomeException, fromException)
+import UnliftIO (SomeException, fromException, isSyncException, fromExceptionUnwrap)
 import Data.Proxy(Proxy)
+import Yesod.Core.CatchBehavior
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -81,8 +82,8 @@ class RenderRoute site => Yesod site where
     --   the default 'defaultCatchBehavior' is to catch everything
     --   (even async), except for the
     --   'Warp.ConnectionClosedByPeer' constructor.
-    catchBehavior :: Proxy site -> SomeException -> CatchBehavior
-    catchBehavior _ = defaultCatchBehavior
+    catchBehavior :: site -> SomeException -> IO CatchBehavior
+    catchBehavior _ = pure . defaultCatchBehavior
 
     -- | Output error response pages.
     --
@@ -648,10 +649,14 @@ widgetToPageContent w = do
     runUniqueList :: Eq x => UniqueList x -> [x]
     runUniqueList (UniqueList x) = nub $ x []
 
+rethrowAsync :: SomeException -> CatchBehavior
+rethrowAsync exception =
+  if isSyncException exception then catch else rethrow
+
 defaultCatchBehavior :: SomeException -> CatchBehavior
-defaultCatchBehavior exception = case fromException exception of
-  Just Warp.ConnectionClosedByPeer -> Rethrow
-  _                                -> Catch
+defaultCatchBehavior exception = case fromExceptionUnwrap exception of
+  Just Warp.ConnectionClosedByPeer -> rethrow
+  _                                -> catch
 
 
 -- | The default error handler for 'errorHandler'.
