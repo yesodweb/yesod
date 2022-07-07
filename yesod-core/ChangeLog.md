@@ -1,6 +1,6 @@
 # ChangeLog for yesod-core
 
-## 1.6.23.2
+## 1.6.24.0
 
 * Make catching exceptions configurable [#1772](https://github.com/yesodweb/yesod/pull/1772).
 

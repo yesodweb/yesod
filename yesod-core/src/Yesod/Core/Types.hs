@@ -169,7 +169,7 @@ newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 -- @since 1.4.34
 newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
 
--- | @since 1.6.23.2
+-- | @since 1.6.24.0
 data CatchBehavior = Rethrow -- ^ Rethrow an exception and let the webserver deal with it (usually warp)
                    | Catch -- ^ catch an exception and render in yesod
 
@@ -190,7 +190,7 @@ data RunHandlerEnv child site = RunHandlerEnv
       -- Since 1.2.0
     , rheMaxExpires :: !Text
 
-      -- | @since 1.6.23.2
+      -- | @since 1.6.24.0
       --   should we catch an exception, or rethrow it.
     , rheShouldCatch :: !(SomeException -> CatchBehavior)
     }

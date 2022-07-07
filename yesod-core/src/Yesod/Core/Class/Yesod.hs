@@ -73,7 +73,7 @@ class RenderRoute site => Yesod site where
     approot :: Approot site
     approot = guessApproot
 
-    -- | @since 1.6.23.2
+    -- | @since 1.6.24.0
     --   Should we catch an exception, or rethrow it.
     --   Rethrowing an exception lets the webserver deal with it
     --   (usually warp).
