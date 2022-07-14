@@ -1,7 +1,9 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -58,6 +60,7 @@ import Data.IORef
 import UnliftIO (SomeException, fromException, isSyncException, fromExceptionUnwrap)
 import Data.Proxy(Proxy)
 import Yesod.Core.CatchBehavior
+import System.Timeout(Timeout)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -656,7 +659,9 @@ rethrowAsync exception =
 defaultCatchBehavior :: SomeException -> CatchBehavior
 defaultCatchBehavior exception = case fromExceptionUnwrap exception of
   Just Warp.ConnectionClosedByPeer -> rethrow
-  _                                -> catch
+  _                                -> case fromExceptionUnwrap exception of
+    Just (_ :: Timeout) -> rethrow
+    _ -> catch
 
 
 -- | The default error handler for 'errorHandler'.

@@ -30,6 +30,7 @@ import qualified YesodCoreTest.ErrorHandling.CustomApp as Custom
 import Control.Monad.Trans.State (StateT (..))
 import Control.Monad.Trans.Reader (ReaderT (..))
 import qualified UnliftIO.Exception as E
+import System.Timeout(timeout)
 
 data App = App
 
@@ -58,6 +59,7 @@ mkYesod "App" [parseRoutes|
 /thread-killed ThreadKilledR GET
 /connection-closed-by-peer ConnectionClosedPeerR GET
 /async-session AsyncSessionR GET
+/sleep-sec SleepASecR GET
 |]
 
 overrideStatus :: Status
@@ -131,6 +133,10 @@ getThreadKilledR = do
   liftIO $ Async.withAsync (Conc.killThread x) Async.wait
   pure "unreachablle"
 
+getSleepASecR :: Handler Html
+getSleepASecR = do
+  liftIO $ Conc.threadDelay 1000000
+  pure "slept a second"
 
 getConnectionClosedPeerR :: Handler Html
 getConnectionClosedPeerR = do
@@ -195,6 +201,7 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "default config exception rethrows connection closed" caseDefaultConnectionCloseRethrows
       it "custom config rethrows an exception" caseCustomExceptionRethrows
       it "async session exception = 500" asyncSessionKilled500
+      it "can timeout a runner" canTimeoutARunner
 
 runner :: Session a -> IO a
 runner f = toWaiApp App >>= runSession f
@@ -366,3 +373,11 @@ asyncSessionKilled500 = runner $ do
   res <- request defaultRequest { pathInfo = ["async-session"] }
   assertStatus 500 res
   assertBodyContains "Internal Server Error" res
+
+canTimeoutARunner :: IO ()
+canTimeoutARunner = do
+  res <- timeout 1000 $ runner $ do
+    res <- request defaultRequest { pathInfo = ["sleep-sec"] }
+    assertStatus 200 res -- if 500, it's catching the timeout exception
+    pure () -- it should've timeout by now, either being 500 or Nothing
+  res `shouldBe` Nothing -- make sure that pure statement didn't happen.
