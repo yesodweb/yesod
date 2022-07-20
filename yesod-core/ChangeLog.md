@@ -2,7 +2,7 @@
 
 ## 1.6.24.0
 
-* Make catching exceptions configurable [#1772](https://github.com/yesodweb/yesod/pull/1772).
+* Make catching exceptions configurable and set the default back to rethrowing async exceptions. [#1772](https://github.com/yesodweb/yesod/pull/1772).
 
 ## 1.6.23.1
 
