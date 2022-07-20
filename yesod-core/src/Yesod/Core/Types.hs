@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Core.Types where
 
 import Data.Aeson (ToJSON)
@@ -55,7 +56,7 @@ import           Control.Monad.Reader               (MonadReader (..))
 import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
-import UnliftIO (MonadUnliftIO (..))
+import UnliftIO (MonadUnliftIO (..), SomeException)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -182,6 +183,11 @@ data RunHandlerEnv child site = RunHandlerEnv
       --
       -- Since 1.2.0
     , rheMaxExpires :: !Text
+
+      -- | @since 1.6.24.0
+      --   catch function for rendering 500 pages on exceptions.
+      --   by default this is catch from unliftio (rethrows all async exceptions).
+    , rheCatchHandlerExceptions :: !(forall a m . MonadUnliftIO m =>  m a -> (SomeException -> m a) -> m a)
     }
 
 data HandlerData child site = HandlerData
