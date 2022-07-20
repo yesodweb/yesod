@@ -15,7 +15,6 @@ module YesodCoreTest.ErrorHandling.CustomApp
     ) where
 
 
-import Yesod.Core.CatchBehavior
 import Yesod.Core.Types
 import Yesod.Core
 import qualified UnliftIO.Exception as E
@@ -34,7 +33,9 @@ data MyException = MkMyException
  deriving (Show, E.Exception)
 
 instance Yesod CustomApp where
-  catchBehavior _ exception = pure $
-    case E.fromException exception of
-      Just MkMyException -> rethrow
-      Nothing -> catch
+  -- something we couldn't do before, rethrow custom exceptions
+  catchBehavior _ action handler =
+    action `E.catch` \exception -> do
+      case E.fromException exception of
+        Just MkMyException -> E.throwIO MkMyException
+        Nothing -> handler exception

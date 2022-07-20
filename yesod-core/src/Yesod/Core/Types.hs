@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Core.Types where
 
 import Data.Aeson (ToJSON)
@@ -56,7 +57,6 @@ import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import UnliftIO (MonadUnliftIO (..), SomeException)
-import Yesod.Core.CatchBehavior
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -186,7 +186,7 @@ data RunHandlerEnv child site = RunHandlerEnv
 
       -- | @since 1.6.24.0
       --   should we catch an exception, or rethrow it.
-    , rheShouldCatch :: !(SomeException -> IO CatchBehavior)
+    , rheShouldCatch :: !(forall a. IO a -> (SomeException -> IO a) -> IO a)
     }
 
 data HandlerData child site = HandlerData

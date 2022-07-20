@@ -56,27 +56,17 @@ import           Control.DeepSeq              (($!!), NFData)
 import           UnliftIO.Exception
 import           UnliftIO(MonadUnliftIO, withRunInIO)
 import           Data.Proxy(Proxy(..))
-import           Yesod.Core.CatchBehavior
 
--- | like `catch` but doesn't check for async exceptions,
---   thereby catching them too.
---   This is desirable for letting yesod generate a 500 error page
---   rather then warp.
---
---   Normally this is VERY dubious. you need to rethrow.
---   recovrery from async isn't allowed.
---   see async section: https://www.fpcomplete.com/blog/2018/04/async-exception-handling-haskell/
+-- | wraps the provided catch fun in a unliftIO
 unsafeAsyncCatch
   :: (MonadUnliftIO m)
-  => (SomeException -> IO CatchBehavior)
+  => (IO a -> (SomeException -> IO a) -> IO a)
   -> m a -- ^ action
   -> (SomeException -> m a) -- ^ handler
   -> m a
-unsafeAsyncCatch catchBehavior f g = withRunInIO $ \run -> run f `EUnsafe.catch` \e -> do
-    caught <- liftIO $ catchBehavior e
-    if   isCatch caught
-    then run (g e)
-    else liftIO $ EUnsafe.throwIO e
+unsafeAsyncCatch catchFun f g = withRunInIO $ \run ->
+    run f `catchFun` \e -> run (g e)
+
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
@@ -213,7 +203,7 @@ handleContents handleError' finalSession headers contents =
 --
 -- Note that this also catches async exceptions.
 evalFallback :: (Monoid w, NFData w)
-             => (SomeException -> IO CatchBehavior)
+             => (forall a. IO a -> (SomeException -> IO a) -> IO a)
              -> HandlerContents
              -> w
              -> IO (w, HandlerContents)

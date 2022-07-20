@@ -75,7 +75,6 @@ library
                      Yesod.Core.Types
                      Yesod.Core.Unsafe
                      Yesod.Routes.TH.Types
-                     Yesod.Core.CatchBehavior
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler

@@ -57,10 +57,7 @@ import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
-import UnliftIO (SomeException, fromException, isSyncException, fromExceptionUnwrap)
-import Data.Proxy(Proxy)
-import Yesod.Core.CatchBehavior
-import System.Timeout(Timeout)
+import UnliftIO (SomeException, catch)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -84,8 +81,8 @@ class RenderRoute site => Yesod site where
     --   catching allows yesod to render the error page.
     --   the default 'rethrowAsync' is to rethrow async
     --   exceptions.
-    catchBehavior :: site -> SomeException -> IO CatchBehavior
-    catchBehavior _ = pure . rethrowAsync
+    catchBehavior :: site -> IO a -> (SomeException -> IO a) -> IO a
+    catchBehavior _ = catch
 
     -- | Output error response pages.
     --
@@ -650,10 +647,6 @@ widgetToPageContent w = do
 
     runUniqueList :: Eq x => UniqueList x -> [x]
     runUniqueList (UniqueList x) = nub $ x []
-
-rethrowAsync :: SomeException -> CatchBehavior
-rethrowAsync exception =
-  if isSyncException exception then catch else rethrow
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerFor site TypedContent
