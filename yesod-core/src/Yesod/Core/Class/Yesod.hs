@@ -82,11 +82,10 @@ class RenderRoute site => Yesod site where
     --   Rethrowing an exception lets the webserver deal with it
     --   (usually warp).
     --   catching allows yesod to render the error page.
-    --   the default 'defaultCatchBehavior' is to catch everything
-    --   (even async), except for the
-    --   'Warp.ConnectionClosedByPeer' constructor.
+    --   the default 'rethrowAsync' is to rethrow async
+    --   exceptions.
     catchBehavior :: site -> SomeException -> IO CatchBehavior
-    catchBehavior _ = pure . defaultCatchBehavior
+    catchBehavior _ = pure . rethrowAsync
 
     -- | Output error response pages.
     --
@@ -655,14 +654,6 @@ widgetToPageContent w = do
 rethrowAsync :: SomeException -> CatchBehavior
 rethrowAsync exception =
   if isSyncException exception then catch else rethrow
-
-defaultCatchBehavior :: SomeException -> CatchBehavior
-defaultCatchBehavior exception = case fromExceptionUnwrap exception of
-  Just Warp.ConnectionClosedByPeer -> rethrow
-  _                                -> case fromExceptionUnwrap exception of
-    Just (_ :: Timeout) -> rethrow
-    _ -> catch
-
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerFor site TypedContent

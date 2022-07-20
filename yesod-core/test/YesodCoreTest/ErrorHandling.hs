@@ -18,7 +18,7 @@ import Network.Wai
 import Network.Wai.Test
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, try, AsyncException(..))
 import           UnliftIO.Exception(finally)
 import Network.HTTP.Types (Status, mkStatus)
 import Data.ByteString.Builder (Builder, toLazyByteString)
@@ -58,7 +58,6 @@ mkYesod "App" [parseRoutes|
 
 /thread-killed ThreadKilledR GET
 /connection-closed-by-peer ConnectionClosedPeerR GET
-/async-session AsyncSessionR GET
 /sleep-sec SleepASecR GET
 |]
 
@@ -132,7 +131,6 @@ getThreadKilledR = do
   x <- liftIO Conc.myThreadId
   liftIO $ Async.withAsync (Conc.killThread x) Async.wait
   pure "unreachablle"
-
 getSleepASecR :: Handler Html
 getSleepASecR = do
   liftIO $ Conc.threadDelay 1000000
@@ -143,16 +141,6 @@ getConnectionClosedPeerR = do
   x <- liftIO Conc.myThreadId
   liftIO $ Async.withAsync (E.throwTo x Warp.ConnectionClosedByPeer) Async.wait
   pure "unreachablle"
-
-
-getAsyncSessionR :: Handler Html
-getAsyncSessionR = do
-  setSession "jap" $ foldMap (pack . show) [0..999999999999999999999999] -- it's going to take a while to figure this one out
-  x <- liftIO Conc.myThreadId
-  liftIO $ forkIO $ do
-     liftIO $ Conc.threadDelay 100000
-     Conc.killThread x
-  pure "reachable"
 
 getErrorR :: Int -> Handler ()
 getErrorR 1 = setSession undefined "foo"
@@ -197,10 +185,9 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "accept CSS, permission denied -> 403" caseCssPermissionDenied
       it "accept image, non-existent path -> 404" caseImageNotFound
       it "accept video, bad method -> 405" caseVideoBadMethod
-      it "thread killed = 500" caseThreadKilled500
       it "default config exception rethrows connection closed" caseDefaultConnectionCloseRethrows
       it "custom config rethrows an exception" caseCustomExceptionRethrows
-      it "async session exception = 500" asyncSessionKilled500
+      it "thread killed rethrow" caseThreadKilledRethrow
       it "can timeout a runner" canTimeoutARunner
 
 runner :: Session a -> IO a
@@ -340,11 +327,16 @@ caseVideoBadMethod = runner $ do
             }
     assertStatus 405 res
 
-caseThreadKilled500 :: IO ()
-caseThreadKilled500 = runner $ do
-  res <- request defaultRequest { pathInfo = ["thread-killed"] }
-  assertStatus 500 res
-  assertBodyContains "Internal Server Error" res
+caseThreadKilledRethrow :: IO ()
+caseThreadKilledRethrow =
+  shouldThrow testcode $ \e -> case E.fromExceptionUnwrap e of
+                                (Just ThreadKilled) -> True
+                                _ -> False
+  where
+  testcode = runner $ do
+                res <- request defaultRequest { pathInfo = ["thread-killed"] }
+                assertStatus 500 res
+                assertBodyContains "Internal Server Error" res
 
 caseDefaultConnectionCloseRethrows :: IO ()
 caseDefaultConnectionCloseRethrows =
@@ -353,7 +345,6 @@ caseDefaultConnectionCloseRethrows =
                                   _ -> False
 
   where
-
   testcode = runner $ do
       _res <- request defaultRequest { pathInfo = ["connection-closed-by-peer"] }
       pure ()
@@ -367,12 +358,6 @@ caseCustomExceptionRethrows =
       pure ()
     customAppRunner f = toWaiApp Custom.CustomApp >>= runSession f
 
-
-asyncSessionKilled500 :: IO ()
-asyncSessionKilled500 = runner $ do
-  res <- request defaultRequest { pathInfo = ["async-session"] }
-  assertStatus 500 res
-  assertBodyContains "Internal Server Error" res
 
 canTimeoutARunner :: IO ()
 canTimeoutARunner = do
