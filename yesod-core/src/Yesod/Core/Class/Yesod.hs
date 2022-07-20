@@ -57,7 +57,7 @@ import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
-import UnliftIO (SomeException, catch)
+import UnliftIO (SomeException, catch, MonadUnliftIO)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -81,7 +81,7 @@ class RenderRoute site => Yesod site where
     --  One could override this for example to catch all exceptions
     --  aside connection closed by peer to let yesod do more 500 page
     --  rendering (instead of warp).
-    catchHandlerExceptions :: site -> IO a -> (SomeException -> IO a) -> IO a
+    catchHandlerExceptions :: MonadUnliftIO m => site -> m a -> (SomeException -> m a) -> m a
     catchHandlerExceptions _ = catch
 
     -- | Output error response pages.

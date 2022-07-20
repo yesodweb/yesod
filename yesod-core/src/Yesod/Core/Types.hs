@@ -187,7 +187,7 @@ data RunHandlerEnv child site = RunHandlerEnv
       -- | @since 1.6.24.0
       --   catch function for rendering 500 pages on exceptions.
       --   by default this is catch from unliftio (rethrows all async exceptions).
-    , rheCatchHandlerExceptions :: !(forall a. IO a -> (SomeException -> IO a) -> IO a)
+    , rheCatchHandlerExceptions :: !(forall a m . MonadUnliftIO m =>  m a -> (SomeException -> m a) -> m a)
     }
 
 data HandlerData child site = HandlerData

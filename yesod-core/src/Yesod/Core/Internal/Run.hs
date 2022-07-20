@@ -57,17 +57,6 @@ import           UnliftIO.Exception
 import           UnliftIO(MonadUnliftIO, withRunInIO)
 import           Data.Proxy(Proxy(..))
 
--- | wraps the provided catch fun in a unliftIO
-unsafeAsyncCatch
-  :: (MonadUnliftIO m)
-  => (IO a -> (SomeException -> IO a) -> IO a)
-  -> m a -- ^ action
-  -> (SomeException -> m a) -- ^ handler
-  -> m a
-unsafeAsyncCatch catchFun f g = withRunInIO $ \run ->
-    run f `catchFun` \e -> run (g e)
-
-
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
 toErrorHandler e0 = handleAny errFromShow $
@@ -99,7 +88,7 @@ basicRunHandler rhe handler yreq resState = do
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
-    contents' <- unsafeAsyncCatch (rheCatchHandlerExceptions rhe)
+    contents' <- rheCatchHandlerExceptions rhe
         (do
             res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
@@ -207,7 +196,7 @@ evalFallback :: (Monoid w, NFData w)
              -> HandlerContents
              -> w
              -> IO (w, HandlerContents)
-evalFallback shouldCatch contents val = unsafeAsyncCatch shouldCatch
+evalFallback catcher contents val = catcher
     (fmap (, contents) (evaluate $!! val))
     (fmap ((mempty, ) . HCError) . toErrorHandler)
 
