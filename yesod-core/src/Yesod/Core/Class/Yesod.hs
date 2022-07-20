@@ -78,9 +78,9 @@ class RenderRoute site => Yesod site where
     --  allows the user to specify how exceptions are cought.
     --  by default all async exceptions are thrown and synchronous
     --  exceptions render a 500 page.
-    --  One could override this for example to catch all exceptions
-    --  aside connection closed by peer to let yesod do more 500 page
-    --  rendering (instead of warp).
+    -- To catch all exceptions (even async) to render a 500 page, 
+    -- set this to 'UnliftIO.Exception.catchSyncOrAsync'. Beware
+    -- this may have negative effects with functions like 'timeout'.
     catchHandlerExceptions :: MonadUnliftIO m => site -> m a -> (SomeException -> m a) -> m a
     catchHandlerExceptions _ = catch
 
