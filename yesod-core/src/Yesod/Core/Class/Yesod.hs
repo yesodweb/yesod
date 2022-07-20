@@ -75,14 +75,14 @@ class RenderRoute site => Yesod site where
     approot = guessApproot
 
     -- | @since 1.6.24.0
-    --   Should we catch an exception, or rethrow it.
-    --   Rethrowing an exception lets the webserver deal with it
-    --   (usually warp).
-    --   catching allows yesod to render the error page.
-    --   the default 'rethrowAsync' is to rethrow async
-    --   exceptions.
-    catchBehavior :: site -> IO a -> (SomeException -> IO a) -> IO a
-    catchBehavior _ = catch
+    --  allows the user to specify how exceptions are cought.
+    --  by default all async exceptions are thrown and synchronous
+    --  exceptions render a 500 page.
+    --  One could override this for example to catch all exceptions
+    --  aside connection closed by peer to let yesod do more 500 page
+    --  rendering (instead of warp).
+    catchHandlerExceptions :: site -> IO a -> (SomeException -> IO a) -> IO a
+    catchHandlerExceptions _ = catch
 
     -- | Output error response pages.
     --

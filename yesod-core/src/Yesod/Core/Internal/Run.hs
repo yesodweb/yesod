@@ -99,7 +99,7 @@ basicRunHandler rhe handler yreq resState = do
 
     -- Run the handler itself, capturing any runtime exceptions and
     -- converting them into a @HandlerContents@
-    contents' <- unsafeAsyncCatch (rheShouldCatch rhe)
+    contents' <- unsafeAsyncCatch (rheCatchHandlerExceptions rhe)
         (do
             res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
@@ -223,8 +223,8 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
 
     -- Evaluate the unfortunately-lazy session and headers,
     -- propagating exceptions into the contents
-    (finalSession, contents1) <- evalFallback rheShouldCatch contents0 (ghsSession state)
-    (headers, contents2) <- evalFallback rheShouldCatch contents1 (appEndo (ghsHeaders state) [])
+    (finalSession, contents1) <- evalFallback rheCatchHandlerExceptions contents0 (ghsSession state)
+    (headers, contents2) <- evalFallback rheCatchHandlerExceptions contents1 (appEndo (ghsHeaders state) [])
     contents3 <- (evaluate contents2) `catchAny` (fmap HCError . toErrorHandler)
 
     -- Convert the HandlerContents into the final YesodResponse
@@ -288,7 +288,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheLog = messageLoggerSource site $ logger site
             , rheOnError = errHandler
             , rheMaxExpires = maxExpires
-            , rheShouldCatch = catchBehavior site
+            , rheCatchHandlerExceptions = catchHandlerExceptions site
             }
         handler'
       errHandler err req = do
@@ -365,7 +365,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
               , rheLog = log'
               , rheOnError = safeEh log'
               , rheMaxExpires = maxExpires
-              , rheShouldCatch = catchBehavior yreSite
+              , rheCatchHandlerExceptions = catchHandlerExceptions yreSite
               }
           rhe = rheSafe
               { rheOnError = runHandler rheSafe . errorHandler

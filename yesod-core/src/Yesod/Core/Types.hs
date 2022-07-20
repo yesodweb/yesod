@@ -185,8 +185,9 @@ data RunHandlerEnv child site = RunHandlerEnv
     , rheMaxExpires :: !Text
 
       -- | @since 1.6.24.0
-      --   should we catch an exception, or rethrow it.
-    , rheShouldCatch :: !(forall a. IO a -> (SomeException -> IO a) -> IO a)
+      --   catch function for rendering 500 pages on exceptions.
+      --   by default this is catch from unliftio (rethrows all async exceptions).
+    , rheCatchHandlerExceptions :: !(forall a. IO a -> (SomeException -> IO a) -> IO a)
     }
 
 data HandlerData child site = HandlerData

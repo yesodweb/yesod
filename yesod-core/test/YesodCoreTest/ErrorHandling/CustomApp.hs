@@ -34,7 +34,7 @@ data MyException = MkMyException
 
 instance Yesod CustomApp where
   -- something we couldn't do before, rethrow custom exceptions
-  catchBehavior _ action handler =
+  catchHandlerExceptions _ action handler =
     action `E.catch` \exception -> do
       case E.fromException exception of
         Just MkMyException -> E.throwIO MkMyException
