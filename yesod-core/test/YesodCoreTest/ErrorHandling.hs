@@ -9,6 +9,7 @@ module YesodCoreTest.ErrorHandling
     , resourcesApp
     ) where
 
+import  Data.Typeable(cast)
 import qualified System.Mem as Mem
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent as Conc
@@ -327,9 +328,16 @@ caseVideoBadMethod = runner $ do
             }
     assertStatus 405 res
 
+fromExceptionUnwrap :: E.Exception e => SomeException -> Maybe e
+fromExceptionUnwrap se
+  | Just (E.AsyncExceptionWrapper e) <- E.fromException se = cast e
+  | Just (E.SyncExceptionWrapper e) <- E.fromException se = cast e
+  | otherwise = E.fromException se
+
+
 caseThreadKilledRethrow :: IO ()
 caseThreadKilledRethrow =
-  shouldThrow testcode $ \e -> case E.fromExceptionUnwrap e of
+  shouldThrow testcode $ \e -> case fromExceptionUnwrap e of
                                 (Just ThreadKilled) -> True
                                 _ -> False
   where
@@ -340,7 +348,7 @@ caseThreadKilledRethrow =
 
 caseDefaultConnectionCloseRethrows :: IO ()
 caseDefaultConnectionCloseRethrows =
-  shouldThrow testcode $ \e -> case E.fromExceptionUnwrap e of
+  shouldThrow testcode $ \e -> case fromExceptionUnwrap e of
                                   Just Warp.ConnectionClosedByPeer -> True
                                   _ -> False
 
