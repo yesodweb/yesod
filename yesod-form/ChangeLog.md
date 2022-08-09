@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.2
+
+* Added `withRadioField` and re-express `radioField` into that. [#1775](https://github.com/yesodweb/yesod/pull/1775)
+
 ## 1.7.1
 
 * Added `colorField` for creating a html color field (`<input type="color">`) [#1748](https://github.com/yesodweb/yesod/pull/1748)

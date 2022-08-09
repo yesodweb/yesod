@@ -49,6 +49,7 @@ module Yesod.Form.Fields
     , selectFieldListGrouped
     , radioField
     , radioFieldList
+    , withRadioField
     , checkboxesField
     , checkboxesFieldList
     , multiSelectField
@@ -530,26 +531,50 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerFor site (OptionList a)
            -> Field (HandlerFor site) a
-radioField = selectFieldHelper
-    (\theId _name _attrs inside -> [whamlet|
-$newline never
-<div ##{theId}>^{inside}
-|])
-    (\theId name isSel -> [whamlet|
+radioField = withRadioField
+    (\theId optionWidget -> [whamlet|
 $newline never
 <label .radio for=#{theId}-none>
     <div>
-        <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
+        ^{optionWidget}
         _{MsgSelectNone}
 |])
-    (\theId name attrs value isSel text -> [whamlet|
+    (\theId value _isSel text optionWidget -> [whamlet|
 $newline never
 <label .radio for=#{theId}-#{value}>
     <div>
-        <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
+        ^{optionWidget}
         \#{text}
 |])
-     Nothing
+
+
+-- | Allows the user to place the option radio widget somewhere in
+--   the template.
+--   For example: If you want a table of radio options to select.
+--   'radioField' is an example on how to use this function.
+--
+--   @since 1.7.2
+withRadioField :: (Eq a, RenderMessage site FormMessage)
+           => (Text -> WidgetFor site ()-> WidgetFor site ()) -- ^ nothing case for mopt
+           -> (Text ->  Text -> Bool -> Text -> WidgetFor site () -> WidgetFor site ()) -- ^ cases for values
+           -> HandlerFor site (OptionList a)
+           -> Field (HandlerFor site) a
+withRadioField nothingFun optFun =
+  selectFieldHelper outside onOpt inside Nothing
+  where
+    outside theId _name _attrs inside' = [whamlet|
+$newline never
+<div ##{theId}>^{inside'}
+|]
+    onOpt theId name isSel = nothingFun theId $ [whamlet|
+$newline never
+<input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
+|]
+    inside theId name attrs value isSel display =
+       optFun theId value isSel display [whamlet|
+<input id=#{theId}-#{(value)} type=radio name=#{name} value=#{(value)} :isSel:checked *{attrs}>
+|]
+
 
 -- | Creates a group of radio buttons to answer the question given in the message. Radio buttons are used to allow differentiating between an empty response (@Nothing@) and a no response (@Just False@). Consider using the simpler 'checkBoxField' if you don't need to make this distinction.
 --

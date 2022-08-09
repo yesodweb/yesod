@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-form
-version:         1.7.1
+version:         1.7.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
