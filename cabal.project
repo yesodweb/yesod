@@ -54,9 +54,17 @@ allow-newer:
 
 constraints:
     entropy <= 0.4.1.7
+  , persistent == 2.14.1.0
 
 -- https://github.com/vincenthz/hs-memory/pull/93
 source-repository-package
     type: git
     location: https://github.com/parsonsmatt/hs-memory
     tag: 296b79424854eae293f6ba09b5308a0bf4dfd6d5
+
+-- https://github.com/bennofs/th-lift-instances/pull/33
+source-repository-package
+    type: git
+    location: https://github.com/TeofilC/th-lift-instances
+    tag: bd768ec924d7c812bcc86e6f24fd31ba7e310f5a
+
