@@ -1,7 +1,9 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Yesod.Core.Class.Yesod where
 
 import           Yesod.Core.Content
@@ -52,8 +54,10 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
+import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
+import UnliftIO (SomeException, catch, MonadUnliftIO)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -69,6 +73,16 @@ class RenderRoute site => Yesod site where
     -- Note: Prior to yesod-core 1.5, the default value was 'ApprootRelative'.
     approot :: Approot site
     approot = guessApproot
+
+    -- | @since 1.6.24.0
+    --  allows the user to specify how exceptions are cought.
+    --  by default all async exceptions are thrown and synchronous
+    --  exceptions render a 500 page.
+    -- To catch all exceptions (even async) to render a 500 page, 
+    -- set this to 'UnliftIO.Exception.catchSyncOrAsync'. Beware
+    -- this may have negative effects with functions like 'timeout'.
+    catchHandlerExceptions :: MonadUnliftIO m => site -> m a -> (SomeException -> m a) -> m a
+    catchHandlerExceptions _ = catch
 
     -- | Output error response pages.
     --
@@ -87,6 +101,8 @@ class RenderRoute site => Yesod site where
             <html>
                 <head>
                     <title>#{pageTitle p}
+                    $maybe description <- pageDescription p
+                      <meta name="description" content="#{description}">
                     ^{pageHead p}
                 <body>
                     $forall (status, msg) <- msgs
@@ -539,8 +555,9 @@ widgetToPageContent w = do
     { wdRef = ref
     , wdHandler = hd
     }
-  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
+  GWData (Body body) (Last mTitle) (Last mDescription) scripts' stylesheets' style jscript (Head head') <- readIORef ref
   let title = maybe mempty unTitle mTitle
+      description = unDescription <$> mDescription
       scripts = runUniqueList scripts'
       stylesheets = runUniqueList stylesheets'
 
@@ -610,7 +627,7 @@ widgetToPageContent w = do
             ^{regularScriptLoad}
         |]
 
-    return $ PageContent title headAll $
+    return $ PageContent title description headAll $
         case jsLoader master of
             BottomOfBody -> bodyScript
             _ -> body

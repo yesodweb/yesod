@@ -1,5 +1,21 @@
 # ChangeLog for yesod-core
 
+## 1.6.24.0
+
+* Make catching exceptions configurable and set the default back to rethrowing async exceptions. [#1772](https://github.com/yesodweb/yesod/pull/1772).
+
+## 1.6.23.1
+
+* Fix typo in creation of the description `<meta>` tag in `defaultLayout`. [#1766](https://github.com/yesodweb/yesod/pull/1766)
+
+## 1.6.23
+
+* Add idempotent versions of `setDescription`, `setDescriptionI`. These functions
+  have odd behaviour when called multiple times, so they are now warned against.
+  This can't be a silent change - if you want to switch to the new functions, make
+  sure your layouts are updated to use `pageDescription` as well as `pageTitle`.
+  [#1765](https://github.com/yesodweb/yesod/pull/1765)
+
 ## 1.6.22.1
 
 + Remove sometimes failing superfluous test. [#1756](https://github.com/yesodweb/yesod/pull/1756)

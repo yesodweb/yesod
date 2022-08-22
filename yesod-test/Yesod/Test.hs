@@ -241,12 +241,11 @@ import qualified Network.Socket.Internal as Sock
 
 import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
+import qualified Text.Blaze.Renderer.String as Blaze
+import qualified Text.Blaze as Blaze
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
-import Control.Monad.Trans.Reader (ReaderT (..))
-import Conduit (MonadThrow)
 import Control.Monad.IO.Class
-import qualified Control.Monad.State.Class as MS
 import System.IO
 import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
@@ -257,7 +256,6 @@ import Text.XML.Cursor hiding (element)
 import qualified Text.XML.Cursor as C
 import qualified Text.HTML.DOM as HD
 import Control.Monad.Trans.Writer
-import Data.IORef
 import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
@@ -281,6 +279,7 @@ import Data.Aeson (FromJSON, eitherDecode')
 import Control.Monad (unless)
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
+import Yesod.Test.Internal.SIO
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -431,7 +430,7 @@ yit :: String -> YesodExample site () -> YesodSpec site
 yit label example = tell [YesodSpecItem label example]
 
 -- | Modifies the site ('yedSite') of the test, and creates a new WAI app ('yedApp') for it.
--- 
+--
 -- yesod-test allows sending requests to your application to test that it handles them correctly.
 -- In rare cases, you may wish to modify that application in the middle of a test.
 -- This may be useful if you wish to, for example, test your application under a certain configuration,
@@ -455,7 +454,7 @@ testModifySite :: YesodDispatch site
                => (site -> IO (site, Middleware)) -- ^ A function from the existing site, to a new site and middleware for a WAI app.
                -> YesodExample site ()
 testModifySite newSiteFn = do
-  currentSite <- getTestYesod 
+  currentSite <- getTestYesod
   (newSite, middleware) <- liftIO $ newSiteFn currentSite
   app <- liftIO $ toWaiAppPlain newSite
   modifySIO $ \yed -> yed { yedSite = newSite, yedApp = middleware app }
@@ -547,10 +546,8 @@ htmlQuery = htmlQuery' yedResponse []
 -- @since 1.5.2
 assertEq :: (HasCallStack, Eq a, Show a) => String -> a -> a -> YesodExample site ()
 assertEq m a b =
-  liftIO $ HUnit.assertBool msg (a == b)
-  where msg = "Assertion: " ++ m ++ "\n" ++
-              "First argument:  " ++ ppShow a ++ "\n" ++
-              "Second argument: " ++ ppShow b ++ "\n"
+  liftIO $ HUnit.assertEqual msg a b
+  where msg = "Assertion: " ++ m ++ "\n"
 
 -- | Asserts that the two given values are not equal.
 --
@@ -711,8 +708,13 @@ htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
     [] -> failure $ "Nothing matched css query: " <> query
-    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
-          DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search  ++ " matches: " ++ show matches) $
+          DL.all (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches)
+
+-- | puts the search trough the same escaping as the matches are.
+--   this helps with matching on special characters
+escape :: String -> String
+escape = Blaze.renderMarkup . Blaze.string
 
 -- | Queries the HTML using a CSS selector, and passes if any matched
 -- element contains the given string.
@@ -729,8 +731,8 @@ htmlAnyContain query search = do
   matches <- htmlQuery query
   case matches of
     [] -> failure $ "Nothing matched css query: " <> query
-    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
-          DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search ++ " matches: " ++ show matches) $
+          DL.any (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches)
 
 -- | Queries the HTML using a CSS selector, and fails if any matched
 -- element contains the given string (in other words, it is the logical
@@ -746,7 +748,7 @@ htmlAnyContain query search = do
 htmlNoneContain :: HasCallStack => Query -> String -> YesodExample site ()
 htmlNoneContain query search = do
   matches <- htmlQuery query
-  case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
+  case DL.filter (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches) of
     [] -> return ()
     found -> failure $ "Found " <> T.pack (show $ length found) <>
                 " instances of " <> T.pack search <> " in " <> query <> " elements"
@@ -812,7 +814,7 @@ printMatches query = do
   matches <- htmlQuery query
   liftIO $ hPutStrLn stderr $ show matches
 
--- | Add a parameter with the given name and value to the request body. 
+-- | Add a parameter with the given name and value to the request body.
 -- This function can be called multiple times to add multiple parameters, and be mixed with calls to 'addFile'.
 --
 -- "Post parameter" is an informal description of what is submitted by making an HTTP POST with an HTML @\<form\>@.
@@ -1367,7 +1369,7 @@ setUrl url' = do
 -- > get "/foobar"
 -- > clickOn "a#idofthelink"
 --
--- @since 1.5.7 
+-- @since 1.5.7
 clickOn :: (HasCallStack, Yesod site) => Query -> YesodExample site ()
 clickOn query = do
   withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
@@ -1596,32 +1598,3 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
                 return ())
             params
             ($ ())
-
--- | State + IO
---
--- @since 1.6.0
-newtype SIO s a = SIO (ReaderT (IORef s) IO a)
-  deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
-
-instance MS.MonadState s (SIO s)
-  where
-  get = getSIO
-  put = putSIO
-
-getSIO :: SIO s s
-getSIO = SIO $ ReaderT readIORef
-
-putSIO :: s -> SIO s ()
-putSIO s = SIO $ ReaderT $ \ref -> writeIORef ref $! s
-
-modifySIO :: (s -> s) -> SIO s ()
-modifySIO f = SIO $ ReaderT $ \ref -> modifyIORef' ref f
-
-evalSIO :: SIO s a -> s -> IO a
-evalSIO (SIO (ReaderT f)) s = newIORef s >>= f
-
-execSIO :: SIO s () -> s -> IO s
-execSIO (SIO (ReaderT f)) s = do
-  ref <- newIORef s
-  f ref
-  readIORef ref

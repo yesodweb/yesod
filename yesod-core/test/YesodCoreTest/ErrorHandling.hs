@@ -1,12 +1,15 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase #-}
+
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
     , resourcesApp
     ) where
 
+import  Data.Typeable(cast)
 import qualified System.Mem as Mem
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent as Conc
@@ -16,16 +19,19 @@ import Network.Wai
 import Network.Wai.Test
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, try, AsyncException(..))
 import           UnliftIO.Exception(finally)
 import Network.HTTP.Types (Status, mkStatus)
 import Data.ByteString.Builder (Builder, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
+import qualified Network.Wai.Handler.Warp as Warp
+import qualified YesodCoreTest.ErrorHandling.CustomApp as Custom
 import Control.Monad.Trans.State (StateT (..))
 import Control.Monad.Trans.Reader (ReaderT (..))
 import qualified UnliftIO.Exception as E
+import System.Timeout(timeout)
 
 data App = App
 
@@ -52,7 +58,8 @@ mkYesod "App" [parseRoutes|
 /only-plain-text OnlyPlainTextR GET
 
 /thread-killed ThreadKilledR GET
-/async-session AsyncSessionR GET
+/connection-closed-by-peer ConnectionClosedPeerR GET
+/sleep-sec SleepASecR GET
 |]
 
 overrideStatus :: Status
@@ -125,15 +132,16 @@ getThreadKilledR = do
   x <- liftIO Conc.myThreadId
   liftIO $ Async.withAsync (Conc.killThread x) Async.wait
   pure "unreachablle"
+getSleepASecR :: Handler Html
+getSleepASecR = do
+  liftIO $ Conc.threadDelay 1000000
+  pure "slept a second"
 
-getAsyncSessionR :: Handler Html
-getAsyncSessionR = do
-  setSession "jap" $ foldMap (pack . show) [0..999999999999999999999999] -- it's going to take a while to figure this one out
+getConnectionClosedPeerR :: Handler Html
+getConnectionClosedPeerR = do
   x <- liftIO Conc.myThreadId
-  liftIO $ forkIO $ do
-     liftIO $ Conc.threadDelay 100000
-     Conc.killThread x
-  pure "reachable"
+  liftIO $ Async.withAsync (E.throwTo x Warp.ConnectionClosedByPeer) Async.wait
+  pure "unreachablle"
 
 getErrorR :: Int -> Handler ()
 getErrorR 1 = setSession undefined "foo"
@@ -178,8 +186,10 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "accept CSS, permission denied -> 403" caseCssPermissionDenied
       it "accept image, non-existent path -> 404" caseImageNotFound
       it "accept video, bad method -> 405" caseVideoBadMethod
-      it "thread killed = 500" caseThreadKilled500
-      it "async session exception = 500" asyncSessionKilled500
+      it "default config exception rethrows connection closed" caseDefaultConnectionCloseRethrows
+      it "custom config rethrows an exception" caseCustomExceptionRethrows
+      it "thread killed rethrow" caseThreadKilledRethrow
+      it "can timeout a runner" canTimeoutARunner
 
 runner :: Session a -> IO a
 runner f = toWaiApp App >>= runSession f
@@ -318,14 +328,49 @@ caseVideoBadMethod = runner $ do
             }
     assertStatus 405 res
 
-caseThreadKilled500 :: IO ()
-caseThreadKilled500 = runner $ do
-  res <- request defaultRequest { pathInfo = ["thread-killed"] }
-  assertStatus 500 res
-  assertBodyContains "Internal Server Error" res
+fromExceptionUnwrap :: E.Exception e => SomeException -> Maybe e
+fromExceptionUnwrap se
+  | Just (E.AsyncExceptionWrapper e) <- E.fromException se = cast e
+  | Just (E.SyncExceptionWrapper e) <- E.fromException se = cast e
+  | otherwise = E.fromException se
 
-asyncSessionKilled500 :: IO ()
-asyncSessionKilled500 = runner $ do
-  res <- request defaultRequest { pathInfo = ["async-session"] }
-  assertStatus 500 res
-  assertBodyContains "Internal Server Error" res
+
+caseThreadKilledRethrow :: IO ()
+caseThreadKilledRethrow =
+  shouldThrow testcode $ \e -> case fromExceptionUnwrap e of
+                                (Just ThreadKilled) -> True
+                                _ -> False
+  where
+  testcode = runner $ do
+                res <- request defaultRequest { pathInfo = ["thread-killed"] }
+                assertStatus 500 res
+                assertBodyContains "Internal Server Error" res
+
+caseDefaultConnectionCloseRethrows :: IO ()
+caseDefaultConnectionCloseRethrows =
+  shouldThrow testcode $ \e -> case fromExceptionUnwrap e of
+                                  Just Warp.ConnectionClosedByPeer -> True
+                                  _ -> False
+
+  where
+  testcode = runner $ do
+      _res <- request defaultRequest { pathInfo = ["connection-closed-by-peer"] }
+      pure ()
+
+caseCustomExceptionRethrows :: IO ()
+caseCustomExceptionRethrows =
+  shouldThrow testcode $ \case Custom.MkMyException -> True
+  where
+    testcode = customAppRunner $ do
+      _res <- request defaultRequest { pathInfo = ["throw-custom-exception"] }
+      pure ()
+    customAppRunner f = toWaiApp Custom.CustomApp >>= runSession f
+
+
+canTimeoutARunner :: IO ()
+canTimeoutARunner = do
+  res <- timeout 1000 $ runner $ do
+    res <- request defaultRequest { pathInfo = ["sleep-sec"] }
+    assertStatus 200 res -- if 500, it's catching the timeout exception
+    pure () -- it should've timeout by now, either being 500 or Nothing
+  res `shouldBe` Nothing -- make sure that pure statement didn't happen.
