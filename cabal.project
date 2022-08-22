@@ -54,7 +54,6 @@ allow-newer:
 
 constraints:
     entropy <= 0.4.1.7
-  , persistent == 2.14.1.0
 
 -- https://github.com/vincenthz/hs-memory/pull/93
 source-repository-package
