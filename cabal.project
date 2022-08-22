@@ -49,43 +49,14 @@ allow-newer:
     , postgresql-libpq:base
     , hsc2hs:base
     , wai-logger:*
+    , persistent:template-haskell
+    , persistent:aeson
 
-
--- https://github.com/yesodweb/shakespeare/pull/267
-source-repository-package
-    type: git
-    location: https://github.com/yesodweb/shakespeare
-    tag: e24c732a7d24d1f3ffb18fb46a52e9b2dc65b226
-
--- https://github.com/haskell-foundation/foundation/pull/564
-source-repository-package
-    type: git
-    location: https://github.com/parsonsmatt/foundation
-    tag: 688c32ccd9a951bc96dd09423a6e6684f091d510
-    subdir: basement
-    subdir: foundation
-
--- https://github.com/GaloisInc/cereal/pull/103
-source-repository-package
-    type: git
-    location: https://github.com/parsonsmatt/cereal
-    tag: b4acf0b778a1d5da305f4de013ce7f32b53d8282
-
--- probably an artifact from allow-newer
-source-repository-package
-    type: git
-    location: https://github.com/parsonsmatt/bson
-    tag: 3ee6ffa508f7b609ca81bc3cdaf9ccc10c1fccb1
+constraints:
+    entropy <= 0.4.1.7
 
 -- https://github.com/vincenthz/hs-memory/pull/93
 source-repository-package
     type: git
     location: https://github.com/parsonsmatt/hs-memory
     tag: 296b79424854eae293f6ba09b5308a0bf4dfd6d5
-
--- https://github.com/yesodweb/wai/pull/889
-source-repository-package
-    type: git
-    location: https://github.com/yesodweb/wai
-    tag: 42f27a51fe5ffd83555781dab98978b0829f0cf6
-    subdir: warp
