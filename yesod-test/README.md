@@ -42,9 +42,9 @@ spec = withApp $ do
           addToken -- Add the CSRF _token field with the currently shown value.
 
           -- Lookup field by the text on the labels pointing to them.
-          byLabel "Email:" "gustavo@cerati.com"
-          byLabel "Password:" "secret"
-          byLabel "Confirm:" "secret"
+          byLabelExact "Email:" "gustavo@cerati.com"
+          byLabelExact "Password:" "secret"
+          byLabelExact "Confirm:" "secret"
 
       it "Sends another form, this one has a file" $ do
         request $ do
