@@ -28,7 +28,9 @@ import           Data.String                           (fromString)
 import           Data.Time                             (getCurrentTime)
 import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
+#if MIN_VERSION_Cabal(3,8,0)
 import qualified Distribution.Simple.PackageDescription as D
+#endif
 #if MIN_VERSION_Cabal(2, 2, 0)
 import qualified Distribution.PackageDescription.Parsec as D
 #else
