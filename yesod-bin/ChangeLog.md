@@ -2,7 +2,7 @@
 
 ## 1.6.2.2
 
-* Support Cabal 3.7 [#1769](https://github.com/yesodweb/yesod/pull/1769)
+* Support Cabal 3.8 [#1769](https://github.com/yesodweb/yesod/pull/1769)
 
 ## 1.6.2.1
 
