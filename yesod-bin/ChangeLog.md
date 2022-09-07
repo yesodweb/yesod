@@ -1,5 +1,9 @@
 # ChangeLog for yesod-bin
 
+## 1.6.2.2
+
+* Support Cabal 3.8 [#1769](https://github.com/yesodweb/yesod/pull/1769)
+
 ## 1.6.2.1
 
 * Support Cabal 3.6 [#1754](https://github.com/yesodweb/yesod/pull/1754)
