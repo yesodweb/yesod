@@ -170,6 +170,7 @@ module Yesod.Test
     , byLabelContain
     , byLabelPrefix
     , byLabelSuffix
+    , bySelectorLabelContain
     , fileByLabel
     , fileByLabelExact
     , fileByLabelContain
@@ -908,12 +909,69 @@ genericNameFromLabel match label = do
         name:_ -> return name
     _ -> failure $ "More than one label contained " <> label
 
+-- |
+-- This looks up the name of a field based on a CSS selector and the contents of the label pointing to it.
+genericNameFromSelectorLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> T.Text -> RequestBuilder site T.Text
+genericNameFromSelectorLabel match selector label = do
+  mres <- fmap rbdResponse getSIO
+  res <-
+    case mres of
+      Nothing -> failure "genericNameSelectorFromLabel: No response available"
+      Just res -> return res
+  let body = simpleBody res
+  html <-
+    case findBySelector body selector of
+        Left parseError -> failure $ "genericNameFromSelectorLabel: Parse error" <> T.pack parseError
+        Right [] -> failure $ "genericNameFromSelectorLabel: No fragments match selector " <> selector
+        Right [matchingFragment] -> pure $ BSL8.pack matchingFragment
+        Right _matchingFragments -> failure $ "genericNameFromSelectorLabel: Multiple fragments match selector " <> selector
+  let
+    parsedHTML = parseHTML html
+    mlabel = parsedHTML
+                $// C.element "label"
+                >=> isContentMatch label
+    mfor = mlabel >>= attribute "for"
+
+    isContentMatch x c
+        | x `match` T.concat (c $// content) = [c]
+        | otherwise = []
+
+  case mfor of
+    for:[] -> do
+      let mname = parsedHTML
+                    $// attributeIs "id" for
+                    >=> attribute "name"
+      case mname of
+        "":_ -> failure $ T.concat
+            [ "Label "
+            , label
+            , " resolved to id "
+            , for
+            , " which was not found. "
+            ]
+        name:_ -> return name
+        [] -> failure $ "No input with id " <> for
+    [] ->
+      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
+        [] -> failure $ "No label contained: " <> label
+        name:_ -> return name
+    _ -> failure $ "More than one label contained " <> label
+
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
                  -> T.Text                     -- ^ The value to set the parameter to.
                  -> RequestBuilder site ()
 byLabelWithMatch match label value = do
   name <- genericNameFromLabel match label
+  addPostParam name value
+
+bySelectorLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+                 -> T.Text                     -- ^ The CSS selector.
+                 -> T.Text                     -- ^ The text contained in the @\<label>@.
+                 -> T.Text                     -- ^ The value to set the parameter to.
+                 -> RequestBuilder site ()
+bySelectorLabelWithMatch match selector label value = do
+  name <- genericNameFromSelectorLabel match selector label
   addPostParam name value
 
 -- How does this work for the alternate <label><input></label> syntax?
@@ -1028,6 +1086,18 @@ byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
               -> T.Text -- ^ The value to set the parameter to.
               -> RequestBuilder site ()
 byLabelSuffix = byLabelWithMatch T.isSuffixOf
+
+-- |
+-- Note: This function throws an error if it finds multiple labels or if the
+-- CSS selector fails to parse, doesn't match any fragment, or matches multiple
+-- fragments.
+--
+-- @since 1.6.15
+bySelectorLabelContain :: T.Text -- ^ The CSS selector.
+               -> T.Text -- ^ The text in the @\<label>@.
+               -> T.Text -- ^ The value to set the parameter to.
+               -> RequestBuilder site ()
+bySelectorLabelContain = bySelectorLabelWithMatch T.isInfixOf
 
 fileByLabelWithMatch  :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                       -> T.Text                     -- ^ The text contained in the @\<label>@.
