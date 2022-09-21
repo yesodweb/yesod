@@ -1,5 +1,10 @@
 # ChangeLog for yesod-test
 
+
+## 1.6.15
+
+* Add `bySelectorLabelContain`. [#1781](https://github.com/yesodweb/yesod/pull/1781)
+
 ## 1.6.14
 
 * Fix quotes not matching in htmlContain* functions [#1768](https://github.com/yesodweb/yesod/pull/1768).
