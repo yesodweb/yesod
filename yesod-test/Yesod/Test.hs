@@ -877,37 +877,10 @@ genericNameFromLabel match label = do
     case mres of
       Nothing -> failure "genericNameFromLabel: No response available"
       Just res -> return res
-  let
-    body = simpleBody res
-    mlabel = parseHTML body
-                $// C.element "label"
-                >=> isContentMatch label
-    mfor = mlabel >>= attribute "for"
-
-    isContentMatch x c
-        | x `match` T.concat (c $// content) = [c]
-        | otherwise = []
-
-  case mfor of
-    for:[] -> do
-      let mname = parseHTML body
-                    $// attributeIs "id" for
-                    >=> attribute "name"
-      case mname of
-        "":_ -> failure $ T.concat
-            [ "Label "
-            , label
-            , " resolved to id "
-            , for
-            , " which was not found. "
-            ]
-        name:_ -> return name
-        [] -> failure $ "No input with id " <> for
-    [] ->
-      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
-        [] -> failure $ "No label contained: " <> label
-        name:_ -> return name
-    _ -> failure $ "More than one label contained " <> label
+  let body = simpleBody res
+  case genericNameFromHTML match label body of
+    Left e -> failure e
+    Right x -> pure x
 
 -- |
 -- This looks up the name of a field based on a CSS selector and the contents of the label pointing to it.
@@ -925,6 +898,12 @@ genericNameFromSelectorLabel match selector label = do
         Right [] -> failure $ "genericNameFromSelectorLabel: No fragments match selector " <> selector
         Right [matchingFragment] -> pure $ BSL8.pack matchingFragment
         Right _matchingFragments -> failure $ "genericNameFromSelectorLabel: Multiple fragments match selector " <> selector
+  case genericNameFromHTML match label html of
+    Left e -> failure e
+    Right x -> pure x
+
+genericNameFromHTML :: (T.Text -> T.Text -> Bool) -> T.Text -> HtmlLBS -> Either T.Text T.Text
+genericNameFromHTML match label html =
   let
     parsedHTML = parseHTML html
     mlabel = parsedHTML
@@ -936,26 +915,26 @@ genericNameFromSelectorLabel match selector label = do
         | x `match` T.concat (c $// content) = [c]
         | otherwise = []
 
-  case mfor of
+  in case mfor of
     for:[] -> do
       let mname = parsedHTML
                     $// attributeIs "id" for
                     >=> attribute "name"
       case mname of
-        "":_ -> failure $ T.concat
+        "":_ -> Left $ T.concat
             [ "Label "
             , label
             , " resolved to id "
             , for
             , " which was not found. "
             ]
-        name:_ -> return name
-        [] -> failure $ "No input with id " <> for
+        name:_ -> Right name
+        [] -> Left $ "No input with id " <> for
     [] ->
       case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
-        [] -> failure $ "No label contained: " <> label
-        name:_ -> return name
-    _ -> failure $ "More than one label contained " <> label
+        [] -> Left $ "No label contained: " <> label
+        name:_ -> Right name
+    _ -> Left $ "More than one label contained " <> label
 
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
