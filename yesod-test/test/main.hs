@@ -319,6 +319,21 @@ main = hspec $ do
                     setUrl ("label-contain-error" :: Text)
                     byLabelContain "hobby" "fishing")
                 assertEq "failure wasn't called" (isLeft bad) True
+            yit "bySelectorLabelContain looks for the selector and label which contain the given label name" $ do
+                get ("/selector-label-contain" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    bySelectorLabelContain "#hobby-container" "hobby" "fishing"
+                res <- maybe "Couldn't get response" simpleBody <$> getResponse
+                assertEq "hobby isn't set" res "fishing"
+            yit "bySelectorLabelContain throws an error if the selector matches multiple elements" $ do
+                get ("selector-label-contain-error" :: Text)
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    bySelectorLabelContain "#hobby-container" "hobby" "fishing")
+                assertEq "failure wasn't called" (isLeft bad) True
             yit "byLabelPrefix matches over the prefix of the labels" $ do
                 get ("/label-prefix" :: Text)
                 request $ do
@@ -576,6 +591,10 @@ app = liteApp $ do
         return ("<html><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
     onStatic "label-contain-error" $ dispatchTo $
         return ("<html><label for='hobby'>XXXhobbyXXX</label><label for='hobby2'>XXXhobby2XXX</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "selector-label-contain" $ dispatchTo $
+        return ("<html><div><label for='hobby-1'>XXXhobbyXXX</label><input type='text' name='hobby-1' id='hobby-1'></div><div id='hobby-container'><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></div></html>" :: Text)
+    onStatic "selector-label-contain-error" $ dispatchTo $
+        return ("<html><div id='hobby-container'><label for='hobby-1'>XXXhobbyXXX</label><input type='text' name='hobby-1' id='hobby-1'></div><div id='hobby-container'><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></div></html>" :: Text)
     onStatic "label-prefix" $ dispatchTo $
         return ("<html><label for='hobby'>hobbyXXX</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
     onStatic "label-prefix-error" $ dispatchTo $
