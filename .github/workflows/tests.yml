@@ -55,5 +55,4 @@ jobs:
             mkdir -p ../_newstack
             stack upgrade --force-download --local-bin-path ../_newstack
             ../_newstack/stack --version
-            ../_newstack/stack
             ../_newstack/stack test --fast --no-terminal ${{ matrix.args }}
