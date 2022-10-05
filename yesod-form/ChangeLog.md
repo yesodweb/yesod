@@ -2,7 +2,7 @@
 
 ## 1.7.3
 
-* Fixed `radioFiels` according to Bootstrap 3 docs. [#1783](https://github.com/yesodweb/yesod/pull/1783)
+* Fixed `radioField` according to Bootstrap 3 docs. [#1783](https://github.com/yesodweb/yesod/pull/1783)
 
 ## 1.7.2
 
