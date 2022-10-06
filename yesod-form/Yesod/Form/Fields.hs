@@ -177,17 +177,17 @@ timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Tim
 timeField = timeFieldTypeTime
 
 -- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
--- 
+--
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
 -- @since 1.4.2
-timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
+timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeFieldTypeTime = timeFieldOfType "time"
 
 -- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
 --
 -- This function exists for backwards compatibility with the old implementation of 'timeField', which used to use @type="text"@. Consider using 'timeField' or 'timeFieldTypeTime' for improved UX and validation from the browser.
--- 
+--
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
 -- @since 1.4.2
@@ -223,7 +223,7 @@ $newline never
   where showVal = either id (pack . renderHtml)
 
 -- | A newtype wrapper around a 'Text' whose 'ToMarkup' instance converts newlines to HTML @\<br>@ tags.
--- 
+--
 -- (When text is entered into a @\<textarea>@, newline characters are used to separate lines.
 -- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
 -- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
@@ -352,7 +352,7 @@ timeParser = do
         if i < 0 || i >= 60
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
-            
+
 -- | Creates an input with @type="email"@. Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see "Text.Email.Validate").
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
@@ -534,17 +534,19 @@ radioField :: (Eq a, RenderMessage site FormMessage)
 radioField = withRadioField
     (\theId optionWidget -> [whamlet|
 $newline never
-<label .radio for=#{theId}-none>
-    <div>
-        ^{optionWidget}
-        _{MsgSelectNone}
+<div .radio>
+    <label for=#{theId}-none>
+        <div>
+            ^{optionWidget}
+            _{MsgSelectNone}
 |])
     (\theId value _isSel text optionWidget -> [whamlet|
 $newline never
-<label .radio for=#{theId}-#{value}>
-    <div>
-        ^{optionWidget}
-        \#{text}
+<div .radio>
+    <label for=#{theId}-#{value}>
+        <div>
+            ^{optionWidget}
+            \#{text}
 |])
 
 
@@ -580,7 +582,7 @@ $newline never
 --
 -- If this field is optional, the first radio button is labeled "\<None>", the second \"Yes" and the third \"No".
 --
--- If this field is required, the first radio button is labeled \"Yes" and the second \"No". 
+-- If this field is required, the first radio button is labeled \"Yes" and the second \"No".
 --
 -- (Exact label titles will depend on localization).
 boolField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
@@ -614,7 +616,7 @@ $newline never
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
--- | Creates an input with @type="checkbox"@. 
+-- | Creates an input with @type="checkbox"@.
 --   While the default @'boolField'@ implements a radio button so you
 --   can differentiate between an empty response (@Nothing@) and a no
 --   response (@Just False@), this simpler checkbox field returns an empty
@@ -972,15 +974,15 @@ prependZero t0 = if T.null t1
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.
--- 
+--
 -- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
--- 
+--
 -- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.
 
 -- | Creates an input with @type="color"@.
 --   The input value must be provided in hexadecimal format #rrggbb.
 --
--- @since 1.7.1 
+-- @since 1.7.1
 colorField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 colorField = Field
     { fieldParse = parseHelper $ \s ->

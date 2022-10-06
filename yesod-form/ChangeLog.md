@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.3
+
+* Fixed `radioField` according to Bootstrap 3 docs. [#1783](https://github.com/yesodweb/yesod/pull/1783)
+
 ## 1.7.2
 
 * Added `withRadioField` and re-express `radioField` into that. [#1775](https://github.com/yesodweb/yesod/pull/1775)
