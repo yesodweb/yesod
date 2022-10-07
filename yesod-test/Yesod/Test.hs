@@ -204,6 +204,9 @@ module Yesod.Test
     , htmlAllContain
     , htmlAnyContain
     , htmlNoneContain
+    , htmlAllContainPreEscaped
+    , htmlAnyContainPreEscaped
+    , htmlNoneContainPreEscaped
     , htmlCount
     , requireJSONResponse
 
@@ -750,6 +753,61 @@ htmlNoneContain :: HasCallStack => Query -> String -> YesodExample site ()
 htmlNoneContain query search = do
   matches <- htmlQuery query
   case DL.filter (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches) of
+    [] -> return ()
+    found -> failure $ "Found " <> T.pack (show $ length found) <>
+                " instances of " <> T.pack search <> " in " <> query <> " elements"
+
+-- | Queries the HTML using a CSS selector, and all matched elements must contain
+-- the given string verbatim.
+--
+-- ==== __Examples__
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > get HomeR
+-- > htmlAllContainPreEscaped "meta" " "content=\"site description\"" -- Every <meta> tag contains the string "content=site description" verbatim
+--
+-- Since 16.6.6
+htmlAllContainPreEscaped :: HasCallStack => Query -> String -> YesodExample site ()
+htmlAllContainPreEscaped query search = do
+  matches <- htmlQuery query
+  case matches of
+    [] -> failure $ "Nothing matched css query: " <> query
+    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search  ++ " matches: " ++ show matches) $
+          DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+
+-- | Queries the HTML using a CSS selector, and passes if any matched
+-- element contains the given string verbatim.
+--
+-- ==== __Examples__
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > get HomeR
+-- > htmlAnyContainPreEscaped "meta" "content=\"site description\"" -- At least one <meta> tag contains the string "content=site description" verbatim
+--
+-- Since 16.6.6
+htmlAnyContainPreEscaped :: HasCallStack => Query -> String -> YesodExample site ()
+htmlAnyContainPreEscaped query search = do
+  matches <- htmlQuery query
+  case matches of
+    [] -> failure $ "Nothing matched css query: " <> query
+    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search ++ " matches: " ++ show matches) $
+          DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+
+-- | Queries the HTML using a CSS selector, and fails if any matched
+-- element contains the given string verbatim (in other words, it is
+-- the logical inverse of htmlAnyContainPreEscaped).
+--
+-- ==== __Examples__
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > get HomeR
+-- > htmlNoneContainPreEscaped "meta" "content=\"site description\"" -- No <meta> tag contains the string "content=site description" verbatim
+--
+-- Since 16.6.6
+htmlNoneContainPreEscaped :: HasCallStack => Query -> String -> YesodExample site ()
+htmlNoneContainPreEscaped query search = do
+  matches <- htmlQuery query
+  case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
     [] -> return ()
     found -> failure $ "Found " <> T.pack (show $ length found) <>
                 " instances of " <> T.pack search <> " in " <> query <> " elements"
