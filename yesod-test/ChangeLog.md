@@ -1,5 +1,8 @@
 # ChangeLog for yesod-test
 
+## 1.6.16
+
+* Add `htmlAnyContainPreEscaped`, `htmlAllContainPreEscaped`, `htmlNoneContainPreEscaped`. [#1786](https://github.com/yesodweb/yesod/pull/1786)
 
 ## 1.6.15
 
