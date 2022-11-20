@@ -1,6 +1,6 @@
 cabal-version:       >=1.10
 name:                yesod-websockets
-version:             0.3.0.3
+version:             0.3.0.4
 synopsis:            WebSockets support for Yesod
 homepage:            https://github.com/yesodweb/yesod
 license:             MIT
