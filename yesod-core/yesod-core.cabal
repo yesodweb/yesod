@@ -43,7 +43,7 @@ library
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
                    , memory
-                   , monad-logger          >= 0.3.10   && < 0.4
+                   , monad-logger          >= 0.3.10   && < 0.3.38
                    , mtl
                    , parsec                >= 2        && < 3.2
                    , path-pieces           >= 0.1.2    && < 0.3
