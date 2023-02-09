@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.4
+
+* Added a `Monad AForm` instance only when `transformers` >= 0.6 [#1795](https://github.com/yesodweb/yesod/pull/1795)
+
 ## 1.7.3
 
 * Fixed `radioField` according to Bootstrap 3 docs. [#1783](https://github.com/yesodweb/yesod/pull/1783)
