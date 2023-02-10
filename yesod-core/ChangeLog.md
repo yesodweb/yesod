@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.24.1
+
+* Adapt to removal of `ListT` from transformers-0.6. [#1796](https://github.com/yesodweb/yesod/pull/1796)
+
 ## 1.6.24.0
 
 * Make catching exceptions configurable and set the default back to rethrowing async exceptions. [#1772](https://github.com/yesodweb/yesod/pull/1772).

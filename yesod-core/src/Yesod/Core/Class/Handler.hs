@@ -19,7 +19,9 @@ import Control.Monad.Trans.Class (lift)
 import Data.Conduit.Internal (Pipe, ConduitM)
 
 import Control.Monad.Trans.Identity ( IdentityT)
+#if !MIN_VERSION_transformers(0,6,0)
 import Control.Monad.Trans.List     ( ListT    )
+#endif
 import Control.Monad.Trans.Maybe    ( MaybeT   )
 import Control.Monad.Trans.Except   ( ExceptT  )
 import Control.Monad.Trans.Reader   ( ReaderT  )
@@ -76,7 +78,9 @@ instance MonadHandler (WidgetFor site) where
 #define GO(T) instance MonadHandler m => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; type SubHandlerSite (T m) = SubHandlerSite m; liftHandler = lift . liftHandler; liftSubHandler = lift . liftSubHandler
 #define GOX(X, T) instance (X, MonadHandler m) => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; type SubHandlerSite (T m) = SubHandlerSite m; liftHandler = lift . liftHandler; liftSubHandler = lift . liftSubHandler
 GO(IdentityT)
+#if !MIN_VERSION_transformers(0,6,0)
 GO(ListT)
+#endif
 GO(MaybeT)
 GO(ExceptT e)
 GO(ReaderT r)
@@ -104,7 +108,9 @@ liftWidgetT = liftWidget
 #define GO(T) instance MonadWidget m => MonadWidget (T m) where liftWidget = lift . liftWidget
 #define GOX(X, T) instance (X, MonadWidget m) => MonadWidget (T m) where liftWidget = lift . liftWidget
 GO(IdentityT)
+#if !MIN_VERSION_transformers(0,6,0)
 GO(ListT)
+#endif
 GO(MaybeT)
 GO(ExceptT e)
 GO(ReaderT r)
