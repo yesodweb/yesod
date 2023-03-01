@@ -73,6 +73,7 @@ import Control.Exception (Exception)
 import Network.HTTP.Types (Status, internalServerError500, unauthorized401)
 import qualified Control.Monad.Trans.Writer    as Writer
 import Control.Monad (void)
+import Data.Kind (Type)
 
 type AuthRoute = Route Auth
 
@@ -532,7 +533,7 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
     -- > AuthEntity MySite ~ User
     --
     -- @since 1.2.0
-    type AuthEntity master :: *
+    type AuthEntity master :: Type
     type AuthEntity master = KeyEntity (AuthId master)
 
     getAuthEntity :: (MonadHandler m, HandlerSite m ~ master)

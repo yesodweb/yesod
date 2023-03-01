@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.11.1
+
+* No star is type [#1797](https://github.com/yesodweb/yesod/pull/1797)
+
 ## 1.6.11
 
 * Add support for aeson 2

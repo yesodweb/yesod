@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.24.2
+
+* No star is type [#1797](https://github.com/yesodweb/yesod/pull/1797)
+
 ## 1.6.24.1
 
 * Adapt to removal of `ListT` from transformers-0.6. [#1796](https://github.com/yesodweb/yesod/pull/1796)

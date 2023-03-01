@@ -66,6 +66,7 @@ import Yesod.Routes.Class
 import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
 import Text.Shakespeare.I18N (RenderMessage)
 import Data.Text (Text)
+import Data.Kind (Type)
 import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP), newName)
@@ -79,7 +80,7 @@ import qualified Data.Text.Lazy.Builder as TB
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
 
-type WidgetT site (m :: * -> *) = WidgetFor site
+type WidgetT site (m :: Type -> Type) = WidgetFor site
 {-# DEPRECATED WidgetT "Use WidgetFor directly" #-}
 
 preEscapedLazyText :: TL.Text -> Html
