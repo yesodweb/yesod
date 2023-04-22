@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.5
+
+* Add Romanian translation [#1801](https://github.com/yesodweb/yesod/pull/1801)
+
 ## 1.7.4
 
 * Added a `Monad AForm` instance only when `transformers` >= 0.6 [#1795](https://github.com/yesodweb/yesod/pull/1795)
