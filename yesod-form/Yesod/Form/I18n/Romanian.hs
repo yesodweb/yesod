@@ -5,6 +5,10 @@ import Yesod.Form.Types (FormMessage (..))
 import Data.Monoid (mappend)
 import Data.Text (Text)
 
+-- |
+-- Romanian translation
+--
+-- @since 1.7.5
 englishFormMessage :: FormMessage -> Text
 englishFormMessage (MsgInvalidInteger t) = "Număr întreg nevalid: " `Data.Monoid.mappend` t
 englishFormMessage (MsgInvalidNumber t) = "Număr nevalid: " `mappend` t
