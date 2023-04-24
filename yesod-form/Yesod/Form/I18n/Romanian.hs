@@ -27,4 +27,4 @@ romanianFormMessage (MsgInvalidBool t) = "Valoare booleană nevalidă: " `mappen
 romanianFormMessage MsgBoolYes = "Da"
 romanianFormMessage MsgBoolNo = "Nu"
 romanianFormMessage MsgDelete = "Șterge?"
-romanianFormMessage (MsgInvalidHexColorFormat t) = "Culoarea nevalidă. Formatul necesar este #rrggbb în hexazecimal: " `mappend` t
+romanianFormMessage (MsgInvalidHexColorFormat t) = "Culoare nevalidă. Formatul necesar este #rrggbb în hexazecimal: " `mappend` t
