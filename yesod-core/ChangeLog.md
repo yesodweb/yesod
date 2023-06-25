@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.24.3
+
+* Fix subsite-to-subsite dispatch [#1805](https://github.com/yesodweb/yesod/pull/1805)
+
 ## 1.6.24.2
 
 * No star is type [#1797](https://github.com/yesodweb/yesod/pull/1797)
