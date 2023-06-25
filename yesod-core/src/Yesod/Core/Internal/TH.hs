@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Core.Internal.TH where
 
 import Prelude hiding (exp)
@@ -22,6 +23,7 @@ import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
+import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
@@ -217,14 +219,7 @@ mkYesodSubDispatch res = do
             (mkMDS 
                 return 
                 [|subHelper|] 
-                [|\_ getSub toParent env -> yesodSubDispatch
-                    YesodSubRunnerEnv
-                    { ysreParentRunner = ysreParentRunner env
-                    , ysreGetSub = getSub . ysreGetSub env
-                    , ysreToParentRoute = ysreToParentRoute env . toParent
-                    , ysreParentEnv = ysreParentEnv env
-                    }
-                |]) 
+                [|subTopDispatch|]) 
         res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
@@ -236,6 +231,26 @@ mkYesodSubDispatch res = do
                     [innerFun]
                 ]
     return $ LetE [fun] (VarE helper)
+    
+subTopDispatch :: 
+    (YesodSubDispatch sub master) =>
+        (forall content. ToTypedContent content =>
+            SubHandlerFor child master content ->
+            YesodSubRunnerEnv child master ->
+            Maybe (Route child) ->
+            W.Application
+        ) ->
+        (mid -> sub) ->
+        (Route sub -> Route mid) ->
+        YesodSubRunnerEnv mid master ->
+        W.Application
+subTopDispatch _ getSub toParent env = yesodSubDispatch
+            (YesodSubRunnerEnv
+            { ysreParentRunner = ysreParentRunner env
+            , ysreGetSub = getSub . ysreGetSub env
+            , ysreToParentRoute = ysreToParentRoute env . toParent
+            , ysreParentEnv = ysreParentEnv env
+            })
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
