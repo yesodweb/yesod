@@ -9,6 +9,7 @@ import YesodCoreTest.Meta
 import YesodCoreTest.Links
 import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
+import YesodCoreTest.SubSub
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -43,6 +44,7 @@ specs = do
       mediaTest
       linksTest
       noOverloadedTest
+      subSubTest
       internalRequestTest
       errorHandlingTest
       cacheTest

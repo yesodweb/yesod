@@ -173,6 +173,8 @@ test-suite tests
                    YesodCoreTest.StubSslOnly
                    YesodCoreTest.StubStrictSameSite
                    YesodCoreTest.StubUnsecured
+                   YesodCoreTest.SubSub
+                   YesodCoreTest.SubSubData
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest
