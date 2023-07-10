@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.25
+
+* Support `JSONPath` in error messages [#1807](https://github.com/yesodweb/yesod/pull/1807)
+
 ## 1.6.24.2
 
 * No star is type [#1797](https://github.com/yesodweb/yesod/pull/1797)

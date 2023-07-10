@@ -11,7 +11,9 @@ module Yesod.Core.Json
 
       -- * Convert to a JSON value
     , parseCheckJsonBody
+    , iparseCheckJsonBody
     , parseInsecureJsonBody
+    , iparseInsecureJsonBody
     , requireCheckJsonBody
     , requireInsecureJsonBody
       -- ** Deprecated JSON conversion
@@ -47,6 +49,7 @@ import Yesod.Core.Class.Handler
 import Yesod.Core.Widget (WidgetFor)
 import Yesod.Routes.Class
 import qualified Data.Aeson as J
+import qualified Data.Aeson.Types as JT
 import qualified Data.Aeson.Parser as JP
 import Data.Aeson ((.=), object)
 import Data.Conduit.Attoparsec (sinkParser)
@@ -99,8 +102,6 @@ provideJson :: (Monad m, J.ToJSON a) => a -> Writer (Endo [ProvidedRep m]) ()
 provideJson = provideRep . return . J.toEncoding
 
 -- | Same as 'parseInsecureJsonBody'
---
--- @since 0.3.0
 parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = parseInsecureJsonBody
 {-# DEPRECATED parseJsonBody "Use parseCheckJsonBody or parseInsecureJsonBody instead" #-}
@@ -117,6 +118,16 @@ parseInsecureJsonBody = do
     return $ case eValue of
         Left e -> J.Error $ show e
         Right value -> J.fromJSON value
+
+-- | Same as 'parseInsecureJsonBody', but returns an `IResult`
+--
+-- @since 1.6.25
+iparseInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m (JT.IResult a)
+iparseInsecureJsonBody = do
+    eValue <- runConduit $ rawRequestBody .| runCatchC (sinkParser JP.value')
+    return $ case eValue of
+        Left e -> JT.IError [] $ show e
+        Right value -> JT.ifromJSON value
 
 -- | Parse the request body to a data type as a JSON value.  The
 -- data type must support conversion from JSON via 'J.FromJSON'.
@@ -141,6 +152,16 @@ parseCheckJsonBody = do
         Just True -> parseInsecureJsonBody
         _ -> return $ J.Error $ "Non-JSON content type: " ++ show mct
 
+-- | Same as 'parseCheckJsonBody', but returns an `IResult`
+--
+-- @since 1.6.25
+iparseCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m (JT.IResult a)
+iparseCheckJsonBody = do
+    mct <- lookupHeader "content-type"
+    case fmap contentTypeHeaderIsJson mct of
+        Just True -> iparseInsecureJsonBody
+        _ -> return $ JT.IError [] $ "Non-JSON content type: " ++ show mct
+
 -- | Same as 'parseInsecureJsonBody', but return an invalid args response on a parse
 -- error.
 parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
@@ -159,19 +180,19 @@ requireJsonBody = requireInsecureJsonBody
 -- @since 1.6.11
 requireInsecureJsonBody :: (MonadHandler m, J.FromJSON a) => m a
 requireInsecureJsonBody = do
-    ra <- parseInsecureJsonBody
+    ra <- iparseInsecureJsonBody
     case ra of
-        J.Error s -> invalidArgs [pack s]
-        J.Success a -> return a
+        JT.IError path s -> invalidArgs [pack (JT.formatError path s)]
+        JT.ISuccess a -> return a
 
 -- | Same as 'parseCheckJsonBody', but return an invalid args response on a parse
 -- error.
 requireCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m a
 requireCheckJsonBody = do
-    ra <- parseCheckJsonBody
+    ra <- iparseCheckJsonBody
     case ra of
-        J.Error s -> invalidArgs [pack s]
-        J.Success a -> return a
+        JT.IError path s -> invalidArgs [pack (JT.formatError path s)]
+        JT.ISuccess a -> return a
 
 -- | Convert a list of values to an 'J.Array'.
 array :: J.ToJSON a => [a] -> J.Value
