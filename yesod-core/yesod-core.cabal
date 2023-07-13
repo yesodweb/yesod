@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.24.2
+version:         1.6.24.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -173,6 +173,8 @@ test-suite tests
                    YesodCoreTest.StubSslOnly
                    YesodCoreTest.StubStrictSameSite
                    YesodCoreTest.StubUnsecured
+                   YesodCoreTest.SubSub
+                   YesodCoreTest.SubSubData
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

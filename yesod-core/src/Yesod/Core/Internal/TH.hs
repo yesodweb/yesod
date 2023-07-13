@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Core.Internal.TH where
 
 import Prelude hiding (exp)
@@ -22,6 +23,7 @@ import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
+import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
@@ -167,18 +169,10 @@ mkYesodGeneral appCxt' namestr mtys isSub f resS = do
             ]
     return (dataDec, dispatchDec)
 
-mkMDS :: (Exp -> Q Exp) -> Q Exp -> MkDispatchSettings a site b
-mkMDS f rh = MkDispatchSettings
+mkMDS :: (Exp -> Q Exp) -> Q Exp -> Q Exp -> MkDispatchSettings a site b
+mkMDS f rh sd = MkDispatchSettings
     { mdsRunHandler = rh
-    , mdsSubDispatcher =
-        [|\parentRunner getSub toParent env -> yesodSubDispatch
-                                 YesodSubRunnerEnv
-                                    { ysreParentRunner = parentRunner
-                                    , ysreGetSub = getSub
-                                    , ysreToParentRoute = toParent
-                                    , ysreParentEnv = env
-                                    }
-                              |]
+    , mdsSubDispatcher = sd
     , mdsGetPathInfo = [|W.pathInfo|]
     , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
     , mdsMethod = [|W.requestMethod|]
@@ -199,7 +193,20 @@ mkDispatchInstance :: Type                      -- ^ The master site type
                    -> [ResourceTree c]          -- ^ The resource
                    -> DecsQ
 mkDispatchInstance master cxt f res = do
-    clause' <- mkDispatchClause (mkMDS f [|yesodRunner|]) res
+    clause' <- 
+        mkDispatchClause 
+            (mkMDS 
+                f 
+                [|yesodRunner|] 
+                [|\parentRunner getSub toParent env -> yesodSubDispatch
+                    YesodSubRunnerEnv
+                    { ysreParentRunner = parentRunner
+                    , ysreGetSub = getSub
+                    , ysreToParentRoute = toParent
+                    , ysreParentEnv = env
+                    }
+                |])
+            res
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [instanceD cxt yDispatch [thisDispatch]]
   where
@@ -207,7 +214,13 @@ mkDispatchInstance master cxt f res = do
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
-    clause' <- mkDispatchClause (mkMDS return [|subHelper|]) res
+    clause' <- 
+        mkDispatchClause
+            (mkMDS 
+                return 
+                [|subHelper|] 
+                [|subTopDispatch|]) 
+        res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
     helper <- newName "helper"
@@ -218,6 +231,26 @@ mkYesodSubDispatch res = do
                     [innerFun]
                 ]
     return $ LetE [fun] (VarE helper)
+    
+subTopDispatch :: 
+    (YesodSubDispatch sub master) =>
+        (forall content. ToTypedContent content =>
+            SubHandlerFor child master content ->
+            YesodSubRunnerEnv child master ->
+            Maybe (Route child) ->
+            W.Application
+        ) ->
+        (mid -> sub) ->
+        (Route sub -> Route mid) ->
+        YesodSubRunnerEnv mid master ->
+        W.Application
+subTopDispatch _ getSub toParent env = yesodSubDispatch
+            (YesodSubRunnerEnv
+            { ysreParentRunner = ysreParentRunner env
+            , ysreGetSub = getSub . ysreGetSub env
+            , ysreToParentRoute = ysreToParentRoute env . toParent
+            , ysreParentEnv = ysreParentEnv env
+            })
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
