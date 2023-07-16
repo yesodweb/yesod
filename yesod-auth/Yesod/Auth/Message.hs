@@ -20,6 +20,7 @@ module Yesod.Auth.Message
     , dutchMessage
     , danishMessage
     , koreanMessage
+    , romanianMessage
     ) where
 
 import           Data.Monoid (mappend, (<>))
@@ -866,3 +867,54 @@ koreanMessage (IdentifierNotFound ident) = ident `mappend` "는 등록되어 있
 koreanMessage Logout = "로그아웃"
 koreanMessage LogoutTitle = "로그아웃"
 koreanMessage AuthError = "인증오류"
+
+-- | Romanian translation
+--
+-- @since 1.6.12
+romanianMessage :: AuthMessage -> Text
+romanianMessage NoOpenID = "Identificatorul OpenID nu a fost găsit"
+romanianMessage LoginOpenID = "Conectați-vă cu OpenID"
+romanianMessage LoginGoogle = "Conectați-vă cu Google"
+romanianMessage LoginYahoo = "Conectați-vă cu Yahoo"
+romanianMessage Email = "E-mail"
+romanianMessage UserName = "Nume de utilizator"
+romanianMessage Password = "Parolă"
+romanianMessage CurrentPassword = "Parola curentă"
+romanianMessage Register = "Înregistrează-te"
+romanianMessage RegisterLong = "Înregistrați un cont nou"
+romanianMessage EnterEmail = "Introduceți adresa dvs. de e-mail pentru a primi un e-mail de confirmare."
+romanianMessage ConfirmationEmailSentTitle = "Un mesaj de confirmare a fost trimis la adresa dvs. de e-mail"
+romanianMessage (ConfirmationEmailSent email) =
+    "Un mesaj de confirmare a fost trimis la " `Data.Monoid.mappend` email `mappend` "."
+romanianMessage AddressVerified = "Adresa de e-mail a fost verificată, vă rugăm să setați o parolă nouă"
+romanianMessage EmailVerifiedChangePass = "Adresa de e-mail a fost verificată, vă rugăm să setați o parolă nouă"
+romanianMessage EmailVerified = "Adresa de e-mail a fost verificată"
+romanianMessage InvalidKeyTitle = "Cheie de verificare nevalidă"
+romanianMessage InvalidKey = "Cheie de verificare nevalidă."
+romanianMessage InvalidEmailPass = "Nume de utilizator și/sau parolă incorect(ă)"
+romanianMessage BadSetPass = "Trebuie să fiți autentificat pentru a seta parola"
+romanianMessage SetPassTitle = "Setarea parolei"
+romanianMessage SetPass = "Setează parolă nouă"
+romanianMessage NewPass = "Parolă nouă"
+romanianMessage ConfirmPass = "Confirmă"
+romanianMessage PassMismatch = "Parolele nu se potrivesc, vă rugăm să încercați din nou"
+romanianMessage PassUpdated = "Parola a fost actualizată"
+romanianMessage Facebook = "Conectați-vă cu Facebook"
+romanianMessage LoginViaEmail = "Conectați-vă cu contul de e-mail"
+romanianMessage InvalidLogin = "Nume de utilizator incorect"
+romanianMessage NowLoggedIn = "Felicitări. Acum sunteți autentificat."
+romanianMessage LoginTitle = "Autentificare"
+romanianMessage PleaseProvideUsername = "Introduceți, vă rog, numele dvs. de utilizator"
+romanianMessage PleaseProvidePassword = "Introduceți, vă rog, parola dvs."
+romanianMessage NoIdentifierProvided = "Adresa de e-mail sau numele de utilizator nu sunt furnizate."
+romanianMessage InvalidEmailAddress = "Adresă de e-mail nevalidă"
+romanianMessage PasswordResetTitle = "Resetarea parolei"
+romanianMessage ProvideIdentifier = "Adresă de e-mail sau nume de utilizator"
+romanianMessage SendPasswordResetEmail = "Trimite un e-mail pentru resetarea parolei"
+romanianMessage PasswordResetPrompt =
+    "Introduceți adresa dvs. de e-mail sau numele de utilizator pentru a primi un e-mail de resetare a parolei."
+romanianMessage InvalidUsernamePass = "Nume de utilizator și/sau parolă incorect(ă)"
+romanianMessage (IdentifierNotFound ident) = "Numele de utilizator nu a fost găsit: " `mappend` ident
+romanianMessage Logout = "Deconectați-vă"
+romanianMessage LogoutTitle = "Deconectare"
+romanianMessage AuthError = "Eroare de autentificare"
