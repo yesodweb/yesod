@@ -18,6 +18,10 @@ import YesodCoreTest.SubSubData
 
 data App = App { getOuter :: OuterSubSite }
 
+mkYesod "App" [parseRoutes|
+/ OuterSubSiteR OuterSubSite getOuter
+|]
+
 instance Yesod App
 
 getSubR :: SubHandlerFor InnerSubSite master T.Text
@@ -28,10 +32,6 @@ instance YesodSubDispatch OuterSubSite master where
 
 instance YesodSubDispatch InnerSubSite master where
   yesodSubDispatch = $(mkYesodSubDispatch resourcesInnerSubSite)
-
-mkYesod "App" [parseRoutes|
-/ OuterSubSiteR OuterSubSite getOuter
-|]
 
 app :: App
 app = App { getOuter = OuterSubSite { getInner = InnerSubSite }}
