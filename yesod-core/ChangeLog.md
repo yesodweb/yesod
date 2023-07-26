@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.24.4
+
+* Fix test-suite compilation error for GHC >= 9.0.1 [#1812](https://github.com/yesodweb/yesod/pull/1812)
+
 ## 1.6.24.3
 
 * Fix subsite-to-subsite dispatch [#1805](https://github.com/yesodweb/yesod/pull/1805)
