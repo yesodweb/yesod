@@ -211,6 +211,8 @@ module Yesod.Test
     -- * Grab information
     , getTestYesod
     , getResponse
+    , getCookies
+    , Cookies
     , getRequestCookies
 
     -- * Debug output
@@ -329,6 +331,13 @@ getTestYesod = fmap yedSite getSIO
 -- Since 1.2.0
 getResponse :: YesodExample site (Maybe SResponse)
 getResponse = fmap yedResponse getSIO
+
+-- | Get the cookies set for the current test. Differs from `getRequestCookies`
+-- in that this allows you to access cookies outside of a request builder
+--
+-- Since 1.6.16
+getCookies :: YesodExample site Cookies
+getCookies = fmap yedCookies getSIO
 
 data RequestBuilderData site = RequestBuilderData
     { rbdPostData :: RBDPostData

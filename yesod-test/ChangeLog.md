@@ -1,5 +1,7 @@
 # ChangeLog for yesod-test
 
+## 1.6.16
+* Add `getCookies`
 
 ## 1.6.16
 
