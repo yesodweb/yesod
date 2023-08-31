@@ -25,3 +25,4 @@ koreanFormMessage MsgBoolYes = "예"
 koreanFormMessage MsgBoolNo = "아니오"
 koreanFormMessage MsgDelete = "삭제하시겠습니까?"
 koreanFormMessage (MsgInvalidHexColorFormat t) = "색상이 잘못되었습니다. #rrggbb 16진수 형식이어야 합니다.: " `mappend` t
+koreanFormMessage (MsgInvalidDatetimeFormat t) = "날짜/시간이 잘못되었습니다. YYYY-MM-DD(T| )HH:MM[:SS] 형식이어야 합니다.: " `mappend` t

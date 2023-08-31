@@ -64,6 +64,7 @@ module Yesod.Form.Fields
     , optionsPairsGrouped
     , optionsEnum
     , colorField
+    , datetimeLocalField
     ) where
 
 import Yesod.Form.Types
@@ -74,7 +75,7 @@ import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 #define preEscapedText preEscapedToMarkup
-import Data.Time (Day, TimeOfDay(..))
+import Data.Time (Day, TimeOfDay(..), LocalTime (LocalTime))
 import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -98,7 +99,8 @@ import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text as T ( Text, append, concat, cons, head
-                      , intercalate, isPrefixOf, null, unpack, pack, splitOn
+                      , intercalate, isPrefixOf, null, unpack, pack
+                      , split, splitOn
                       )
 import qualified Data.Text as T (drop, dropWhile)
 import qualified Data.Text.Read
@@ -998,3 +1000,24 @@ $newline never
       isHexColor :: String -> Bool
       isHexColor ['#',a,b,c,d,e,f] = all isHexDigit [a,b,c,d,e,f]
       isHexColor _ = False
+
+-- | Creates an input with @type="datetime-local"@.
+--   The input value must be provided in YYYY-MM-DD(T| )HH:MM[:SS] format.
+--
+-- @since 1.7.6
+datetimeLocalField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m LocalTime
+datetimeLocalField = Field
+    { fieldParse = parseHelper $ \s -> case T.split (\c -> (c == 'T') || (c == ' ')) s of
+        [d,t] -> do
+            day <- parseDate $ unpack d
+            time <- parseTime t
+            Right $ LocalTime day time
+        _ -> Left $ MsgInvalidDatetimeFormat s
+    , fieldView = \theId name attrs val isReq -> [whamlet|
+$newline never
+<input type=datetime-local ##{theId} name=#{name} value=#{showVal val} *{attrs} :isReq:required>
+|]
+    , fieldEnctype = UrlEncoded
+    }
+  where
+    showVal = either id (pack . show)

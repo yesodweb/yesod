@@ -25,3 +25,4 @@ portugueseFormMessage MsgBoolYes = "Sim"
 portugueseFormMessage MsgBoolNo = "Não"
 portugueseFormMessage MsgDelete = "Remover?"
 portugueseFormMessage (MsgInvalidHexColorFormat t) = "Cor inválida, deve estar no formato #rrggbb hexadecimal: " `mappend` t
+portugueseFormMessage (MsgInvalidDatetimeFormat t) = "Data e hora inválida, deve estar no formato AAAA-MM-DD(T| )HH:MM[:SS]: " `mappend` t

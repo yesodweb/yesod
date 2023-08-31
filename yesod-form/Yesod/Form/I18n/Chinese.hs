@@ -25,3 +25,4 @@ chineseFormMessage MsgBoolYes = "是"
 chineseFormMessage MsgBoolNo = "否"
 chineseFormMessage MsgDelete = "删除?"
 chineseFormMessage (MsgInvalidHexColorFormat t) = "颜色无效，必须为 #rrggbb 十六进制格式: " `mappend` t
+chineseFormMessage (MsgInvalidDatetimeFormat t) = "日期時間無效，必須採用 YYYY-MM-DD(T| )HH:MM[:SS] 格式： " `mappend` t

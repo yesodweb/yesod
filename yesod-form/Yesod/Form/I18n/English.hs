@@ -25,3 +25,4 @@ englishFormMessage MsgBoolYes = "Yes"
 englishFormMessage MsgBoolNo = "No"
 englishFormMessage MsgDelete = "Delete?"
 englishFormMessage (MsgInvalidHexColorFormat t) = "Invalid color, must be in #rrggbb hexadecimal format: " `mappend` t
+englishFormMessage (MsgInvalidDatetimeFormat t) = "Invalid datetime, must be in YYYY-MM-DD(T| )HH:MM[:SS] format: " `mappend` t
