@@ -25,3 +25,4 @@ russianFormMessage MsgBoolYes = "Да"
 russianFormMessage MsgBoolNo = "Нет"
 russianFormMessage MsgDelete = "Удалить?"
 russianFormMessage (MsgInvalidHexColorFormat t) = "Недопустимое значение цвета, должен быть в шестнадцатеричном формате #rrggbb: " `mappend` t
+russianFormMessage (MsgInvalidDatetimeFormat t) = "Недопустимое значение даты и времени. Должно быть в формате ГГГГ-ММ-ДД(T| )ЧЧ:ММ[:СС]: " `mappend` t

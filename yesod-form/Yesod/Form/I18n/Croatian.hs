@@ -25,3 +25,4 @@ croatianFormMessage MsgBoolYes            = "Da"
 croatianFormMessage MsgBoolNo             = "Ne"
 croatianFormMessage MsgDelete             = "Izbrisati?"
 croatianFormMessage (MsgInvalidHexColorFormat t) = "Nevažeća boja, mora biti u #rrggbb heksadecimalnom formatu: " `mappend` t
+croatianFormMessage (MsgInvalidDatetimeFormat t) = "Nevažeći datum i vrijeme, mora biti u formatu GGGG-MM-DD(T| )HH:MM[:SS]: " `mappend` t

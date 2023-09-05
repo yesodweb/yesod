@@ -24,4 +24,5 @@ frenchFormMessage (MsgInvalidBool t) = "Booléen invalide : " `mappend` t
 frenchFormMessage MsgBoolYes = "Oui"
 frenchFormMessage MsgBoolNo = "Non"
 frenchFormMessage MsgDelete = "Détruire ?"
-frenchFormMessage (MsgInvalidHexColorFormat t) = "Couleur non valide, doit être au format hexadécimal #rrggbb: " `mappend` t
+frenchFormMessage (MsgInvalidHexColorFormat t) = "Couleur non valide. doit être au format hexadécimal #rrggbb : " `mappend` t
+frenchFormMessage (MsgInvalidDatetimeFormat t) = "Date/heure non valide. doit être au format AAAA-MM-JJ(T| )HH:MM[:SS] : " `mappend` t

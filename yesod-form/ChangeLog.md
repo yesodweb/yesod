@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.6
+
+* Added `datetimeLocalField` for creating a html `<input type="datetime-local">` [#1817](https://github.com/yesodweb/yesod/pull/1817)
+
 ## 1.7.5
 
 * Add Romanian translation [#1801](https://github.com/yesodweb/yesod/pull/1801)

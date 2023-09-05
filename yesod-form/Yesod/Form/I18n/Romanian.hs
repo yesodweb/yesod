@@ -28,3 +28,4 @@ romanianFormMessage MsgBoolYes = "Da"
 romanianFormMessage MsgBoolNo = "Nu"
 romanianFormMessage MsgDelete = "Șterge?"
 romanianFormMessage (MsgInvalidHexColorFormat t) = "Culoare nevalidă. Formatul necesar este #rrggbb în hexazecimal: " `mappend` t
+romanianFormMessage (MsgInvalidDatetimeFormat t) = "Data și ora nevalidă, trebuie să fie în format AAAA-LL-ZZ(T| )HH:MM[:SS]: " `mappend` t

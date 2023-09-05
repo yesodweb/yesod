@@ -25,3 +25,4 @@ czechFormMessage MsgBoolYes = "Ano"
 czechFormMessage MsgBoolNo = "Ne"
 czechFormMessage MsgDelete = "Smazat?"
 czechFormMessage (MsgInvalidHexColorFormat t) = "Neplatná barva, musí být v #rrggbb hexadecimálním formátu: " `mappend` t
+czechFormMessage (MsgInvalidDatetimeFormat t) = "Neplatné datum a čas, musí být ve formátu YYYY-MM-DD(T| )HH:MM[:SS]: " `mappend` t
