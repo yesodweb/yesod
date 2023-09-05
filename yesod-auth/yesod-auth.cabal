@@ -1,6 +1,6 @@
 cabal-version:   >=1.10
 name:            yesod-auth
-version:         1.6.11.1
+version:         1.6.12
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
