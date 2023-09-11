@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.24.4
+version:         1.6.24.5
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -27,6 +27,7 @@ library
 
     build-depends:   base                  >= 4.10     && < 5
                    , aeson                 >= 1.0
+                   , attoparsec-aeson      >= 2.1
                    , auto-update
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.7.1
