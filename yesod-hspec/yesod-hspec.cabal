@@ -1,0 +1,75 @@
+name:               yesod-hspec
+version:            1.6.12
+license:            MIT
+license-file:       LICENSE
+author:             Nubis <nubis@woobiz.com.ar>
+maintainer:         Michael Snoyman, Greg Weber, Nubis <nubis@woobiz.com.ar>
+synopsis:           integration testing for WAI/Yesod Applications
+category:           Web, Yesod, Testing
+stability:          Experimental
+cabal-version:      >= 1.10
+build-type:         Simple
+homepage:           http://www.yesodweb.com
+description:     API docs and the README are available at <http://www.stackage.org/package/yesod-test>
+extra-source-files: README.md, LICENSE, test/main.hs, ChangeLog.md
+
+library
+    default-language: Haskell2010
+    build-depends:   HUnit                     >= 1.2
+                   , aeson
+                   , attoparsec                >= 0.10
+                   , base                      >= 4.10     && < 5
+                   , blaze-builder
+                   , blaze-html                >= 0.5
+                   , bytestring                >= 0.9
+                   , case-insensitive          >= 0.2
+                   , conduit
+                   , containers
+                   , cookie
+                   , hspec-core                == 2.*
+                   , html-conduit              >= 0.1
+                   , http-types                >= 0.7
+                   , network                   >= 3.0
+                   , memory
+                   , pretty-show               >= 1.6
+                   , text
+                   , time
+                   , mtl                       >= 2.0.0
+                   , transformers              >= 0.2.2
+                   , wai                       >= 3.0
+                   , wai-extra
+                   , xml-conduit               >= 1.0
+                   , xml-types                 >= 0.3
+                   , yesod-core                >= 1.6.17
+                   , yesod-test                 
+
+    exposed-modules: Yesod.Hspec
+    ghc-options:  -Wall
+
+test-suite test
+    default-language: Haskell2010
+    type: exitcode-stdio-1.0
+    main-is: main.hs
+    hs-source-dirs: test
+    build-depends:          base
+                          , yesod-test
+                          , yesod-hspec
+                          , hspec
+                          , HUnit
+                          , xml-conduit
+                          , bytestring
+                          , containers
+                          , html-conduit
+                          , yesod-core
+                          , yesod-form >= 1.6
+                          , text
+                          , wai
+                          , wai-extra
+                          , http-types
+                          , unliftio
+                          , cookie
+                          , unliftio-core
+
+source-repository head
+  type: git
+  location: git://github.com/yesodweb/yesod.git
