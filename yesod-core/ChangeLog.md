@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.25
+
+* Remove the derivation of the Read instance from Routes. [#1819](https://github.com/yesodweb/yesod/pull/1819)
+
 ## 1.6.24.4
 
 * Fix test-suite compilation error for GHC >= 9.0.1 [#1812](https://github.com/yesodweb/yesod/pull/1812)
