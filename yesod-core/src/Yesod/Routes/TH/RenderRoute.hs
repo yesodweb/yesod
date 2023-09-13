@@ -41,9 +41,9 @@ mkRouteCons rttypes =
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteCons children
 #if MIN_VERSION_template_haskell(2,12,0)
-        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT [''Show, ''Read, ''Eq])
+        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT [''Show, ''Eq])
 #else
-        dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Read, ''Eq]
+        dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Eq]
 #endif
         return ([con], dec : decs)
       where
@@ -175,7 +175,7 @@ mkRenderRouteInstance cxt typ ress = do
           clazzes'
         else
           []
-    clazzes' = [''Show, ''Eq, ''Read]
+    clazzes' = [''Show, ''Eq]
 
 notStrict :: Bang
 notStrict = Bang NoSourceUnpackedness NoSourceStrictness
