@@ -856,7 +856,7 @@ addGetParam name value = modifySIO $ \rbd -> rbd
 -- You can specify the entire query string literally by adding a single bare
 -- parameter and no other parameters.
 --
--- Since 1.6.16
+-- @since 1.6.16
 -- 
 -- ==== __Examples__
 --
