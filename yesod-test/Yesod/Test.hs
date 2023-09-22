@@ -152,6 +152,7 @@ module Yesod.Test
     , setMethod
     , addPostParam
     , addGetParam
+    , addBareGetParam
     , addFile
     , setRequestBody
     , RequestBuilder
@@ -848,6 +849,23 @@ addGetParam name value = modifySIO $ \rbd -> rbd
     { rbdGets = (TE.encodeUtf8 name, Just $ TE.encodeUtf8 value)
               : rbdGets rbd
     }
+
+-- | Add a bare parameter with the given name and no value to the query
+-- string. The parameter is added without an @=@ sign.
+--
+-- You can specify the entire query string literally by adding a single bare
+-- parameter and no other parameters.
+--
+-- @since 1.6.16
+-- 
+-- ==== __Examples__
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > request $ do
+-- >   addBareGetParam "key" -- Adds ?key to the URL
+addBareGetParam :: T.Text -> RequestBuilder site ()
+addBareGetParam name = modifySIO $ \rbd ->
+    rbd {rbdGets = (TE.encodeUtf8 name, Nothing) : rbdGets rbd}
 
 -- | Add a file to be posted with the current request.
 --

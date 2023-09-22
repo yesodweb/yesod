@@ -1,6 +1,10 @@
 # ChangeLog for yesod-test
 
 
+## 1.6.16
+
+* Add `addBareGetParam` to yesod-test. [#1821](https://github.com/yesodweb/yesod/pull/1821)
+
 ## 1.6.15
 
 * Add `bySelectorLabelContain`. [#1781](https://github.com/yesodweb/yesod/pull/1781)
