@@ -335,7 +335,7 @@ getResponse = fmap yedResponse getSIO
 -- | Get the cookies set for the current test. Differs from `getRequestCookies`
 -- in that this allows you to access cookies outside of a request builder
 --
--- Since 1.6.16
+-- @since 1.6.17
 getCookies :: YesodExample site Cookies
 getCookies = fmap yedCookies getSIO
 

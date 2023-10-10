@@ -1,7 +1,7 @@
 # ChangeLog for yesod-test
 
-## 1.6.16
-* Add `getCookies`. [#1815](https://github.com/yesodweb/yesod/pull/1815)
+## 1.6.17
+* add `getCookies`. [#1815](https://github.com/yesodweb/yesod/pull/1815)
 
 ## 1.6.16
 
