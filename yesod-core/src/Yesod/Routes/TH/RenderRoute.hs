@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell, CPP #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
+
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstance
@@ -66,7 +69,7 @@ mkRouteConsOpts opts rttypes =
         return ([con], [])
       where
         con = NormalC (mkName $ resourceName res)
-            $ map (\x -> (notStrict, x))
+            $ map (notStrict,)
             $ concat [singles, multi, sub]
         singles = concatMap toSingle $ resourcePieces res
         toSingle Static{} = []
@@ -90,7 +93,7 @@ mkRouteConsOpts opts rttypes =
         return ([con], dec : decs)
       where
         con = NormalC (mkName name)
-            $ map (\x -> (notStrict, x))
+            $ map (notStrict,)
             $ singles ++ [ConT $ mkName name]
 
         singles = concatMap toSingle pieces
