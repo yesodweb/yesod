@@ -1,8 +1,8 @@
 # ChangeLog for yesod-core
 
-## 1.6.25
+## 1.6.24.6
 
-* Remove the derivation of the Read instance from Routes. [#1819](https://github.com/yesodweb/yesod/pull/1819)
+* Add an options structure that allows the user to set which instances will be derived for a routes structure. [#1819](https://github.com/yesodweb/yesod/pull/1819)
 
 ## 1.6.24.5
 
