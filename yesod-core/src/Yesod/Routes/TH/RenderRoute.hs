@@ -2,8 +2,16 @@
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstance
+    , mkRenderRouteInstanceOpts
     , mkRouteCons
+    , mkRouteConsOpts
     , mkRenderRouteClauses
+
+    , RouteOpts
+    , defaultOpts
+    , setEqDerived
+    , setShowDerived
+    , setReadDerived
     ) where
 
 import Yesod.Routes.TH.Types
@@ -16,9 +24,42 @@ import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 
+-- | General opts data type for generating yesod.
+--
+-- Contains options for what instances are derived for the route. Use the setting
+-- functions on `defaultOpts` to set specific fields.
+data RouteOpts = MkRouteOpts
+    { roDerivedEq   :: Bool
+    , roDerivedShow :: Bool
+    , roDerivedRead :: Bool
+    }
+
+-- | Default options for generating routes.
+--
+-- Defaults to all instances derived.
+defaultOpts :: RouteOpts
+defaultOpts = MkRouteOpts True True True
+
+setEqDerived :: Bool -> RouteOpts -> RouteOpts
+setEqDerived b rdo = rdo { roDerivedEq = b }
+
+setShowDerived :: Bool -> RouteOpts -> RouteOpts
+setShowDerived b rdo = rdo { roDerivedShow = b }
+
+setReadDerived :: Bool -> RouteOpts -> RouteOpts
+setReadDerived b rdo = rdo { roDerivedRead = b }
+
+instanceNamesFromOpts :: RouteOpts -> [Name]
+instanceNamesFromOpts (MkRouteOpts eq shw rd) = prependIf eq ''Eq $ prependIf shw ''Show $ prependIf rd ''Read []
+    where prependIf b = if b then (:) else const id
+
 -- | Generate the constructors of a route data type.
 mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteCons rttypes =
+mkRouteCons = mkRouteConsOpts defaultOpts
+
+-- | Generate the constructors of a route data type, with custom opts.
+mkRouteConsOpts :: RouteOpts -> [ResourceTree Type] -> Q ([Con], [Dec])
+mkRouteConsOpts opts rttypes =
     mconcat <$> mapM mkRouteCon rttypes
   where
     mkRouteCon (ResourceLeaf res) =
@@ -39,11 +80,12 @@ mkRouteCons rttypes =
                 _ -> []
 
     mkRouteCon (ResourceParent name _check pieces children) = do
-        (cons, decs) <- mkRouteCons children
+        (cons, decs) <- mkRouteConsOpts opts children
+        let conts = mapM conT $ instanceNamesFromOpts opts
 #if MIN_VERSION_template_haskell(2,12,0)
-        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT [''Show, ''Eq])
+        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
 #else
-        dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Eq]
+        dec <- DataD [] (mkName name) [] Nothing cons <$> conts
 #endif
         return ([con], dec : decs)
       where
@@ -152,9 +194,17 @@ mkRenderRouteClauses =
 -- 'renderRoute' method.  This function uses both 'mkRouteCons' and
 -- 'mkRenderRouteClasses'.
 mkRenderRouteInstance :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
-mkRenderRouteInstance cxt typ ress = do
+mkRenderRouteInstance = mkRenderRouteInstanceOpts defaultOpts
+
+-- | Generate the 'RenderRoute' instance.
+--
+-- This includes both the 'Route' associated type and the
+-- 'renderRoute' method.  This function uses both 'mkRouteCons' and
+-- 'mkRenderRouteClasses'.
+mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
+mkRenderRouteInstanceOpts opts cxt typ ress = do
     cls <- mkRenderRouteClauses ress
-    (cons, decs) <- mkRouteCons ress
+    (cons, decs) <- mkRouteConsOpts opts ress
 #if MIN_VERSION_template_haskell(2,15,0)
     did <- DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
     let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
@@ -175,7 +225,7 @@ mkRenderRouteInstance cxt typ ress = do
           clazzes'
         else
           []
-    clazzes' = [''Show, ''Eq]
+    clazzes' = instanceNamesFromOpts opts
 
 notStrict :: Bang
 notStrict = Bang NoSourceUnpackedness NoSourceStrictness

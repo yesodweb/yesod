@@ -5,7 +5,35 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
-module Yesod.Core.Internal.TH where
+module Yesod.Core.Internal.TH
+    ( mkYesod
+    , mkYesodOpts
+
+    , mkYesodWith
+
+    , mkYesodData
+    , mkYesodDataOpts
+
+    , mkYesodSubData
+    , mkYesodSubDataOpts
+
+    , mkYesodWithParser
+    , mkYesodWithParserOpts
+
+    , mkYesodDispatch
+    , mkYesodDispatchOpts
+
+    , masterTypeSyns
+
+    , mkYesodGeneral
+    , mkYesodGeneralOpts
+
+    , mkYesodSubDispatch
+    
+    , subTopDispatch
+    , instanceD
+    )
+ where
 
 import Prelude hiding (exp)
 import Yesod.Core.Handler
@@ -37,7 +65,14 @@ import Yesod.Core.Internal.Run
 mkYesod :: String -- ^ name of the argument datatype
         -> [ResourceTree String]
         -> Q [Dec]
-mkYesod name = fmap (uncurry (++)) . mkYesodWithParser name False return
+mkYesod = mkYesodOpts defaultOpts
+
+-- | `mkYesod` but with custom options.
+mkYesodOpts :: RouteOpts
+            -> String
+            -> [ResourceTree String]
+            -> Q [Dec]
+mkYesodOpts opts name = fmap (uncurry (++)) . mkYesodWithParserOpts opts name False return
 
 {-# DEPRECATED mkYesodWith "Contexts and type variables are now parsed from the name in `mkYesod`. <https://github.com/yesodweb/yesod/pull/1366>" #-}
 -- | Similar to 'mkYesod', except contexts and type variables are not parsed. 
@@ -55,10 +90,17 @@ mkYesodWith cxts name args = fmap (uncurry (++)) . mkYesodGeneral cxts name args
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
 mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodData name resS = fst <$> mkYesodWithParser name False return resS
+mkYesodData = mkYesodDataOpts defaultOpts
+
+-- | `mkYesodData` but with custom options.
+mkYesodDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
+mkYesodDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name False return resS
 
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodSubData name resS = fst <$> mkYesodWithParser name True return resS
+mkYesodSubData = mkYesodSubDataOpts defaultOpts
+
+mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
+mkYesodSubDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name True return resS
 
 -- | Parses contexts and type arguments out of name before generating TH.
 mkYesodWithParser :: String                    -- ^ foundation type
@@ -66,11 +108,20 @@ mkYesodWithParser :: String                    -- ^ foundation type
                   -> (Exp -> Q Exp)            -- ^ unwrap handler
                   -> [ResourceTree String]
                   -> Q([Dec],[Dec])
-mkYesodWithParser name isSub f resS = do
+mkYesodWithParser = mkYesodWithParserOpts defaultOpts
+
+-- | Parses contexts and type arguments out of name before generating TH.
+mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
+                      -> String                    -- ^ foundation type
+                      -> Bool                      -- ^ is this a subsite
+                      -> (Exp -> Q Exp)            -- ^ unwrap handler
+                      -> [ResourceTree String]
+                      -> Q([Dec],[Dec])
+mkYesodWithParserOpts opts name isSub f resS = do
     let (name', rest, cxt) = case parse parseName "" name of
             Left err -> error $ show err
             Right a -> a
-    mkYesodGeneral cxt name' rest isSub f resS
+    mkYesodGeneralOpts opts cxt name' rest isSub f resS
 
     where
         parseName = do
@@ -104,7 +155,11 @@ mkYesodWithParser name isSub f resS = do
 
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodDispatch name = fmap snd . mkYesodWithParser name False return
+mkYesodDispatch = mkYesodDispatchOpts defaultOpts
+
+-- | See 'mkYesodDataOpts'
+mkYesodDispatchOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
+mkYesodDispatchOpts opts name = fmap snd . mkYesodWithParserOpts opts name False return
 
 -- | Get the Handler and Widget type synonyms for the given site.
 masterTypeSyns :: [Name] -> Type -> [Dec] -- FIXME remove from here, put into the scaffolding itself?
@@ -122,7 +177,17 @@ mkYesodGeneral :: [[String]]                -- ^ Appliction context. Used in Ren
                -> (Exp -> Q Exp)            -- ^ unwrap handler
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
-mkYesodGeneral appCxt' namestr mtys isSub f resS = do
+mkYesodGeneral = mkYesodGeneralOpts defaultOpts
+
+mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
+                   -> [[String]]                -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
+                   -> String                    -- ^ foundation type
+                   -> [String]                  -- ^ arguments for the type
+                   -> Bool                      -- ^ is this a subsite
+                   -> (Exp -> Q Exp)            -- ^ unwrap handler
+                   -> [ResourceTree String]
+                   -> Q([Dec],[Dec])
+mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let appCxt = fmap (\(c:rest) -> 
             foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
           ) appCxt'
@@ -150,7 +215,7 @@ mkYesodGeneral appCxt' namestr mtys isSub f resS = do
         -- Base type (site type with variables)
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
-    renderRouteDec <- mkRenderRouteInstance appCxt site res
+    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt site res
     routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
     dispatchDec    <- mkDispatchInstance site appCxt f res
     parseRoute <- mkParseRouteInstance appCxt site res
