@@ -26,7 +26,8 @@ library
     hs-source-dirs: src
 
     build-depends:   base                  >= 4.10     && < 5
-                   , aeson                 >= 1.0      && <= 2.1.2.1
+                   , aeson                 >= 1.0
+                   , attoparsec-aeson      >= 2.1
                    , auto-update
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.7.1
