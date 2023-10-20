@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.24.6
+version:         1.6.25.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
