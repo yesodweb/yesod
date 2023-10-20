@@ -28,6 +28,9 @@ module Yesod.Core.Internal.TH
     , mkYesodGeneral
     , mkYesodGeneralOpts
 
+    , mkMDS
+    , mkDispatchInstance
+
     , mkYesodSubDispatch
     
     , subTopDispatch
@@ -74,6 +77,7 @@ mkYesodOpts :: RouteOpts
             -> Q [Dec]
 mkYesodOpts opts name = fmap (uncurry (++)) . mkYesodWithParserOpts opts name False return
 
+
 {-# DEPRECATED mkYesodWith "Contexts and type variables are now parsed from the name in `mkYesod`. <https://github.com/yesodweb/yesod/pull/1366>" #-}
 -- | Similar to 'mkYesod', except contexts and type variables are not parsed. 
 -- Instead, they are explicitly provided. 
@@ -84,6 +88,7 @@ mkYesodWith :: [[String]] -- ^ list of contexts
             -> [ResourceTree String]
             -> Q [Dec]
 mkYesodWith cxts name args = fmap (uncurry (++)) . mkYesodGeneral cxts name args False return
+
 
 -- | Sometimes, you will want to declare your routes in one file and define
 -- your handlers elsewhere. For example, this is the only way to break up a
@@ -96,11 +101,13 @@ mkYesodData = mkYesodDataOpts defaultOpts
 mkYesodDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name False return resS
 
+
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubData = mkYesodSubDataOpts defaultOpts
 
 mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name True return resS
+
 
 -- | Parses contexts and type arguments out of name before generating TH.
 mkYesodWithParser :: String                    -- ^ foundation type
@@ -153,6 +160,7 @@ mkYesodWithParserOpts opts name isSub f resS = do
         parseContexts = 
             sepBy1 (many1 parseWord) (spaces >> char ',' >> return ())
 
+
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch = mkYesodDispatchOpts defaultOpts
@@ -160,6 +168,7 @@ mkYesodDispatch = mkYesodDispatchOpts defaultOpts
 -- | See 'mkYesodDataOpts'
 mkYesodDispatchOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatchOpts opts name = fmap snd . mkYesodWithParserOpts opts name False return
+
 
 -- | Get the Handler and Widget type synonyms for the given site.
 masterTypeSyns :: [Name] -> Type -> [Dec] -- FIXME remove from here, put into the scaffolding itself?
@@ -169,6 +178,7 @@ masterTypeSyns vs site =
     , TySynD (mkName "Widget")  (fmap plainTV vs)
       $ ConT ''WidgetFor `AppT` site `AppT` ConT ''()
     ]
+
 
 mkYesodGeneral :: [[String]]                -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                -> String                    -- ^ foundation type
@@ -234,6 +244,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             ]
     return (dataDec, dispatchDec)
 
+
 mkMDS :: (Exp -> Q Exp) -> Q Exp -> Q Exp -> MkDispatchSettings a site b
 mkMDS f rh sd = MkDispatchSettings
     { mdsRunHandler = rh
@@ -277,6 +288,7 @@ mkDispatchInstance master cxt f res = do
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
+
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
     clause' <- 
@@ -296,7 +308,8 @@ mkYesodSubDispatch res = do
                     [innerFun]
                 ]
     return $ LetE [fun] (VarE helper)
-    
+
+
 subTopDispatch :: 
     (YesodSubDispatch sub master) =>
         (forall content. ToTypedContent content =>
