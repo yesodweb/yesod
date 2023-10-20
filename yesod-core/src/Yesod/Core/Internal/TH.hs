@@ -71,6 +71,8 @@ mkYesod :: String -- ^ name of the argument datatype
 mkYesod = mkYesodOpts defaultOpts
 
 -- | `mkYesod` but with custom options.
+--
+-- @since 1.6.25.0
 mkYesodOpts :: RouteOpts
             -> String
             -> [ResourceTree String]
@@ -98,6 +100,8 @@ mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodData = mkYesodDataOpts defaultOpts
 
 -- | `mkYesodData` but with custom options.
+--
+-- @since 1.6.25.0
 mkYesodDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name False return resS
 
@@ -105,6 +109,9 @@ mkYesodDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name False r
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubData = mkYesodSubDataOpts defaultOpts
 
+-- |
+--
+-- @since 1.6.25.0
 mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name True return resS
 
@@ -118,6 +125,8 @@ mkYesodWithParser :: String                    -- ^ foundation type
 mkYesodWithParser = mkYesodWithParserOpts defaultOpts
 
 -- | Parses contexts and type arguments out of name before generating TH.
+--
+-- @since 1.6.25.0
 mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> String                    -- ^ foundation type
                       -> Bool                      -- ^ is this a subsite
@@ -166,6 +175,8 @@ mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch = mkYesodDispatchOpts defaultOpts
 
 -- | See 'mkYesodDataOpts'
+--
+-- @since 1.6.25.0
 mkYesodDispatchOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatchOpts opts name = fmap snd . mkYesodWithParserOpts opts name False return
 
@@ -189,6 +200,9 @@ mkYesodGeneral :: [[String]]                -- ^ Appliction context. Used in Ren
                -> Q([Dec],[Dec])
 mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 
+-- |
+--
+-- @since 1.6.25.0
 mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
                    -> [[String]]                -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                    -> String                    -- ^ foundation type

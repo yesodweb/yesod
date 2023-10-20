@@ -31,6 +31,8 @@ import Yesod.Routes.Class
 --
 -- Contains options for what instances are derived for the route. Use the setting
 -- functions on `defaultOpts` to set specific fields.
+--
+-- @since 1.6.25.0
 data RouteOpts = MkRouteOpts
     { roDerivedEq   :: Bool
     , roDerivedShow :: Bool
@@ -40,18 +42,32 @@ data RouteOpts = MkRouteOpts
 -- | Default options for generating routes.
 --
 -- Defaults to all instances derived.
+--
+-- @since 1.6.25.0
 defaultOpts :: RouteOpts
 defaultOpts = MkRouteOpts True True True
 
+-- |
+--
+-- @since 1.6.25.0
 setEqDerived :: Bool -> RouteOpts -> RouteOpts
 setEqDerived b rdo = rdo { roDerivedEq = b }
 
+-- |
+--
+-- @since 1.6.25.0
 setShowDerived :: Bool -> RouteOpts -> RouteOpts
 setShowDerived b rdo = rdo { roDerivedShow = b }
 
+-- |
+--
+-- @since 1.6.25.0
 setReadDerived :: Bool -> RouteOpts -> RouteOpts
 setReadDerived b rdo = rdo { roDerivedRead = b }
 
+-- |
+--
+-- @since 1.6.25.0
 instanceNamesFromOpts :: RouteOpts -> [Name]
 instanceNamesFromOpts (MkRouteOpts eq shw rd) = prependIf eq ''Eq $ prependIf shw ''Show $ prependIf rd ''Read []
     where prependIf b = if b then (:) else const id
@@ -61,6 +77,8 @@ mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
 mkRouteCons = mkRouteConsOpts defaultOpts
 
 -- | Generate the constructors of a route data type, with custom opts.
+--
+-- @since 1.6.25.0
 mkRouteConsOpts :: RouteOpts -> [ResourceTree Type] -> Q ([Con], [Dec])
 mkRouteConsOpts opts rttypes =
     mconcat <$> mapM mkRouteCon rttypes
@@ -204,6 +222,8 @@ mkRenderRouteInstance = mkRenderRouteInstanceOpts defaultOpts
 -- This includes both the 'Route' associated type and the
 -- 'renderRoute' method.  This function uses both 'mkRouteCons' and
 -- 'mkRenderRouteClasses'.
+--
+-- @since 1.6.25.0
 mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
 mkRenderRouteInstanceOpts opts cxt typ ress = do
     cls <- mkRenderRouteClauses ress
