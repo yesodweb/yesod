@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.25.1
+
+* Export the options that were created in 1.6.25.0 [#1825](https://github.com/yesodweb/yesod/pull/1825)
+
 ## 1.6.25.0
 
 * Add an options structure that allows the user to set which instances will be derived for a routes structure. [#1819](https://github.com/yesodweb/yesod/pull/1819)
