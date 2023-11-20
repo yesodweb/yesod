@@ -35,6 +35,12 @@ module Yesod.Core.Internal.TH
     
     , subTopDispatch
     , instanceD
+
+    , RouteOpts
+    , defaultOpts
+    , setEqDerived
+    , setShowDerived
+    , setReadDerived
     )
  where
 
