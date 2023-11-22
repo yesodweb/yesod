@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.2
+
+* Added `optionsFromList'` to create an OptionList from a List, using the PathPiece instance for the external value and a custom function for the user-facing value. Also added `optionsEnum'` to create an OptionList from an enumeration [#1827](https://github.com/yesodweb/yesod/pull/1827)
+
 ## 1.7.1
 
 * Added `colorField` for creating a html color field (`<input type="color">`) [#1748](https://github.com/yesodweb/yesod/pull/1748)
