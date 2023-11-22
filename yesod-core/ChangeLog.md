@@ -1,5 +1,29 @@
 # ChangeLog for yesod-core
 
+## 1.6.25.0
+
+* Add an options structure that allows the user to set which instances will be derived for a routes structure. [#1819](https://github.com/yesodweb/yesod/pull/1819)
+
+## 1.6.24.5
+
+* Support Aeson 2.2 [#1818](https://github.com/yesodweb/yesod/pull/1818)
+
+## 1.6.24.4
+
+* Fix test-suite compilation error for GHC >= 9.0.1 [#1812](https://github.com/yesodweb/yesod/pull/1812)
+
+## 1.6.24.3
+
+* Fix subsite-to-subsite dispatch [#1805](https://github.com/yesodweb/yesod/pull/1805)
+
+## 1.6.24.2
+
+* No star is type [#1797](https://github.com/yesodweb/yesod/pull/1797)
+
+## 1.6.24.1
+
+* Adapt to removal of `ListT` from transformers-0.6. [#1796](https://github.com/yesodweb/yesod/pull/1796)
+
 ## 1.6.24.0
 
 * Make catching exceptions configurable and set the default back to rethrowing async exceptions. [#1772](https://github.com/yesodweb/yesod/pull/1772).

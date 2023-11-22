@@ -1,8 +1,31 @@
 # ChangeLog for yesod-form
 
+
+## 1.7.7
+
+* Added `optionsFromList'` to create an OptionList from a List, using the PathPiece instance for the external value and a custom
+function for the user-facing value. Also added `optionsEnum'` to create an OptionList from an enumeration
+[#1828](https://github.com/yesodweb/yesod/pull/1828)
+
+## 1.7.6
+
+* Added `datetimeLocalField` for creating a html `<input type="datetime-local">` [#1817](https://github.com/yesodweb/yesod/pull/1817)
+
+## 1.7.5
+
+* Add Romanian translation [#1801](https://github.com/yesodweb/yesod/pull/1801)
+
+## 1.7.4
+
+* Added a `Monad AForm` instance only when `transformers` >= 0.6 [#1795](https://github.com/yesodweb/yesod/pull/1795)
+
+## 1.7.3
+
+* Fixed `radioField` according to Bootstrap 3 docs. [#1783](https://github.com/yesodweb/yesod/pull/1783)
+
 ## 1.7.2
 
-* Added `optionsFromList'` to create an OptionList from a List, using the PathPiece instance for the external value and a custom function for the user-facing value. Also added `optionsEnum'` to create an OptionList from an enumeration [#1827](https://github.com/yesodweb/yesod/pull/1827)
+* Added `withRadioField` and re-express `radioField` into that. [#1775](https://github.com/yesodweb/yesod/pull/1775)
 
 ## 1.7.1
 

@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-form
-version:         1.7.2
+version:         1.7.7
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -68,6 +68,7 @@ library
                      Yesod.Form.I18n.Spanish
                      Yesod.Form.I18n.Chinese
                      Yesod.Form.I18n.Korean
+                     Yesod.Form.I18n.Romanian
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
 

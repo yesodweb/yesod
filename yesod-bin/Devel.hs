@@ -28,6 +28,9 @@ import           Data.String                           (fromString)
 import           Data.Time                             (getCurrentTime)
 import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
+#if MIN_VERSION_Cabal(3,8,0)
+import qualified Distribution.Simple.PackageDescription as D
+#endif
 #if MIN_VERSION_Cabal(2, 2, 0)
 import qualified Distribution.PackageDescription.Parsec as D
 #else
@@ -136,7 +139,7 @@ reverseProxy :: DevelOpts -> TVar Int -> IO ()
 reverseProxy opts appPortVar = do
     manager <- newManager $ managerSetProxy noProxy tlsManagerSettings
     let refreshHtml = LB.fromChunks [$(embedFile "refreshing.html")]
-        sayV = when (verbose opts) . sayString    
+        sayV = when (verbose opts) . sayString
     let onExc _ req
             | maybe False (("application/json" `elem`) . parseHttpAccept)
                 (lookup "accept" $ requestHeaders req) =

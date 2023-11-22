@@ -166,6 +166,18 @@ instance Monad m => Applicative (AForm m) where
         (a, b, ints', c) <- f mr env ints
         (x, y, ints'', z) <- g mr env ints'
         return (a <*> x, b . y, ints'', c `mappend` z)
+
+#if MIN_VERSION_transformers(0,6,0)
+instance Monad m => Monad (AForm m) where
+    (AForm f) >>= k = AForm $ \mr env ints -> do
+        (a, b, ints', c) <- f mr env ints
+        case a of
+          FormSuccess r -> do 
+            (x, y, ints'', z) <- unAForm (k r) mr env ints'
+            return (x, b . y, ints'', c `mappend` z)
+          FormFailure err -> pure (FormFailure err, b, ints', c)
+          FormMissing -> pure (FormMissing, b, ints', c)
+#endif
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
@@ -230,4 +242,5 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgBoolNo
                  | MsgDelete
                  | MsgInvalidHexColorFormat Text
+                 | MsgInvalidDatetimeFormat Text
     deriving (Show, Eq, Read)

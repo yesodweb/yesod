@@ -49,6 +49,7 @@ module Yesod.Form.Fields
     , selectFieldListGrouped
     , radioField
     , radioFieldList
+    , withRadioField
     , checkboxesField
     , checkboxesFieldList
     , multiSelectField
@@ -63,6 +64,7 @@ module Yesod.Form.Fields
     , optionsPairsGrouped
     , optionsEnum
     , colorField
+    , datetimeLocalField
     ) where
 
 import Yesod.Form.Types
@@ -73,7 +75,7 @@ import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 #define preEscapedText preEscapedToMarkup
-import Data.Time (Day, TimeOfDay(..))
+import Data.Time (Day, TimeOfDay(..), LocalTime (LocalTime))
 import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -97,7 +99,8 @@ import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text as T ( Text, append, concat, cons, head
-                      , intercalate, isPrefixOf, null, unpack, pack, splitOn
+                      , intercalate, isPrefixOf, null, unpack, pack
+                      , split, splitOn
                       )
 import qualified Data.Text as T (drop, dropWhile)
 import qualified Data.Text.Read
@@ -176,17 +179,17 @@ timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Tim
 timeField = timeFieldTypeTime
 
 -- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
--- 
+--
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
 -- @since 1.4.2
-timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
+timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeFieldTypeTime = timeFieldOfType "time"
 
 -- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
 --
 -- This function exists for backwards compatibility with the old implementation of 'timeField', which used to use @type="text"@. Consider using 'timeField' or 'timeFieldTypeTime' for improved UX and validation from the browser.
--- 
+--
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
 -- @since 1.4.2
@@ -222,7 +225,7 @@ $newline never
   where showVal = either id (pack . renderHtml)
 
 -- | A newtype wrapper around a 'Text' whose 'ToMarkup' instance converts newlines to HTML @\<br>@ tags.
--- 
+--
 -- (When text is entered into a @\<textarea>@, newline characters are used to separate lines.
 -- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
 -- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
@@ -351,7 +354,7 @@ timeParser = do
         if i < 0 || i >= 60
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
-            
+
 -- | Creates an input with @type="email"@. Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see "Text.Email.Validate").
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
@@ -530,32 +533,58 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerFor site (OptionList a)
            -> Field (HandlerFor site) a
-radioField = selectFieldHelper
-    (\theId _name _attrs inside -> [whamlet|
+radioField = withRadioField
+    (\theId optionWidget -> [whamlet|
 $newline never
-<div ##{theId}>^{inside}
+<div .radio>
+    <label for=#{theId}-none>
+        <div>
+            ^{optionWidget}
+            _{MsgSelectNone}
 |])
-    (\theId name isSel -> [whamlet|
+    (\theId value _isSel text optionWidget -> [whamlet|
 $newline never
-<label .radio for=#{theId}-none>
-    <div>
-        <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
-        _{MsgSelectNone}
+<div .radio>
+    <label for=#{theId}-#{value}>
+        <div>
+            ^{optionWidget}
+            \#{text}
 |])
-    (\theId name attrs value isSel text -> [whamlet|
+
+
+-- | Allows the user to place the option radio widget somewhere in
+--   the template.
+--   For example: If you want a table of radio options to select.
+--   'radioField' is an example on how to use this function.
+--
+--   @since 1.7.2
+withRadioField :: (Eq a, RenderMessage site FormMessage)
+           => (Text -> WidgetFor site ()-> WidgetFor site ()) -- ^ nothing case for mopt
+           -> (Text ->  Text -> Bool -> Text -> WidgetFor site () -> WidgetFor site ()) -- ^ cases for values
+           -> HandlerFor site (OptionList a)
+           -> Field (HandlerFor site) a
+withRadioField nothingFun optFun =
+  selectFieldHelper outside onOpt inside Nothing
+  where
+    outside theId _name _attrs inside' = [whamlet|
 $newline never
-<label .radio for=#{theId}-#{value}>
-    <div>
-        <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
-        \#{text}
-|])
-     Nothing
+<div ##{theId}>^{inside'}
+|]
+    onOpt theId name isSel = nothingFun theId $ [whamlet|
+$newline never
+<input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
+|]
+    inside theId name attrs value isSel display =
+       optFun theId value isSel display [whamlet|
+<input id=#{theId}-#{(value)} type=radio name=#{name} value=#{(value)} :isSel:checked *{attrs}>
+|]
+
 
 -- | Creates a group of radio buttons to answer the question given in the message. Radio buttons are used to allow differentiating between an empty response (@Nothing@) and a no response (@Just False@). Consider using the simpler 'checkBoxField' if you don't need to make this distinction.
 --
 -- If this field is optional, the first radio button is labeled "\<None>", the second \"Yes" and the third \"No".
 --
--- If this field is required, the first radio button is labeled \"Yes" and the second \"No". 
+-- If this field is required, the first radio button is labeled \"Yes" and the second \"No".
 --
 -- (Exact label titles will depend on localization).
 boolField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
@@ -589,7 +618,7 @@ $newline never
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
--- | Creates an input with @type="checkbox"@. 
+-- | Creates an input with @type="checkbox"@.
 --   While the default @'boolField'@ implements a radio button so you
 --   can differentiate between an empty response (@Nothing@) and a no
 --   response (@Just False@), this simpler checkbox field returns an empty
@@ -947,15 +976,15 @@ prependZero t0 = if T.null t1
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.
--- 
+--
 -- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
--- 
+--
 -- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.
 
 -- | Creates an input with @type="color"@.
 --   The input value must be provided in hexadecimal format #rrggbb.
 --
--- @since 1.7.1 
+-- @since 1.7.1
 colorField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 colorField = Field
     { fieldParse = parseHelper $ \s ->
@@ -971,3 +1000,24 @@ $newline never
       isHexColor :: String -> Bool
       isHexColor ['#',a,b,c,d,e,f] = all isHexDigit [a,b,c,d,e,f]
       isHexColor _ = False
+
+-- | Creates an input with @type="datetime-local"@.
+--   The input value must be provided in YYYY-MM-DD(T| )HH:MM[:SS] format.
+--
+-- @since 1.7.6
+datetimeLocalField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m LocalTime
+datetimeLocalField = Field
+    { fieldParse = parseHelper $ \s -> case T.split (\c -> (c == 'T') || (c == ' ')) s of
+        [d,t] -> do
+            day <- parseDate $ unpack d
+            time <- parseTime t
+            Right $ LocalTime day time
+        _ -> Left $ MsgInvalidDatetimeFormat s
+    , fieldView = \theId name attrs val isReq -> [whamlet|
+$newline never
+<input type=datetime-local ##{theId} name=#{name} value=#{showVal val} *{attrs} :isReq:required>
+|]
+    , fieldEnctype = UrlEncoded
+    }
+  where
+    showVal = either id (pack . show)

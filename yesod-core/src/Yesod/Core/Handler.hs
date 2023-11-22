@@ -245,6 +245,7 @@ import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable)
+import           Data.Kind                     (Type)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
@@ -261,7 +262,7 @@ import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
 import           Control.Monad.Logger (MonadLogger, logWarnS)
 
-type HandlerT site (m :: * -> *) = HandlerFor site
+type HandlerT site (m :: Type -> Type) = HandlerFor site
 {-# DEPRECATED HandlerT "Use HandlerFor directly" #-}
 
 get :: MonadHandler m => m GHState

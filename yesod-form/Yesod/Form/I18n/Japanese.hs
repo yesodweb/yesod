@@ -25,3 +25,4 @@ japaneseFormMessage MsgBoolYes = "はい"
 japaneseFormMessage MsgBoolNo = "いいえ"
 japaneseFormMessage MsgDelete = "削除しますか?"
 japaneseFormMessage (MsgInvalidHexColorFormat t) = "無効な色。＃rrggbb16進形式である必要があります: " `mappend` t
+japaneseFormMessage (MsgInvalidDatetimeFormat t) = "無効な日時です。YYYY-MM-DD(T| )HH:MM[:SS] 形式である必要があります: " `mappend` t

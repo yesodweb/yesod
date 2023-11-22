@@ -1,5 +1,9 @@
 # ChangeLog for yesod
 
+## 1.6.2.1
+
+* Support `template-haskell-2.19.0.0` [#1769](https://github.com/yesodweb/yesod/pull/1769)
+
 ## 1.6.2
 
 * aeson 2

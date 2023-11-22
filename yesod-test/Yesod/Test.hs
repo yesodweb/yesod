@@ -152,6 +152,7 @@ module Yesod.Test
     , setMethod
     , addPostParam
     , addGetParam
+    , addBareGetParam
     , addFile
     , setRequestBody
     , RequestBuilder
@@ -170,6 +171,7 @@ module Yesod.Test
     , byLabelContain
     , byLabelPrefix
     , byLabelSuffix
+    , bySelectorLabelContain
     , fileByLabel
     , fileByLabelExact
     , fileByLabelContain
@@ -848,6 +850,23 @@ addGetParam name value = modifySIO $ \rbd -> rbd
               : rbdGets rbd
     }
 
+-- | Add a bare parameter with the given name and no value to the query
+-- string. The parameter is added without an @=@ sign.
+--
+-- You can specify the entire query string literally by adding a single bare
+-- parameter and no other parameters.
+--
+-- @since 1.6.16
+-- 
+-- ==== __Examples__
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > request $ do
+-- >   addBareGetParam "key" -- Adds ?key to the URL
+addBareGetParam :: T.Text -> RequestBuilder site ()
+addBareGetParam name = modifySIO $ \rbd ->
+    rbd {rbdGets = (TE.encodeUtf8 name, Nothing) : rbdGets rbd}
+
 -- | Add a file to be posted with the current request.
 --
 -- Adding a file will automatically change your request content-type to be multipart/form-data.
@@ -876,9 +895,36 @@ genericNameFromLabel match label = do
     case mres of
       Nothing -> failure "genericNameFromLabel: No response available"
       Just res -> return res
+  let body = simpleBody res
+  case genericNameFromHTML match label body of
+    Left e -> failure e
+    Right x -> pure x
+
+-- |
+-- This looks up the name of a field based on a CSS selector and the contents of the label pointing to it.
+genericNameFromSelectorLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> T.Text -> RequestBuilder site T.Text
+genericNameFromSelectorLabel match selector label = do
+  mres <- fmap rbdResponse getSIO
+  res <-
+    case mres of
+      Nothing -> failure "genericNameSelectorFromLabel: No response available"
+      Just res -> return res
+  let body = simpleBody res
+  html <-
+    case findBySelector body selector of
+        Left parseError -> failure $ "genericNameFromSelectorLabel: Parse error" <> T.pack parseError
+        Right [] -> failure $ "genericNameFromSelectorLabel: No fragments match selector " <> selector
+        Right [matchingFragment] -> pure $ BSL8.pack matchingFragment
+        Right _matchingFragments -> failure $ "genericNameFromSelectorLabel: Multiple fragments match selector " <> selector
+  case genericNameFromHTML match label html of
+    Left e -> failure e
+    Right x -> pure x
+
+genericNameFromHTML :: (T.Text -> T.Text -> Bool) -> T.Text -> HtmlLBS -> Either T.Text T.Text
+genericNameFromHTML match label html =
   let
-    body = simpleBody res
-    mlabel = parseHTML body
+    parsedHTML = parseHTML html
+    mlabel = parsedHTML
                 $// C.element "label"
                 >=> isContentMatch label
     mfor = mlabel >>= attribute "for"
@@ -887,26 +933,26 @@ genericNameFromLabel match label = do
         | x `match` T.concat (c $// content) = [c]
         | otherwise = []
 
-  case mfor of
+  in case mfor of
     for:[] -> do
-      let mname = parseHTML body
+      let mname = parsedHTML
                     $// attributeIs "id" for
                     >=> attribute "name"
       case mname of
-        "":_ -> failure $ T.concat
+        "":_ -> Left $ T.concat
             [ "Label "
             , label
             , " resolved to id "
             , for
             , " which was not found. "
             ]
-        name:_ -> return name
-        [] -> failure $ "No input with id " <> for
+        name:_ -> Right name
+        [] -> Left $ "No input with id " <> for
     [] ->
       case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
-        [] -> failure $ "No label contained: " <> label
-        name:_ -> return name
-    _ -> failure $ "More than one label contained " <> label
+        [] -> Left $ "No label contained: " <> label
+        name:_ -> Right name
+    _ -> Left $ "More than one label contained " <> label
 
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
@@ -914,6 +960,15 @@ byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is
                  -> RequestBuilder site ()
 byLabelWithMatch match label value = do
   name <- genericNameFromLabel match label
+  addPostParam name value
+
+bySelectorLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+                 -> T.Text                     -- ^ The CSS selector.
+                 -> T.Text                     -- ^ The text contained in the @\<label>@.
+                 -> T.Text                     -- ^ The value to set the parameter to.
+                 -> RequestBuilder site ()
+bySelectorLabelWithMatch match selector label value = do
+  name <- genericNameFromSelectorLabel match selector label
   addPostParam name value
 
 -- How does this work for the alternate <label><input></label> syntax?
@@ -1028,6 +1083,18 @@ byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
               -> T.Text -- ^ The value to set the parameter to.
               -> RequestBuilder site ()
 byLabelSuffix = byLabelWithMatch T.isSuffixOf
+
+-- |
+-- Note: This function throws an error if it finds multiple labels or if the
+-- CSS selector fails to parse, doesn't match any fragment, or matches multiple
+-- fragments.
+--
+-- @since 1.6.15
+bySelectorLabelContain :: T.Text -- ^ The CSS selector.
+               -> T.Text -- ^ The text in the @\<label>@.
+               -> T.Text -- ^ The value to set the parameter to.
+               -> RequestBuilder site ()
+bySelectorLabelContain = bySelectorLabelWithMatch T.isInfixOf
 
 fileByLabelWithMatch  :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                       -> T.Text                     -- ^ The text contained in the @\<label>@.

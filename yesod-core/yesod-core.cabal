@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.24.0
+version:         1.6.25.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -27,6 +27,7 @@ library
 
     build-depends:   base                  >= 4.10     && < 5
                    , aeson                 >= 1.0
+                   , attoparsec-aeson      >= 2.1
                    , auto-update
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.7.1
@@ -58,7 +59,7 @@ library
                    , unix-compat
                    , unliftio
                    , unordered-containers  >= 0.2
-                   , vector                >= 0.9      && < 0.13
+                   , vector                >= 0.9      && < 0.14
                    , wai                   >= 3.2
                    , wai-extra             >= 3.0.7
                    , wai-logger            >= 0.2
@@ -173,6 +174,8 @@ test-suite tests
                    YesodCoreTest.StubSslOnly
                    YesodCoreTest.StubStrictSameSite
                    YesodCoreTest.StubUnsecured
+                   YesodCoreTest.SubSub
+                   YesodCoreTest.SubSubData
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

@@ -29,10 +29,12 @@ import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
 import Text.XML
 import Data.Text (Text, pack)
+import Data.Char (toUpper)
 import Data.Monoid ((<>))
 import Control.Applicative
-import Network.Wai (pathInfo, requestHeaders)
+import Network.Wai (pathInfo, rawQueryString, requestHeaders)
 import Network.Wai.Test (SResponse(simpleBody))
+import Numeric (showHex)
 import Data.Maybe (fromMaybe)
 import Data.Either (isLeft, isRight)
 
@@ -46,6 +48,7 @@ import Control.Monad.IO.Unlift (toIO)
 import qualified Web.Cookie as Cookie
 import Data.Maybe (isNothing)
 import qualified Data.Text as T
+import qualified Data.ByteString.Char8 as B8
 import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
@@ -172,6 +175,27 @@ main = hspec $ do
                 statusIs 200
                 -- They pass through the server correctly.
                 bodyEquals "foo+bar%41<&baz"
+            yit "get params" $ do
+                get ("/query" :: Text)
+                statusIs 200
+                bodyEquals ""
+
+                request $ do
+                    setMethod "GET"
+                    setUrl $ LiteAppRoute ["query"]
+                    -- If value uses special characters,
+                    addGetParam "foo" "foo+bar%41<&baz"
+                    addBareGetParam "goo+car%41<&caz"
+                statusIs 200
+                -- They pass through the server correctly.
+                let pctEnc c = "%" <> (map toUpper $ showHex (fromEnum c) "")
+                    plus = pctEnc '+'
+                    pct  = pctEnc '%'
+                    lt   = pctEnc '<'
+                    amp  = pctEnc '&'
+                bodyEquals $ mconcat
+                  [ "goo", plus, "car", pct, "41", lt, amp, "caz",
+                    "&foo=foo", plus, "bar", pct, "41", lt, amp, "baz"]
             yit "labels" $ do
                 get ("/form" :: Text)
                 statusIs 200
@@ -318,6 +342,21 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl ("label-contain-error" :: Text)
                     byLabelContain "hobby" "fishing")
+                assertEq "failure wasn't called" (isLeft bad) True
+            yit "bySelectorLabelContain looks for the selector and label which contain the given label name" $ do
+                get ("/selector-label-contain" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    bySelectorLabelContain "#hobby-container" "hobby" "fishing"
+                res <- maybe "Couldn't get response" simpleBody <$> getResponse
+                assertEq "hobby isn't set" res "fishing"
+            yit "bySelectorLabelContain throws an error if the selector matches multiple elements" $ do
+                get ("selector-label-contain-error" :: Text)
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    bySelectorLabelContain "#hobby-container" "hobby" "fishing")
                 assertEq "failure wasn't called" (isLeft bad) True
             yit "byLabelPrefix matches over the prefix of the labels" $ do
                 get ("/label-prefix" :: Text)
@@ -530,6 +569,8 @@ app = liteApp $ do
         case mfoo of
             Nothing -> error "No foo"
             Just foo -> return foo
+    onStatic "query" . dispatchTo $
+        T.pack . B8.unpack . rawQueryString <$> waiRequest
     onStatic "redirect301" $ dispatchTo $ redirectWith status301 ("/redirectTarget" :: Text) >> return ()
     onStatic "redirect303" $ dispatchTo $ redirectWith status303 ("/redirectTarget" :: Text) >> return ()
     onStatic "redirectTarget" $ dispatchTo $ return ("we have been successfully redirected" :: Text)
@@ -576,6 +617,10 @@ app = liteApp $ do
         return ("<html><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
     onStatic "label-contain-error" $ dispatchTo $
         return ("<html><label for='hobby'>XXXhobbyXXX</label><label for='hobby2'>XXXhobby2XXX</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "selector-label-contain" $ dispatchTo $
+        return ("<html><div><label for='hobby-1'>XXXhobbyXXX</label><input type='text' name='hobby-1' id='hobby-1'></div><div id='hobby-container'><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></div></html>" :: Text)
+    onStatic "selector-label-contain-error" $ dispatchTo $
+        return ("<html><div id='hobby-container'><label for='hobby-1'>XXXhobbyXXX</label><input type='text' name='hobby-1' id='hobby-1'></div><div id='hobby-container'><label for='hobby'>XXXhobbyXXX</label><input type='text' name='hobby' id='hobby'></div></html>" :: Text)
     onStatic "label-prefix" $ dispatchTo $
         return ("<html><label for='hobby'>hobbyXXX</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
     onStatic "label-prefix-error" $ dispatchTo $

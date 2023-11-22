@@ -14,11 +14,11 @@ import UnliftIO.Exception (try, SomeException)
 
 data App = App (TChan Text)
 
-instance Yesod App
-
 mkYesod "App" [parseRoutes|
 / HomeR GET
 |]
+
+instance Yesod App
 
 chatApp :: WebSocketsT Handler ()
 chatApp = do

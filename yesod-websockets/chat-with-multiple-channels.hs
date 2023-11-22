@@ -15,11 +15,11 @@ import UnliftIO.Exception (try, SomeException)
 
 data App = App (TVar (M.Map Text (TChan Text, Int)))
 
-instance Yesod App
-
 mkYesod "App" [parseRoutes|
 / HomeR GET
 |]
+
+instance Yesod App
 
 cleanupChannel :: (Eq a1, Num a1) => Maybe (a2, a1) -> Maybe (a2, a1)
 cleanupChannel Nothing = Nothing

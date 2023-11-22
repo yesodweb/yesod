@@ -26,6 +26,14 @@ jobs:
         exclude:
           - os: windows-latest
             args: "--resolver nightly"
+          - os: macos-latest
+            args: "--resolver lts-16"
+          - os: macos-latest
+            args: "--resolver lts-14"
+          - os: macos-latest
+            args: "--resolver lts-12"
+          - os: macos-latest
+            args: "--resolver lts-11"
 
     steps:
       - name: Clone project
@@ -44,8 +52,5 @@ jobs:
         shell: bash
         run: |
             set -ex
-            mkdir -p ../_newstack
-            stack upgrade --force-download --local-bin-path ../_newstack
-            ../_newstack/stack --version
-            ../_newstack/stack
-            ../_newstack/stack test --fast --no-terminal ${{ matrix.args }}
+            stack --version
+            stack test --fast --no-terminal ${{ matrix.args }}

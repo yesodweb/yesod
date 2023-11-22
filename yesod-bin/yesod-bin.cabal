@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.6.2.1
+version:         1.6.2.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -35,7 +35,7 @@ executable             yesod
                      , directory          >= 1.2.1
                      , file-embed
                      , filepath           >= 1.1
-                     , fsnotify           >= 0.0          && < 0.4
+                     , fsnotify
                      , http-client        >= 0.4.7
                      , http-client-tls
                      , http-reverse-proxy >= 0.4

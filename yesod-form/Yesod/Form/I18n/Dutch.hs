@@ -25,3 +25,4 @@ dutchFormMessage MsgBoolYes            = "Ja"
 dutchFormMessage MsgBoolNo             = "Nee"
 dutchFormMessage MsgDelete             = "Verwijderen?"
 dutchFormMessage (MsgInvalidHexColorFormat t) = "Ongeldige kleur, moet de hexadecimale indeling #rrggbb hebben: " `mappend` t
+dutchFormMessage (MsgInvalidDatetimeFormat t) = "Ongeldige datum/tijd, moet de indeling JJJJ-MM-DD(T| )UU:MM[:SS] hebben: " `mappend` t

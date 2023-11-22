@@ -1,3 +1,7 @@
+## 0.3.0.4
+
+* Fixed examples to work with Template Haskell change in recent GHC versions ([#1790](https://github.com/yesodweb/yesod/pull/1790)).
+
 ## 0.3.0.3
 * Removed the use of the deprecated forkPingThread and replaced it with the recommended withPingThread. [#1700](https://github.com/yesodweb/yesod/pull/1700)
 
