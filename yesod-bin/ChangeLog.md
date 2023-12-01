@@ -1,5 +1,9 @@
 # ChangeLog for yesod-bin
 
+## 1.6.2.3
+
+* Support optparse-applicative-0.18 [#1829](https://github.com/yesodweb/yesod/pull/1829)
+
 ## 1.6.2.2
 
 * Support Cabal 3.8 [#1769](https://github.com/yesodweb/yesod/pull/1769)
