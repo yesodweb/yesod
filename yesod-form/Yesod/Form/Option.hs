@@ -17,13 +17,6 @@ import Yesod.Form.Fields
 --
 -- === __Example usage__
 --
--- @messages/en.msg
--- > MsgSalesTeam: Sales Team
--- > MsgSalesHead: Head of Sales Team
--- > MsgTechTeam: Tech Team
--- > MsgTechHead: Head of Tech Team
---
--- @example.hs
 -- > data UserRole = URSalesTeam | URSalesHead | URTechTeam | URTechHead
 -- >
 -- > instance PathPiece UserDepartment where
@@ -44,11 +37,12 @@ import Yesod.Form.Fields
 -- > userRoleOptions = optionsFromList' userRoles toMsg
 -- >   where
 -- >   userRoles = [URSalesTeam, URSalesHead, URTechTeam, URTechHead]
+-- >   toMsg :: UserRole -> Text
 -- >   toMsg = \case
--- >     URSalesTeam -> MsgSalesTeam
--- >     URSalesHead -> MsgSalesHead
--- >     URTechTeam -> MsgTechTeam
--- >     URTechHead -> MsgTechHead
+-- >     URSalesTeam -> "Sales Team"
+-- >     URSalesHead -> "Head of Sales Team"
+-- >     URTechTeam -> "Tech Team"
+-- >     URTechHead -> "Head of Tech Team"
 --
 -- userRoleOptions, will produce an OptionList with the following attributes:
 --
@@ -63,6 +57,9 @@ import Yesod.Form.Fields
 -- > +----------------+----------------+--------------------+
 -- > | URTechHead     | tech-head      | Head of Tech Team  |
 -- > +----------------+----------------+--------------------+
+--
+-- Note that the type constraint allows localizable messages in place of toMsg (see
+-- https://en.wikipedia.org/wiki/Yesod_(web_framework)#Localizable_messages).
 
 optionsFromList' ::
      MonadHandler m
