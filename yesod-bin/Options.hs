@@ -66,19 +66,16 @@ configLines = mapMaybe (mkLine . takeWhile (/='#')) . lines
 injectDefaultP :: M.Map [String] String -> [String] -> Parser a -> Parser a
 injectDefaultP _env _path n@(NilP{})   = n
 injectDefaultP env path p@(OptP o)
-#if MIN_VERSION_optparse_applicative(0,13,0)
+#if MIN_VERSION_optparse_applicative(0,18,0)
+  | (Option (CmdReader _ ts) props) <- o  =
+     let ts' = map (\(cmd,parseri) -> (cmd, modifyParserI cmd parseri)) ts
+     in  OptP (Option (CmdReader Nothing ts') props)
+#elif MIN_VERSION_optparse_applicative(0,13,0)
   | (Option (CmdReader _ cmds f) props) <- o  =
+         OptP (Option (CmdReader Nothing cmds (`M.lookup` cmdMap f cmds)) props)
 #else
   | (Option (CmdReader cmds f) props) <- o  =
-#endif
-     let cmdMap = M.fromList (map (\c -> (c, mkCmd c)) cmds)
-         mkCmd cmd =
-           let (Just parseri) = f cmd
-           in  parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
-#if MIN_VERSION_optparse_applicative(0,13,0)
-     in  OptP (Option (CmdReader Nothing cmds (`M.lookup` cmdMap)) props)
-#else
-     in  OptP (Option (CmdReader cmds (`M.lookup` cmdMap)) props)
+         OptP (Option (CmdReader cmds (`M.lookup` cmdMap f cmds)) props)
 #endif
   | (Option (OptReader names (CReader _ rdr) _) _) <- o =
      p <|> either (const empty)
@@ -91,6 +88,16 @@ injectDefaultP env path p@(OptP o)
   | (Option (FlagReader names a) _) <- o =
      p <|> if any ((==Just "1") . getEnvValue env path) names then pure a else empty
   | otherwise = p
+  where
+    modifyParserI cmd parseri =
+        parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
+    cmdMap f cmds = 
+        let mkCmd cmd =
+                let (Just parseri) = f cmd
+                in  modifyParserI cmd parseri
+        in  M.fromList (map (\c -> (c, mkCmd c)) cmds)
+
+
 injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)
 injectDefaultP env path (AltP p1 p2) =
