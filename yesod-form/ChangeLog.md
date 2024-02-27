@@ -1,5 +1,12 @@
 # ChangeLog for yesod-form
 
+
+## 1.7.7
+
+* Added `optionsFromList'` to create an OptionList from a List, using the PathPiece instance for the external value and
+a custom function for the user-facing value. Also added `optionsEnum'` to create an OptionList from an enumeration
+[#1828](https://github.com/yesodweb/yesod/pull/1828)
+
 ## 1.7.6
 
 * Added `datetimeLocalField` for creating a html `<input type="datetime-local">` [#1817](https://github.com/yesodweb/yesod/pull/1817)
