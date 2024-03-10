@@ -52,7 +52,7 @@ module Yesod.Form.Fields
     , withRadioField
     , checkboxesField
     , checkboxesFieldList
-    , multiSelectField
+    , multiSelectField    
     , multiSelectFieldList
     , Option (..)
     , OptionList (..)
@@ -478,27 +478,41 @@ multiSelectFieldList = multiSelectField . optionsPairs
 multiSelectField :: Eq a
                  => HandlerFor site (OptionList a)
                  -> Field (HandlerFor site) [a]
-multiSelectField ioptlist =
-    Field parse view UrlEncoded
+multiSelectField ioptlist = Field{fieldParse=parse, fieldView=view, fieldEnctype=enctype}
   where
-    parse [] _ = return $ Right Nothing
-    parse optlist _ = do
-        mapopt <- olReadExternal <$> ioptlist
-        case mapM mapopt optlist of
-             Nothing -> return $ Left "Error parsing values"
-             Just res -> return $ Right $ Just res
+    enctype = UrlEncoded
+
+    parse []      _ = return $ Right Nothing
+    parse optlist _ = do      
+      mapopt <- olReadExternal . flattenOptionList <$> liftHandler ioptlist
+      return $ case mapM mapopt optlist of
+        Nothing -> Left "Error parsing values"
+        res     -> Right res
 
     view theId name attrs val isReq = do
-        opts <- fmap olOptions $ handlerToWidget ioptlist
-        let selOpts = map (id &&& (optselected val)) opts
-        [whamlet|
-            <select ##{theId} name=#{name} :isReq:required multiple *{attrs}>
-                $forall (opt, optsel) <- selOpts
-                    <option value=#{optionExternalValue opt} :optsel:selected>#{optionDisplay opt}
-                |]
-        where
-            optselected (Left _) _ = False
-            optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
+      opts <- liftHandler ioptlist
+      let
+        rendered = case val of
+          Left  _  -> []
+          Right xs -> [optionExternalValue o | o <- olOptions $ flattenOptionList opts, x <- xs, x == optionInternalValue o]
+        optsel Nothing    = Prelude.null rendered
+        optsel (Just opt) = optionExternalValue opt `elem` rendered        
+
+      [whamlet|
+        $newline never
+        <select ##{theId} name=#{name} :isReq:required multiple *{attrs}>
+          $case opts
+            $of OptionList{olOptions}
+              $forall opt <- olOptions
+                <option value=#{optionExternalValue opt} :optsel (Just opt):selected>
+                  #{optionDisplay opt}
+            $of OptionListGrouped{olOptionsGrouped}
+              $forall (groupLbl, iOpts) <- olOptionsGrouped
+                <optgroup label=#{groupLbl}>
+                  $forall opt <- iOpts
+                    <option value=#{optionExternalValue opt} :optsel (Just opt):selected>
+                      #{optionDisplay opt}
+      |]
 
 -- | Creates an input with @type="radio"@ for selecting one option.
 radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
