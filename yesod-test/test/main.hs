@@ -225,6 +225,9 @@ main = hspec $ do
             yit "finding html" $ do
                 get ("/html" :: Text)
                 statusIs 200
+                htmlAnyContainPreEscaped "meta" "content=\"site description\""
+                htmlAllContainPreEscaped "meta"  "content=\"site description"
+                htmlNoneContainPreEscaped "meta" "foobar"
                 htmlCount "p" 2
                 htmlAllContain "p" "Hello"
                 htmlAllContain "span" "O'Kon"
@@ -254,7 +257,7 @@ main = hspec $ do
               get ("/htmlWithLink" :: Text)
               clickOn "a#thelink"
               statusIs 200
-              bodyEquals "<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon and <span>O'Kon</span></p></body></html>"
+              bodyEquals "<html><head><meta name=description content=\"site description\"/><meta name=og:description content=\"site description og\"/><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon and <span>O'Kon</span></p></body></html>"
 
               get ("/htmlWithLink" :: Text)
               bad <- tryAny (clickOn "a#nonexistentlink")
@@ -605,7 +608,7 @@ app = liteApp $ do
             FormSuccess (foo, _) -> return $ toHtml foo
             _                    -> defaultLayout widget
     onStatic "html" $ dispatchTo $
-        return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon and <span>O'Kon</span></p></body></html>" :: Text)
+        return ("<html><head><meta name=description content=\"site description\"/><meta name=og:description content=\"site description og\"/><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon and <span>O'Kon</span></p></body></html>" :: Text)
 
     onStatic "htmlWithLink" $ dispatchTo $
         return ("<html><head><title>A link</title></head><body><a href=\"/html\" id=\"thelink\">Link!</a></body></html>" :: Text)
