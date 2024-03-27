@@ -546,7 +546,11 @@ htmlQuery = htmlQuery' yedResponse []
 -- In case they are not equal, the error message includes the two values.
 --
 -- @since 1.5.2
-assertEq :: (HasCallStack, Eq a, Show a) => String -> a -> a -> YesodExample site ()
+assertEq :: (HasCallStack, Eq a, Show a)
+  => String -- ^ The message prefix
+  -> a      -- ^ The expected value
+  -> a      -- ^ The actual value
+  -> YesodExample site ()
 assertEq m a b =
   liftIO $ HUnit.assertEqual msg a b
   where msg = "Assertion: " ++ m ++ "\n"
@@ -857,7 +861,7 @@ addGetParam name value = modifySIO $ \rbd -> rbd
 -- parameter and no other parameters.
 --
 -- @since 1.6.16
--- 
+--
 -- ==== __Examples__
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
