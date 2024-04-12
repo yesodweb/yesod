@@ -1,6 +1,6 @@
 # ChangeLog for yesod-auth
 
-## 1.6.12
+## 1.6.11.3
 
 * Add Romanian translation [#1809](https://github.com/yesodweb/yesod/pull/1809)
 

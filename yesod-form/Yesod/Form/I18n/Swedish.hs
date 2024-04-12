@@ -25,3 +25,4 @@ swedishFormMessage MsgBoolNo = "Nej"
 swedishFormMessage MsgDelete = "Radera?"
 swedishFormMessage MsgCsrfWarning = "Som skydd mot \"cross-site request forgery\" attacker, vänligen bekräfta skickandet av formuläret."
 swedishFormMessage (MsgInvalidHexColorFormat t) = "Ogiltig färg, måste vara i #rrggbb hexadecimalt format: " `mappend` t
+swedishFormMessage (MsgInvalidDatetimeFormat t) = "Ogiltig datumtid, måste vara i formatet ÅÅÅÅ-MM-DD(T| )TT:MM[:SS]: " `mappend` t

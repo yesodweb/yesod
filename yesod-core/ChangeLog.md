@@ -1,5 +1,21 @@
 # ChangeLog for yesod-core
 
+## 1.6.25.1
+
+* Export the options that were created in 1.6.25.0 [#1825](https://github.com/yesodweb/yesod/pull/1825)
+
+## 1.6.25.0
+
+* Add an options structure that allows the user to set which instances will be derived for a routes structure. [#1819](https://github.com/yesodweb/yesod/pull/1819)
+
+## 1.6.24.5
+
+* Support Aeson 2.2 [#1818](https://github.com/yesodweb/yesod/pull/1818)
+
+## 1.6.24.4
+
+* Fix test-suite compilation error for GHC >= 9.0.1 [#1812](https://github.com/yesodweb/yesod/pull/1812)
+
 ## 1.6.24.3
 
 * Fix subsite-to-subsite dispatch [#1805](https://github.com/yesodweb/yesod/pull/1805)

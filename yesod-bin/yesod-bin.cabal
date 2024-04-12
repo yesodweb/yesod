@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.6.2.2
+version:         1.6.2.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -48,7 +48,7 @@ executable             yesod
                      , split              >= 0.2          && < 0.3
                      , stm
                      , streaming-commons
-                     , tar                >= 0.4          && < 0.6
+                     , tar                >= 0.4          && < 0.7
                      , text               >= 0.11
                      , time               >= 1.1.4
                      , transformers

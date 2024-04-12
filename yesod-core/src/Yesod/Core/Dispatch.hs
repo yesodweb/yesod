@@ -10,12 +10,22 @@ module Yesod.Core.Dispatch
     , parseRoutesFile
     , parseRoutesFileNoCheck
     , mkYesod
+    , mkYesodOpts
     , mkYesodWith
       -- ** More fine-grained
     , mkYesodData
+    , mkYesodDataOpts
     , mkYesodSubData
+    , mkYesodSubDataOpts
     , mkYesodDispatch
+    , mkYesodDispatchOpts
     , mkYesodSubDispatch
+      -- *** Route generation options
+    , RouteOpts
+    , defaultOpts
+    , setEqDerived
+    , setShowDerived
+    , setReadDerived
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires

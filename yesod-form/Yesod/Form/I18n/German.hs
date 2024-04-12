@@ -25,3 +25,4 @@ germanFormMessage MsgBoolYes = "Ja"
 germanFormMessage MsgBoolNo = "Nein"
 germanFormMessage MsgDelete = "Löschen?"
 germanFormMessage (MsgInvalidHexColorFormat t) = "Ungültige Farbe, muss im Hexadezimalformat #rrggbb vorliegen: " `mappend` t
+germanFormMessage (MsgInvalidDatetimeFormat t) = "Ungültige Datums- und Uhrzeitangabe, muss im Format YYYY-MM-DD(T| )HH:MM[:SS] vorliegen: " `mappend` t

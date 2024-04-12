@@ -26,3 +26,4 @@ spanishFormMessage MsgBoolYes = "Sí"
 spanishFormMessage MsgBoolNo = "No"
 spanishFormMessage MsgDelete = "¿Eliminar?"
 spanishFormMessage (MsgInvalidHexColorFormat t) = "Color no válido, debe estar en formato hexadecimal #rrggbb: " `mappend` t
+spanishFormMessage (MsgInvalidDatetimeFormat t) = "Fecha y hora no válida; debe estar en formato AAAA-MM-DD(T| )HH:MM[:SS]: " `mappend` t
