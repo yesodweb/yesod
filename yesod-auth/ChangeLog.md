@@ -4,6 +4,10 @@
 
 * Add Romanian translation [#1809](https://github.com/yesodweb/yesod/pull/1809)
 
+## 1.6.11.2
+
+* Add support for aeson 2.2 [#1820](https://github.com/yesodweb/yesod/pull/1820)
+
 ## 1.6.11.1
 
 * No star is type [#1797](https://github.com/yesodweb/yesod/pull/1797)

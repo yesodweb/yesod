@@ -870,7 +870,7 @@ koreanMessage AuthError = "인증오류"
 
 -- | Romanian translation
 --
--- @since 1.6.12
+-- @since 1.6.11.3
 romanianMessage :: AuthMessage -> Text
 romanianMessage NoOpenID = "Identificatorul OpenID nu a fost găsit"
 romanianMessage LoginOpenID = "Conectați-vă cu OpenID"
