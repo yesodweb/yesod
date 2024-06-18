@@ -142,6 +142,7 @@ test-suite tests
 
     other-modules: YesodCoreTest
                    YesodCoreTest.Auth
+                   YesodCoreTest.Breadcrumb
                    YesodCoreTest.Cache
                    YesodCoreTest.CleanPath
                    YesodCoreTest.Header
