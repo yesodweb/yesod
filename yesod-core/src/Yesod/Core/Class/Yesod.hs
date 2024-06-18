@@ -595,7 +595,7 @@ widgetToPageContent w = do
                 $maybe s <- jsLoc
                     <script src="#{s}" *{jsAttrs}>
                 $nothing
-                    <script>^{jelper j}
+                    <script *{jsAttrs}>^{jelper j}
         |]
 
         headAll = [hamlet|
