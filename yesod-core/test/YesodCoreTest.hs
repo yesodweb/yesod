@@ -17,6 +17,7 @@ import YesodCoreTest.ParameterizedSite
 import YesodCoreTest.Breadcrumb
 import qualified YesodCoreTest.WaiSubsite as WaiSubsite
 import qualified YesodCoreTest.Redirect as Redirect
+import qualified YesodCoreTest.JsAttributes as JsAttributes
 import qualified YesodCoreTest.JsLoader as JsLoader
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
@@ -51,6 +52,7 @@ specs = do
       parameterizedSiteTest
       WaiSubsite.specs
       Redirect.specs
+      JsAttributes.specs
       JsLoader.specs
       RequestBodySize.specs
       Json.specs
