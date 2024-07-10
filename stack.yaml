@@ -17,3 +17,4 @@ packages:
 
 extra-deps:
 - attoparsec-aeson-2.1.0.0
+- crypton-1.0.0

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-static
 
+## 1.6.1.1
+
+* Use crypton instead of cryptonite [#1838](https://github.com/yesodweb/yesod/pull/1838)
+
 ## 1.6.1.0
 
 * Support reproducible embedded file order [#1684](https://github.com/yesodweb/yesod/issues/1684#issuecomment-652562514)
