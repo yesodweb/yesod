@@ -20,8 +20,6 @@ jobs:
         - "--resolver lts-18"
         - "--resolver lts-16"
         - "--resolver lts-14"
-        - "--resolver lts-12"
-        - "--resolver lts-11"
         # Bugs in GHC make it crash too often to be worth running
         exclude:
           - os: windows-latest
@@ -30,10 +28,6 @@ jobs:
             args: "--resolver lts-16"
           - os: macos-latest
             args: "--resolver lts-14"
-          - os: macos-latest
-            args: "--resolver lts-12"
-          - os: macos-latest
-            args: "--resolver lts-11"
 
     steps:
       - name: Clone project
