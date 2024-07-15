@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.26.0
+
+* Always apply jsAttributes to julius script blocks of body [#1836](https://github.com/yesodweb/yesod/pull/1836)
+
 ## 1.6.25.1
 
 * Export the options that were created in 1.6.25.0 [#1825](https://github.com/yesodweb/yesod/pull/1825)
