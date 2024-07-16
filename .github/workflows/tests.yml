@@ -15,15 +15,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         args:
-        #- "--resolver nightly"
-        - "--resolver nightly-2022-02-11"
+        - "--resolver lts-22"
+        - "--resolver lts-20"
         - "--resolver lts-18"
         - "--resolver lts-16"
         - "--resolver lts-14"
-        # Bugs in GHC make it crash too often to be worth running
         exclude:
-          - os: windows-latest
-            args: "--resolver nightly"
+          # llvm too new on macos-latest for ghc 8
+          - os: macos-latest
+            args: "--resolver lts-18"
           - os: macos-latest
             args: "--resolver lts-16"
           - os: macos-latest
@@ -41,6 +41,16 @@ jobs:
 #          key: ${{ runner.os }}-${{ matrix.resolver }}-${{ hashFiles('stack.yaml') }}
 #          restore-keys: |
 #            ${{ runner.os }}-${{ matrix.resolver }}-
+
+      - name: Install stack if needed
+        shell: bash
+        run: |
+            set -ex
+            if [[ "${{ matrix.os }}" == "macos-latest" ]]
+            then
+                # macos-latest does not include Haskell tools as of 2024-05-06.
+              curl -sSL https://get.haskellstack.org/ | sh
+            fi
 
       - name: Build and run tests
         shell: bash
