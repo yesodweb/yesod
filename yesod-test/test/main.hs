@@ -307,6 +307,15 @@ main = hspec $ do
                 statusIs 200
                 bodyEquals "שלום"
 
+        ydescribe "chooseRadio" $ do
+            yit "can choose radio" $ do
+                get ("/label-with-radio" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("check-hobby" :: Text)
+                    chooseRadio "surfing"
+                res <- maybe "Couldn't get response" simpleBody <$> getResponse
+                assertEq "hobby isn't set" res "surfing"
         ydescribe "labels" $ do
             yit "can click checkbox" $ do
                 get ("/labels" :: Text)
@@ -629,6 +638,8 @@ app = liteApp $ do
         return ("<html><label for='hobby'>XXXhobby</label><input type='text' name='hobby' id='hobby'></html>" :: Text)
     onStatic "label-suffix-error" $ dispatchTo $
         return ("<html><label for='hobby'>XXXhobby</label><label for='hobby2'>XXXneo-hobby</label><input type='text' name='hobby' id='hobby'><input type='text' name='hobby2' id='hobby2'></html>" :: Text)
+    onStatic "label-with-radio" $ dispatchTo $
+        return ("<html><label for='hobby-fishing'><input type='radio' name='hobby' id='hobby-fishing' value='fishing'>fishing</label><label for='hobby-surfing'><input type='radio' name='hobby' id='hobby-surfing' value='surfing'>surfing</label></html>" :: Text)
     onStatic "check-hobby" $ dispatchTo $ do
         hobby <- lookupPostParam "hobby"
         return $ fromMaybe "No hobby" hobby
