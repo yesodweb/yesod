@@ -1,5 +1,8 @@
 # ChangeLog for yesod-test
 
+## 1.6.17
+
+* Add `chooseRadio` to yesod-test. [#1840](https://github.com/yesodweb/yesod/pull/1840)
 
 ## 1.6.16
 
