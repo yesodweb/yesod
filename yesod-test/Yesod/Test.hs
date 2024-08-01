@@ -177,6 +177,7 @@ module Yesod.Test
     , fileByLabelContain
     , fileByLabelPrefix
     , fileByLabelSuffix
+    , chooseRadio
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -957,6 +958,38 @@ genericNameFromHTML match label html =
         [] -> Left $ "No label contained: " <> label
         name:_ -> Right name
     _ -> Left $ "More than one label contained " <> label
+
+
+-- | Choose a given value from a radio input, identified by the value of it's corresponding label.
+-- This is a very simple and naive function, which could fail in more complex scenarios. Potentially still quite useful.
+--
+-- Given this HTML, and we want to submit @color=Red@ to the server:
+--
+-- > <form method="POST">
+-- >   <input id="color-red" name="color" value="Red">
+-- >   <label for="color-red">Red</label>
+-- >   <input id="color-blue" name="color" value="Blue">
+-- >   <label for="color-blue">Blue</label>
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   chooseRadio "Red"
+--
+-- @since 1.6.17
+chooseRadio :: T.Text -- ^ The text contained within the @\<label>@.
+       -> RequestBuilder site ()
+chooseRadio labelText = do
+  mres <- fmap rbdResponse getSIO
+  res <- case mres of
+      Nothing -> failure "chooseRadio: No response available"
+      Just res -> pure res
+
+  let name = genericNameFromHTML (==) labelText (simpleBody res)
+  case name of 
+    Right name' -> addPostParam name' labelText
+    Left err -> failure err
 
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
