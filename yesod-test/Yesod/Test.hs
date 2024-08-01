@@ -966,10 +966,10 @@ genericNameFromHTML match label html =
 -- Given this HTML, and we want to submit @color=Red@ to the server:
 --
 -- > <form method="POST">
+-- >   <input id="color-red" name="color" value="Red">
 -- >   <label for="color-red">Red</label>
--- >   <input id="color-red" name="color" value="Red" />
+-- >   <input id="color-blue" name="color" value="Blue">
 -- >   <label for="color-blue">Blue</label>
--- >   <input id="color-blue" name="color" value="Blue" />
 -- > </form>
 --
 -- You can set this parameter like so:
@@ -980,18 +980,16 @@ genericNameFromHTML match label html =
 -- @since 1.6.17
 chooseRadio :: T.Text -- ^ The text contained within the @\<label>@.
        -> RequestBuilder site ()
-chooseRadio v = do
+chooseRadio labelText = do
   mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
+  res <- case mres of
       Nothing -> failure "chooseRadio: No response available"
-      Just res -> return res
-  let body = simpleBody res
+      Just res -> pure res
 
-  let name = genericNameFromHTML (==) (v) body
+  let name = genericNameFromHTML (==) labelText (simpleBody res)
   case name of 
-    Right name' -> addPostParam name' $ v
-    Left e -> failure $ e
+    Right name' -> addPostParam name' labelText
+    Left err -> failure err
 
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
