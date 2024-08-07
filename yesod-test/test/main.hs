@@ -314,6 +314,15 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl ("/labels" :: Text)
                     byLabel "Foo Bar" "yes"
+            yit "can click radio button" $ do
+                get ("/labels-radio-buttons" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/labels-radio-buttons" :: Text)
+                    chooseByLabel "Blue"
+                    addToken
+                bodyContains "colorRadioButton = Just Blue"
+
         ydescribe "byLabel-related tests" $ do
             yit "fails with \"More than one label contained\" error" $ do
                 get ("/labels2" :: Text)
@@ -654,6 +663,23 @@ app = liteApp $ do
         (sendStatusJSON status200 ([1] :: [Integer])) :: LiteHandler Value
     onStatic "get-json-wrong-content-type" $ dispatchTo $ do
         return ("[1]" :: Text)
+
+    onStatic "labels-radio-buttons" $ dispatchTo $ do
+        ((result, widget), _) <- runFormPost
+                    $ renderDivs
+                    $ ColorForm <$> aopt (radioField' optionsEnum) "Color" Nothing
+        case result of
+            FormSuccess color -> return $ toHtml $ show color
+            _ -> defaultLayout [whamlet|$newline never
+                                <form method=post action="labels-radio-buttons">
+                                  ^{widget}
+                               |]
+
+data Color = Red | Blue | Gray | Black
+    deriving (Show, Eq, Enum, Bounded)
+
+newtype ColorForm = ColorForm { colorRadioButton :: Maybe Color }
+    deriving Show
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do

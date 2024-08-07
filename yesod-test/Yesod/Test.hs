@@ -177,6 +177,7 @@ module Yesod.Test
     , fileByLabelContain
     , fileByLabelPrefix
     , fileByLabelSuffix
+    , chooseByLabel
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -1669,3 +1670,96 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
                 return ())
             params
             ($ ())
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then make this input checked.
+-- It is assumed the @\<input>@ has @type=radio@.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ (i.e. radio button with "Blue" label) to the server:
+--
+-- > <form method="POST">
+-- >   <label for="hident2">Color</label>
+-- >   <div id="hident2">
+-- >     <div class="radio">
+-- >       <input id="hident2-none" type="radio" name="f1" value="none" checked>
+-- >       <label for="hident2-none">&lt;None&gt;</label>
+-- >     </div>
+-- >     <div class="radio">
+-- >       <input id="hident2-1" type="radio" name="f1" value="1">
+-- >       <label for="hident2-1">Red</label>
+-- >     </div>
+-- >     <div class="radio">
+-- >       <input id="hident2-2" type="radio" name="f1" value="2">
+-- >       <label for="hident2-2">Blue</label>
+-- >     </div>
+-- >     <div class="radio">
+-- >       <input id="hident2-3" type="radio" name="f1" value="3">
+-- >       <label for="hident2-3">Gray</label>
+-- >     </div>
+-- >     <div class="radio">
+-- >       <input id="hident2-4" type="radio" name="f1" value="4">
+-- >       <label for="hident2-4">Black</label>
+-- >     </div>
+-- >   </div>
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   chooseByLabel "Blue"
+--
+-- @since 1.6.17
+chooseByLabel :: T.Text -> RequestBuilder site ()
+chooseByLabel label = do
+    name <- genericNameFromLabel (==) label
+    value <- genericValueFromLabel (==) label
+    addPostParam name value
+
+-- |
+-- This looks up the value of a field based on the contents of the label pointing to it.
+genericValueFromLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
+genericValueFromLabel match label = do
+  mres <- fmap rbdResponse getSIO
+  res <-
+    case mres of
+      Nothing -> failure "genericValueFromLabel: No response available"
+      Just res -> return res
+  let body = simpleBody res
+  case genericValueFromHTML match label body of
+    Left e -> failure e
+    Right x -> pure x
+
+genericValueFromHTML :: (T.Text -> T.Text -> Bool) -> T.Text -> HtmlLBS -> Either T.Text T.Text
+genericValueFromHTML match label html =
+  let
+    parsedHTML = parseHTML html
+    mlabel = parsedHTML
+                $// C.element "label"
+                >=> isContentMatch label
+    mfor = mlabel >>= attribute "for"
+
+    isContentMatch x c
+        | x `match` T.concat (c $// content) = [c]
+        | otherwise = []
+
+  in case mfor of
+    for:[] -> do
+      let mvalue = parsedHTML
+                    $// attributeIs "id" for
+                    >=> attribute "value"
+      case mvalue of
+        "":_ -> Left $ T.concat
+            [ "Label "
+            , label
+            , " resolved to id "
+            , for
+            , " which was not found. "
+            ]
+        value:_ -> Right value
+        [] -> Left $ "No input with id " <> for
+    [] ->
+      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "value") of
+        [] -> Left $ "No label contained: " <> label
+        value:_ -> Right value
+    _ -> Left $ "More than one label contained " <> label

@@ -1,5 +1,8 @@
 # ChangeLog for yesod-test
 
+## 1.6.17
+
+* Add `chooseByLabel` to yesod-test. [#1842](https://github.com/yesodweb/yesod/pull/1842)
 
 ## 1.6.16
 
