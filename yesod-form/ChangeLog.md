@@ -1,6 +1,11 @@
 # ChangeLog for yesod-form
 
 
+## 1.7.8
+
+* Added `radioField'` for creating radio button in more correct way than original `radioField`.
+  Function `radioField` marked as deprecated. [#1842](https://github.com/yesodweb/yesod/pull/1842)
+
 ## 1.7.7
 
 * Added `optionsFromList'` to create an OptionList from a List, using the PathPiece instance for the external value and

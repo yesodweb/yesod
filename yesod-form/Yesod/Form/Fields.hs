@@ -48,6 +48,7 @@ module Yesod.Form.Fields
     , selectFieldList
     , selectFieldListGrouped
     , radioField
+    , radioField'
     , radioFieldList
     , withRadioField
     , checkboxesField
@@ -122,6 +123,8 @@ import Data.Monoid
 #endif
 
 import Data.Char (isHexDigit)
+
+{-# DEPRECATED radioField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -529,6 +532,7 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
                             #{optionDisplay opt}
                 |]
     }
+
 -- | Creates an input with @type="radio"@ for selecting one option.
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerFor site (OptionList a)
@@ -551,6 +555,28 @@ $newline never
             \#{text}
 |])
 
+
+-- | Creates an input with @type="radio"@ for selecting one option.
+--
+--   @since 1.7.8
+radioField' :: (Eq a, RenderMessage site FormMessage)
+           => HandlerFor site (OptionList a)
+           -> Field (HandlerFor site) a
+radioField' = withRadioField
+    (\theId optionWidget -> [whamlet|
+$newline never
+<.radio>
+  ^{optionWidget}
+  <label for=#{theId}-none>
+    _{MsgSelectNone}
+|])
+    (\theId value _isSel text optionWidget -> [whamlet|
+$newline never
+<.radio>
+  ^{optionWidget}
+  <label for=#{theId}-#{value}>
+    \#{text}
+|])
 
 -- | Allows the user to place the option radio widget somewhere in
 --   the template.
@@ -578,7 +604,6 @@ $newline never
        optFun theId value isSel display [whamlet|
 <input id=#{theId}-#{(value)} type=radio name=#{name} value=#{(value)} :isSel:checked *{attrs}>
 |]
-
 
 -- | Creates a group of radio buttons to answer the question given in the message. Radio buttons are used to allow differentiating between an empty response (@Nothing@) and a no response (@Just False@). Consider using the simpler 'checkBoxField' if you don't need to make this distinction.
 --
