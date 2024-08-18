@@ -52,6 +52,7 @@ module Yesod.Form.Fields
     , radioFieldList
     , withRadioField
     , checkboxesField
+    , checkboxesField'
     , checkboxesFieldList
     , multiSelectField
     , multiSelectFieldList
@@ -125,6 +126,7 @@ import Data.Monoid
 import Data.Char (isHexDigit)
 
 {-# DEPRECATED radioField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}
+{-# DEPRECATED checkboxesField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -532,6 +534,26 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
                             #{optionDisplay opt}
                 |]
     }
+
+-- | Creates an input with @type="checkbox"@ for selecting multiple options.
+checkboxesField' :: Eq a
+                 => HandlerFor site (OptionList a)
+                 -> Field (HandlerFor site) [a]
+checkboxesField' ioptlist = (multiSelectField ioptlist)
+    { fieldView =
+        \theId name attrs val _isReq -> do
+            opts <- olOptions <$> handlerToWidget ioptlist
+            let optselected (Left _) _ = False
+                optselected (Right vals) opt = optionInternalValue opt `elem` vals
+            [whamlet|
+                <span ##{theId}>
+                    $forall opt <- opts
+                        <input id=#{theId}-#{optionExternalValue opt} type=checkbox name=#{name} value=#{optionExternalValue opt} *{attrs} :optselected val opt:checked>
+                        <label for=#{theId}-#{optionExternalValue opt}>
+                            #{optionDisplay opt}
+                |]
+    }
+
 
 -- | Creates an input with @type="radio"@ for selecting one option.
 radioField :: (Eq a, RenderMessage site FormMessage)
