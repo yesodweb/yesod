@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.9
+
+* Added `checkboxesField'` for creating checkbox in more correct way than original `checkboxesField`
+  Function `checkboxesField` marked as deprecated. [#1844](https://github.com/yesodweb/yesod/pull/1844)
 
 ## 1.7.8
 
