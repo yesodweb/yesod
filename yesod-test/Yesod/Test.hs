@@ -159,6 +159,7 @@ module Yesod.Test
     , SIO
     , setUrl
     , clickOn
+    , preservePostCheckedInputs
 
     -- *** Adding fields by label
     -- | Yesod can auto generate field names, so you are never sure what
@@ -178,6 +179,9 @@ module Yesod.Test
     , fileByLabelPrefix
     , fileByLabelSuffix
     , chooseByLabel
+    , checkByLabel
+    , uncheckByLabel
+    , toggleByLabel
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -279,7 +283,7 @@ type HasCallStack = (() :: Constraint)
 import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
 import Data.Aeson (FromJSON, eitherDecode')
-import Control.Monad (unless)
+import Control.Monad (unless, forM_)
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 import Yesod.Test.Internal.SIO
@@ -348,6 +352,7 @@ data RBDPostData = MultipleItemsPostData [RequestPart]
 data RequestPart
   = ReqKvPart T.Text T.Text
   | ReqFilePart T.Text FilePath BSL8.ByteString T.Text
+  deriving Eq
 
 -- | The 'RequestBuilder' state monad constructs a URL encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
@@ -895,12 +900,7 @@ addFile name path mimetype = do
 -- This looks up the name of a field based on the contents of the label pointing to it.
 genericNameFromLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericNameFromLabel match label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericNameFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericNameFromLabel"
   case genericNameFromHTML match label body of
     Left e -> failure e
     Right x -> pure x
@@ -909,12 +909,7 @@ genericNameFromLabel match label = do
 -- This looks up the name of a field based on a CSS selector and the contents of the label pointing to it.
 genericNameFromSelectorLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> T.Text -> RequestBuilder site T.Text
 genericNameFromSelectorLabel match selector label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericNameSelectorFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericNameFromSelectorLabel"
   html <-
     case findBySelector body selector of
         Left parseError -> failure $ "genericNameFromSelectorLabel: Parse error" <> T.pack parseError
@@ -1716,16 +1711,121 @@ chooseByLabel label = do
     value <- genericValueFromLabel (==) label
     addPostParam name value
 
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then make this input checked.
+-- It is assumed the @\<input>@ has @type=checkbox@.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ and @f1=4@ (i.e. checked checkboxes are "Blue" and "Black") to the server:
+--
+-- > <form method="POST">
+-- >   <label for="hident2">Colors</label>
+-- >   <span id="hident2">
+-- >     <input id="hident2-1" type="checkbox" name="f1" value="1">
+-- >     <label for="hident2-1">Red</label>
+-- >     <input id="hident2-2" type="checkbox" name="f1" value="2" checked>
+-- >     <label for="hident2-2">Blue</label>
+-- >     <input id="hident2-3" type="checkbox" name="f1" value="3">
+-- >     <label for="hident2-3">Gray</label>
+-- >     <input id="hident2-4" type="checkbox" name="f1" value="4" checked>
+-- >     <label for="hident2-4">Black</label>
+-- >   </span>
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   setMethod "POST"
+-- >   checkByLabel "Blue"
+-- >   checkByLabel "Black"
+--
+-- @since 1.6.18
+checkByLabel :: T.Text -> RequestBuilder site ()
+checkByLabel label = do
+    name <- genericNameFromLabel (==) label
+    value <- genericValueFromLabel (==) label
+    values <- checkboxValuesByName name
+    unless (value `elem` values) $ do
+      addPostParam name value
+    -- saveCheckboxes name values
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then make this input unchecked.
+-- It is assumed the @\<input>@ has @type=checkbox@.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ without @f1=4@ (i.e. uncheck checkbox "Black") to the server:
+--
+-- > <form method="POST">
+-- >   <label for="hident2">Colors</label>
+-- >   <span id="hident2">
+-- >     <input id="hident2-1" type="checkbox" name="f1" value="1">
+-- >     <label for="hident2-1">Red</label>
+-- >     <input id="hident2-2" type="checkbox" name="f1" value="2" checked>
+-- >     <label for="hident2-2">Blue</label>
+-- >     <input id="hident2-3" type="checkbox" name="f1" value="3">
+-- >     <label for="hident2-3">Gray</label>
+-- >     <input id="hident2-4" type="checkbox" name="f1" value="4" checked>
+-- >     <label for="hident2-4">Black</label>
+-- >   </span>
+-- > </form>
+--
+-- You can uncheck input with label "Black" like so:
+--
+-- > request $ do
+-- >   setMethod "POST"
+-- >   preservePostCheckedInputs
+-- >   uncheckByLabel "Black"
+--
+-- @since 1.6.18
+uncheckByLabel :: T.Text -> RequestBuilder site ()
+uncheckByLabel label = do
+    name <- genericNameFromLabel (==) label
+    value <- genericValueFromLabel (==) label
+    values <- checkboxValuesByName name
+    removePostParam name value
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then toggle state of checkbox.
+-- It is assumed the @\<input>@ has @type=checkbox@.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=1@ without @f1=4@ (i.e. check label "Red" and uncheck checkbox "Black") to the server:
+--
+-- > <form method="POST">
+-- >   <label for="hident2">Colors</label>
+-- >   <span id="hident2">
+-- >     <input id="hident2-1" type="checkbox" name="f1" value="1">
+-- >     <label for="hident2-1">Red</label>
+-- >     <input id="hident2-2" type="checkbox" name="f1" value="2" checked>
+-- >     <label for="hident2-2">Blue</label>
+-- >     <input id="hident2-3" type="checkbox" name="f1" value="3">
+-- >     <label for="hident2-3">Gray</label>
+-- >     <input id="hident2-4" type="checkbox" name="f1" value="4" checked>
+-- >     <label for="hident2-4">Black</label>
+-- >   </span>
+-- > </form>
+--
+-- You can toggle inputs like so:
+--
+-- > request $ do
+-- >   setMethod "POST"
+-- >   preservePostCheckedInputs
+-- >   toggleByLabel "Red"
+-- >   toggleByLabel "Black"
+--
+-- @since 1.6.18
+toggleByLabel :: T.Text -> RequestBuilder site ()
+toggleByLabel label = do
+    name <- genericNameFromLabel (==) label
+    value <- genericValueFromLabel (==) label
+    togglePostParam name value
+
 -- |
 -- This looks up the value of a field based on the contents of the label pointing to it.
 genericValueFromLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericValueFromLabel match label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericValueFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericValueFromLabel"
   case genericValueFromHTML match label body of
     Left e -> failure e
     Right x -> pure x
@@ -1763,3 +1863,81 @@ genericValueFromHTML match label html =
         [] -> Left $ "No label contained: " <> label
         value:_ -> Right value
     _ -> Left $ "More than one label contained " <> label
+
+checkboxValuesByName :: HasCallStack => T.Text -> RequestBuilder site [T.Text]
+checkboxValuesByName name = do
+  body <- htmlBody "checkboxValuesByName"
+  return $ parseHTML body $// C.element "input"
+                          >=> attributeIs "name" name
+                          >=> hasAttribute "checked"
+                          >=> attribute "value"
+
+htmlBody :: String -> RequestBuilder site BSL8.ByteString
+htmlBody funcName = do
+  mres <- fmap rbdResponse getSIO
+  res <-
+    case mres of
+      Nothing -> failure $ T.pack $ funcName ++ ": No response available"
+      Just res -> return res
+  return $ simpleBody res
+
+-- | Add all checked values of inputs with types "radio" and "checkbox" into the POST parameters of the request
+-- to preserve previous state of form even if there were not changes
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ and @f1=4@ (i.e. preserve state of the inputs with the labels "Red" and "Black") to the server:
+--
+-- > <form method="POST">
+-- >   <label for="hident2">Colors</label>
+-- >   <span id="hident2">
+-- >     <input id="hident2-1" type="checkbox" name="f1" value="1">
+-- >     <label for="hident2-1">Red</label>
+-- >     <input id="hident2-2" type="checkbox" name="f1" value="2" checked>
+-- >     <label for="hident2-2">Blue</label>
+-- >     <input id="hident2-3" type="checkbox" name="f1" value="3">
+-- >     <label for="hident2-3">Gray</label>
+-- >     <input id="hident2-4" type="checkbox" name="f1" value="4" checked>
+-- >     <label for="hident2-4">Black</label>
+-- >   </span>
+-- > </form>
+--
+-- You can preserve state of the form like so:
+--
+-- > request $ do
+-- >   setMethod "POST"
+-- >   preservePostCheckedInputs
+--
+-- @since 1.6.18
+preservePostCheckedInputs :: RequestBuilder site ()
+preservePostCheckedInputs = do
+  parsedHtml <- parseHTML <$> htmlBody "preservePostParam"
+  let inputs = parsedHtml $// C.element "input"
+                          >=> attributeIn "type" ["radio", "checkbox"]
+                          >=> hasAttribute "checked"
+  forM_ inputs $ \input -> do
+    let name = head $ input $| attribute "name"
+    let value = head $ input $| attribute "value"
+    addPostParam name value
+  where
+    attributeIn name list = check $ \element -> (element $| attribute name) `elem` ((:[]) <$> list)
+
+removePostParam :: T.Text -> T.Text -> RequestBuilder site ()
+removePostParam removeName removeValue =
+  modifySIO $ \rbd -> rbd { rbdPostData = (removePostData (rbdPostData rbd)) }
+  where removePostData (BinaryPostData _) = error "Trying to remove post param from binary content."
+        removePostData (MultipleItemsPostData posts) =
+          MultipleItemsPostData $ filter removeReqKvPart posts
+        removeReqKvPart :: RequestPart -> Bool
+        removeReqKvPart (ReqKvPart name value) = name /= removeName || value /= removeValue
+        removeReqKvPart (ReqFilePart _ _ _ _) = False
+
+togglePostParam :: T.Text -> T.Text -> RequestBuilder site ()
+togglePostParam toggleName toggleValue = do
+  postData <- rbdPostData <$> getSIO
+  case postData of
+    BinaryPostData _ -> error "Trying to toggle post param in binary content."
+    MultipleItemsPostData posts ->
+      if ReqKvPart toggleName toggleValue `elem` posts
+      then removePostParam toggleName toggleValue
+      else addPostParam toggleName toggleValue
