@@ -322,6 +322,15 @@ main = hspec $ do
                     chooseByLabel "Blue"
                     addToken
                 bodyContains "colorRadioButton = Just Blue"
+            yit "can click check boxes" $ do
+                get ("/labels-checkboxes" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/labels-checkboxes" :: Text)
+                    checkByLabel "Red"
+                    checkByLabel "Gray"
+                    addToken
+                bodyContains "colorCheckBoxes = [Gray,Red]"
 
         ydescribe "byLabel-related tests" $ do
             yit "fails with \"More than one label contained\" error" $ do
@@ -667,19 +676,34 @@ app = liteApp $ do
     onStatic "labels-radio-buttons" $ dispatchTo $ do
         ((result, widget), _) <- runFormPost
                     $ renderDivs
-                    $ ColorForm <$> aopt (radioField' optionsEnum) "Color" Nothing
+                    $ RadioButtonForm <$> aopt (radioField' optionsEnum) "Color" Nothing
         case result of
             FormSuccess color -> return $ toHtml $ show color
             _ -> defaultLayout [whamlet|$newline never
+                                <p>
+                                  ^{toHtml $ show result}
                                 <form method=post action="labels-radio-buttons">
+                                  ^{widget}
+                               |]
+
+    onStatic "labels-checkboxes" $ dispatchTo $ do
+        ((result, widget), _) <- runFormPost
+                    $ renderDivs
+                    $ CheckboxesForm <$> areq (checkboxesField' optionsEnum) "Checkboxes" (Just [Blue, Black])
+        case result of
+            FormSuccess color -> return $ toHtml $ show color
+            _ -> defaultLayout [whamlet|$newline never
+                                <p>
+                                  ^{toHtml $ show result}
+                                <form method=post action="labels-checkboxes">
                                   ^{widget}
                                |]
 
 data Color = Red | Blue | Gray | Black
     deriving (Show, Eq, Enum, Bounded)
 
-newtype ColorForm = ColorForm { colorRadioButton :: Maybe Color }
-    deriving Show
+newtype RadioButtonForm = RadioButtonForm { colorRadioButton :: Maybe Color } deriving Show
+newtype CheckboxesForm = CheckboxesForm { colorCheckBoxes :: [Color] } deriving Show
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do

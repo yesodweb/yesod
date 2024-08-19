@@ -178,6 +178,7 @@ module Yesod.Test
     , fileByLabelPrefix
     , fileByLabelSuffix
     , chooseByLabel
+    , checkByLabel
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -1712,6 +1713,40 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
 -- @since 1.6.17
 chooseByLabel :: T.Text -> RequestBuilder site ()
 chooseByLabel label = do
+    name <- genericNameFromLabel (==) label
+    value <- genericValueFromLabel (==) label
+    addPostParam name value
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then make this input checked.
+-- It is assumed the @\<input>@ has @type=checkbox@.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ and @f1=4@ (i.e. checked checkboxes are "Blue" and "Black") to the server:
+--
+-- > <form method="POST">
+-- >   <label for="hident2">Colors</label>
+-- >   <span id="hident2">
+-- >     <input id="hident2-1" type="checkbox" name="f1" value="1">
+-- >     <label for="hident2-1">Red</label>
+-- >     <input id="hident2-2" type="checkbox" name="f1" value="2" checked>
+-- >     <label for="hident2-2">Blue</label>
+-- >     <input id="hident2-3" type="checkbox" name="f1" value="3">
+-- >     <label for="hident2-3">Gray</label>
+-- >     <input id="hident2-4" type="checkbox" name="f1" value="4" checked>
+-- >     <label for="hident2-4">Black</label>
+-- >   </span>
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   checkByLabel "Blue"
+-- >   checkByLabel "Black"
+--
+-- @since 1.6.18
+checkByLabel :: T.Text -> RequestBuilder site ()
+checkByLabel label = do
     name <- genericNameFromLabel (==) label
     value <- genericValueFromLabel (==) label
     addPostParam name value
