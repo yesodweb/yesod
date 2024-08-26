@@ -2,7 +2,7 @@
 
 ## 1.7.9
 
-* Added `checkboxesField'` for creating checkbox in more correct wat than original `checkboxesField`
+* Added `checkboxesField'` for creating checkbox in more correct way than original `checkboxesField`
   Function `checkboxesField` marked as deprecated. [#1843](https://github.com/yesodweb/yesod/pull/1843)
 
 ## 1.7.8
