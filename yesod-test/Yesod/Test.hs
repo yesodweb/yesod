@@ -179,6 +179,7 @@ module Yesod.Test
     , fileByLabelSuffix
     , chooseByLabel
     , checkByLabel
+    , selectByLabel
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -1744,6 +1745,47 @@ checkByLabel label = do
     name <- genericNameFromLabel (==) label
     value <- genericValueFromLabel (==) label
     addPostParam name value
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<select>@,
+-- then finds corresponding @\<option>@ and make this options selected.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ (i.e. selected option is "Blue") to the server:
+--
+-- > <form method="post" action="labels-select">
+-- >   <label for="hident2">Selection List</label>
+-- >   <select id="hident2" name="f1">
+-- >     <option value="1">Red</option>
+-- >     <option value="2">Blue</option>
+-- >     <option value="3">Gray</option>
+-- >     <option value="4">Black</option>
+-- >   </select>
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   setMethod "POST"
+-- >   selectByLabel "Selection List" "Blue"
+--
+-- @since 1.6.19
+selectByLabel :: T.Text -> T.Text -> RequestBuilder site ()
+selectByLabel label option = do
+    name <- genericNameFromLabel (==) label
+    parsedHtml <- parseHTML <$> htmlBody "selectByLabel"
+    let values = parsedHtml $// C.element "select"
+                            >=> attributeIs "name" name
+                            &/ C.element "option"
+                            >=> isContentMatch option
+                            >=> attribute "value"
+    case values of
+      [] -> failure $ T.concat ["selectByLabel: option '" , option, "' not found in select '", label, "'"]
+      [value] -> addPostParam name value
+      _ -> failure $ T.concat ["selectByLabel: too many options '", option, "' found in select '", label, "'"]
+    where isContentMatch x c
+              | x == T.concat (c $// content) = [c]
+              | otherwise = []
 
 -- |
 -- This looks up the value of a field based on the contents of the label pointing to it.

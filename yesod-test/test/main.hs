@@ -35,7 +35,7 @@ import Control.Applicative
 import Network.Wai (pathInfo, rawQueryString, requestHeaders)
 import Network.Wai.Test (SResponse(simpleBody))
 import Numeric (showHex)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Either (isLeft, isRight)
 
 import Test.HUnit.Lang
@@ -46,7 +46,6 @@ import Network.HTTP.Types.Status (status200, status301, status303, status403, st
 import UnliftIO.Exception (tryAny, SomeException, try, Exception)
 import Control.Monad.IO.Unlift (toIO)
 import qualified Web.Cookie as Cookie
-import Data.Maybe (isNothing)
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B8
 import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
@@ -331,6 +330,14 @@ main = hspec $ do
                     checkByLabel "Gray"
                     addToken
                 bodyContains "colorCheckBoxes = [Gray,Red]"
+            yit "can select from select list" $ do
+                get ("/labels-select" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/labels-select" :: Text)
+                    addToken
+                    selectByLabel "Selection List" "Blue"
+                bodyContains "SelectionForm {colorSelection = Blue}"
 
         ydescribe "byLabel-related tests" $ do
             yit "fails with \"More than one label contained\" error" $ do
@@ -699,11 +706,25 @@ app = liteApp $ do
                                   ^{widget}
                                |]
 
+    onStatic "labels-select" $ dispatchTo $ do
+        ((result, widget), _) <- runFormPost
+                    $ renderDivs
+                    $ SelectionForm <$> areq (selectField optionsEnum) "Selection List" Nothing
+        case result of
+            FormSuccess color -> return $ toHtml $ show color
+            _ -> defaultLayout [whamlet|$newline never
+                                <p>
+                                  ^{toHtml $ show result}
+                                <form method=post action="labels-checkboxes">
+                                  ^{widget}
+                               |]
+
 data Color = Red | Blue | Gray | Black
     deriving (Show, Eq, Enum, Bounded)
 
 newtype RadioButtonForm = RadioButtonForm { colorRadioButton :: Maybe Color } deriving Show
 newtype CheckboxesForm = CheckboxesForm { colorCheckBoxes :: [Color] } deriving Show
+newtype SelectionForm = SelectionForm {colorSelection :: Color } deriving Show
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do
