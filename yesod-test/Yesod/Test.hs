@@ -909,12 +909,7 @@ genericNameFromLabel match label = do
 -- This looks up the name of a field based on a CSS selector and the contents of the label pointing to it.
 genericNameFromSelectorLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> T.Text -> RequestBuilder site T.Text
 genericNameFromSelectorLabel match selector label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericNameSelectorFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericNameSelectorFromLabel"
   html <-
     case findBySelector body selector of
         Left parseError -> failure $ "genericNameFromSelectorLabel: Parse error" <> T.pack parseError
@@ -1754,12 +1749,7 @@ checkByLabel label = do
 -- This looks up the value of a field based on the contents of the label pointing to it.
 genericValueFromLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericValueFromLabel match label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericValueFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericValueFromLabel"
   case genericValueFromHTML match label body of
     Left e -> failure e
     Right x -> pure x
@@ -1797,3 +1787,12 @@ genericValueFromHTML match label html =
         [] -> Left $ "No label contained: " <> label
         value:_ -> Right value
     _ -> Left $ "More than one label contained " <> label
+
+htmlBody :: String -> RequestBuilder site BSL8.ByteString
+htmlBody funcName = do
+  mres <- fmap rbdResponse getSIO
+  res <-
+    case mres of
+      Nothing -> failure $ T.pack $ funcName ++ ": No response available"
+      Just res -> return res
+  return $ simpleBody res
