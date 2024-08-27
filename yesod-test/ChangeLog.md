@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.19
+
+* Add `selectByLabel` to yesod-test. [#1845](https://github.com/yesodweb/yesod/pull/1845)
+
 ## 1.6.18
 
 * Add `checkByLabel` to yesod-test. [#1843](https://github.com/yesodweb/yesod/pull/1843)

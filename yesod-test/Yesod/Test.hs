@@ -179,6 +179,7 @@ module Yesod.Test
     , fileByLabelSuffix
     , chooseByLabel
     , checkByLabel
+    , selectByLabel
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -267,7 +268,6 @@ import Data.Time.Clock (getCurrentTime)
 import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
 import Data.Monoid (mempty)
-import Data.Semigroup (Semigroup(..))
 #if MIN_VERSION_base(4,9,0)
 import GHC.Stack (HasCallStack)
 #elif MIN_VERSION_base(4,8,1)
@@ -279,7 +279,7 @@ type HasCallStack = (() :: Constraint)
 #endif
 import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
-import Data.Aeson (FromJSON, eitherDecode')
+import Data.Aeson (eitherDecode')
 import Control.Monad (unless)
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
@@ -910,12 +910,7 @@ genericNameFromLabel match label = do
 -- This looks up the name of a field based on a CSS selector and the contents of the label pointing to it.
 genericNameFromSelectorLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> T.Text -> RequestBuilder site T.Text
 genericNameFromSelectorLabel match selector label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericNameSelectorFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericNameSelectorFromLabel"
   html <-
     case findBySelector body selector of
         Left parseError -> failure $ "genericNameFromSelectorLabel: Parse error" <> T.pack parseError
@@ -1751,16 +1746,52 @@ checkByLabel label = do
     value <- genericValueFromLabel (==) label
     addPostParam name value
 
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<select>@,
+-- then finds corresponding @\<option>@ and make this options selected.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=2@ (i.e. selected option is "Blue") to the server:
+--
+-- > <form method="post" action="labels-select">
+-- >   <label for="hident2">Selection List</label>
+-- >   <select id="hident2" name="f1">
+-- >     <option value="1">Red</option>
+-- >     <option value="2">Blue</option>
+-- >     <option value="3">Gray</option>
+-- >     <option value="4">Black</option>
+-- >   </select>
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   setMethod "POST"
+-- >   selectByLabel "Selection List" "Blue"
+--
+-- @since 1.6.19
+selectByLabel :: T.Text -> T.Text -> RequestBuilder site ()
+selectByLabel label option = do
+    name <- genericNameFromLabel (==) label
+    parsedHtml <- parseHTML <$> htmlBody "selectByLabel"
+    let values = parsedHtml $// C.element "select"
+                            >=> attributeIs "name" name
+                            &/ C.element "option"
+                            >=> isContentMatch option
+                            >=> attribute "value"
+    case values of
+      [] -> failure $ T.concat ["selectByLabel: option '" , option, "' not found in select '", label, "'"]
+      [value] -> addPostParam name value
+      _ -> failure $ T.concat ["selectByLabel: too many options '", option, "' found in select '", label, "'"]
+    where isContentMatch x c
+              | x == T.concat (c $// content) = [c]
+              | otherwise = []
+
 -- |
 -- This looks up the value of a field based on the contents of the label pointing to it.
 genericValueFromLabel :: HasCallStack => (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericValueFromLabel match label = do
-  mres <- fmap rbdResponse getSIO
-  res <-
-    case mres of
-      Nothing -> failure "genericValueFromLabel: No response available"
-      Just res -> return res
-  let body = simpleBody res
+  body <- htmlBody "genericValueFromLabel"
   case genericValueFromHTML match label body of
     Left e -> failure e
     Right x -> pure x
@@ -1798,3 +1829,12 @@ genericValueFromHTML match label html =
         [] -> Left $ "No label contained: " <> label
         value:_ -> Right value
     _ -> Left $ "More than one label contained " <> label
+
+htmlBody :: String -> RequestBuilder site BSL8.ByteString
+htmlBody funcName = do
+  mres <- fmap rbdResponse getSIO
+  res <-
+    case mres of
+      Nothing -> failure $ T.pack $ funcName ++ ": No response available"
+      Just res -> return res
+  return $ simpleBody res
