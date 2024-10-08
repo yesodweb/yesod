@@ -576,33 +576,37 @@ main = hspec $ do
             statusIs 200
             (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
 
-    describe "Checks whether the POST request parses addPostParam arguments in the order like a browser does" $ yesodSpec defaultRoutedApp $ do
+    describe "Checks the order of addPostParam arguments addition" $ yesodSpec defaultRoutedApp $ do
         yit "Fails with bad input" $ do
             get HomeR
             statusIs 200
  
             request $ do
 --              setCsrfCookie
-              addToken
+--              addToken
+              addTokenFromCookie
               setUrl HomeR
               setMethod "POST"
-              addPostParam "money" "XXX"
-              addPostParam "money" "XXX"
+              addPostParam "money" "ABC"
+              addPostParam "money" "ABC"
             statusIs 400
-        yit "Supports the order of addPostParam additions used in browser" $ do  -- See: https://github.com/yesodweb/yesod/issues/1846
+        yit "The order of addPostParam addition should be the same as in the browser" $ do  -- See: https://github.com/yesodweb/yesod/issues/1846
             get HomeR
             statusIs 200
 
             request $ do
-              addToken
+--              addToken
+              addTokenFromCookie
 --              setCsrfCookie
               setUrl HomeR
               setMethod "POST"
               addPostParam "money" "100"
               addPostParam "money" "USD"
-            location <- followRedirect
-            liftIO $ location `shouldBe` Right "/"
-            bodyContains "USD 100"
+            loc <- getLocation
+            liftIO $ assertBool "expected location to be available" $ isRight loc
+            let (Right (ResourceR t)) = loc
+            -- liftIO $ assertBool "expected location header to contain post param" $ 
+            liftIO $ assertBool "expected order is reversed to the addPostParam calls" $ "USD 100" `T.isInfixOf` t
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
