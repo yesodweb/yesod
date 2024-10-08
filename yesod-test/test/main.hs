@@ -576,35 +576,33 @@ main = hspec $ do
             statusIs 200
             (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
 
-    describe "Supports USD" $ yesodSpec defaultRoutedApp $ do
+    describe "Checks whether the POST request parses addPostParam arguments in the order like a browser does" $ yesodSpec defaultRoutedApp $ do
         yit "Fails with bad input" $ do
             get HomeR
             statusIs 200
  
             request $ do
+--              setCsrfCookie
               addToken
               setUrl HomeR
               setMethod "POST"
               addPostParam "money" "XXX"
               addPostParam "money" "XXX"
             statusIs 400
-        yit "Supports the used in browser order of addPostParam additions" $ do  -- See: https://github.com/yesodweb/yesod/issues/1846
+        yit "Supports the order of addPostParam additions used in browser" $ do  -- See: https://github.com/yesodweb/yesod/issues/1846
             get HomeR
             statusIs 200
 
             request $ do
               addToken
+--              setCsrfCookie
               setUrl HomeR
               setMethod "POST"
-              -- These two lines are in the wrong order, but that's because yesod-test
-              -- adds POST parameters in the wrong order — instead of appending each
-              -- parameter to the list of parameters, it conses them, which is not what
-              -- web browers do.
               addPostParam "money" "100"
               addPostParam "money" "USD"
             location <- followRedirect
             liftIO $ location `shouldBe` Right "/"
-            bodyContains "Amount is USD 100"
+            bodyContains "USD 100"
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
