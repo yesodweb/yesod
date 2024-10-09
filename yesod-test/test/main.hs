@@ -68,6 +68,8 @@ mkYesod "RoutedApp" [parseRoutes|
 /resources       ResourcesR POST
 /resources/#Text ResourceR  GET
 /get-integer     IntegerR   GET
+/tuple-field     TupleR     POST
+/tuple-display   DisplayR   GET
 |]
 
 main :: IO ()
@@ -578,26 +580,26 @@ main = hspec $ do
             (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
 
     describe "Checks the order of addPostParam arguments addition" $ yesodSpec defaultRoutedApp $ do
---        yit "Fails with bad input" $ do
-{-            get HomeR
+        yit "Creates a form with a tupleField" $ do
+            get DisplayR
 --            statusIs 200
  
             request $ do
 --              setCsrfCookie
 --              addToken
               addTokenFromCookie
-              setUrl HomeR
+              setUrl TupleR
               setMethod "POST"
               addPostParam "money" "ABC"
               addPostParam "money" "ABC"
-            statusIs 400
--}
+            statusIs 200
+
         yit "The order of addPostParam addition should be the same as in the browser" $ do  -- See: https://github.com/yesodweb/yesod/issues/1846
-            get HomeR
+            get DisplayR
 
             request $ do
               addTokenFromCookie
-              setUrl HomeR
+              setUrl TupleR
               setMethod "POST"
               addPostParam "money" "100"
               addPostParam "money" "USD"
@@ -614,7 +616,7 @@ main = hspec $ do
 --  => Field m (Int, Text)
 tupleField = Field parse view UrlEncoded
   where
-  parse :: [Text] -> [FileInfo] -> (HandlerFor LiteApp) (Either (SomeMessage (HandlerSite (HandlerFor LiteApp))) (Maybe (Int, Text)))
+  parse :: [Text] -> [FileInfo] -> (HandlerFor RoutedApp) (Either (SomeMessage (HandlerSite (HandlerFor RoutedApp))) (Maybe (Int, Text)))
   parse [someNumber, someText] _fileVals =
     case decimal someNumber of
       Left xs -> pure $ Right Nothing
@@ -630,6 +632,9 @@ tupleField = Field parse view UrlEncoded
       |] 
 
 instance RenderMessage LiteApp FormMessage where
+    renderMessage _ _ = defaultFormMessage
+
+instance RenderMessage RoutedApp FormMessage where
     renderMessage _ _ = defaultFormMessage
 
 app :: LiteApp
@@ -830,6 +835,41 @@ getIntegerR = do
     app <- getYesod
     pure $ T.pack $ show (routedAppInteger app)
 
+data MoneyField = Money
+    { currencyAmount      :: Int
+    , currencyName        :: Text
+    }
+  deriving Show
+
+tupleForm :: Html -> MForm Handler (FormResult MoneyField, Widget)
+tupleForm = renderDivs $ Money
+    <$> areq intField "Currency value" Nothing
+    <*> areq textField "Currency name" Nothing
+
+-- The GET handler displays the form
+getDisplayR :: Handler Html
+getDisplayR = do
+    -- Generate the form to be displayed
+    (widget, enctype) <- generateFormPost tupleForm
+    defaultLayout
+        [whamlet|
+            <form method=post action=@{TupleR} enctype=#{enctype}>
+                ^{widget}
+                <button>Submit
+        |]
+
+postTupleR :: Handler Html
+postTupleR = do
+    ((result, widget), enctype) <- runFormPost tupleForm
+    case result of
+        FormSuccess money -> defaultLayout [whamlet|<p>#{show money}|]
+        _ -> defaultLayout
+            [whamlet|
+                <p>Invalid input, let's try again.
+                <form method=post action=@{TupleR} enctype=#{enctype}>
+                    ^{widget}
+                    <button>Submit
+            |]
 
 -- infix Copied from HSpec's version
 infix 1 `liftedShouldThrow`
