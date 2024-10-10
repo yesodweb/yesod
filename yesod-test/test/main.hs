@@ -836,15 +836,15 @@ getIntegerR = do
     pure $ T.pack $ show (routedAppInteger app)
 
 data MoneyField = Money
-    { currencyAmount      :: Int
-    , currencyName        :: Text
+    { tupleMoney      :: (Int, Text)
+--    , currencyName        :: Text
     }
   deriving Show
 
 tupleForm :: Html -> MForm Handler (FormResult MoneyField, Widget)
 tupleForm = renderDivs $ Money
-    <$> areq intField "Currency value" Nothing
-    <*> areq textField "Currency name" Nothing
+    <$> areq tupleField "Currency amount" Nothing
+--    <*> areq textField "Currency name" Nothing
 
 -- The GET handler displays the form
 getDisplayR :: Handler Html
