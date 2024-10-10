@@ -51,6 +51,7 @@ import qualified Data.ByteString.Char8 as B8
 import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
 
 import Data.Text.Read (decimal)
+import Debug.Trace (trace) 
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -605,6 +606,7 @@ main = hspec $ do
               addPostParam "money" "USD"
             loc <- getLocation
             printBody
+            statusIs 200
 --           liftIO $ assertBool "expected location to be available" $ isRight loc
 --            let (Right (ResourceR t)) = loc
             -- liftIO $ assertBool "expected location header to contain post param" $ 
@@ -621,6 +623,7 @@ main = hspec $ do
               addPostParam "money" "100"
             loc <- getLocation
             printBody
+            statusIs 200
 --           liftIO $ assertBool "expected location to be available" $ isRight loc
 --            let (Right (ResourceR t)) = loc
             -- liftIO $ assertBool "expected location header to contain post param" $
@@ -631,22 +634,6 @@ main = hspec $ do
 --  :: MonadHandler m
 --  => ExampleYesodTupleField (HandlerSite m)
 --  => Field m (Int, Text)
-tupleField = Field parse view UrlEncoded
-  where
-  parse :: [Text] -> [FileInfo] -> (HandlerFor RoutedApp) (Either (SomeMessage (HandlerSite (HandlerFor RoutedApp))) (Maybe (Int, Text)))
-  parse [someNumber, someText] _fileVals =
-    case decimal someNumber of
-      Left xs -> pure $ Right Nothing
-      Right (n, _) -> pure $ Right $ Just (n, someText)
-  parse _ _ = pure $ Right Nothing
-
-  view theId name attrs _eVal isReq =
-    case _eVal of
-      Left xs -> do [whamlet|
-                      <p>xs|]
-      Right (n, ys::Text) -> do [whamlet|
-        <p>#{pack (show n) <> (" " <> ys)}
-      |] 
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -854,9 +841,30 @@ getIntegerR = do
 
 data MoneyField = Money
     { tupleMoney      :: (Int, Text)
---    , currencyName        :: Text
     }
   deriving Show
+
+tupleField = Field parse view UrlEncoded
+  where
+  parse :: [Text] -> [FileInfo] -> (HandlerFor RoutedApp) (Either (SomeMessage (HandlerSite (HandlerFor RoutedApp))) (Maybe (Int, Text)))
+  parse rawVals@[someNumber, someText] _fileVals = trace (show rawVals) $ 
+    case decimal someNumber of
+      Left xs -> pure $ Right Nothing
+      Right (n, _) -> pure $ Right $ Just (n, someText)
+  parse rawVals _ = trace (show rawVals) $ pure $ Right Nothing
+
+  view theId name attrs _eVal isReq =
+{-    case _eVal of
+      Left xs -> do [whamlet|
+                      <p>xs|]
+      Right (n, ys::Text) -> do [whamlet|
+        <p>#{pack (show n) <> (" " <> ys)}
+      |] 
+-}
+    [whamlet|
+      <input name=#{name}>
+      <input name=#{name}>
+    |]
 
 tupleForm :: Html -> MForm Handler (FormResult MoneyField, Widget)
 tupleForm = renderDivs $ Money
@@ -879,7 +887,7 @@ postTupleR :: Handler Html
 postTupleR = do
     ((result, widget), enctype) <- runFormPost tupleForm
     case result of
-        FormSuccess money -> defaultLayout [whamlet|<p>#{show money}|]
+        FormSuccess tupleValue -> defaultLayout [whamlet|<p>#{show tupleValue}|]
         _ -> defaultLayout
             [whamlet|
                 <p>Invalid input, let's try again.
