@@ -610,6 +610,23 @@ main = hspec $ do
             -- liftIO $ assertBool "expected location header to contain post param" $ 
 --            liftIO $ assertBool "expected order is reversed to the addPostParam calls" $ "USD" `T.isInfixOf` t
 
+        yit "If the order of addPostParam addition is not the same as in the browser it should throuw an error" $ do  -- See: https://github.com/yesodweb/yesod/issues/1846
+            get DisplayR
+
+            request $ do
+              addTokenFromCookie
+              setUrl TupleR
+              setMethod "POST"
+              addPostParam "money" "USD"
+              addPostParam "money" "100"
+            loc <- getLocation
+            printBody
+--           liftIO $ assertBool "expected location to be available" $ isRight loc
+--            let (Right (ResourceR t)) = loc
+            -- liftIO $ assertBool "expected location header to contain post param" $
+--            liftIO $ assertBool "expected order is reversed to the addPostParam calls" $ "USD" `T.isInfixOf` t
+
+
 --tupleField 
 --  :: MonadHandler m
 --  => ExampleYesodTupleField (HandlerSite m)
