@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.6.2.1
+version:         1.6.2.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -22,7 +22,7 @@ library
                    , aeson
                    , bytestring
                    , conduit                   >= 1.3
-                   , data-default-class
+                   , data-default              >= 0.8
                    , directory
                    , fast-logger
                    , file-embed

@@ -11,6 +11,20 @@ packages:
       size: 114
   original:
     hackage: attoparsec-aeson-2.1.0.0
+- completed:
+    hackage: crypton-1.0.0@sha256:637e58581978c84ef1288d14fa9cac1d2905ef60e319924293bc11250aca882d,14527
+    pantry-tree:
+      sha256: 4b5e5511567c0fe735a224cb8b2b278e1caa79344f2940d030d169e69b1b81e1
+      size: 23275
+  original:
+    hackage: crypton-1.0.0
+- completed:
+    hackage: crypton-conduit-0.2.3@sha256:31f44243b42f344c65be6cd2c39c07994d9186d19d15988656620d1de85aca37,1946
+    pantry-tree:
+      sha256: 06781001956f2ccfae0e6b4f33c213bd3121c6462f8534e9dca87bf51e4663e0
+      size: 592
+  original:
+    hackage: crypton-conduit-0.2.3
 snapshots:
 - completed:
     sha256: 694573e96dca34db5636edb1fe6c96bb233ca0f9fb96c1ead1671cdfa9bd73e9
