@@ -35,14 +35,14 @@ import Yesod.Form.Fields (intField)
 import Yesod.Form.Functions
 import Yesod.Form.Types
 
-#ifdef MIN_VERSION_shakespeare(2,0,18)
+-- #ifdef MIN_VERSION_shakespeare(2,0,18)
 #if MIN_VERSION_shakespeare(2,0,18)
 #else
 import Text.Julius (ToJavascript (..))
 instance ToJavascript String where toJavascript = toJavascript . toJSON
 instance ToJavascript Text where toJavascript = toJavascript . toJSON
 #endif
-#endif
+-- #endif
 
 -- | By default delete buttons have a @margin-left@ property of @0.75rem@.
 -- You can override this by specifying an alternative value in a class

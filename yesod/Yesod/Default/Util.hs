@@ -28,7 +28,7 @@ import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)
 import Text.Hamlet (HamletSettings, defaultHamletSettings)
 import Data.Maybe (catMaybes)
-import Data.Default.Class (Default (def))
+import Data.Default (Default (def))
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
 -- external file. Files are created in the given static folder with names based
