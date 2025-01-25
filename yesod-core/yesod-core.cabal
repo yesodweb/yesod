@@ -192,7 +192,7 @@ test-suite tests
                   , conduit
                   , conduit-extra
                   , containers
-                  , cookie >= 0.4.1    && < 0.5
+                  , cookie >= 0.4.1    && < 0.6
                   , hspec >= 1.3
                   , hspec-expectations
                   , http-types
