@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.20
+
+* Add `HasCallStack` to more functions. [#1858](https://github.com/yesodweb/yesod/pull/1858)
+
 ## 1.6.19
 
 * Add `selectByLabel` to yesod-test. [#1845](https://github.com/yesodweb/yesod/pull/1845)

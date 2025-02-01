@@ -836,7 +836,7 @@ printMatches query = do
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > post $ do
 -- >   addPostParam "key" "value"
-addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
+addPostParam :: HasCallStack => T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
   modifySIO $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
   where addPostData (BinaryPostData _) = error "Trying to add post param to binary content."
@@ -881,7 +881,8 @@ addBareGetParam name = modifySIO $ \rbd ->
 --
 -- > request $ do
 -- >   addFile "profile_picture" "static/img/picture.png" "img/png"
-addFile :: T.Text -- ^ The parameter name for the file.
+addFile :: HasCallStack
+        => T.Text -- ^ The parameter name for the file.
         -> FilePath -- ^ The path to the file.
         -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
         -> RequestBuilder site ()
@@ -955,7 +956,8 @@ genericNameFromHTML match label html =
         name:_ -> Right name
     _ -> Left $ "More than one label contained " <> label
 
-byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+byLabelWithMatch :: HasCallStack
+                 => (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
                  -> T.Text                     -- ^ The value to set the parameter to.
                  -> RequestBuilder site ()
@@ -963,7 +965,8 @@ byLabelWithMatch match label value = do
   name <- genericNameFromLabel match label
   addPostParam name value
 
-bySelectorLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+bySelectorLabelWithMatch :: HasCallStack
+                 => (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The CSS selector.
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
                  -> T.Text                     -- ^ The value to set the parameter to.
@@ -1017,7 +1020,8 @@ bySelectorLabelWithMatch match selector label value = do
 --
 -- Therefore, this function is deprecated. Please consider using 'byLabelExact',
 -- which performs the exact match over the provided text.
-byLabel :: T.Text -- ^ The text contained in the @\<label>@.
+byLabel :: HasCallStack
+        => T.Text -- ^ The text contained in the @\<label>@.
         -> T.Text -- ^ The value to set the parameter to.
         -> RequestBuilder site ()
 byLabel = byLabelWithMatch T.isInfixOf
@@ -1047,7 +1051,8 @@ byLabel = byLabelWithMatch T.isInfixOf
 -- > </form>
 --
 -- @since 1.5.9
-byLabelExact :: T.Text -- ^ The text in the @\<label>@.
+byLabelExact :: HasCallStack
+             => T.Text -- ^ The text in the @\<label>@.
              -> T.Text -- ^ The value to set the parameter to.
              -> RequestBuilder site ()
 byLabelExact = byLabelWithMatch (==)
@@ -1058,7 +1063,8 @@ byLabelExact = byLabelWithMatch (==)
 -- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
 --
 -- @since 1.6.2
-byLabelContain :: T.Text -- ^ The text in the @\<label>@.
+byLabelContain :: HasCallStack
+               => T.Text -- ^ The text in the @\<label>@.
                -> T.Text -- ^ The value to set the parameter to.
                -> RequestBuilder site ()
 byLabelContain = byLabelWithMatch T.isInfixOf
@@ -1069,7 +1075,8 @@ byLabelContain = byLabelWithMatch T.isInfixOf
 -- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
 --
 -- @since 1.6.2
-byLabelPrefix :: T.Text -- ^ The text in the @\<label>@.
+byLabelPrefix :: HasCallStack
+              => T.Text -- ^ The text in the @\<label>@.
               -> T.Text -- ^ The value to set the parameter to.
               -> RequestBuilder site ()
 byLabelPrefix = byLabelWithMatch T.isPrefixOf
@@ -1080,7 +1087,8 @@ byLabelPrefix = byLabelWithMatch T.isPrefixOf
 -- Note: Just like 'byLabel', this function throws an error if it finds multiple labels
 --
 -- @since 1.6.2
-byLabelSuffix :: T.Text -- ^ The text in the @\<label>@.
+byLabelSuffix :: HasCallStack
+              => T.Text -- ^ The text in the @\<label>@.
               -> T.Text -- ^ The value to set the parameter to.
               -> RequestBuilder site ()
 byLabelSuffix = byLabelWithMatch T.isSuffixOf
@@ -1091,13 +1099,15 @@ byLabelSuffix = byLabelWithMatch T.isSuffixOf
 -- fragments.
 --
 -- @since 1.6.15
-bySelectorLabelContain :: T.Text -- ^ The CSS selector.
+bySelectorLabelContain :: HasCallStack
+               => T.Text -- ^ The CSS selector.
                -> T.Text -- ^ The text in the @\<label>@.
                -> T.Text -- ^ The value to set the parameter to.
                -> RequestBuilder site ()
 bySelectorLabelContain = bySelectorLabelWithMatch T.isInfixOf
 
-fileByLabelWithMatch  :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+fileByLabelWithMatch  :: HasCallStack
+                      => (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                       -> T.Text                     -- ^ The text contained in the @\<label>@.
                       -> FilePath                   -- ^ The path to the file.
                       -> T.Text                     -- ^ The MIME type of the file, e.g. "image/png".
@@ -1130,7 +1140,8 @@ fileByLabelWithMatch match label path mime = do
 -- > </form>
 --
 -- Warning: This function has the same issue as 'byLabel'. Please use 'fileByLabelExact' instead.
-fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
+fileByLabel :: HasCallStack
+            => T.Text -- ^ The text contained in the @\<label>@.
             -> FilePath -- ^ The path to the file.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
             -> RequestBuilder site ()
@@ -1160,7 +1171,8 @@ fileByLabel = fileByLabelWithMatch T.isInfixOf
 -- > </form>
 --
 -- @since 1.5.9
-fileByLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
+fileByLabelExact :: HasCallStack
+                 => T.Text -- ^ The text contained in the @\<label>@.
                  -> FilePath -- ^ The path to the file.
                  -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                  -> RequestBuilder site ()
@@ -1172,7 +1184,8 @@ fileByLabelExact = fileByLabelWithMatch (==)
 -- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
 --
 -- @since 1.6.2
-fileByLabelContain :: T.Text -- ^ The text contained in the @\<label>@.
+fileByLabelContain :: HasCallStack
+                   => T.Text -- ^ The text contained in the @\<label>@.
                    -> FilePath -- ^ The path to the file.
                    -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                    -> RequestBuilder site ()
@@ -1184,7 +1197,8 @@ fileByLabelContain = fileByLabelWithMatch T.isInfixOf
 -- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
 --
 -- @since 1.6.2
-fileByLabelPrefix :: T.Text -- ^ The text contained in the @\<label>@.
+fileByLabelPrefix :: HasCallStack
+                  => T.Text -- ^ The text contained in the @\<label>@.
                   -> FilePath -- ^ The path to the file.
                   -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                   -> RequestBuilder site ()
@@ -1196,7 +1210,8 @@ fileByLabelPrefix = fileByLabelWithMatch T.isPrefixOf
 -- Note: Just like 'fileByLabel', this function throws an error if it finds multiple labels
 --
 -- @since 1.6.2
-fileByLabelSuffix :: T.Text -- ^ The text contained in the @\<label>@.
+fileByLabelSuffix :: HasCallStack
+                  => T.Text -- ^ The text contained in the @\<label>@.
                   -> FilePath -- ^ The path to the file.
                   -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
                   -> RequestBuilder site ()
@@ -1408,7 +1423,8 @@ setMethod m = modifySIO $ \rbd -> rbd { rbdMethod = m }
 --
 -- > request $ do
 -- >   setUrl ("http://google.com/" :: Text)
-setUrl :: (Yesod site, RedirectUrl site url)
+setUrl :: HasCallStack
+       => (Yesod site, RedirectUrl site url)
        => url
        -> RequestBuilder site ()
 setUrl url' = do
@@ -1501,7 +1517,8 @@ addBasicAuthHeader username password =
 -- >   byLabel "First Name" "Felipe"
 -- >   setMethod "PUT"
 -- >   setUrl NameR
-request :: RequestBuilder site ()
+request :: HasCallStack
+        => RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- getSIO
@@ -1706,7 +1723,7 @@ instance YesodDispatch site => Hspec.Example (SIO (YesodExampleData site) a) whe
 -- >   chooseByLabel "Blue"
 --
 -- @since 1.6.17
-chooseByLabel :: T.Text -> RequestBuilder site ()
+chooseByLabel :: HasCallStack => T.Text -> RequestBuilder site ()
 chooseByLabel label = do
     name <- genericNameFromLabel (==) label
     value <- genericValueFromLabel (==) label
@@ -1740,7 +1757,7 @@ chooseByLabel label = do
 -- >   checkByLabel "Black"
 --
 -- @since 1.6.18
-checkByLabel :: T.Text -> RequestBuilder site ()
+checkByLabel :: HasCallStack => T.Text -> RequestBuilder site ()
 checkByLabel label = do
     name <- genericNameFromLabel (==) label
     value <- genericValueFromLabel (==) label
@@ -1770,7 +1787,7 @@ checkByLabel label = do
 -- >   selectByLabel "Selection List" "Blue"
 --
 -- @since 1.6.19
-selectByLabel :: T.Text -> T.Text -> RequestBuilder site ()
+selectByLabel :: HasCallStack => T.Text -> T.Text -> RequestBuilder site ()
 selectByLabel label option = do
     name <- genericNameFromLabel (==) label
     parsedHtml <- parseHTML <$> htmlBody "selectByLabel"
@@ -1830,7 +1847,7 @@ genericValueFromHTML match label html =
         value:_ -> Right value
     _ -> Left $ "More than one label contained " <> label
 
-htmlBody :: String -> RequestBuilder site BSL8.ByteString
+htmlBody :: HasCallStack => String -> RequestBuilder site BSL8.ByteString
 htmlBody funcName = do
   mres <- fmap rbdResponse getSIO
   res <-
