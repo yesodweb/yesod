@@ -64,7 +64,7 @@ test-suite test
                           , containers
                           , html-conduit
                           , yesod-core
-                          , yesod-form >= 1.6
+                          , yesod-form >= 1.7.9
                           , text
                           , wai
                           , wai-extra

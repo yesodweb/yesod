@@ -16,10 +16,10 @@ extra-source-files: README.md ChangeLog.md
 library
     build-depends:   base                      >= 4.10     && < 5
                    , conduit
-                   , data-default
+                   , data-default              >=0.8
                    , text
                    , time                      >= 1.1.4
-                   , xml-conduit               >= 1.0
+                   , xml-conduit               >= 1.9.1.4 
                    , xml-types
                    , yesod-core                >= 1.6      && < 1.7
     exposed-modules: Yesod.Sitemap

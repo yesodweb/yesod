@@ -18,13 +18,10 @@ jobs:
         - "--resolver lts-22"
         - "--resolver lts-20"
         - "--resolver lts-18"
-        - "--resolver lts-16"
         exclude:
           # llvm too new on macos-latest for ghc 8
           - os: macos-latest
             args: "--resolver lts-18"
-          - os: macos-latest
-            args: "--resolver lts-16"
 
     steps:
       - name: Clone project
