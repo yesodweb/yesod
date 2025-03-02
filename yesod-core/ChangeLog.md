@@ -2,7 +2,7 @@
 
 ## 1.6.27.0
 
-* Build with `wai-extra-3.1.17` [#1861](https://github.com/yesodweb/yesod/pull/1860)
+* Build with `wai-extra-3.1.17` [#1861](https://github.com/yesodweb/yesod/pull/1861)
 
 ## 1.6.26.0
 
