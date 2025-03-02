@@ -1,0 +1,21 @@
+resolver: lts-22.43
+packages:
+- ./yesod-core
+- ./yesod-static
+- ./yesod-persistent
+- ./yesod-newsfeed
+- ./yesod-form
+- ./yesod-form-multi
+- ./yesod-auth
+- ./yesod-auth-oauth
+- ./yesod-sitemap
+- ./yesod-test
+- ./yesod-bin
+- ./yesod
+- ./yesod-eventsource
+- ./yesod-websockets
+
+extra-deps:
+  - attoparsec-aeson-2.1.0.0
+  - crypton-1.0.0
+  - crypton-conduit-0.2.3
