@@ -1,4 +1,4 @@
-resolver: lts-23.10
+resolver: lts-22.43
 packages:
 - ./yesod-core
 - ./yesod-static
@@ -15,4 +15,7 @@ packages:
 - ./yesod-eventsource
 - ./yesod-websockets
 
-extra-deps: []
+extra-deps:
+  - attoparsec-aeson-2.1.0.0
+  - crypton-1.0.0
+  - crypton-conduit-0.2.3

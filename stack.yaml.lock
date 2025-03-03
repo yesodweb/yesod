@@ -3,17 +3,10 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages:
-- completed:
-    hackage: attoparsec-aeson-2.1.0.0@sha256:fa83aba43bfa58490de8f274d19b9d58b6403a207b12cac5f93922102b084c52,1154
-    pantry-tree:
-      sha256: 294c3a8a19a7ddad58097e18c624c6b34894b3c4a4cc490759cb31d842db242a
-      size: 114
-  original:
-    hackage: attoparsec-aeson-2.1.0.0
+packages: []
 snapshots:
 - completed:
-    sha256: 694573e96dca34db5636edb1fe6c96bb233ca0f9fb96c1ead1671cdfa9bd73e9
-    size: 585603
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/3.yaml
-  original: lts-18.3
+    sha256: 889b6bffaf21cd509a7c6017703281e77c2f6df0a0908a11c85fa97fcbf11d4e
+    size: 680573
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/23/10.yaml
+  original: lts-23.10

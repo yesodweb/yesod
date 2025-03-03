@@ -1,8 +1,9 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 module Yesod.Core.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -63,6 +64,9 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as S8
 import Data.ByteString.Builder (byteString, toLazyByteString)
+#if !MIN_VERSION_wai_extra(3,1,14)
+import Data.Default (def)
+#endif
 import Network.HTTP.Types (status301, status307)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
@@ -78,7 +82,12 @@ import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
 import Network.Wai.Middleware.Autohead
 import Network.Wai.Middleware.AcceptOverride
 import Network.Wai.Middleware.RequestLogger
-import Network.Wai.Middleware.Gzip
+import Network.Wai.Middleware.Gzip (
+    gzip,
+#if MIN_VERSION_wai_extra(3,1,14)
+    defaultGzipSettings,
+#endif
+ )
 import Network.Wai.Middleware.MethodOverride
 
 import qualified Network.Wai.Handler.Warp
@@ -244,7 +253,12 @@ serverValue = S8.pack $ concat
 -- Since 1.2.0
 mkDefaultMiddlewares :: Logger -> IO W.Middleware
 mkDefaultMiddlewares logger = do
-    logWare <- mkRequestLogger def
+    logWare <- mkRequestLogger
+#if MIN_VERSION_wai_extra(3,1,8)
+        defaultRequestLoggerSettings
+#else
+        def
+#endif
         { destination = Network.Wai.Middleware.RequestLogger.Logger $ loggerSet logger
         , outputFormat = Apache FromSocket
         }
@@ -254,7 +268,14 @@ mkDefaultMiddlewares logger = do
 --
 -- Since 1.2.12
 defaultMiddlewaresNoLogging :: W.Middleware
-defaultMiddlewaresNoLogging = acceptOverride . autohead . gzip def . methodOverride
+defaultMiddlewaresNoLogging = acceptOverride . autohead . gzip gzipSettings . methodOverride
+  where
+    gzipSettings =
+#if MIN_VERSION_wai_extra(3,1,14)
+        defaultGzipSettings
+#else
+        def
+#endif
 
 -- | Deprecated synonym for 'warp'.
 warpDebug :: YesodDispatch site => Int -> site -> IO ()
