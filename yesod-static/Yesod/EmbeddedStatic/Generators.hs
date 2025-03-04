@@ -246,11 +246,11 @@ pathToName f = routeName
         | otherwise = '_'
       name = map replace f
       routeName = mkName $
-            case () of
-                ()
-                    | null name -> error "null-named file"
-                    | isDigit (head name) -> '_' : name
-                    | isLower (head name) -> name
+            case name of
+                [] -> error "null-named file"
+                c : _
+                    | isDigit c -> '_' : name
+                    | isLower c -> name
                     | otherwise -> '_' : name
 
 

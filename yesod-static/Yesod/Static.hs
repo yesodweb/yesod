@@ -392,11 +392,11 @@ mkStaticFilesList' fp fs makeHash = do
     mkRoute (alias, f) = do
         let name' = intercalate "_" $ map (map replace') alias
             routeName = mkName $
-                case () of
-                    ()
-                        | null name' -> error "null-named file"
-                        | isDigit (head name') -> '_' : name'
-                        | isLower (head name') -> name'
+                case name' of
+                    [] -> error "null-named file"
+                    c : _
+                        | isDigit c -> '_' : name'
+                        | isLower c -> name'
                         | otherwise -> '_' : name'
         f' <- [|map pack $(TH.lift f)|]
         qs <- if makeHash

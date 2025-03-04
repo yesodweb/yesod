@@ -233,14 +233,13 @@ genSaltSysRandom = randomChars >>= return . makeSalt . B.pack
 
 -- | Try to parse a password hash.
 readPwHash :: ByteString -> Maybe (Int, Salt, ByteString)
-readPwHash pw | length broken /= 4
-                || algorithm /= "sha256"
-                || B.length hash /= 44 = Nothing
-              | otherwise = case B.readInt strBS of
-                              Just (strength, _) -> Just (strength, SaltBS salt, hash)
-                              Nothing -> Nothing
-    where broken = B.split '|' pw
-          [algorithm, strBS, salt, hash] = broken
+readPwHash pw =
+    case B.split '|' pw of
+        ["sha256", strBS, salt, hash]
+            | B.length hash == 44
+            , Just (strength, _) <- B.readInt strBS ->
+                Just (strength, SaltBS salt, hash)
+        _ -> Nothing
 
 -- | Encode a password hash, from a @(strength, salt, hash)@ tuple, where
 -- strength is an 'Int', and both @salt@ and @hash@ are base64-encoded

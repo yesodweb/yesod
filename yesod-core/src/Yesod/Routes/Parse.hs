@@ -301,7 +301,8 @@ dropBracket x = x
 -- @since 1.6.8
 lineContinuations :: String -> [String] -> [String]
 lineContinuations this [] = [this]
-lineContinuations this below@(next:rest) = case unsnoc this of
-    Just (this', '\\') -> (this'++next):rest
-    _ -> this:below
-  where unsnoc s = if null s then Nothing else Just (init s, last s)
+lineContinuations [] below = []:below
+lineContinuations this below@(next:rest) =
+    case last this of
+        '\\' -> (init this ++ next):rest
+        _ -> this:below
