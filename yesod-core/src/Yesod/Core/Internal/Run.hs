@@ -22,8 +22,7 @@ module Yesod.Core.Internal.Run
   )
   where
 
-import qualified Control.Exception as EUnsafe
-import Yesod.Core.Internal.Response
+import           Yesod.Core.Internal.Response
 import           Data.ByteString.Builder      (toLazyByteString)
 import qualified Data.ByteString.Lazy         as BL
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
@@ -43,7 +42,6 @@ import           Data.Text.Encoding.Error     (lenientDecode)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
-import           Network.Wai.Internal
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           Yesod.Core.Content
 import           Yesod.Core.Class.Yesod
@@ -51,11 +49,9 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
-import           Yesod.Routes.Class           (Route, renderRoute)
+import           Yesod.Routes.Class           (RenderRoute (..))
 import           Control.DeepSeq              (($!!), NFData)
 import           UnliftIO.Exception
-import           UnliftIO(MonadUnliftIO, withRunInIO)
-import           Data.Proxy(Proxy(..))
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse

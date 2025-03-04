@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell, QuasiQuotes, OverloadedStrings #-}
 module EmbedTestGenerator (testGen) where
 
-import Data.Default
+import Data.Default (def)
 import Network.Mime (MimeType)
 import Yesod.EmbeddedStatic.Types
 import Yesod.EmbeddedStatic.Generators (pathToName)

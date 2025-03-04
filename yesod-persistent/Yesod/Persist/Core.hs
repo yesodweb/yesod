@@ -40,9 +40,6 @@ import qualified Database.Persist.Sql as SQL
 #if MIN_VERSION_persistent(2,13,0)
 import qualified Database.Persist.SqlBackend.Internal as SQL
 #endif
-#if MIN_VERSION_persistent(2,14,0)
-import Database.Persist.Class.PersistEntity
-#endif
 
 unSqlPersistT :: a -> a
 unSqlPersistT = id

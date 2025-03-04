@@ -12,9 +12,10 @@ module YesodCoreTest.Meta
 
 import Test.Hspec
 
-import Yesod.Core
 import Network.Wai
 import Network.Wai.Test
+import Yesod.Core
+import Yesod.Routes.TH.Types (ResourceTree)
 
 data App = App
 
@@ -22,6 +23,9 @@ mkYesod "App" [parseRoutes|
 /title TitleR GET
 /desc  DescriptionR GET
 |]
+
+_unused :: [ResourceTree String]
+_unused = resourcesApp
 
 instance Yesod App where
 

@@ -139,7 +139,6 @@ import           Yesod.Auth
 import qualified Yesod.Auth.Message            as Msg
 import qualified Yesod.Auth.Util.PasswordStore as PS
 import           Yesod.Core
-import           Yesod.Core.Types              (TypedContent (TypedContent))
 import           Yesod.Form
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute

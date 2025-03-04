@@ -251,7 +251,6 @@ import           Data.Kind                     (Type)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
-import           Yesod.Routes.Class            (Route)
 import           Data.ByteString.Builder (Builder)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL

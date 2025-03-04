@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module YesodCoreTest.InternalRequest (internalRequestTest) where
 

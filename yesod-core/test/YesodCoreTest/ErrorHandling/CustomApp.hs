@@ -19,7 +19,6 @@ module YesodCoreTest.ErrorHandling.CustomApp
     ) where
 
 
-import Yesod.Core.Types
 import Yesod.Core
 import qualified UnliftIO.Exception as E
 

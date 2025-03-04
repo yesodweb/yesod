@@ -10,7 +10,6 @@ module YesodCoreTest.ErrorHandling
     ) where
 
 import  Data.Typeable(cast)
-import qualified System.Mem as Mem
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent as Conc
 import Yesod.Core
@@ -20,7 +19,6 @@ import Network.Wai.Test
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try, AsyncException(..))
-import           UnliftIO.Exception(finally)
 import Network.HTTP.Types (Status, mkStatus)
 import Data.ByteString.Builder (Builder, toLazyByteString)
 import Data.Monoid (mconcat)

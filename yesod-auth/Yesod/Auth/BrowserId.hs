@@ -26,7 +26,7 @@ import Text.Julius (rawJS)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
 import Data.ByteString (ByteString)
-import Data.Default
+import Data.Default (Default (def))
 
 pid :: Text
 pid = "browserid"

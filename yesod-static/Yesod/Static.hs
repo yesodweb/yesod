@@ -97,7 +97,7 @@ import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
-import Data.Default
+import Data.Default (Default (def))
 --import Text.Lucius (luciusRTMinified)
 
 import Network.Wai (pathInfo)

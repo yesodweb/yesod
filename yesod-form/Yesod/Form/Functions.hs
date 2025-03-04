@@ -73,7 +73,10 @@ import Text.Blaze (Markup, toMarkup)
 #define toHtml toMarkup
 import Yesod.Core
 import Network.Wai (requestMethod)
-import Data.Monoid (mempty, (<>))
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
+import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
