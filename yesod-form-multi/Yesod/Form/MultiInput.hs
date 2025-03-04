@@ -236,7 +236,7 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals MultiSettings {..} = do
+mhelperMulti field fs@FieldSettings {..} wrapperClass defs minVals MultiSettings {..} = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
@@ -459,7 +459,7 @@ mkRes :: (site ~ HandlerSite m, MonadHandler m)
     -> (site -> [Text] -> FormResult b)
     -> (a -> FormResult b)
     -> MForm m (FormResult b, Either Text a)
-mkRes Field {..} FieldSettings {..} p mfs name onMissing onFound = do
+mkRes Field {..} _ p mfs name onMissing onFound = do
     tell fieldEnctype
     (_, site, langs) <- ask
     let mvals = fromMaybe [] $ Map.lookup name p
