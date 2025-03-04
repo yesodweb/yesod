@@ -41,11 +41,16 @@ keter :: String -- ^ cabal command
       -> IO ()
 keter cabal noBuild noCopyTo buildArgs = do
     ketercfg <- keterConfig
-    mvalue <- decodeFile ketercfg
+#if MIN_VERSION_yaml(0,8,4)
+    mvalue <- decodeFileEither ketercfg
+#else
+    let maybeToEither = maybe (Left ()) Right
+    mvalue <- fmap maybeToEither <$> decodeFile ketercfg
+#endif
     value <-
         case mvalue of
-            Nothing -> error "No config/keter.yaml found"
-            Just (Object value) ->
+            Left{} -> error "No config/keter.yaml found"
+            Right (Object value) ->
                 case Map.lookup "host" value of
                     Just (String s) | "<<" `T.isPrefixOf` s ->
                         error $ "Please set your hostname in " ++ ketercfg
@@ -55,7 +60,7 @@ keter cabal noBuild noCopyTo buildArgs = do
                                 error $ "Please edit your Keter config file at "
                                      ++ ketercfg
                             _ -> return value
-            Just _ -> error $ ketercfg ++ " is not an object"
+            Right _ -> error $ ketercfg ++ " is not an object"
 
     env' <- getEnvironment
     cwd' <- getCurrentDirectory

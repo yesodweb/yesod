@@ -30,8 +30,7 @@ import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
 #if MIN_VERSION_Cabal(3,8,0)
 import qualified Distribution.Simple.PackageDescription as D
-#endif
-#if MIN_VERSION_Cabal(2, 2, 0)
+#elif MIN_VERSION_Cabal(2,2,0)
 import qualified Distribution.PackageDescription.Parsec as D
 #else
 import qualified Distribution.PackageDescription.Parse as D
@@ -386,7 +385,11 @@ devel opts passThroughArgs = do
         -- changing the destination port for reverse proxying to -1. We also
         -- make sure that all content to stdout or stderr from the build
         -- process is piped to the actual stdout and stderr handles.
+#if MIN_VERSION_conduit_extra(1,3,4)
+        withProcessTerm_ procConfig $ \p -> do
+#else
         withProcess_ procConfig $ \p -> do
+#endif
             let helper getter h =
                       runConduit
                     $ getter p
@@ -503,7 +506,11 @@ devel opts passThroughArgs = do
             sayV $ "Running child process: " ++ show procDef
 
             -- Start running the child process with GHC
+#if MIN_VERSION_conduit_extra(1,3,4)
+            withProcessTerm procDef $ \p -> do
+#else
             withProcess procDef $ \p -> do
+#endif
                 -- Wait for either the process to exit, or for a new build to come through
                 eres <- atomically (fmap Left (waitExitCodeSTM p) <|> fmap Right
                     (do changed <- readTVar changedVar

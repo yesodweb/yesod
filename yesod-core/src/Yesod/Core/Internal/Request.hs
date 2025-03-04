@@ -50,24 +50,32 @@ import qualified Data.Word8 as Word8
 limitRequestBody :: Word64 -> W.Request -> IO W.Request
 limitRequestBody maxLen req = do
     ref <- newIORef maxLen
-    return req
-        { W.requestBody = do
-            bs <- W.requestBody req
-            remaining <- readIORef ref
-            let len = fromIntegral $ S8.length bs
-                remaining' = remaining - len
-            if remaining < len
-                then throwIO $ HCWai $ tooLargeResponse maxLen len
-                else do
-                    writeIORef ref remaining'
-                    return bs
-        }
+#if MIN_VERSION_wai(3,2,4)
+    pure $ W.setRequestBodyChunks (bodyF ref) req
+#else
+    pure req { W.requestBody = bodyF ref }
+#endif
+  where
+    bodyF ref = do
+#if MIN_VERSION_wai(3,2,2)
+        bs <- W.getRequestBodyChunk req
+#else
+        bs <- W.requestBody req
+#endif
+        remaining <- readIORef ref
+        let len = fromIntegral $ S8.length bs
+            remaining' = remaining - len
+        if remaining < len
+            then throwIO $ HCWai $ tooLargeResponse maxLen len
+            else do
+                writeIORef ref remaining'
+                pure bs
 
 tooLargeResponse :: Word64 -> Word64 -> W.Response
 tooLargeResponse maxLen bodyLen = W.responseLBS
     (Status 413 "Too Large")
     [("Content-Type", "text/plain")]
-    (L.concat 
+    (L.concat
         [ "Request body too large to be processed. The maximum size is "
         , (LS8.pack (show maxLen))
         , " bytes; your request body was "
