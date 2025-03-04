@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings, CPP #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Core.Internal.Request
     ( parseWaiRequest
     , RequestBodyContents
