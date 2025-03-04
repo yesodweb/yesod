@@ -1,9 +1,12 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+#ifdef __GLASGOW_HASKELL__
+{-# OPTIONS_GHC -Wno-orphans #-}
+#endif
 -- | Defines the core functionality of this package. This package is
 -- distinguished from Yesod.Persist in that the latter additionally exports the
 -- persistent modules themselves.

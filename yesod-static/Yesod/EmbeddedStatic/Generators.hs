@@ -93,7 +93,7 @@ getRecursiveContents prefix topdir = do
   return (concat paths)
 
 -- | Embed all files in a directory into the static subsite.
--- 
+--
 -- Equivalent to passing the empty string as the location to 'embedDirAt',
 -- so the directory path itself is not part of the resource locations (and so
 -- also not part of the generated route variable names).
@@ -112,7 +112,7 @@ embedDir = embedDirAt ""
 -- * js/jquery.js
 --
 -- * js/bootstrap.js
--- 
+--
 -- then @embedDirAt \"somefolder\" \"static\"@ will
 --
 -- * Make the file @static\/css\/bootstrap.css@ available at the location

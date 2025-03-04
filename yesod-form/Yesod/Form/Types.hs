@@ -1,8 +1,8 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.Form.Types
     ( -- * Helpers
       Enctype (..)
