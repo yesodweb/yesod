@@ -1,9 +1,12 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+#ifdef __GLASGOW_HASKELL__
+{-# OPTIONS_GHC -Wno-orphans #-}
+#endif
 -- | Defines the core functionality of this package. This package is
 -- distinguished from Yesod.Persist in that the latter additionally exports the
 -- persistent modules themselves.
@@ -36,9 +39,6 @@ import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 #if MIN_VERSION_persistent(2,13,0)
 import qualified Database.Persist.SqlBackend.Internal as SQL
-#endif
-#if MIN_VERSION_persistent(2,14,0)
-import Database.Persist.Class.PersistEntity
 #endif
 
 unSqlPersistT :: a -> a

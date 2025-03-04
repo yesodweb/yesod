@@ -11,14 +11,12 @@ module YesodCoreTest.Breadcrumb
   )
 where
 
-import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Text (Text)
-import Data.Typeable (Typeable)
 import Network.Wai
 import Network.Wai.Test
 import Test.Hspec
-import UnliftIO.IORef
 import Yesod.Core
+import Yesod.Routes.TH.Types (ResourceTree)
 
 data A = A
 
@@ -28,6 +26,9 @@ mkYesod
 /    RootR GET
 /loop LoopR GET
 |]
+
+_unused :: [ResourceTree String]
+_unused = resourcesA
 
 instance Yesod A
 

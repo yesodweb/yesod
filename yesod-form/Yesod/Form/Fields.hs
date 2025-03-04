@@ -1,11 +1,12 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 -- | Field functions allow you to easily create and validate forms, cleanly handling the uncertainty of parsing user input.
 --
 -- When possible, the field functions use a specific input type (e.g. "number"), allowing supporting browsers to validate the input before form submission. Browsers can also improve usability with this information; for example, mobile browsers might present a specialized keyboard for an input of type "email" or "number".
@@ -109,20 +110,12 @@ import qualified Data.Text.Read
 
 import qualified Data.Map as Map
 import Yesod.Persist (selectList, Filter, SelectOpt, Key)
-import Control.Arrow ((&&&))
-
-import Control.Applicative ((<$>), (<|>))
-
-import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
-
 import Yesod.Persist.Core
 
+import Control.Arrow ((&&&))
+import Control.Applicative ((<$>), (<|>))
+import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 import Data.String (IsString)
-
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
-
 import Data.Char (isHexDigit)
 
 {-# DEPRECATED radioField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}

@@ -30,7 +30,9 @@ import Yesod.Test.TransversingCSS
 import Text.XML
 import Data.Text (Text, pack)
 import Data.Char (toUpper)
-import Data.Monoid ((<>))
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 import Control.Applicative
 import Network.Wai (pathInfo, rawQueryString, requestHeaders)
 import Network.Wai.Test (SResponse(simpleBody))
@@ -569,11 +571,11 @@ main = hspec $ do
         yit "checks for valid content-type" $ do
             get ("get-json-wrong-content-type" :: Text)
             statusIs 200
-            (requireJSONResponse :: YesodExample site [Integer]) `liftedShouldThrow` (\(e :: SomeException) -> True)
+            (requireJSONResponse :: YesodExample site [Integer]) `liftedShouldThrow` (\(_ :: SomeException) -> True)
         yit "checks for valid JSON parse" $ do
             get ("get-json-response" :: Text)
             statusIs 200
-            (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
+            (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(_ :: SomeException) -> True)
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -772,9 +774,8 @@ getResourceR i = defaultLayout
     |]
 
 getIntegerR :: Handler Text
-getIntegerR = do
-    app <- getYesod
-    pure $ T.pack $ show (routedAppInteger app)
+getIntegerR =
+    T.pack . show . routedAppInteger <$> getYesod
 
 
 -- infix Copied from HSpec's version

@@ -1,6 +1,6 @@
-{-# LANGUAGE PatternGuards       #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
 
 module Options (injectDefaults) where
 
@@ -14,7 +14,9 @@ import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (mapMaybe)
-import           Data.Monoid
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Semigroup            ((<>))
+#endif
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory
@@ -91,12 +93,13 @@ injectDefaultP env path p@(OptP o)
   where
     modifyParserI cmd parseri =
         parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
-    cmdMap f cmds = 
+#if !MIN_VERSION_optparse_applicative(0,18,0)
+    cmdMap f cmds =
         let mkCmd cmd =
                 let (Just parseri) = f cmd
                 in  modifyParserI cmd parseri
         in  M.fromList (map (\c -> (c, mkCmd c)) cmds)
-
+#endif
 
 injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)
@@ -110,4 +113,3 @@ getEnvValue _ _ _                = Nothing
 
 normalizeName :: String -> String
 normalizeName = map toLower . filter isAlphaNum
-

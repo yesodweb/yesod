@@ -1,8 +1,8 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.Form.Types
     ( -- * Helpers
       Enctype (..)
@@ -25,7 +25,6 @@ module Yesod.Form.Types
 import Control.Monad.Trans.RWS (RWST)
 import Control.Monad.Trans.Writer (WriterT)
 import Data.Text (Text)
-import Data.Monoid (Monoid (..))
 import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
@@ -36,7 +35,9 @@ import Control.Monad.Trans.Class
 import Data.String (IsString (..))
 import Yesod.Core
 import qualified Data.Map as Map
+#if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup, (<>))
+#endif
 import Data.Traversable
 import Data.Foldable
 
@@ -62,9 +63,14 @@ instance Control.Applicative.Applicative FormResult where
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
-instance Data.Monoid.Monoid m => Monoid (FormResult m) where
+#if MIN_VERSION_base(4,11,0)
+instance Monoid m => Monoid (FormResult m) where
+    mempty = pure mempty
+#else
+instance Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
+#endif
 instance Semigroup m => Semigroup (FormResult m) where
     x <> y = (<>) Control.Applicative.<$> x <*> y
 
@@ -104,7 +110,7 @@ instance ToValue Enctype where
     toValue Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
-#if !(MIN_VERSION_base(4,11,0))
+#if !MIN_VERSION_base(4,11,0)
     mappend = (<>)
 #endif
 instance Semigroup Enctype where
@@ -172,7 +178,7 @@ instance Monad m => Monad (AForm m) where
     (AForm f) >>= k = AForm $ \mr env ints -> do
         (a, b, ints', c) <- f mr env ints
         case a of
-          FormSuccess r -> do 
+          FormSuccess r -> do
             (x, y, ints'', z) <- unAForm (k r) mr env ints'
             return (x, b . y, ints'', c `mappend` z)
           FormFailure err -> pure (FormFailure err, b, ints', c)
@@ -180,7 +186,10 @@ instance Monad m => Monad (AForm m) where
 #endif
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
     mempty = pure mempty
+#if !MIN_VERSION_base(4,11,0)
     mappend a b = mappend <$> a <*> b
+#endif
+
 instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
     a <> b = (<>) <$> a <*> b
 

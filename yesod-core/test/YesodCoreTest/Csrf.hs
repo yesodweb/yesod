@@ -1,4 +1,9 @@
-{-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module YesodCoreTest.Csrf (csrfSpec, Widget, resourcesApp) where
 
@@ -10,7 +15,9 @@ import Network.Wai.Test
 import Web.Cookie
 import qualified Data.Map as Map
 import Data.ByteString.Lazy (fromStrict)
-import Data.Monoid ((<>))
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 
 data App = App
 
@@ -79,7 +86,7 @@ csrfSpec = describe "A Yesod application with the defaultCsrfMiddleware" $ do
 
         res <- request (defaultRequest { requestMethod = "POST", requestHeaders = [(defaultCsrfHeaderName, csrfValue <> "foo")] })
         assertStatus 403 res
-        
+
     it "403s write requests with the wrong CSRF param" $ runner $ do
         getRes <- request defaultRequest
         assertStatus 200 getRes

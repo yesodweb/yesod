@@ -1,7 +1,8 @@
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 -- | Some fields spiced up with jQuery UI.
 module Yesod.Form.Jquery
     ( YesodJquery (..)
@@ -16,8 +17,8 @@ module Yesod.Form.Jquery
 
 import Yesod.Core
 import Yesod.Form
+import Data.Default (Default (def))
 import Data.Time (Day)
-import Data.Default
 import Text.Julius (rawJS)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
