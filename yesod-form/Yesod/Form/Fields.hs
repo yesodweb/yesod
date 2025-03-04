@@ -119,11 +119,6 @@ import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput,
 import Yesod.Persist.Core
 
 import Data.String (IsString)
-
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
-
 import Data.Char (isHexDigit)
 
 {-# DEPRECATED radioField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}
