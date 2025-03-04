@@ -15,7 +15,13 @@ import Control.Monad (replicateM)
 import System.Random
 
 gen :: IO Int
-gen = getStdRandom next
+gen =
+    getStdRandom
+#if MIN_VERSION_random(1,2,0)
+        uniform
+#else
+        next
+#endif
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do

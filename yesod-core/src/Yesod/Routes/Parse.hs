@@ -71,7 +71,7 @@ parseRoutesNoCheck = QuasiQuoter
 -- invalid input.
 resourcesFromString :: String -> [ResourceTree String]
 resourcesFromString =
-    fst . parse 0 . filter (not . all (== ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
+    fst . parse 0 . filter (any (/= ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
   where
     parse _ [] = ([], [])
     parse indent (thisLine:otherLines)
