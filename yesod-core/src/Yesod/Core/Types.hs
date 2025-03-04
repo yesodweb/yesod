@@ -400,13 +400,9 @@ newtype Title = Title { unTitle :: Html }
 newtype Description = Description { unDescription :: Text }
 
 newtype Head url = Head (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Head url) where
-  (<>) = mappend
+    deriving (Monoid, Semigroup)
 newtype Body url = Body (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Body url) where
-  (<>) = mappend
+    deriving (Monoid, Semigroup)
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 

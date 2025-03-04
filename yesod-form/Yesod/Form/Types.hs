@@ -63,9 +63,14 @@ instance Control.Applicative.Applicative FormResult where
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
-instance Data.Monoid.Monoid m => Monoid (FormResult m) where
+#if MIN_VERSION_base(4,11,0)
+instance Monoid m => Monoid (FormResult m) where
+    mempty = pure mempty
+#else
+instance Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
+#endif
 instance Semigroup m => Semigroup (FormResult m) where
     x <> y = (<>) Control.Applicative.<$> x <*> y
 
@@ -181,7 +186,10 @@ instance Monad m => Monad (AForm m) where
 #endif
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
     mempty = pure mempty
+#if !MIN_VERSION_base(4,11,0)
     mappend a b = mappend <$> a <*> b
+#endif
+
 instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
     a <> b = (<>) <$> a <*> b
 
