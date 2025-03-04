@@ -113,11 +113,11 @@ resourcesFromString =
 -- | Splits a string by spaces, as long as the spaces are not enclosed by curly brackets (not recursive).
 splitSpaces :: String -> [String]
 splitSpaces "" = []
-splitSpaces str = 
+splitSpaces str =
     let (rest, piece) = parse $ dropWhile isSpace str in
     piece:(splitSpaces rest)
 
-    where 
+    where
         parse :: String -> ( String, String)
         parse ('{':s) = fmap ('{':) $ parseBracket s
         parse (c:s) | isSpace c = (s, [])

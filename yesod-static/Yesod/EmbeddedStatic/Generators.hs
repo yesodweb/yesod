@@ -295,7 +295,7 @@ pathToName f = routeName
 --
 -- Here is a small example yesod program using this generator.  Try toggling
 -- the development argument to @mkEmbeddedStatic@.
--- 
+--
 -- >{-# LANGUAGE TemplateHaskell, QuasiQuotes, TypeFamilies #-}
 -- >module Main where
 -- >
@@ -321,7 +321,7 @@ pathToName f = routeName
 -- >getHomeR :: Handler Html
 -- >getHomeR = defaultLayout $ [whamlet|
 -- ><h1>Hello
--- ><p>Check the 
+-- ><p>Check the
 -- >    <a href=@{StaticR compile_time_json}>compile time
 -- >|]
 -- >

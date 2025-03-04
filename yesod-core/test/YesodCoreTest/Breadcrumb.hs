@@ -27,6 +27,9 @@ mkYesod
 /loop LoopR GET
 |]
 
+_unused :: [ResourceTree String]
+_unused = resourcesA
+
 instance Yesod A
 
 instance YesodBreadcrumbs A where

@@ -66,7 +66,7 @@ data MultiSettings site = MultiSettings
 -- both the field and it's corresponding delete button.
 --
 -- The structure is illustrated by the following:
--- 
+--
 -- > <div .#{wrapperClass}>
 -- >     <div .#{wrapperClass}-inner>
 -- >         ^{fieldWidget}
@@ -77,7 +77,7 @@ data MultiSettings site = MultiSettings
 -- is returned in the 'MultiView' should you wish to change the styling. The inner wrapper
 -- uses the same class followed by @-inner@. By default the wrapper and inner wrapper has
 -- classes are as follows:
--- 
+--
 -- > .#{wrapperClass} {
 -- >     margin-bottom: 1rem;
 -- > }
@@ -106,7 +106,7 @@ bs3Settings = MultiSettings
     "has-error"
     Nothing Nothing (Just errW)
     where
-        errW err = 
+        errW err =
             [whamlet|
                 <span .help-block>#{err}
             |]
@@ -141,7 +141,7 @@ bs3FASettings = MultiSettings
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
-        errW err = 
+        errW err =
             [whamlet|
                 <span .help-block>#{err}
             |]
@@ -206,7 +206,7 @@ amulti field fs defs minVals ms = formToAForm $
                     , fvErrors = fvErrors mvAddBtn
                     , fvRequired = False
                     }
-            
+
             return (fr, view)
 
 -- | Converts a form field into a monadic form containing an arbitrary
@@ -259,7 +259,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             _ -> False
 
     mfs <- askFiles
-    
+
     -- get counter value (starts counting from 0)
     cr@(cRes, _) <- case mp of
         Nothing -> return (FormMissing, Right cDef)
@@ -333,7 +333,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                     $('##{rawJS delBtnId}').click(function() {
                         var field = $('##{rawJS fieldId}');
                         deleteField_#{rawJS theId}(field.parents('.#{rawJS wrapperClass}'));
-                    });                    
+                    });
                 |]
 
     -- generate field views
@@ -349,19 +349,19 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                 zs -> zs
         rvs <- mapM mkView' ys
         return $ unzip rvs
-    
+
     -- check values
     let rs' = [ fmap fromJust r | r <- rs
                                 , not $ isSuccNothing r ]
         err = T.pack $ "Please enter at least " ++ show minVals ++ " values."
-        (res, tooFewVals) = 
+        (res, tooFewVals) =
             case foldr (<*>) (FormSuccess []) (map (fmap $ (:)) rs') of
                 FormSuccess xs ->
                     if length xs < minVals
                         then (FormFailure [err], True)
                         else (FormSuccess xs, False)
                 fRes -> (fRes, False)
-    
+
         -- create add button
         -- also includes some styling / functions that we only want to include once
         btnWidget = do
@@ -393,7 +393,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
                         var newDelId = #{delBtnPrefix} + newId;
-                        
+
                         // get new wrapper and remove old error messages
                         var newWrapper = $('.#{rawJS wrapperClass}').first().clone();
                         newWrapper.children( ':not(.#{rawJS wrapperClass}-inner)' ).remove();
@@ -469,7 +469,7 @@ mkRes Field {..} FieldSettings {..} p mfs name onMissing onFound = do
         Left msg -> (FormFailure [renderMessage site langs msg], maybe (Left "") Left (listToMaybe mvals))
         Right mx ->
             case mx of
-                Nothing -> (onMissing site langs, Left "") 
+                Nothing -> (onMissing site langs, Left "")
                 Just x -> (onFound x, Right x)
 
 -- Generate a FieldView for the given field with the given result.
@@ -500,11 +500,11 @@ mkView Field {..} FieldSettings {..} (res, val) mdel merrW errClass theId name i
                         <div .#{wrapperClass}-inner>
                             ^{fv'}
                             ^{delBtn}
-                            
+
                         $maybe err <- merr
                             $maybe errW <- merrW
                                 ^{errW err}
-                        
+
                 $nothing
                     ^{fv'}
             |]

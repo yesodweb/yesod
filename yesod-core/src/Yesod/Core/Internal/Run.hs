@@ -361,7 +361,6 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
           yar <- runInternalState (runHandler rhe handler yreq') is
           yarToResponse yar saveSession yreq' req is sendResponse
   where
-    mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
 
 yesodRender :: Yesod y
