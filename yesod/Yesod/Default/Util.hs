@@ -22,7 +22,7 @@ import Yesod.Core -- purposely using complete import so that Haddock will see ad
 import Control.Monad (when, unless)
 import Conduit
 import System.Directory (doesFileExist, createDirectoryIfMissing)
-import Language.Haskell.TH.Syntax hiding (makeRelativeToProject)
+import Language.Haskell.TH.Syntax (Exp (..), Q, Stmt (NoBindS), qRunIO)
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)

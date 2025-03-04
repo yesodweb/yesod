@@ -14,7 +14,9 @@ import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (mapMaybe)
-import           Data.Monoid
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Semigroup            ((<>))
+#endif
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory
@@ -110,4 +112,3 @@ getEnvValue _ _ _                = Nothing
 
 normalizeName :: String -> String
 normalizeName = map toLower . filter isAlphaNum
-

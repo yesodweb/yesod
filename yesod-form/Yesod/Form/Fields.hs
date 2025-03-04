@@ -110,14 +110,11 @@ import qualified Data.Text.Read
 
 import qualified Data.Map as Map
 import Yesod.Persist (selectList, Filter, SelectOpt, Key)
-import Control.Arrow ((&&&))
-
-import Control.Applicative ((<$>), (<|>))
-
-import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
-
 import Yesod.Persist.Core
 
+import Control.Arrow ((&&&))
+import Control.Applicative ((<$>), (<|>))
+import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 import Data.String (IsString)
 import Data.Char (isHexDigit)
 

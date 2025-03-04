@@ -20,7 +20,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as DTLE
 import qualified Yesod.Core.Content as Content
 #if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup (Semigroup(..))
+import Data.Semigroup ((<>))
 #endif
 
 -- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8.

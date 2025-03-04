@@ -110,7 +110,7 @@ instance ToValue Enctype where
     toValue Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
-#if !(MIN_VERSION_base(4,11,0))
+#if !MIN_VERSION_base(4,11,0)
     mappend = (<>)
 #endif
 instance Semigroup Enctype where
