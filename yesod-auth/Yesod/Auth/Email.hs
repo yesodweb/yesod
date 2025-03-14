@@ -295,6 +295,14 @@ class ( YesodAuth site
     -- @since 1.2.0
     afterPasswordRoute :: site -> Route site
 
+    -- | Same as @afterPasswordRoute@ but allows you to run Handler code
+    --
+    -- If this function is overridden then @afterPasswordRoute@ is ignored.
+    --
+    -- @since 1.6.12.0
+    afterPasswordRouteHandler :: AuthHandler site (Route site)
+    afterPasswordRouteHandler = getYesod >>= pure . afterPasswordRoute
+
     -- | Route to send user to after verification with a password
     --
     -- @since 1.6.4
@@ -935,8 +943,9 @@ postPasswordR = do
 
                      mr <- getMessageRender
                      selectRep $ do
-                         provideRep $
-                            fmap asHtml $ redirect $ afterPasswordRoute y
+                         provideRep $ do
+                            route <- afterPasswordRouteHandler
+                            fmap asHtml $ redirect route
                          provideJsonMessage (mr msgOk)
 
 saltLength :: Int
