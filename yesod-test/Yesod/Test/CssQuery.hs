@@ -4,6 +4,8 @@
 module Yesod.Test.CssQuery
     ( SelectorGroup (..)
     , Selector (..)
+    , ANPlusB (..)
+    , PseudoClass (..)
     , parseQuery
     ) where
 
@@ -20,6 +22,23 @@ data SelectorGroup
   | DeepChildren [Selector]
   deriving (Show, Eq)
 
+-- | The notation used in CSS selectors level 3 to denote a rule
+-- for matching indexed occurrences of elements.
+--
+-- Examples: odd, 3n+4, 2.
+data ANPlusB
+  = Repetition Int Int
+  | Position Int
+  | Odd
+  | Even
+  deriving (Show, Eq)
+
+data PseudoClass
+  = FirstChild
+  | LastChild
+  | NthChild ANPlusB 
+  deriving (Show, Eq)
+
 data Selector
   = ById Text
   | ByClass Text
@@ -29,6 +48,7 @@ data Selector
   | ByAttrContains Text Text
   | ByAttrStarts Text Text
   | ByAttrEnds Text Text
+  | ByPseudoClass PseudoClass
   deriving (Show, Eq)
 
 
@@ -65,8 +85,11 @@ deepChildren :: Parser SelectorGroup
 deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectors
 
 parseSelectors :: Parser [Selector]
-parseSelectors = many1 $
-    parseId <|> parseClass <|> parseTag <|> parseAttr
+parseSelectors = many1 parseSelector 
+
+parseSelector :: Parser Selector
+parseSelector =
+    parseId <|> parseClass <|> parseTag <|> parseAttr <|> parsePseudoClass
 
 parseId :: Parser Selector
 parseId = char '#' >> ById <$> pIdent
@@ -85,6 +108,31 @@ parseAttr = pSquare $ choice
     , ByAttrEnds <$> pIdent <*> (string "$=" *> pAttrValue)
     , ByAttrExists <$> pIdent
     ]
+
+spaceSurrounded :: Parser a -> Parser a
+spaceSurrounded m = skipSpaces *> m <* skipSpaces
+  where skipSpaces = skipMany $ char ' '
+
+pArg :: Parser ANPlusB
+pArg = char '(' *> spaceSurrounded pANPlusB <* char ')'
+
+pANPlusB :: Parser ANPlusB 
+pANPlusB = choice [repetition, position, fixed]
+  where repetition = Repetition
+          <$> option 1 (choice [char '-' *> fmap negate decimal, char '-' >> pure (-1), decimal]) <* char 'n'
+          <*> option 0 (choice [spaceSurrounded (char '+') *> decimal, spaceSurrounded (char '-') *> fmap negate decimal])
+        position = Position <$> decimal
+        fixed = choice
+          [ string "odd" >> pure Odd
+          , string "even" >> pure Even
+          ]
+
+parsePseudoClass :: Parser Selector
+parsePseudoClass = char ':' >> choice
+  [ string "first-child" >> pure (ByPseudoClass FirstChild)
+  , string "last-child" >> pure (ByPseudoClass LastChild)
+  , string "nth-child" >> ByPseudoClass . NthChild <$> pArg
+  ] <|> fail "unknown or unsupported pseudo-class"
 
 -- | pIdent : Parse an identifier (not yet supporting escapes and unicode as
 -- part of the identifier). Basically the regex: [-]?[_a-zA-Z][_a-zA-Z0-9]*

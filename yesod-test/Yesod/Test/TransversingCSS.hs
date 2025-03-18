@@ -117,3 +117,21 @@ selector c (ByAttrEnds n v) =
     case attribute (Name n Nothing Nothing) c of
         t:_ -> v `T.isSuffixOf` t
         [] -> False
+selector c (ByPseudoClass FirstChild) = null $ precedingSibling c
+selector c (ByPseudoClass LastChild) = null $ followingSibling c
+selector c (ByPseudoClass (NthChild anpb)) = let i = index1 c in
+  case anpb of
+    Repetition 0 b -> i == b 
+    Repetition a b | a <= 0 -> i <= b 
+    Repetition a b -> i >= b && (i + b) `mod` a == 0
+    Position p -> i == p
+    Odd -> odd i
+    Even -> even i
+
+-- | Returns the index of the node at a cursor amongst its siblings, starting at 1.
+index1 :: Cursor -> Int
+index1 = (+ 1) . index 
+
+-- | Returns the index of the node at a cursor amongst its siblings, starting at 0.
+index :: Cursor -> Int
+index = length . precedingSibling
