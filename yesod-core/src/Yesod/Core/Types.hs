@@ -306,6 +306,20 @@ data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and opti
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
+contentToTruncatedString :: Content -> Int -> String
+contentToTruncatedString (ContentBuilder builder maybeLength) maxLength =
+    let
+      truncated = take maxLength (show builder)
+      excess = case maybeLength of
+        (Just length) -> length - maxLength
+        Nothing -> 0
+    in case (excess > 0) of
+      True -> truncated ++ "... (+" ++ show excess ++ ")"
+      False -> truncated
+contentToTruncatedString (ContentSource _) _ = "ContentSource"
+contentToTruncatedString (ContentFile _ _) _ = "ContentFile"
+contentToTruncatedString (ContentDontEvaluate _) _ = "ContentDontEvaluate"
+
 data TypedContent = TypedContent !ContentType !Content
 
 type RepHtml = Html
@@ -444,7 +458,11 @@ data HandlerContents =
     | HCWaiApp !W.Application
 
 instance Show HandlerContents where
-    show (HCContent status (TypedContent t _)) = "HCContent " ++ show (status, t)
+    show (HCContent status (TypedContent t c))
+      = mconcat [ "HCContent "
+                , show (status, t)
+                , contentToTruncatedString c 1000
+                ]
     show (HCError e) = "HCError " ++ show e
     show (HCSendFile ct fp mfp) = "HCSendFile " ++ show (ct, fp, mfp)
     show (HCRedirect s t) = "HCRedirect " ++ show (s, t)
