@@ -2,7 +2,8 @@
 
 ## 1.6.27.1
 
-* When showing HandlerContent, include a content snippet
+* When showing HandlerContent, include a content snippet[#1864](https://github.com/yesodweb/yesod/pull/1864)
+
 
 ## 1.6.27.0
 
