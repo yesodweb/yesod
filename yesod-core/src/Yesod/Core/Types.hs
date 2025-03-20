@@ -35,9 +35,11 @@ import           Data.Serialize                     (Serialize (..),
 import           Data.String                        (IsString (fromString))
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
+import           Data.Text.Encoding
 import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
 import           GHC.Generics                       (Generic)
+import qualified GHC.Int                            as I
 import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
 import           Network.Wai                        (FilePart,
@@ -306,12 +308,16 @@ data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and opti
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
-contentToTruncatedString :: Content -> Int -> String
+-- | Represents a Content as a String, rendering at most a specified number of
+-- bytes of the content, and annotating it with the remaining length.
+--
+-- @since 1.6.28.0
+contentToTruncatedString :: Content -> I.Int64 -> String
 contentToTruncatedString (ContentBuilder builder maybeLength) maxLength =
     let
-      truncated = take maxLength (show builder)
+      truncated = (T.unpack . Data.Text.Encoding.decodeUtf8) $ L.toStrict $ L.take maxLength (BB.toLazyByteString builder)
       excess = case maybeLength of
-        (Just length) -> length - maxLength
+        (Just length) -> length - (fromIntegral maxLength)
         Nothing -> 0
     in case (excess > 0) of
       True -> truncated ++ "... (+" ++ show excess ++ ")"
