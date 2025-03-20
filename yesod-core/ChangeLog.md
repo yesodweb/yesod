@@ -1,6 +1,6 @@
 # ChangeLog for yesod-core
 
-## 1.6.27.1
+## 1.6.28.0
 
 * When showing HandlerContent, include a content snippet[#1864](https://github.com/yesodweb/yesod/pull/1864)
 
