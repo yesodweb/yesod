@@ -125,7 +125,7 @@ test-suite test-routes
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
 
-    build-depends: base
+    build-depends: base < 5
                  , hspec
                  , containers
                  , bytestring
@@ -186,7 +186,7 @@ test-suite tests
     cpp-options:   -DTEST
     if os(windows)
         cpp-options: -DWINDOWS
-    build-depends:  base
+    build-depends:  base < 5
                   , async
                   , bytestring
                   , clientsession
@@ -216,7 +216,7 @@ benchmark widgets
     default-language: Haskell2010
     type: exitcode-stdio-1.0
     hs-source-dirs: bench
-    build-depends:  base
+    build-depends:  base < 5
                   , blaze-html
                   , bytestring
                   , gauge
