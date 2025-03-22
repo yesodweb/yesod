@@ -91,10 +91,18 @@ runGroup c [] = [c]
 runGroup c (DirectChildren s:gs) = concatMap (flip runGroup gs) $ c $/ selectors s
 runGroup c (DeepChildren s:gs) = concatMap (flip runGroup gs) $ c $// selectors s
 
-selectors :: [Selector] -> Cursor -> [Cursor]
-selectors ss c
-    | all (selector c) ss = [c]
+selectors :: [SelectorType] -> Cursor -> [Cursor]
+selectors cs c
+    | all (selectorType c) cs = [c]
     | otherwise = []
+
+selectorType :: Cursor -> SelectorType -> Bool
+selectorType c (SimpleSelector s) = selector c s
+selectorType c (CompoundSelector s ps) = compound c s ps
+
+compound :: Cursor -> Selector -> [PseudoSelector] -> Bool
+compound c s ps = selector c s 
+  && foldl (\accu -> (accu &&) . pseudoselector c s) True ps
 
 selector :: Cursor -> Selector -> Bool
 selector c (ById x) = not $ null $ attributeIs "id" x c
@@ -117,9 +125,12 @@ selector c (ByAttrEnds n v) =
     case attribute (Name n Nothing Nothing) c of
         t:_ -> v `T.isSuffixOf` t
         [] -> False
-selector c (ByPseudoClass FirstChild) = null $ precedingSibling c
-selector c (ByPseudoClass LastChild) = null $ followingSibling c
-selector c (ByPseudoClass (NthChild anpb)) = let i = index1 c in
+selector _ Asterisk = True
+
+pseudoselector :: Cursor -> Selector -> PseudoSelector -> Bool
+pseudoselector c _ FirstChild = null $ precedingSibling c
+pseudoselector c _ LastChild = null $ followingSibling c
+pseudoselector c _ (NthChild anpb) = let i = index1 c in
   case anpb of
     Repetition 0 b -> i == b 
     Repetition a b | a <= 0 -> i <= b 
@@ -127,6 +138,7 @@ selector c (ByPseudoClass (NthChild anpb)) = let i = index1 c in
     Position p -> i == p
     Odd -> odd i
     Even -> even i
+
 
 -- | Returns the index of the node at a cursor amongst its siblings, starting at 1.
 index1 :: Cursor -> Int

@@ -3,9 +3,10 @@
 -- | Parsing CSS selectors into queries.
 module Yesod.Test.CssQuery
     ( SelectorGroup (..)
+    , SelectorType (..)
     , Selector (..)
     , ANPlusB (..)
-    , PseudoClass (..)
+    , PseudoSelector (..)
     , parseQuery
     ) where
 
@@ -18,8 +19,8 @@ import Data.Char
 import qualified Data.Text as T
 
 data SelectorGroup
-  = DirectChildren [Selector]
-  | DeepChildren [Selector]
+  = DirectChildren [SelectorType]
+  | DeepChildren [SelectorType]
   deriving (Show, Eq)
 
 -- | The notation used in CSS selectors level 3 to denote a rule
@@ -33,10 +34,15 @@ data ANPlusB
   | Even
   deriving (Show, Eq)
 
-data PseudoClass
+data PseudoSelector
   = FirstChild
   | LastChild
   | NthChild ANPlusB 
+  deriving (Show, Eq)
+
+data SelectorType
+  = CompoundSelector Selector [PseudoSelector]
+  | SimpleSelector Selector
   deriving (Show, Eq)
 
 data Selector
@@ -48,7 +54,7 @@ data Selector
   | ByAttrContains Text Text
   | ByAttrStarts Text Text
   | ByAttrEnds Text Text
-  | ByPseudoClass PseudoClass
+  | Asterisk  -- TODO: This needs to be deep.
   deriving (Show, Eq)
 
 
@@ -79,17 +85,27 @@ rules = many $ directChildren <|> deepChildren
 
 directChildren :: Parser SelectorGroup
 directChildren =
-    string "> " >> (many (char ' ')) >> DirectChildren <$> pOptionalTrailingSpace parseSelectors
+    string "> " >> (many (char ' ')) >> DirectChildren <$> pOptionalTrailingSpace parseSelectorTypes
 
 deepChildren :: Parser SelectorGroup
-deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectors
+deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectorTypes
 
-parseSelectors :: Parser [Selector]
-parseSelectors = many1 parseSelector 
+parseSelectorTypes :: Parser [SelectorType]
+parseSelectorTypes = many1 parseSelectorType
+
+parseSelectorType :: Parser SelectorType 
+parseSelectorType = choice
+  [ CompoundSelector
+      <$> option Asterisk parseSelector 
+      <*> many1 parsePseudoSelector
+  , SimpleSelector <$> parseSelector
+  ]
 
 parseSelector :: Parser Selector
-parseSelector =
-    parseId <|> parseClass <|> parseTag <|> parseAttr <|> parsePseudoClass
+parseSelector = choice [parseId, parseClass, parseTag, parseAttr, parseAsterisk]
+
+parseAsterisk :: Parser Selector
+parseAsterisk = char '*' >> pure Asterisk
 
 parseId :: Parser Selector
 parseId = char '#' >> ById <$> pIdent
@@ -127,11 +143,11 @@ pANPlusB = choice [repetition, position, fixed]
           , string "even" >> pure Even
           ]
 
-parsePseudoClass :: Parser Selector
-parsePseudoClass = char ':' >> choice
-  [ string "first-child" >> pure (ByPseudoClass FirstChild)
-  , string "last-child" >> pure (ByPseudoClass LastChild)
-  , string "nth-child" >> ByPseudoClass . NthChild <$> pArg
+parsePseudoSelector :: Parser PseudoSelector 
+parsePseudoSelector = char ':' >> choice
+  [ string "first-child" >> pure FirstChild
+  , string "last-child" >> pure LastChild
+  , string "nth-child" >> NthChild <$> pArg
   ] <|> fail "unknown or unsupported pseudo-class"
 
 -- | pIdent : Parse an identifier (not yet supporting escapes and unicode as

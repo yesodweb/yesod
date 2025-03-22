@@ -72,17 +72,17 @@ mkYesod "RoutedApp" [parseRoutes|
 main :: IO ()
 main = hspec $ do
     describe "CSS selector parsing" $ do
-        it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [ByTagName "strong"]]]
-        it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [ByTagName "strong"], DirectChildren [ByTagName "i"]]]
-        it "comma" $ parseQuery_ "strong.bar, #foo" @?= [[DeepChildren [ByTagName "strong", ByClass "bar"]], [DeepChildren [ById "foo"]]]
+        it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [SimpleSelector (ByTagName "strong")]]]
+        it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [SimpleSelector (ByTagName "strong")], DirectChildren [SimpleSelector (ByTagName "i")]]]
+        it "comma" $ parseQuery_ "strong.bar, #foo" @?= [[DeepChildren [SimpleSelector (ByTagName "strong"), SimpleSelector (ByClass "bar")]], [DeepChildren [SimpleSelector (ById "foo")]]]
         describe "pseudo-classes" $ do
           it ":first-child, :last-child" $
-            parseQuery_ "p:first-child, p:last-child" @?= [[DeepChildren [ByTagName "p", ByPseudoClass FirstChild]], [DeepChildren [ByTagName "p", ByPseudoClass LastChild]]]
+            parseQuery_ "p:first-child, p:last-child" @?= [[DeepChildren [CompoundSelector (ByTagName "p") [FirstChild]]], [DeepChildren [CompoundSelector (ByTagName "p") [LastChild]]]]
           it ":nth-child" $ do
-            parseQuery_ ":nth-child(3n)" @?= [[DeepChildren [ByPseudoClass $ NthChild $ Repetition 3 0]]]
-            assertQueries [":nth-child(2n+1)", ":nth-child( 2n+1   )", ":nth-child(  2n +1)", ":nth-child(2n+   1 )"] [[DeepChildren [ByPseudoClass $ NthChild $ Repetition 2 1]]]
-            parseQuery_ "a > span:nth-child(2)" @?= [[DeepChildren [ByTagName "a"], DirectChildren [ByTagName "span", ByPseudoClass $ NthChild $ Position 2]]]
-            parseQuery_ "tr:nth-child(odd), tr:nth-child(even)" @?= [[DeepChildren [ByTagName "tr", ByPseudoClass $ NthChild Odd]], [DeepChildren [ByTagName "tr", ByPseudoClass $ NthChild Even]]]
+            assertQueries ["*:nth-child(3n)", ":nth-child(3n)"] [[DeepChildren [CompoundSelector Asterisk [NthChild $ Repetition 3 0]]]]
+            assertQueries [":nth-child(2n+1)", ":nth-child( 2n+1   )", ":nth-child(  2n +1)", ":nth-child(2n+   1 )"] [[DeepChildren [CompoundSelector Asterisk [NthChild $ Repetition 2 1]]]]
+            parseQuery_ "a > span:nth-child(2)" @?= [[DeepChildren [SimpleSelector (ByTagName "a")], DirectChildren [CompoundSelector (ByTagName "span") [NthChild $ Position 2]]]]
+            parseQuery_ "tr:nth-child(odd), tr:nth-child(even)" @?= [[DeepChildren [CompoundSelector (ByTagName "tr") [NthChild Odd]]], [DeepChildren [CompoundSelector (ByTagName "tr") [NthChild Even]]]]
     describe "find by selector" $ do
         it "XHTML" $
             let html = "<html><head><title>foo</title></head><body><p>Hello World</p></body></html>"
