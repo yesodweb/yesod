@@ -49,9 +49,6 @@ module Yesod.Core.Content
     , repXml
     ) where
 
-import Data.Maybe
-import Control.Applicative
-
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder as BB
@@ -66,7 +63,7 @@ import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)
-import Control.Monad (liftM, guard)
+import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Conduit.Internal as CI
 
@@ -76,7 +73,6 @@ import qualified Data.Encoding.GB18030 as Enc
 import qualified Data.Encoding.CP1251 as Enc
 import qualified Data.Encoding.ShiftJIS as Enc
 import qualified Data.Encoding.CP932 as Enc
-
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Void (Void, absurd)
 import Yesod.Core.Types
@@ -87,6 +83,7 @@ import qualified Data.Int as I
 import Data.Word8 (_semicolon, _slash)
 import Control.Arrow (second)
 import Control.Exception (Exception)
+import Data.Maybe
 
 -- | Zero-length enumerator.
 emptyContent :: Content
