@@ -139,7 +139,6 @@ import           Yesod.Auth
 import qualified Yesod.Auth.Message            as Msg
 import qualified Yesod.Auth.Util.PasswordStore as PS
 import           Yesod.Core
-import           Yesod.Core.Types              (TypedContent (TypedContent))
 import           Yesod.Form
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
@@ -582,7 +581,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
         <$> ireq textField "email"
         <*> iopt textField "password"
 
-    creds <- case result of
+    mCreds <- case result of
                  FormSuccess (iden, pass) -> return $ Just (iden, pass)
                  _ -> do
                      (creds :: Result Value) <- parseCheckJsonBody
@@ -590,7 +589,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                                   Error _     -> Nothing
                                   Success val -> parseMaybe parseRegister val
 
-    let eidentifier = case creds of
+    let eidentifier = case mCreds of
                           Nothing -> Left Msg.NoIdentifierProvided
                           Just (x, _)
                               | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
@@ -598,7 +597,7 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                               | allowUsername -> Right $ TS.strip x
                               | otherwise -> Left Msg.InvalidEmailAddress
 
-    let mpass = case (forgotPassword, creds) of
+    let mpass = case (forgotPassword, mCreds) of
                     (False, Just (_, mp)) -> mp
                     _                     -> Nothing
 

@@ -1,14 +1,15 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Yesod.Core.Types where
 
 import Data.Aeson (ToJSON)
@@ -29,7 +30,9 @@ import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
 import           Data.Monoid                        (Endo (..), Last (..))
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup                     (Semigroup(..))
+#endif
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
@@ -397,13 +400,9 @@ newtype Title = Title { unTitle :: Html }
 newtype Description = Description { unDescription :: Text }
 
 newtype Head url = Head (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Head url) where
-  (<>) = mappend
+    deriving (Monoid, Semigroup)
 newtype Body url = Body (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Body url) where
-  (<>) = mappend
+    deriving (Monoid, Semigroup)
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 

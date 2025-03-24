@@ -1,8 +1,10 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards             #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main (main) where
 
-import           Data.Monoid
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Semigroup         ((<>))
+#endif
 import           Data.Version           (showVersion)
 import           Options.Applicative
 import           System.Exit            (exitFailure)

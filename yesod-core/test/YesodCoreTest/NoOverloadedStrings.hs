@@ -1,7 +1,12 @@
-{-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-} -- the module name is a lie!!!
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 module YesodCoreTest.NoOverloadedStrings
     ( noOverloadedTest
     , Widget
@@ -17,6 +22,15 @@ import Network.Wai.Test
 import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
+
+data Y = Y
+mkYesod "Y" [parseRoutes|
+/ RootR GET
+/foo FooR GET
+/subsite SubsiteR Subsite getSubsite
+|]
+
+instance Yesod Y
 
 getSubsite :: a -> Subsite
 getSubsite _ = Subsite $(mkYesodSubDispatch resourcesSubsite)
@@ -43,15 +57,6 @@ getTwoPiecesR _ _ = return ()
 
 getThreePiecesR :: Monad m => Int -> Int -> Int -> m ()
 getThreePiecesR _ _ _ = return ()
-
-data Y = Y
-mkYesod "Y" [parseRoutes|
-/ RootR GET
-/foo FooR GET
-/subsite SubsiteR Subsite getSubsite
-|]
-
-instance Yesod Y
 
 getRootR :: Handler ()
 getRootR = return ()

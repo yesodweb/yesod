@@ -1,6 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators #-}
 -- | Helper functions for creating forms when using <http://getbootstrap.com/ Bootstrap 3>.
 --
 

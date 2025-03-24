@@ -1,3 +1,5 @@
+-- Unused, depends on 'wai-extra < 1'. Maybe just delete?
+-- What was/is this used for? It's definitely not being run, that's for sure.
 {-# LANGUAGE RecordWildCards #-}
 import Network.Wai.Application.Static
     ( StaticSettings (..), staticApp, defaultMimeType, defaultListing

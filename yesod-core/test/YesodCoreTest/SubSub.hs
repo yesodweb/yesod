@@ -1,9 +1,13 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+#ifdef __GLASGOW_HASKELL__
+{-# OPTIONS_GHC -Wno-orphans #-}
+#endif
 
 module YesodCoreTest.SubSub where
 
