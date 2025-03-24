@@ -41,6 +41,7 @@ library
                    , cookie                >= 0.4.3    && < 0.6
                    , data-default
                    , deepseq               >= 1.3
+                   , encoding
                    , entropy
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
@@ -196,6 +197,7 @@ test-suite tests
                   , conduit-extra
                   , containers
                   , cookie >= 0.4.1    && < 0.6
+                  , encoding
                   , hspec >= 1.3
                   , hspec-expectations
                   , http-types

@@ -71,6 +71,12 @@ import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
+import qualified Data.Encoding as Enc
+import qualified Data.Encoding.GB18030 as Enc
+import qualified Data.Encoding.CP1251 as Enc
+import qualified Data.Encoding.ShiftJIS as Enc
+import qualified Data.Encoding.CP932 as Enc
+
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Void (Void, absurd)
 import Yesod.Core.Types
@@ -237,12 +243,17 @@ typeOctet = "application/octet-stream"
 simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.break (== _semicolon)
 
-decoderForCharset :: B.ByteString -> L.ByteString -> TL.Text
-decoderForCharset encodingSymbol
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "utf-8")    = LE.decodeUtf8With EE.lenientDecode
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "US-ASCII") = TL.fromStrict . fst . decodeASCIIPrefix . B.toStrict
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "latin1")   = LE.decodeLatin1
+decoderForCharset :: Maybe B.ByteString -> L.ByteString -> TL.Text
+decoderForCharset (Just encodingSymbol)
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "utf-8")        = LE.decodeUtf8With EE.lenientDecode
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "US-ASCII")     = TL.fromStrict . fst . decodeASCIIPrefix . B.toStrict
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "latin1")       = LE.decodeLatin1
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "GB18030")      = TL.pack . Enc.decodeLazyByteString Enc.GB18030
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "windows-1251") = TL.pack . Enc.decodeLazyByteString Enc.CP1251
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "Shift_JIS")    = TL.pack . Enc.decodeLazyByteString Enc.ShiftJIS
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "Windows-31J")  = TL.pack . Enc.decodeLazyByteString Enc.CP932
   | otherwise = LE.decodeUtf8With EE.lenientDecode
+decoderForCharset Nothing = LE.decodeUtf8With EE.lenientDecode
 
 textDecoderFor :: ContentType -> L.ByteString -> Maybe TL.Text
 textDecoderFor ct =
@@ -253,8 +264,10 @@ textDecoderFor ct =
                     B.isPrefixOf (packString "application/json") t ||
                     B.isPrefixOf (packString "application/rss")  t ||
                     B.isPrefixOf (packString "application/atom") t
-      decoder = sequence $ decoderForCharset <$> charset
-  in if isJust charset || typeIsText then decoder else \_ -> Nothing
+      decoder = decoderForCharset charset
+  in if isJust charset || typeIsText
+     then Just <$> decoder
+     else \_ -> Nothing
 
 contentToSnippet :: Content -> (L.ByteString -> Maybe TL.Text) -> I.Int64 -> Maybe TL.Text
 contentToSnippet (ContentBuilder builder maybeLength) decoder maxLength = do
