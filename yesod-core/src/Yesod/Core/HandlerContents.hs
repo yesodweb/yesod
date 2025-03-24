@@ -24,7 +24,9 @@ instance Show HandlerContents where
     show (HCContent status tc@(TypedContent t _))
       = mconcat [ "HCContent "
                 , show (status, t)
+                , " ("
                 , fromMaybe "" $ TL.unpack <$> typedContentToSnippet tc 1000
+                , ")"
                 ]
     show (HCError e) = "HCError " ++ show e
     show (HCSendFile ct fp mfp) = "HCSendFile " ++ show (ct, fp, mfp)

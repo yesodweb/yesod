@@ -83,7 +83,7 @@ import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
 import Text.Julius (Javascript, unJavascript)
 import qualified Network.Wai.Parse as NWP
-import qualified GHC.Int as I
+import qualified Data.Int as I
 import Data.Word8 (_semicolon, _slash)
 import Control.Arrow (second)
 import Control.Exception (Exception)
@@ -271,7 +271,7 @@ textDecoderFor ct =
 
 contentToSnippet :: Content -> (L.ByteString -> Maybe TL.Text) -> I.Int64 -> Maybe TL.Text
 contentToSnippet (ContentBuilder builder maybeLength) decoder maxLength = do
-  truncatedText <- decoder $ L.take maxLength $ BB.toLazyByteString builder
+  truncatedText <- decoder . L.take maxLength $ BB.toLazyByteString builder
   pure $ truncatedText <> (TL.pack excessLengthString)
   where
     excessLength = fromMaybe 0 $ (subtract $ fromIntegral maxLength) <$> maybeLength
@@ -282,6 +282,11 @@ contentToSnippet (ContentSource _) _ _ = Nothing
 contentToSnippet (ContentFile _ _) _ _ = Nothing
 contentToSnippet (ContentDontEvaluate _) _ _ = Nothing
 
+-- | Represents TypedContent as a String, rendering at most a specified number of
+-- bytes of the content, and annotating it with the remaining length. Returns Nothing
+-- if the content type indicates the content is binary data.
+--
+-- @since 1.6.28.0
 typedContentToSnippet :: TypedContent -> I.Int64 -> Maybe TL.Text
 typedContentToSnippet (TypedContent t c) maxLength = contentToSnippet c (textDecoderFor t) maxLength
 
