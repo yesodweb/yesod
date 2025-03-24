@@ -248,6 +248,7 @@ import           Data.Typeable                 (Typeable)
 import           Data.Kind                     (Type)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
+import           Yesod.Core.HandlerContents
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 import           Data.ByteString.Builder (Builder)

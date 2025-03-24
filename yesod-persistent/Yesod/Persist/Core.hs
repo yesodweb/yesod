@@ -32,7 +32,7 @@ import Blaze.ByteString.Builder (Builder)
 import Data.Pool
 import Control.Monad.Trans.Resource
 import Control.Exception (throwIO)
-import Yesod.Core.Types (HandlerContents (HCError))
+import Yesod.Core.HandlerContents (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 #if MIN_VERSION_persistent(2,13,0)
 import qualified Database.Persist.SqlBackend.Internal as SQL

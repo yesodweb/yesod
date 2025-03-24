@@ -31,6 +31,7 @@ module Yesod.Core.Content
       -- * Utilities
     , simpleContentType
     , contentTypeTypes
+    , typedContentToSnippet
       -- * Evaluation strategy
     , DontFullyEvaluate (..)
       -- * Representations
@@ -48,17 +49,24 @@ module Yesod.Core.Content
     , repXml
     ) where
 
+import Data.Maybe
+import Control.Applicative
+
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Builder as BB
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
-import Data.Text.Encoding (encodeUtf8Builder)
+import Data.Text.Encoding (encodeUtf8Builder, encodeUtf8, decodeASCIIPrefix)
 import qualified Data.Text.Lazy as TL
+import Data.Text.Lazy.Encoding as LE (decodeUtf8With, decodeLatin1)
+import Data.Text.Encoding.Error as EE (lenientDecode)
+
 import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)
-import Control.Monad (liftM)
+import Control.Monad (liftM, guard)
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Conduit.Internal as CI
 
@@ -68,8 +76,11 @@ import Data.Void (Void, absurd)
 import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
 import Text.Julius (Javascript, unJavascript)
+import qualified Network.Wai.Parse as NWP
+import qualified GHC.Int as I
 import Data.Word8 (_semicolon, _slash)
 import Control.Arrow (second)
+import Control.Exception (Exception)
 
 -- | Zero-length enumerator.
 emptyContent :: Content
@@ -225,6 +236,41 @@ typeOctet = "application/octet-stream"
 -- character encoding for HTML data. This function would return \"text/html\".
 simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.break (== _semicolon)
+
+decoderForCharset :: B.ByteString -> L.ByteString -> TL.Text
+decoderForCharset encodingSymbol
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "utf-8")    = LE.decodeUtf8With EE.lenientDecode
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "US-ASCII") = TL.fromStrict . fst . decodeASCIIPrefix . B.toStrict
+  | encodingSymbol == (encodeUtf8 $ T.pack $ "latin1")   = LE.decodeLatin1
+  | otherwise = LE.decodeUtf8With EE.lenientDecode
+
+textDecoderFor :: ContentType -> L.ByteString -> Maybe TL.Text
+textDecoderFor ct =
+  let packString  = (encodeUtf8 . T.pack)
+      (t, params) = NWP.parseContentType ct
+      charset     = lookup (packString "charset") params
+      typeIsText  = B.isPrefixOf (packString "text") t             ||
+                    B.isPrefixOf (packString "application/json") t ||
+                    B.isPrefixOf (packString "application/rss")  t ||
+                    B.isPrefixOf (packString "application/atom") t
+      decoder = sequence $ decoderForCharset <$> charset
+  in if isJust charset || typeIsText then decoder else \_ -> Nothing
+
+contentToSnippet :: Content -> (L.ByteString -> Maybe TL.Text) -> I.Int64 -> Maybe TL.Text
+contentToSnippet (ContentBuilder builder maybeLength) decoder maxLength = do
+  truncatedText <- decoder $ L.take maxLength $ BB.toLazyByteString builder
+  pure $ truncatedText <> (TL.pack excessLengthString)
+  where
+    excessLength = fromMaybe 0 $ (subtract $ fromIntegral maxLength) <$> maybeLength
+    excessLengthString = case excessLength > 0 of
+      False -> ""
+      True -> "...+ " <> (show excessLength)
+contentToSnippet (ContentSource _) _ _ = Nothing
+contentToSnippet (ContentFile _ _) _ _ = Nothing
+contentToSnippet (ContentDontEvaluate _) _ _ = Nothing
+
+typedContentToSnippet :: TypedContent -> I.Int64 -> Maybe TL.Text
+typedContentToSnippet (TypedContent t c) maxLength = contentToSnippet c (textDecoderFor t) maxLength
 
 -- | Give just the media types as a pair.
 --

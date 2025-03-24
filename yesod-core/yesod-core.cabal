@@ -71,6 +71,7 @@ library
                      Yesod.Core.Content
                      Yesod.Core.Dispatch
                      Yesod.Core.Handler
+                     Yesod.Core.HandlerContents
                      Yesod.Core.Json
                      Yesod.Core.Widget
                      Yesod.Core.Internal
@@ -146,6 +147,7 @@ test-suite tests
                    YesodCoreTest.Breadcrumb
                    YesodCoreTest.Cache
                    YesodCoreTest.CleanPath
+                   YesodCoreTest.Content
                    YesodCoreTest.Header
                    YesodCoreTest.Csrf
                    YesodCoreTest.ErrorHandling

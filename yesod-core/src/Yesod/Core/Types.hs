@@ -308,24 +308,6 @@ data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and opti
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
--- | Represents a Content as a String, rendering at most a specified number of
--- bytes of the content, and annotating it with the remaining length.
---
--- @since 1.6.28.0
-contentToTruncatedString :: Content -> I.Int64 -> String
-contentToTruncatedString (ContentBuilder builder maybeLength) maxLength =
-    let
-      truncated = (T.unpack . Data.Text.Encoding.decodeUtf8) $ L.toStrict $ L.take maxLength (BB.toLazyByteString builder)
-      excess = case maybeLength of
-        (Just length) -> length - (fromIntegral maxLength)
-        Nothing -> 0
-    in case (excess > 0) of
-      True -> truncated ++ "... (+" ++ show excess ++ ")"
-      False -> truncated
-contentToTruncatedString (ContentSource _) _ = "ContentSource"
-contentToTruncatedString (ContentFile _ _) _ = "ContentFile"
-contentToTruncatedString (ContentDontEvaluate _) _ = "ContentDontEvaluate"
-
 data TypedContent = TypedContent !ContentType !Content
 
 type RepHtml = Html
@@ -453,29 +435,6 @@ instance Semigroup (GWData a) where
         (unionWith mappend a6 b6)
         (mappend a7 b7)
         (mappend a8 b8)
-
-data HandlerContents =
-      HCContent !H.Status !TypedContent
-    | HCError !ErrorResponse
-    | HCSendFile !ContentType !FilePath !(Maybe FilePart)
-    | HCRedirect !H.Status !Text
-    | HCCreated !Text
-    | HCWai !W.Response
-    | HCWaiApp !W.Application
-
-instance Show HandlerContents where
-    show (HCContent status (TypedContent t c))
-      = mconcat [ "HCContent "
-                , show (status, t)
-                , contentToTruncatedString c 1000
-                ]
-    show (HCError e) = "HCError " ++ show e
-    show (HCSendFile ct fp mfp) = "HCSendFile " ++ show (ct, fp, mfp)
-    show (HCRedirect s t) = "HCRedirect " ++ show (s, t)
-    show (HCCreated t) = "HCCreated " ++ show t
-    show (HCWai _) = "HCWai"
-    show (HCWaiApp _) = "HCWaiApp"
-instance Exception HandlerContents
 
 -- Instances for WidgetFor
 instance Applicative (WidgetFor site) where

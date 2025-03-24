@@ -39,6 +39,7 @@ import Data.Word (Word8, Word64)
 import Control.Exception (throwIO)
 import Control.Monad ((<=<), liftM)
 import Yesod.Core.Types
+import Yesod.Core.HandlerContents (HandlerContents (..))
 import qualified Data.Map as Map
 import Data.IORef
 import qualified Data.Vector.Storable as V
@@ -66,7 +67,7 @@ tooLargeResponse :: Word64 -> Word64 -> W.Response
 tooLargeResponse maxLen bodyLen = W.responseLBS
     (Status 413 "Too Large")
     [("Content-Type", "text/plain")]
-    (L.concat 
+    (L.concat
         [ "Request body too large to be processed. The maximum size is "
         , (LS8.pack (show maxLen))
         , " bytes; your request body was "
