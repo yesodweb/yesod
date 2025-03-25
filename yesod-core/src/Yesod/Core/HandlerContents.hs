@@ -20,6 +20,7 @@ data HandlerContents =
     | HCCreated !Text
     | HCWai !W.Response
     | HCWaiApp !W.Application
+
 instance Show HandlerContents where
     show (HCContent status tc@(TypedContent t _))
       = mconcat [ "HCContent "
@@ -34,4 +35,5 @@ instance Show HandlerContents where
     show (HCCreated t) = "HCCreated " ++ show t
     show (HCWai _) = "HCWai"
     show (HCWaiApp _) = "HCWaiApp"
+
 instance Exception HandlerContents

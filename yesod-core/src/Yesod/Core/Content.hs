@@ -63,7 +63,8 @@ import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)
-import Control.Monad (liftM)
+import Control.Applicative ((<|>))
+import Control.Monad (liftM, void, guard)
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Conduit.Internal as CI
 
@@ -242,29 +243,40 @@ simpleContentType = fst . B.break (== _semicolon)
 
 decoderForCharset :: Maybe B.ByteString -> L.ByteString -> TL.Text
 decoderForCharset (Just encodingSymbol)
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "utf-8")        = LE.decodeUtf8With EE.lenientDecode
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "US-ASCII")     = TL.fromStrict . fst . decodeASCIIPrefix . B.toStrict
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "latin1")       = LE.decodeLatin1
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "GB18030")      = TL.pack . Enc.decodeLazyByteString Enc.GB18030
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "windows-1251") = TL.pack . Enc.decodeLazyByteString Enc.CP1251
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "Shift_JIS")    = TL.pack . Enc.decodeLazyByteString Enc.ShiftJIS
-  | encodingSymbol == (encodeUtf8 $ T.pack $ "Windows-31J")  = TL.pack . Enc.decodeLazyByteString Enc.CP932
-  | otherwise = LE.decodeUtf8With EE.lenientDecode
+  | encodingSymbol == "utf-8" =
+      LE.decodeUtf8With EE.lenientDecode
+  | encodingSymbol == "US-ASCII" =
+      TL.fromStrict . fst . decodeASCIIPrefix . B.toStrict
+  | encodingSymbol == "latin1" =
+      LE.decodeLatin1
+  | encodingSymbol == "GB18030" =
+      TL.pack . Enc.decodeLazyByteString Enc.GB18030
+  | encodingSymbol == "windows-1251" =
+      TL.pack . Enc.decodeLazyByteString Enc.CP1251
+  | encodingSymbol == "Shift_JIS" =
+      TL.pack . Enc.decodeLazyByteString Enc.ShiftJIS
+  | encodingSymbol == "Windows-31J" =
+      TL.pack . Enc.decodeLazyByteString Enc.CP932
+  | otherwise =
+      LE.decodeUtf8With EE.lenientDecode
 decoderForCharset Nothing = LE.decodeUtf8With EE.lenientDecode
 
-textDecoderFor :: ContentType -> L.ByteString -> Maybe TL.Text
-textDecoderFor ct =
-  let packString  = (encodeUtf8 . T.pack)
-      (t, params) = NWP.parseContentType ct
-      charset     = lookup (packString "charset") params
-      typeIsText  = B.isPrefixOf (packString "text") t             ||
-                    B.isPrefixOf (packString "application/json") t ||
-                    B.isPrefixOf (packString "application/rss")  t ||
-                    B.isPrefixOf (packString "application/atom") t
+decodeForContentType :: ContentType -> L.ByteString -> Maybe TL.Text
+decodeForContentType ct bytes = do
+  let packString  =
+        (encodeUtf8 . T.pack)
+      (t, params) =
+        NWP.parseContentType ct
+      charset =
+        lookup (packString "charset") params
+      typeIsText =
+        B.isPrefixOf (packString "text") t
+            || B.isPrefixOf (packString "application/json") t
+            || B.isPrefixOf (packString "application/rss")  t
+            || B.isPrefixOf (packString "application/atom") t
       decoder = decoderForCharset charset
-  in if isJust charset || typeIsText
-     then Just <$> decoder
-     else \_ -> Nothing
+  void charset <|> guard typeIsText
+  pure $ decoder bytes
 
 contentToSnippet :: Content -> (L.ByteString -> Maybe TL.Text) -> I.Int64 -> Maybe TL.Text
 contentToSnippet (ContentBuilder builder maybeLength) decoder maxLength = do
@@ -285,7 +297,7 @@ contentToSnippet (ContentDontEvaluate _) _ _ = Nothing
 --
 -- @since 1.6.28.0
 typedContentToSnippet :: TypedContent -> I.Int64 -> Maybe TL.Text
-typedContentToSnippet (TypedContent t c) maxLength = contentToSnippet c (textDecoderFor t) maxLength
+typedContentToSnippet (TypedContent t c) maxLength = contentToSnippet c (decodeForContentType t) maxLength
 
 -- | Give just the media types as a pair.
 --
