@@ -39,7 +39,6 @@ import Data.Word (Word8, Word64)
 import Control.Exception (throwIO)
 import Control.Monad ((<=<), liftM)
 import Yesod.Core.Types
-import Yesod.Core.HandlerContents (HandlerContents (..))
 import qualified Data.Map as Map
 import Data.IORef
 import qualified Data.Vector.Storable as V

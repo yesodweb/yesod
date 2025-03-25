@@ -10,7 +10,7 @@ module YesodCoreTest.Exceptions
 import Test.Hspec
 
 import Yesod.Core
-import Yesod.Core.HandlerContents (HandlerContents (HCError))
+import Yesod.Core.Types (TypedContent, HandlerContents (HCError))
 import Control.Exception (throwIO)
 import Network.Wai
 import Network.Wai.Test

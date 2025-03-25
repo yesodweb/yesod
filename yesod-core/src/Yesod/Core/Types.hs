@@ -9,7 +9,17 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-module Yesod.Core.Types where
+module Yesod.Core.Types (
+    module Yesod.Core.Types
+  , module Yesod.Core.Types.ErrorResponse
+  , module Yesod.Core.Types.Content
+  , module Yesod.Core.Types.TypedContent
+  , module Yesod.Core.Types.HandlerContents
+
+  , module Yesod.Core.Internal.Util
+  , module Yesod.Routes.Class
+  , module Yesod.Core.TypeCache
+  ) where
 
 import Data.Aeson (ToJSON)
 import qualified Data.ByteString.Builder            as BB
@@ -59,6 +69,11 @@ import Control.DeepSeq (NFData (rnf))
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import UnliftIO (MonadUnliftIO (..), SomeException)
+
+import Yesod.Core.Types.ErrorResponse
+import Yesod.Core.Types.Content
+import Yesod.Core.Types.TypedContent
+import Yesod.Core.Types.HandlerContents
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -303,20 +318,11 @@ data PageContent url = PageContent
     , pageBody        :: !(HtmlUrl url)
     }
 
-data Content = ContentBuilder !BB.Builder !(Maybe Int) -- ^ The content and optional content length.
-             | ContentSource !(ConduitT () (Flush BB.Builder) (ResourceT IO) ())
-             | ContentFile !FilePath !(Maybe FilePart)
-             | ContentDontEvaluate !Content
-
-data TypedContent = TypedContent !ContentType !Content
-
 type RepHtml = Html
 {-# DEPRECATED RepHtml "Please use Html instead" #-}
 newtype RepJson = RepJson Content
 newtype RepPlain = RepPlain Content
 newtype RepXml = RepXml Content
-
-type ContentType = ByteString -- FIXME Text?
 
 -- | Wrapper around types so that Handlers can return a domain type, even when
 -- the data will eventually be encoded as JSON.
@@ -337,34 +343,6 @@ data JSONResponse a where
 --
 -- Since 1.1.0
 newtype DontFullyEvaluate a = DontFullyEvaluate { unDontFullyEvaluate :: a }
-
--- | Responses to indicate some form of an error occurred.
-data ErrorResponse =
-      NotFound
-        -- ^ The requested resource was not found.
-        -- Examples of when this occurs include when an incorrect URL is used, or @yesod-persistent@'s 'get404' doesn't find a value.
-        -- HTTP status: 404.
-    | InternalError !Text
-        -- ^ Some sort of unexpected exception.
-        -- If your application uses `throwIO` or `error` to throw an exception, this is the form it would take.
-        -- HTTP status: 500.
-    | InvalidArgs ![Text]
-        -- ^ Indicates some sort of invalid or missing argument, like a missing query parameter or malformed JSON body.
-        -- Examples Yesod functions that send this include 'requireCheckJsonBody' and @Yesod.Auth.GoogleEmail2@.
-        -- HTTP status: 400.
-    | NotAuthenticated
-        -- ^ Indicates the user is not logged in.
-        -- This is thrown when 'isAuthorized' returns 'AuthenticationRequired'.
-        -- HTTP code: 401.
-    | PermissionDenied !Text
-        -- ^ Indicates the user doesn't have permission to access the requested resource.
-        -- This is thrown when 'isAuthorized' returns 'Unauthorized'.
-        -- HTTP code: 403.
-    | BadMethod !H.Method
-        -- ^ Indicates the URL would have been valid if used with a different HTTP method (e.g. a GET was used, but only POST is handled.)
-        -- HTTP code: 405.
-    deriving (Show, Eq, Generic)
-instance NFData ErrorResponse
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.

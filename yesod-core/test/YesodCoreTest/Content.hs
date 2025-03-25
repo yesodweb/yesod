@@ -4,7 +4,7 @@ module YesodCoreTest.Content (specs) where
 import Test.Hspec
 
 import Yesod.Core
-import Yesod.Core.Content
+import Yesod.Core.Types (TypedContent, typedContentToSnippet)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (encodeUtf8)
 import Data.ByteString (ByteString)

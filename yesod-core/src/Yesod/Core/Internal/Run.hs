@@ -46,7 +46,6 @@ import           Network.Wai
 import           Network.Wai.Internal
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           Yesod.Core.Content
-import           Yesod.Core.HandlerContents
 import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,

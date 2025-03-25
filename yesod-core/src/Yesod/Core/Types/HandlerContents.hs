@@ -1,4 +1,4 @@
-module Yesod.Core.HandlerContents
+module Yesod.Core.Types.HandlerContents
   (
     HandlerContents (..)
   ) where
@@ -9,8 +9,8 @@ import Data.Text
 import qualified Data.Text.Lazy as TL
 import qualified Network.HTTP.Types as H
 import qualified Network.Wai as W
-import Yesod.Core.Content
-import Yesod.Core.Types
+import Yesod.Core.Types.ErrorResponse
+import Yesod.Core.Types.TypedContent (ContentType, TypedContent (..), typedContentToSnippet)
 
 data HandlerContents =
       HCContent !H.Status !TypedContent

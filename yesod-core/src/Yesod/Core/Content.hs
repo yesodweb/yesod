@@ -54,26 +54,18 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder as BB
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
-import Data.Text.Encoding (encodeUtf8Builder, encodeUtf8, decodeASCIIPrefix)
+import Data.Text.Encoding (encodeUtf8Builder)
 import qualified Data.Text.Lazy as TL
-import Data.Text.Lazy.Encoding as LE (decodeUtf8With, decodeLatin1)
-import Data.Text.Encoding.Error as EE (lenientDecode)
 
 import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Flush (Chunk), SealedConduitT, mapOutput)
-import Control.Applicative ((<|>))
-import Control.Monad (liftM, void, guard)
+import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
-import qualified Data.Encoding as Enc
-import qualified Data.Encoding.GB18030 as Enc
-import qualified Data.Encoding.CP1251 as Enc
-import qualified Data.Encoding.ShiftJIS as Enc
-import qualified Data.Encoding.CP932 as Enc
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Void (Void, absurd)
 import Yesod.Core.Types
@@ -240,64 +232,6 @@ typeOctet = "application/octet-stream"
 -- character encoding for HTML data. This function would return \"text/html\".
 simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.break (== _semicolon)
-
-decoderForCharset :: Maybe B.ByteString -> L.ByteString -> TL.Text
-decoderForCharset (Just encodingSymbol)
-  | encodingSymbol == "utf-8" =
-      LE.decodeUtf8With EE.lenientDecode
-  | encodingSymbol == "US-ASCII" =
-      TL.fromStrict . fst . decodeASCIIPrefix . B.toStrict
-  | encodingSymbol == "latin1" =
-      LE.decodeLatin1
-  | encodingSymbol == "GB18030" =
-      TL.pack . Enc.decodeLazyByteString Enc.GB18030
-  | encodingSymbol == "windows-1251" =
-      TL.pack . Enc.decodeLazyByteString Enc.CP1251
-  | encodingSymbol == "Shift_JIS" =
-      TL.pack . Enc.decodeLazyByteString Enc.ShiftJIS
-  | encodingSymbol == "Windows-31J" =
-      TL.pack . Enc.decodeLazyByteString Enc.CP932
-  | otherwise =
-      LE.decodeUtf8With EE.lenientDecode
-decoderForCharset Nothing = LE.decodeUtf8With EE.lenientDecode
-
-decodeForContentType :: ContentType -> L.ByteString -> Maybe TL.Text
-decodeForContentType ct bytes = do
-  let packString  =
-        (encodeUtf8 . T.pack)
-      (t, params) =
-        NWP.parseContentType ct
-      charset =
-        lookup (packString "charset") params
-      typeIsText =
-        B.isPrefixOf (packString "text") t
-            || B.isPrefixOf (packString "application/json") t
-            || B.isPrefixOf (packString "application/rss")  t
-            || B.isPrefixOf (packString "application/atom") t
-      decoder = decoderForCharset charset
-  void charset <|> guard typeIsText
-  pure $ decoder bytes
-
-contentToSnippet :: Content -> (L.ByteString -> Maybe TL.Text) -> I.Int64 -> Maybe TL.Text
-contentToSnippet (ContentBuilder builder maybeLength) decoder maxLength = do
-  truncatedText <- decoder . L.take maxLength $ BB.toLazyByteString builder
-  pure $ truncatedText <> (TL.pack excessLengthString)
-  where
-    excessLength = fromMaybe 0 $ (subtract $ fromIntegral maxLength) <$> maybeLength
-    excessLengthString = case excessLength > 0 of
-      False -> ""
-      True -> "...+ " <> (show excessLength)
-contentToSnippet (ContentSource _) _ _ = Nothing
-contentToSnippet (ContentFile _ _) _ _ = Nothing
-contentToSnippet (ContentDontEvaluate _) _ _ = Nothing
-
--- | Represents TypedContent as a String, rendering at most a specified number of
--- bytes of the content, and annotating it with the remaining length. Returns Nothing
--- if the content type indicates the content is binary data.
---
--- @since 1.6.28.0
-typedContentToSnippet :: TypedContent -> I.Int64 -> Maybe TL.Text
-typedContentToSnippet (TypedContent t c) maxLength = contentToSnippet c (decodeForContentType t) maxLength
 
 -- | Give just the media types as a pair.
 --

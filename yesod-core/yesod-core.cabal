@@ -72,7 +72,6 @@ library
                      Yesod.Core.Content
                      Yesod.Core.Dispatch
                      Yesod.Core.Handler
-                     Yesod.Core.HandlerContents
                      Yesod.Core.Json
                      Yesod.Core.Widget
                      Yesod.Core.Internal
@@ -91,6 +90,10 @@ library
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.TypeCache
+                     Yesod.Core.Types.Content
+                     Yesod.Core.Types.ErrorResponse
+                     Yesod.Core.Types.HandlerContents
+                     Yesod.Core.Types.TypedContent
                      Paths_yesod_core
 
                      Yesod.Routes.TH
