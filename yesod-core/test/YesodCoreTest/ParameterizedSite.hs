@@ -13,7 +13,6 @@ import Data.Traversable
 import Data.Foldable
 import Data.Text.Encoding
 import Data.Text as T
-import Control.Monad.IO.Class
 
 import YesodCoreTest.ParameterizedSite.PolyAny (PolyAny (..))
 import YesodCoreTest.ParameterizedSite.PolyShow (PolyShow (..))

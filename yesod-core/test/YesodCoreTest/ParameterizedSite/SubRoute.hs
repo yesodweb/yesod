@@ -3,20 +3,17 @@
   , OverloadedStrings, StandaloneDeriving, FlexibleInstances, FlexibleContexts
   , ViewPatterns, UndecidableInstances, ConstraintKinds
   #-}
-module YesodCoreTest.ParameterizedSite.SubRoute
-    ( SubRoute (..)
-    , Route (..)
-    , EditorR (..)
-    ) where
+module YesodCoreTest.ParameterizedSite.SubRoute where
 
 import Yesod.Core
+import Data.Kind (Type)
 
 type Constraints p = (Eq (Key p), Show (Key p), Read (Key p), PathPiece (Key p), Show p)
 
 class Constraints p => SiteClass p where
-  type Key p :: *
+  type Key p :: Type
 
-data SubRoute a v = SubRoute a
+newtype SubRoute a v = SubRoute a
   deriving (Eq, Show, Read)
 
 instance SiteClass Int where
@@ -61,5 +58,5 @@ getAwayR key1 = do
     defaultLayout
         [whamlet|
             <p>
-                Stub #{show x} #{show key1} #{show "key2"}
+                Stub #{show x} #{show key1}
         |]

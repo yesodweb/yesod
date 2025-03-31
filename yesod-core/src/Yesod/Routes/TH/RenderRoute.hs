@@ -23,7 +23,6 @@ module Yesod.Routes.TH.RenderRoute
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH (conT)
 import Language.Haskell.TH.Syntax
-import Data.Bits (xor)
 import Data.Maybe (maybeToList)
 import Control.Monad (replicateM)
 import Data.Text (pack)
