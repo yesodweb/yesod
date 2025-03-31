@@ -28,7 +28,6 @@ import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
-import qualified Language.Haskell.TH.Datatype.TyVarBndr as Compat
 import Data.Foldable
 
 -- | General opts data type for generating yesod.
@@ -138,12 +137,21 @@ mkRouteConsOpts opts cxt tyargs rttypes =
 
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteConsOpts opts cxt tyargs children
-        dec <- DataD [] dataName (fmap ((`PlainTV` Compat.BndrReq) . snd) tyargs) Nothing cons <$> inlineDerives
+        dec <- DataD [] dataName (fmap ((`PlainTV` tyvarbndr) . snd) tyargs) Nothing cons <$> inlineDerives
         return ([con], dec : decs ++ sds)
       where
         con = NormalC dataName
             $ map (notStrict,)
             $ singles ++ [consDataType]
+
+        -- th-abstraction does cover this but the version it was introduced in
+        -- isn't always available
+        tyvarbndr =
+#if MIN_VERSION_template_haskell(2,21,0)
+            BndrReq
+#else
+            ()
+#endif
 
         singles = concatMap toSingle pieces
         toSingle Static{} = []
