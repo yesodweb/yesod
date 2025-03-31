@@ -29,6 +29,8 @@ import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
+import qualified Language.Haskell.TH.Datatype.TyVarBndr as Compat
+import Data.Foldable
 
 -- | General opts data type for generating yesod.
 --
@@ -114,8 +116,8 @@ mkRouteCons = mkRouteConsOpts defaultOpts
 -- | Generate the constructors of a route data type, with custom opts.
 --
 -- @since 1.6.25.0
-mkRouteConsOpts :: RouteOpts -> [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteConsOpts opts rttypes =
+mkRouteConsOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree Type] -> Q ([Con], [Dec])
+mkRouteConsOpts opts cxt tyargs rttypes =
     mconcat <$> mapM mkRouteCon rttypes
   where
     mkRouteCon (ResourceLeaf res) =
@@ -136,22 +138,22 @@ mkRouteConsOpts opts rttypes =
                 _ -> []
 
     mkRouteCon (ResourceParent name _check pieces children) = do
-        (cons, decs) <- mkRouteConsOpts opts children
-        let conts = mapM conT $ instanceNamesFromOpts opts
-#if MIN_VERSION_template_haskell(2,12,0)
-        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
-#else
-        dec <- DataD [] (mkName name) [] Nothing cons <$> conts
-#endif
-        return ([con], dec : decs)
+        (cons, decs) <- mkRouteConsOpts opts cxt tyargs children
+        dec <- DataD [] dataName (fmap ((`PlainTV` Compat.BndrReq) . snd) tyargs) Nothing cons <$> inlineDerives
+        return ([con], dec : decs ++ sds)
       where
-        con = NormalC (mkName name)
+        con = NormalC dataName
             $ map (notStrict,)
-            $ singles ++ [ConT $ mkName name]
+            $ singles ++ [consDataType]
 
         singles = concatMap toSingle pieces
         toSingle Static{} = []
         toSingle (Dynamic typ) = [typ]
+
+        dataName = mkName name
+        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
+
+        (inlineDerives, sds) = getDerivesFor opts cxt consDataType
 
 -- | Clauses for the 'renderRoute' method.
 mkRenderRouteClauses :: [ResourceTree Type] -> Q [Clause]
@@ -250,7 +252,7 @@ mkRenderRouteClauses =
 -- 'renderRoute' method.  This function uses both 'mkRouteCons' and
 -- 'mkRenderRouteClasses'.
 mkRenderRouteInstance :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
-mkRenderRouteInstance = mkRenderRouteInstanceOpts defaultOpts
+mkRenderRouteInstance cxt = mkRenderRouteInstanceOpts defaultOpts cxt []
 
 -- | Generate the 'RenderRoute' instance.
 --
@@ -259,19 +261,14 @@ mkRenderRouteInstance = mkRenderRouteInstanceOpts defaultOpts
 -- 'mkRenderRouteClasses'.
 --
 -- @since 1.6.25.0
-mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
-mkRenderRouteInstanceOpts opts cxt typ ress = do
+mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree Type] -> Q [Dec]
+mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     cls <- mkRenderRouteClauses ress
-    (cons, decs) <- mkRouteConsOpts opts ress
+    (cons, decs) <- mkRouteConsOpts opts cxt tyargs ress
 #if MIN_VERSION_template_haskell(2,15,0)
-    did <- DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
-    let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
-#elif MIN_VERSION_template_haskell(2,12,0)
-    did <- DataInstD [] ''Route [typ] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
-    let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
+    did <- DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons <$> inlineDerives
 #else
-    did <- DataInstD [] ''Route [typ] Nothing cons <$> mapM conT (clazzes False)
-    let sds = fmap (\t -> StandaloneDerivD cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
+    did <- DataInstD [] ''Route [typ] Nothing cons <$> inlineDerives
 #endif
     return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
         [ did
@@ -279,10 +276,26 @@ mkRenderRouteInstanceOpts opts cxt typ ress = do
         ]
         : sds ++ decs
   where
-    clazzes standalone = if standalone `xor` null cxt then
-          clazzes'
-        else
-          []
+    (inlineDerives, sds) = getDerivesFor opts cxt ( ConT ''Route `AppT` typ)
+
+#if MIN_VERSION_template_haskell(2,12,0)
+getDerivesFor :: RouteOpts -> Cxt -> Type -> (Q [DerivClause], [Dec])
+#else
+getDerivesFor :: RouteOpts -> Cxt -> Type -> (Q Cxt, [Dec])
+#endif
+getDerivesFor opts cxt typ
+    | null cxt = (
+#if MIN_VERSION_template_haskell(2,12,0)
+            fmap (pure . DerivClause Nothing)
+#endif
+            aClause, [])
+    | otherwise = (pure [], fmap (\t -> StandaloneDerivD
+#if MIN_VERSION_template_haskell(2,12,0)
+            Nothing
+#endif
+            cxt $ ConT t `AppT` typ) clazzes')
+    where
+    aClause = mapM conT clazzes'
     clazzes' = instanceNamesFromOpts opts
 
 notStrict :: Bang

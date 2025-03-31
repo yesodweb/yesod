@@ -251,7 +251,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
         -- Base type (site type with variables)
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
-    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt site res
+    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt boundNames site res
     routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
     dispatchDec    <- mkDispatchInstance site appCxt f res
     parseRoute <- mkParseRouteInstance appCxt site res
