@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
 module Yesod.Routes.Parse
     ( parseRoutes
@@ -260,14 +261,15 @@ toTypeTree orig = do
             gos' (front . (t:)) xs'
 
 ttToType :: TypeTree -> Type
-ttToType (TTTerm s) = nameToType s
+ttToType (TTTerm s) = fst $ nameToType s
 ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
-nameToType :: String -> Type
-nameToType t = if isTvar t
-               then VarT $ mkName t
-               else ConT $ mkName t
+nameToType :: String -> (Type, Name)
+nameToType t = (, nm) $ if isTvar t
+               then VarT nm
+               else ConT nm
+    where nm = mkName t
 
 isTvar :: String -> Bool
 isTvar (h:_) = isLower h

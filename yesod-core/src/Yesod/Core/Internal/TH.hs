@@ -219,7 +219,7 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let appCxt = fmap (\(c:rest) -> 
-            foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
+            foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
           ) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of
@@ -239,7 +239,8 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     -- Generate as many variable names as the arity indicates
     vns <- replicateM (arity - length mtys) $ newName "t"
     -- types that you apply to get a concrete site name
-    let argtypes = fmap nameToType mtys ++ fmap VarT vns
+    let boundNames = fmap nameToType mtys
+        argtypes = fmap fst boundNames ++ fmap VarT vns
     -- typevars that should appear in synonym head
     let argvars = (fmap mkName . filter isTvar) mtys ++ vns
         -- Base type (site type with variables)
