@@ -12,7 +12,6 @@ import Data.Traversable
 import Data.Foldable
 import Data.Text.Encoding
 import Data.Text as T
-import Control.Monad.IO.Class
 
 import YesodCoreTest.ParameterizedSite.PolyAny (PolyAny (..))
 import YesodCoreTest.ParameterizedSite.PolyShow (PolyShow (..))
@@ -23,7 +22,7 @@ import qualified YesodCoreTest.ParameterizedSite.SubRoute as SR
 parameterizedSiteTest :: Spec
 parameterizedSiteTest = describe "Polymorphic Yesod sites" $ do
     it "Polymorphic unconstrained stub" $ runStub (PolyAny ())
-    it "Polymorphic stub with Show" $ runStub' "1337" (PolyShow 1337)
+    it "Polymorphic stub with Show" $ runStub' "1337" (PolyShow (1337 :: Int))
     it "Polymorphic unconstrained stub, old-style" $ runStub (Compat () ())
     it "Polymorphic stub, sub routes" $ runStubAgainst [(SR.HomeR 456, ["Stub", "123", "456"]), (SR.EditorR (SR.AwayR 789), ["Stub", "123", "789"])] (SR.SubRoute (123 :: Int))
 
