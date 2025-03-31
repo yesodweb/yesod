@@ -55,7 +55,6 @@ library
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11
                    , text                  >= 0.7
-                   , th-abstraction        >= 0.6
                    , time                  >= 1.5
                    , transformers          >= 0.4
                    , unix-compat
