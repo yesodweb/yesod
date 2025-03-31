@@ -76,7 +76,7 @@ instanceNamesFromOpts (MkRouteOpts eq shw rd) = prependIf eq ''Eq $ prependIf sh
 
 -- | Generate the constructors of a route data type.
 mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteCons = mkRouteConsOpts defaultOpts
+mkRouteCons = mkRouteConsOpts defaultOpts [] []
 
 -- | Generate the constructors of a route data type, with custom opts.
 --
