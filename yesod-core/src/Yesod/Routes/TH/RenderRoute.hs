@@ -137,7 +137,7 @@ mkRouteConsOpts opts cxt tyargs rttypes =
 
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteConsOpts opts cxt tyargs children
-        dec <- DataD [] dataName (fmap ((`PlainTV` tyvarbndr) . snd) tyargs) Nothing cons <$> inlineDerives
+        dec <- DataD [] dataName (fmap (tyvarbndr . snd) tyargs) Nothing cons <$> inlineDerives
         return ([con], dec : decs ++ sds)
       where
         con = NormalC dataName
@@ -148,9 +148,11 @@ mkRouteConsOpts opts cxt tyargs rttypes =
         -- isn't always available
         tyvarbndr =
 #if MIN_VERSION_template_haskell(2,21,0)
-            BndrReq
+            (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
+            (`PlainTV` ()) :: Name -> TyVarBndr ()
 #else
-            ()
+            PlainTV :: Name -> TyVarBndr
 #endif
 
         singles = concatMap toSingle pieces
