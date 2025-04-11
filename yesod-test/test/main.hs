@@ -46,6 +46,7 @@ import qualified Web.Cookie as Cookie
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B8
 import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
+import Data.Foldable (traverse_)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -63,6 +64,7 @@ mkYesod "RoutedApp" [parseRoutes|
 /resources       ResourcesR POST
 /resources/#Text ResourceR  GET
 /get-integer     IntegerR   GET
+/multi-param MultiParamR GET POST
 |]
 
 main :: IO ()
@@ -326,7 +328,7 @@ main = hspec $ do
                     checkByLabel "Red"
                     checkByLabel "Gray"
                     addToken
-                bodyContains "colorCheckBoxes = [Gray,Red]"
+                bodyContains "colorCheckBoxes = [Red,Gray]"
             yit "can select from select list" $ do
                 get ("/labels-select" :: Text)
                 request $ do
@@ -572,6 +574,19 @@ main = hspec $ do
             statusIs 200
             (requireJSONResponse :: YesodExample site [Text]) `liftedShouldThrow` (\(e :: SomeException) -> True)
 
+    describe "'addPostParam' order is correct" $ yesodSpec defaultRoutedApp $ do
+        yit "should add the parameters in the order they were added" $ do
+            let params = [("foo", "foobarbaz"), ("bar", "barbaz"), ("baz", "bazqux")]
+            get MultiParamR
+            statusIs 200
+            request $ do
+                setMethod "POST"
+                setUrl MultiParamR
+                addToken
+                traverse_ (uncurry addPostParam) params
+            statusIs 200
+            bodyContains $ T.unpack $ T.intercalate " -- " $ map (\(k, v) -> k <> ": " <> v) params
+
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
 
@@ -773,6 +788,22 @@ getIntegerR = do
     app <- getYesod
     pure $ T.pack $ show (routedAppInteger app)
 
+getMultiParamR :: Handler Html
+getMultiParamR = do
+    req <- getRequest
+    defaultLayout [whamlet|
+        <form method=post action=@{MultiParamR}>
+            <input type=hidden name=#{defaultCsrfParamName} value=#{fromMaybe mempty (reqToken req)}>
+        |]
+
+postMultiParamR :: Handler Html
+postMultiParamR = do
+    (reqParts,_) <- runRequestBody
+    pure [shamlet|
+            $forall (name, part) <- reqParts
+                $if name /= "_token"
+                    #{name}: #{part} -- #
+        |]
 
 -- infix Copied from HSpec's version
 infix 1 `liftedShouldThrow`
