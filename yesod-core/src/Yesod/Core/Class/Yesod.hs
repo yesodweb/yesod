@@ -700,13 +700,14 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ return ("Invalid Arguments: " <> T.intercalate " " ia)
 
 defaultErrorHandler (InternalError e) = do
-    $logErrorS "yesod-core" e
+    let exceptionString = displayException e
+    $logErrorS "yesod-core" exceptionString
     selectRep $ do
         provideRep $ defaultLayout $ defaultMessageWidget
             "Internal Server Error"
-            [hamlet|<pre>#{e}|]
-        provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
-        provideRep $ return $ "Internal Server Error: " <> e
+            [hamlet|<pre>#{exceptionString}|]
+        provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= exceptionString]
+        provideRep $ return $ "Internal Server Error: " <> exceptionString
 
 defaultErrorHandler (BadMethod m) = selectRep $ do
     provideRep $ defaultLayout $ defaultMessageWidget

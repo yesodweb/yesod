@@ -9,7 +9,7 @@
 
 module Yesod.Core.Internal.Run
   ( toErrorHandler
-  , errFromShow
+  , errFromDisplayException
   , basicRunHandler
   , handleError
   , handleContents
@@ -56,17 +56,10 @@ import           UnliftIO.Exception
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
-toErrorHandler e0 = handleAny errFromShow $
+toErrorHandler e0 = handleAny errFromDisplayException $
     case fromException e0 of
         Just (HCError x) -> evaluate $!! x
-        _ -> errFromShow e0
-
--- | Generate an @ErrorResponse@ based on the shown version of the exception
-errFromShow :: SomeException -> IO ErrorResponse
-errFromShow x = do
-  text <- evaluate (T.pack $ show x) `catchAny` \_ ->
-          return (T.pack "Yesod.Core.Internal.Run.errFromShow: show of an exception threw an exception")
-  return $ InternalError text
+        _ -> InternalError e0
 
 -- | Do a basic run of a handler, getting some contents and the final
 -- @GHState@. The @GHState@ unfortunately may contain some impure
@@ -125,7 +118,7 @@ handleError :: RunHandlerEnv sub site
             -> IO YesodResponse
 handleError rhe yreq resState finalSession headers e0 = do
     -- Find any evil hidden impure exceptions
-    e <- (evaluate $!! e0) `catchAny` errFromShow
+    e <- (evaluate $!! e0) `catchAny` errFromDisplayException
 
     -- Generate a response, leveraging the updated session and
     -- response headers
@@ -260,7 +253,7 @@ runFakeHandler :: forall site m a . (Yesod site, MonadIO m) =>
                -> HandlerFor site a
                -> m (Either ErrorResponse a)
 runFakeHandler fakeSessionMap logger site handler = liftIO $ do
-  ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
+  ret <- I.newIORef (Left $ InternalError $ toException (EUnsafe.ErrorCall "runFakeHandler: no result"))
   maxExpires <- getCurrentMaxExpiresRFC1123
   let handler' = liftIO . I.writeIORef ret . Right =<< handler
   let yapp = runHandler
