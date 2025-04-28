@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.27.1
+
+* Use `displayException` instead of `show` for rendering internal errors [#1860](https://github.com/yesodweb/yesod/pull/1869)
+
 ## 1.6.27.0
 
 * Build with `wai-extra-3.1.17` [#1861](https://github.com/yesodweb/yesod/pull/1861)
