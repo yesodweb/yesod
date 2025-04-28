@@ -8,7 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Yesod.Core.Internal.Run
   ( toErrorHandler
-  , errFromShow
+  , errFromDisplayException
   , basicRunHandler
   , handleError
   , handleContents
@@ -59,16 +59,16 @@ import           Data.Proxy(Proxy(..))
 
 -- | Convert a synchronous exception into an ErrorResponse
 toErrorHandler :: SomeException -> IO ErrorResponse
-toErrorHandler e0 = handleAny errFromShow $
+toErrorHandler e0 = handleAny errFromDisplayException $
     case fromException e0 of
         Just (HCError x) -> evaluate $!! x
-        _ -> errFromShow e0
+        _ -> errFromDisplayException e0
 
 -- | Generate an @ErrorResponse@ based on the shown version of the exception
-errFromShow :: SomeException -> IO ErrorResponse
-errFromShow x = do
-  text <- evaluate (T.pack $ show x) `catchAny` \_ ->
-          return (T.pack "Yesod.Core.Internal.Run.errFromShow: show of an exception threw an exception")
+errFromDisplayException :: SomeException -> IO ErrorResponse
+errFromDisplayException x = do
+  text <- evaluate (T.pack $ displayException x) `catchAny` \_ ->
+          return (T.pack "Yesod.Core.Internal.Run.errFromDisplayException: displayException threw an exception")
   return $ InternalError text
 
 -- | Do a basic run of a handler, getting some contents and the final
@@ -128,7 +128,7 @@ handleError :: RunHandlerEnv sub site
             -> IO YesodResponse
 handleError rhe yreq resState finalSession headers e0 = do
     -- Find any evil hidden impure exceptions
-    e <- (evaluate $!! e0) `catchAny` errFromShow
+    e <- (evaluate $!! e0) `catchAny` errFromDisplayException
 
     -- Generate a response, leveraging the updated session and
     -- response headers
