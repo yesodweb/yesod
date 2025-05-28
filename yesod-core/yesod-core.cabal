@@ -50,7 +50,7 @@ library
                    , parsec                >= 2        && < 3.2
                    , path-pieces           >= 0.1.2    && < 0.3
                    , primitive             >= 0.6
-                   , random                >= 1.0.0.2  && < 1.3
+                   , random                >= 1.0.0.2  && < 1.4
                    , resourcet             >= 1.2
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.11
