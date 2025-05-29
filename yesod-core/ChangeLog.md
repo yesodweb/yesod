@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## Unreleased
+
+* Add type arguments to the sub routes [#1866](https://github.com/yesodweb/yesod/pull/1866)
+
 ## 1.6.27.0
 
 * Build with `wai-extra-3.1.17` [#1861](https://github.com/yesodweb/yesod/pull/1861)

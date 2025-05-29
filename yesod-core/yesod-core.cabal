@@ -134,6 +134,7 @@ test-suite test-routes
                  , random
                  , path-pieces
                  , HUnit
+                 , th-abstraction
 
 test-suite tests
     default-language: Haskell2010
@@ -167,6 +168,7 @@ test-suite tests
                    YesodCoreTest.ParameterizedSite.Compat
                    YesodCoreTest.ParameterizedSite.PolyAny
                    YesodCoreTest.ParameterizedSite.PolyShow
+                   YesodCoreTest.ParameterizedSite.SubRoute
                    YesodCoreTest.RawResponse
                    YesodCoreTest.Redirect
                    YesodCoreTest.Reps
