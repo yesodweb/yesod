@@ -7,74 +7,84 @@ maintainer:         Michael Snoyman, Greg Weber, Nubis <nubis@woobiz.com.ar>
 synopsis:           integration testing for WAI/Yesod Applications
 category:           Web, Yesod, Testing
 stability:          Experimental
-cabal-version:      >= 1.10
+cabal-version:      >=1.10
 build-type:         Simple
 homepage:           http://www.yesodweb.com
-description:     API docs and the README are available at <http://www.stackage.org/package/yesod-test>
-extra-source-files: README.md, LICENSE, test/main.hs, ChangeLog.md
+description:
+  API docs and the README are available at <http://www.stackage.org/package/yesod-test>
+
+extra-source-files:
+  ChangeLog.md
+  LICENSE
+  README.md
+  test/main.hs
 
 library
-    default-language: Haskell2010
-    build-depends:   HUnit                     >= 1.2
-                   , aeson
-                   , attoparsec                >= 0.10
-                   , base                      >= 4.10     && < 5
-                   , blaze-builder
-                   , blaze-html                >= 0.5
-                   , bytestring                >= 0.9
-                   , case-insensitive          >= 0.2
-                   , conduit
-                   , containers
-                   , cookie
-                   , hspec-core                == 2.*
-                   , html-conduit              >= 0.1
-                   , http-types                >= 0.7
-                   , network                   >= 2.2
-                   , memory
-                   , pretty-show               >= 1.6
-                   , text
-                   , time
-                   , mtl                       >= 2.0.0
-                   , transformers              >= 0.2.2
-                   , wai                       >= 3.0
-                   , wai-extra
-                   , xml-conduit               >= 1.0
-                   , xml-types                 >= 0.3
-                   , yesod-core                >= 1.6.17
-                   , blaze-markup
-                   , directory
-                   , process
+  default-language: Haskell2010
+  build-depends:
+      aeson
+    , attoparsec        >=0.10
+    , base              >=4.10   && <5
+    , blaze-builder
+    , blaze-html        >=0.5
+    , blaze-markup
+    , bytestring        >=0.9
+    , case-insensitive  >=0.2
+    , conduit
+    , containers
+    , cookie
+    , directory
+    , hspec-core        >=2      && <3
+    , html-conduit      >=0.1
+    , http-types        >=0.7
+    , HUnit             >=1.2
+    , memory
+    , mtl               >=2.0.0
+    , network           >=2.2
+    , pretty-show       >=1.6
+    , process
+    , text
+    , time
+    , transformers      >=0.2.2
+    , wai               >=3.0
+    , wai-extra
+    , xml-conduit       >=1.0
+    , xml-types         >=0.3
+    , yesod-core        >=1.6.17
 
-    exposed-modules: Yesod.Test
-                     Yesod.Test.CssQuery
-                     Yesod.Test.TransversingCSS
-                     Yesod.Test.Internal
-                     Yesod.Test.Internal.SIO
-    ghc-options:  -Wall
+  exposed-modules:
+    Yesod.Test
+    Yesod.Test.CssQuery
+    Yesod.Test.Internal
+    Yesod.Test.Internal.SIO
+    Yesod.Test.TransversingCSS
+
+  ghc-options:      -Wall
 
 test-suite test
-    default-language: Haskell2010
-    type: exitcode-stdio-1.0
-    main-is: main.hs
-    hs-source-dirs: test
-    build-depends:          base
-                          , yesod-test
-                          , hspec
-                          , HUnit
-                          , xml-conduit
-                          , bytestring
-                          , containers
-                          , html-conduit
-                          , yesod-core
-                          , yesod-form >= 1.6
-                          , text
-                          , wai
-                          , wai-extra
-                          , http-types
-                          , unliftio
-                          , cookie
-                          , unliftio-core
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          main.hs
+  hs-source-dirs:   test
+  build-depends:
+      base
+    , bytestring
+    , containers
+    , cookie
+    , hspec
+    , html-conduit
+    , http-types
+    , HUnit
+    , text
+    , unliftio
+    , unliftio-core
+    , wai
+    , wai-extra
+    , xml-conduit
+    , yesod-core
+    , yesod-form     >=1.6
+    , yesod-test
 
 source-repository head
-  type: git
+  type:     git
   location: git://github.com/yesodweb/yesod.git
