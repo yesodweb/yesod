@@ -42,6 +42,8 @@ library
                    , xml-types                 >= 0.3
                    , yesod-core                >= 1.6.17
                    , blaze-markup
+                   , directory
+                   , process
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
