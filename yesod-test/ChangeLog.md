@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.21
+
+* Add `browseBody` to yesod-test. [#1872](https://github.com/yesodweb/yesod/pull/1872)
+
 ## 1.6.20
 
 * Add `HasCallStack` to more functions. [#1858](https://github.com/yesodweb/yesod/pull/1858)

@@ -218,6 +218,7 @@ module Yesod.Test
 
     -- * Debug output
     , printBody
+    , browseBody
     , printMatches
 
     -- * Utils for building your own assertions
@@ -284,6 +285,10 @@ import Control.Monad (unless)
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 import Yesod.Test.Internal.SIO
+
+import System.Directory (getTemporaryDirectory)
+import System.Info (os)
+import System.Process (callCommand)
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -809,6 +814,29 @@ requireJSONResponse = do
 printBody :: YesodExample site ()
 printBody = withResponse $ \ SResponse { simpleBody = b } ->
   liftIO $ BSL8.hPutStrLn stderr b
+
+-- | Render the last response and open it in a web browser
+--
+-- This is similar to 'printBody', except that it opens the markup in your web
+-- browser instead, which may be easier to read than seeing it printed in the
+-- terminal.
+--
+-- @since 1.6.21
+browseBody :: YesodExample site ()
+browseBody = withResponse $ \SResponse{ simpleBody = b } -> liftIO $ do
+  tempDir <- getTemporaryDirectory
+  (fp, h) <- openTempFile tempDir "yesod-test-response.html"
+  BSL8.hPutStrLn h b
+  hFlush h
+  hClose h
+  openInBrowser fp
+  where
+  openInBrowser path = callCommand $ cmd ++ " " ++ path
+  cmd = case os of
+    "darwin"  -> "open"
+    "linux"   -> "xdg-open"
+    "mingw32" -> "start"
+    _         -> error $ "Unsupported OS: " ++ os
 
 -- | Performs a CSS query and print the matches to stderr.
 --
