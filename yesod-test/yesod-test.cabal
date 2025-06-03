@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.6.21
+version:            1.6.22
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -22,35 +22,35 @@ extra-source-files:
 library
   default-language: Haskell2010
   build-depends:
-      aeson
-    , attoparsec        >=0.10
-    , base              >=4.10   && <5
-    , blaze-builder
-    , blaze-html        >=0.5
-    , blaze-markup
-    , bytestring        >=0.9
-    , case-insensitive  >=0.2
-    , conduit
-    , containers
-    , cookie
-    , directory
-    , hspec-core        >=2      && <3
-    , html-conduit      >=0.1
-    , http-types        >=0.7
-    , HUnit             >=1.2
-    , memory
-    , mtl               >=2.0.0
-    , network           >=2.2
-    , pretty-show       >=1.6
-    , process
-    , text
-    , time
-    , transformers      >=0.2.2
-    , wai               >=3.0
-    , wai-extra
-    , xml-conduit       >=1.0
-    , xml-types         >=0.3
-    , yesod-core        >=1.6.17
+      aeson             >= 1.0     && < 2.3
+    , attoparsec        >= 0.10    && < 0.15
+    , base              >= 4.10    && < 5
+    , blaze-builder     >= 0.3.1   && < 0.5
+    , blaze-html        >= 0.5     && < 0.10
+    , blaze-markup      >= 0.6     && < 0.9
+    , bytestring        >= 0.9     && < 0.13
+    , case-insensitive  >= 0.2     && < 1.3
+    , conduit           >= 1.3     && < 1.4
+    , containers        >= 0.5     && < 0.8
+    , cookie            >= 0.4     && < 0.6
+    , directory         >= 1.2     && < 1.4
+    , hspec-core        >= 2       && < 3
+    , html-conduit      >= 0.1     && < 1.4
+    , http-types        >= 0.7     && < 0.13
+    , HUnit             >= 1.2     && < 1.7
+    , memory            >= 0.14    && < 0.19
+    , mtl               >= 2.0.0   && < 2.4
+    , network           >= 2.2     && < 3.3
+    , pretty-show       >= 1.6     && < 1.11
+    , process           >= 1.6     && < 1.7
+    , text              >= 1.2     && < 2.2
+    , time              >= 1.5     && < 1.13
+    , transformers      >= 0.2.2   && < 0.7
+    , wai               >= 3.0     && < 3.3
+    , wai-extra         >= 3.0     && < 3.2
+    , xml-conduit       >= 1.0     && < 1.10
+    , xml-types         >= 0.3     && < 0.4
+    , yesod-core        >= 1.6.17  && < 1.7
 
   exposed-modules:
     Yesod.Test
@@ -87,4 +87,4 @@ test-suite test
 
 source-repository head
   type:     git
-  location: git://github.com/yesodweb/yesod.git
+  location: https://github.com/yesodweb/yesod.git

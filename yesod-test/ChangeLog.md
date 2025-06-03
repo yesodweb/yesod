@@ -1,5 +1,10 @@
 # ChangeLog for yesod-test
 
+
+## 1.6.22
+
+- Add upper bounds to all build dependencies to comply with Hackage upload requirements. [#1873](https://github.com/yesodweb/yesod/pull/1873)
+
 ## 1.6.21
 
 * Add `browseBody` to yesod-test. [#1872](https://github.com/yesodweb/yesod/pull/1872)
