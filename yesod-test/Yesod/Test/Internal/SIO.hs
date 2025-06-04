@@ -8,6 +8,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE InstanceSigs #-}
 
 -- | The 'SIO' type is used by "Yesod.Test" to provide exception-safe
 -- environment between requests and assertions.
@@ -23,12 +24,17 @@ import Conduit (MonadThrow)
 import qualified Control.Monad.State.Class as MS
 import Yesod.Core
 import Data.IORef
+import GHC.Stack (HasCallStack)
 
 -- | State + IO
 --
 -- @since 1.6.0
 newtype SIO s a = SIO (ReaderT (IORef s) IO a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
+
+instance MonadFail (SIO s) where
+  fail :: HasCallStack => String -> SIO s a
+  fail = error
 
 instance MS.MonadState s (SIO s)
   where

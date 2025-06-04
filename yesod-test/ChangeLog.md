@@ -1,5 +1,8 @@
 # ChangeLog for yesod-test
 
+## 1.6.23
+
+* Add `MonadFail` to `SIO` so tests can fail on pattern match failure. [#1874](https://github.com/yesodweb/yesod/pull/1874)
 
 ## 1.6.22
 
