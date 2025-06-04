@@ -32,6 +32,7 @@ import GHC.Stack (HasCallStack)
 newtype SIO s a = SIO (ReaderT (IORef s) IO a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
 
+-- | @since 1.6.23
 instance MonadFail (SIO s) where
   fail :: HasCallStack => String -> SIO s a
   fail = error
