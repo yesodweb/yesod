@@ -71,7 +71,7 @@ parseRoutesNoCheck = QuasiQuoter
 -- invalid input.
 resourcesFromString :: String -> [ResourceTree String]
 resourcesFromString =
-    fst . parse 0 . filter (not . all (== ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
+    fst . parse 0 . filter (any (/= ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
   where
     parse _ [] = ([], [])
     parse indent (thisLine:otherLines)
@@ -113,11 +113,11 @@ resourcesFromString =
 -- | Splits a string by spaces, as long as the spaces are not enclosed by curly brackets (not recursive).
 splitSpaces :: String -> [String]
 splitSpaces "" = []
-splitSpaces str = 
+splitSpaces str =
     let (rest, piece) = parse $ dropWhile isSpace str in
     piece:(splitSpaces rest)
 
-    where 
+    where
         parse :: String -> ( String, String)
         parse ('{':s) = fmap ('{':) $ parseBracket s
         parse (c:s) | isSpace c = (s, [])
@@ -301,7 +301,8 @@ dropBracket x = x
 -- @since 1.6.8
 lineContinuations :: String -> [String] -> [String]
 lineContinuations this [] = [this]
-lineContinuations this below@(next:rest) = case unsnoc this of
-    Just (this', '\\') -> (this'++next):rest
-    _ -> this:below
-  where unsnoc s = if null s then Nothing else Just (init s, last s)
+lineContinuations [] below = []:below
+lineContinuations this below@(next:rest) =
+    case last this of
+        '\\' -> (init this ++ next):rest
+        _ -> this:below

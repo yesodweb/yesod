@@ -40,7 +40,7 @@ import           Conduit
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
-import           UnliftIO (SomeException, tryAny, MonadIO, liftIO, MonadUnliftIO, withRunInIO, race, race_, concurrently, concurrently_)
+import           UnliftIO (SomeException, tryAny, race, race_, concurrently, concurrently_)
 
 -- | A transformer for a WebSockets handler.
 --

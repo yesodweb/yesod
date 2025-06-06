@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Yesod.Default.Config
     ( DefaultEnv (..)
     , fromArgs
@@ -15,10 +16,11 @@ module Yesod.Default.Config
     , withYamlEnvironment
     ) where
 
+import Control.Exception (throwIO)
 import Data.Char (toUpper)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Yaml
+import Data.Yaml hiding (parseMonad)
 import Data.Maybe (fromMaybe)
 import System.Environment (getArgs, getProgName, getEnvironment)
 import System.Exit (exitFailure)
@@ -44,9 +46,8 @@ data ArgConfig env = ArgConfig
     , port        :: Int
     } deriving Show
 
-parseArgConfig :: (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
+parseArgConfig :: forall env. (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
 parseArgConfig = do
-    let envs = [minBound..maxBound]
     args <- getArgs
     (portS, args') <- getPort id args
     portI <-
@@ -58,15 +59,14 @@ parseArgConfig = do
             case reads $ capitalize e of
                 (e', _):_ -> return $ ArgConfig e' portI
                 [] -> do
-                    () <- error $ "Invalid environment, valid entries are: " ++ show envs
-                    -- next line just provided to force the type of envs
-                    return $ ArgConfig (head envs) 0
+                    error $ "Invalid environment, valid entries are: " ++ show envs
         _ -> do
             pn <- getProgName
             putStrLn $ "Usage: " ++ pn ++ " <environment> [--port <port>]"
             putStrLn $ "Valid environments: " ++ show envs
             exitFailure
   where
+    envs = [minBound..maxBound] :: [env]
     getPort front [] = do
         env <- getEnvironment
         return (fromMaybe "0" $ lookup "PORT" env, front [])
@@ -245,3 +245,6 @@ withYamlEnvironment fp env f = do
         Right (Object obj)
             | Just v <- M.lookup (fromString $ show env) obj -> parseMonad f v
         _ -> fail $ "Could not find environment: " ++ show env
+
+parseMonad :: (a -> Parser b) -> a -> IO b
+parseMonad f = either (throwIO . userError) pure . parseEither f

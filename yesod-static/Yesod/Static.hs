@@ -97,7 +97,7 @@ import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
-import Data.Default
+import Data.Default (Default (def))
 --import Text.Lucius (luciusRTMinified)
 
 import Network.Wai (pathInfo)
@@ -392,11 +392,11 @@ mkStaticFilesList' fp fs makeHash = do
     mkRoute (alias, f) = do
         let name' = intercalate "_" $ map (map replace') alias
             routeName = mkName $
-                case () of
-                    ()
-                        | null name' -> error "null-named file"
-                        | isDigit (head name') -> '_' : name'
-                        | isLower (head name') -> name'
+                case name' of
+                    [] -> error "null-named file"
+                    c : _
+                        | isDigit c -> '_' : name'
+                        | isLower c -> name'
                         | otherwise -> '_' : name'
         f' <- [|map pack $(TH.lift f)|]
         qs <- if makeHash

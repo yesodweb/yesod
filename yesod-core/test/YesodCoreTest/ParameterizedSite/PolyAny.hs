@@ -7,6 +7,7 @@ module YesodCoreTest.ParameterizedSite.PolyAny
     ) where
 
 import Yesod.Core
+import Yesod.Routes.TH.Types (ResourceTree)
 
 -- | Parameterized without constraints
 data PolyAny a = PolyAny a
@@ -14,6 +15,9 @@ data PolyAny a = PolyAny a
 mkYesod "PolyAny a" [parseRoutes|
 / HomeR GET
 |]
+
+_unused :: [ResourceTree String]
+_unused = resourcesPolyAny
 
 instance Yesod (PolyAny a)
 
@@ -23,4 +27,3 @@ getHomeR = defaultLayout
         <p>
             Stub
     |]
-

@@ -22,13 +22,13 @@ import Yesod.Core -- purposely using complete import so that Haddock will see ad
 import Control.Monad (when, unless)
 import Conduit
 import System.Directory (doesFileExist, createDirectoryIfMissing)
-import Language.Haskell.TH.Syntax hiding (makeRelativeToProject)
+import Language.Haskell.TH.Syntax (Exp (..), Q, Stmt (NoBindS), qRunIO)
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)
 import Text.Hamlet (HamletSettings, defaultHamletSettings)
 import Data.Maybe (catMaybes)
-import Data.Default.Class (Default (def))
+import Data.Default (Default (def))
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
 -- external file. Files are created in the given static folder with names based

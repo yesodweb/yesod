@@ -4,7 +4,6 @@ module Yesod.EmbeddedStatic.Css.Util where
 import Control.Applicative
 import Control.Monad (void, foldM)
 import Data.Hashable (Hashable)
-import Data.Monoid
 import Network.Mime (MimeType, defaultMimeLookup)
 import Text.CSS.Parse (parseBlocks)
 import Language.Haskell.TH (litE, stringL)

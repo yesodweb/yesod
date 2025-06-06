@@ -22,7 +22,7 @@ library
                    , aeson
                    , bytestring
                    , conduit                   >= 1.3
-                   , data-default-class
+                   , data-default
                    , directory
                    , fast-logger
                    , file-embed

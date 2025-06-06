@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module YesodCoreTest.InternalRequest (internalRequestTest) where
 
@@ -14,19 +15,17 @@ import Control.Monad (replicateM)
 import System.Random
 
 gen :: IO Int
-gen = getStdRandom next
+gen =
+    getStdRandom
+#if MIN_VERSION_random(1,2,0)
+        uniform
+#else
+        next
+#endif
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
-    --it "looks reasonably random" looksRandom
     it "does not repeat itself" $ noRepeat 10 100
-
--- NOTE: this testcase may break on other systems/architectures if
--- mkStdGen is not identical everywhere (is it?).
-_looksRandom :: IO ()
-_looksRandom = do
-    s <- randomString 20 gen
-    s `shouldBe` "VH9SkhtptqPs6GqtofVg"
 
 noRepeat :: Int -> Int -> IO ()
 noRepeat len n = do
