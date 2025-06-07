@@ -1,6 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
+
 module Yesod.Routes.Parse
     ( parseRoutes
     , parseRoutesFile

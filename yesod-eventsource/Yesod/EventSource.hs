@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -- | This module contains everything that you need to support
 -- server-sent events in Yesod applications.
 module Yesod.EventSource

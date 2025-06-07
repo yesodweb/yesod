@@ -1,4 +1,9 @@
-{-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module YesodCoreTest.Ssl ( sslOnlySpec, unsecSpec, sameSiteSpec ) where
 import qualified YesodCoreTest.StubSslOnly as Ssl
 import qualified YesodCoreTest.StubLaxSameSite as LaxSameSite

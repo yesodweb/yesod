@@ -1,7 +1,11 @@
-{-# LANGUAGE
-    TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses
-  , OverloadedStrings, StandaloneDeriving, FlexibleInstances
-  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module YesodCoreTest.ParameterizedSite.PolyAny
     ( PolyAny (..)
     ) where

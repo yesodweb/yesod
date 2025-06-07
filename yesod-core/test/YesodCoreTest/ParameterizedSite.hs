@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module YesodCoreTest.ParameterizedSite
     ( parameterizedSiteTest
     ) where
