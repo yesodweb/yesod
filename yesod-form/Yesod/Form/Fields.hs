@@ -1,11 +1,12 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Field functions allow you to easily create and validate forms, cleanly handling the uncertainty of parsing user input.
 --
 -- When possible, the field functions use a specific input type (e.g. "number"), allowing supporting browsers to validate the input before form submission. Browsers can also improve usability with this information; for example, mobile browsers might present a specialized keyboard for an input of type "email" or "number".

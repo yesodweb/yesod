@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 import Network.Wai.Application.Static
 import Network.Wai.Handler.Warp (run)
 import Data.FileEmbed

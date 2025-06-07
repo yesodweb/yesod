@@ -1,7 +1,12 @@
-{-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-} -- the module name is a lie!!!
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module YesodCoreTest.NoOverloadedStrings
     ( noOverloadedTest
     , Widget

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -- | Parsing CSS selectors into queries.
 module Yesod.Test.CssQuery
     ( SelectorGroup (..)

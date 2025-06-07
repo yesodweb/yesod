@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -- | Manipulate CSS urls.
 --
 -- * Make relative urls absolute (useful when combining assets)

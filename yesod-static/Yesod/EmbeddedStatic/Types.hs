@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Yesod.EmbeddedStatic.Types(
     Location
   , Generator
@@ -32,7 +35,7 @@ data Entry = Entry {
         --   given name will be created which points to this resource.
   , ebLocation :: Location     -- ^ The location to serve the resource from.
   , ebMimeType :: MimeType     -- ^ The mime type of the resource.
-  , ebProductionContent :: IO BL.ByteString 
+  , ebProductionContent :: IO BL.ByteString
         -- ^ If the development argument to 'Yesod.EmbeddedStatic.mkEmbeddedStatic' is False,
         -- then at compile time this action will be executed to load the content.
         -- During development, this action will not be executed.

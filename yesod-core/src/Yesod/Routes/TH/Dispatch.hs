@@ -1,5 +1,8 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE RecordWildCards, TemplateHaskell, ViewPatterns #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module Yesod.Routes.TH.Dispatch
     ( MkDispatchSettings (..)
     , mkDispatchClause

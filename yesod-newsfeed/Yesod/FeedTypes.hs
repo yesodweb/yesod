@@ -20,7 +20,7 @@ data Feed url = Feed
     -- | note: currently only used for Rss
     , feedDescription :: Html
 
-    -- | note: currently only used for Rss, possible values: 
+    -- | note: currently only used for Rss, possible values:
     --   <http://www.rssboard.org/rss-language-codes>
     , feedLanguage    :: Text
 

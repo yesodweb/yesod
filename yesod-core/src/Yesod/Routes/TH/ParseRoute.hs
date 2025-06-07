@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
       mkParseRouteInstance

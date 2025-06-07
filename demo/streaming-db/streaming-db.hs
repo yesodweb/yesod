@@ -1,10 +1,11 @@
-{-# LANGUAGE EmptyDataDecls    #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import           Control.Monad.Logger    (runNoLoggingT)
 import           Data.Conduit            (awaitForever, runResourceT, ($=))
 import           Data.Text               (Text)

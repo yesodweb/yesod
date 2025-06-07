@@ -1,8 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
--- | BigTable benchmark implemented using Hamlet.
---
+{-# LANGUAGE OverloadedStrings #-}
+-- BigTable benchmark implemented using Hamlet.
 {-# LANGUAGE QuasiQuotes #-}
+
 module Main where
 
 import Gauge.Main

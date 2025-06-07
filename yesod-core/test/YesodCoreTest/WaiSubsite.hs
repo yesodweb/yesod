@@ -1,4 +1,11 @@
-{-# LANGUAGE CPP, QuasiQuotes, TemplateHaskell, TypeFamilies, MultiParamTypeClasses, OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module YesodCoreTest.WaiSubsite
     ( specs
     , Widget

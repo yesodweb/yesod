@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module THHelper where
 
 import Language.Haskell.TH.Syntax

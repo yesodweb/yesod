@@ -1,5 +1,8 @@
-{-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies #-}
-import Yesod.Core
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Data.Conduit
 import qualified Data.Conduit.Binary as CB
 import Control.Concurrent.Lifted (threadDelay)

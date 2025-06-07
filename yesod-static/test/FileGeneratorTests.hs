@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module FileGeneratorTests (fileGenSpecs) where
 
 import Control.Exception
@@ -11,7 +14,7 @@ import qualified Data.ByteString.Lazy as BL
 
 -- | Embeds the LICENSE file
 license :: GenTestResult
-license = $(embedFile "LICENSE" >>= 
+license = $(embedFile "LICENSE" >>=
             testOneEntry (Just "_LICENSE") "LICENSE" (BL.readFile "LICENSE")
            )
 
@@ -22,7 +25,7 @@ licenseAt = $(embedFileAt "abc.txt" "LICENSE" >>=
 
 embDir :: [GenTestResult]
 embDir = $(embedDir "test/embed-dir" >>=
-           testEntries 
+           testEntries
             [ (Just "abc_def_txt", "abc/def.txt", BL.readFile "test/embed-dir/abc/def.txt")
             , (Just "lorem_txt", "lorem.txt", BL.readFile "test/embed-dir/lorem.txt")
             , (Just "foo", "foo", BL.readFile "test/embed-dir/foo")
@@ -31,7 +34,7 @@ embDir = $(embedDir "test/embed-dir" >>=
 
 embDirAt :: [GenTestResult]
 embDirAt = $(embedDirAt "xxx" "test/embed-dir" >>=
-           testEntries 
+           testEntries
             [ (Just "xxx_abc_def_txt", "xxx/abc/def.txt", BL.readFile "test/embed-dir/abc/def.txt")
             , (Just "xxx_lorem_txt", "xxx/lorem.txt", BL.readFile "test/embed-dir/lorem.txt")
             , (Just "xxx_foo", "xxx/foo", BL.readFile "test/embed-dir/foo")
@@ -50,7 +53,7 @@ concatWithR = $(concatFilesWith "out2.txt"
                                 [ "test/embed-dir/abc/def.txt", "test/embed-dir/foo"] >>=
                 testOneEntry (Just "out2_txt") "out2.txt" (return "Yesod Rocks\nBar\nExtra")
                )
-            
+
 fileGenSpecs :: Spec
 fileGenSpecs = do
     describe "Embed File" $ do
@@ -82,7 +85,7 @@ fileGenSpecs = do
             BL.filter (/= 13) out `shouldBe` "Hello World\n"
 
         it "tryCompressTools" $ do
-            out <- flip tryCompressTools "abcdef" 
+            out <- flip tryCompressTools "abcdef"
                             [ const $ throwIO $ ErrorCall "An expected error"
                             , const $ return "foo"
                             , const $ return "bar"

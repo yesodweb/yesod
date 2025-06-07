@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveLift #-}
+
 -- | Warning! This module is considered internal and may have breaking changes
 module Yesod.Routes.TH.Types
     ( -- * Data types

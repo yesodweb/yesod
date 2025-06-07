@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Yesod.Routes.TH.RouteAttrs
     ( mkRouteAttrsInstance
     ) where

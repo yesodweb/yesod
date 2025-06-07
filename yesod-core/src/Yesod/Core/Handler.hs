@@ -1,15 +1,16 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
+
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler

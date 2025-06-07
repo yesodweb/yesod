@@ -1,7 +1,8 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Devel
     ( devel
     , develSignal

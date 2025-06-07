@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | Provides for getting input from either GET or POST params without
 -- generating HTML forms. For more information, see:
 -- <http://www.yesodweb.com/book/forms#forms_kinds_of_forms>.

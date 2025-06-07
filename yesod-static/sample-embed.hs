@@ -1,5 +1,8 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, TypeFamilies #-}
--- | This embeds just a single file; it embeds the source code file 
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
+-- | This embeds just a single file; it embeds the source code file
 -- \"sample-embed.hs\" from the current directory so when you compile,
 -- the sample-embed.hs file must be in the current directory.
 --

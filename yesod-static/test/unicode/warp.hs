@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+
 import Network.Wai.Application.Static
     ( StaticSettings (..), staticApp, defaultMimeType, defaultListing
     , defaultMimeTypes, mimeTypeByExt

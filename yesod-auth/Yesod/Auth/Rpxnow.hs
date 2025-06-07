@@ -1,8 +1,9 @@
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+
 module Yesod.Auth.Rpxnow
     ( authRpxnow
     ) where

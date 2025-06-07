@@ -1,4 +1,9 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, OverloadedStrings, TupleSections, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
+
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
 import THHelper

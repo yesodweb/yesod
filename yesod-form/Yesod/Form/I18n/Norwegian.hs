@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Form.I18n.Norwegian where
 
 import Yesod.Form.Types (FormMessage (..))

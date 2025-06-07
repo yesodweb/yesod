@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE CPP #-}
+
 module YesodCoreTest (specs) where
 
 import YesodCoreTest.CleanPath

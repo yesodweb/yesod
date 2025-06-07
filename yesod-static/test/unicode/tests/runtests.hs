@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings, NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 import Network.Wai.Application.Static
 
 import Test.Hspec.Monadic
@@ -40,7 +42,7 @@ defRequest = Request {
 }
 
 setRawPathInfo :: Request -> S8.ByteString -> Request
-setRawPathInfo r rawPinfo = 
+setRawPathInfo r rawPinfo =
   let pInfo = T.split (== '/') $ TE.decodeUtf8 rawPinfo
   in  r { rawPathInfo = rawPinfo, pathInfo = pInfo }
 
@@ -163,4 +165,3 @@ main = hspecX $ do
       }
       assertStatus 304 req
       assertNoHeader "Cache-Control" req
-

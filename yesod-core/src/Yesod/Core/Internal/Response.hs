@@ -1,6 +1,7 @@
-{-# LANGUAGE CPP               #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RankNTypes #-}
+
 module Yesod.Core.Internal.Response where
 
 import           Data.ByteString              (ByteString)

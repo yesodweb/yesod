@@ -1,4 +1,9 @@
-{-# LANGUAGE OverloadedStrings, QuasiQuotes, TemplateHaskell, TupleSections, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+
 module Yesod.EmbeddedStatic.Css.Util where
 
 import Control.Applicative

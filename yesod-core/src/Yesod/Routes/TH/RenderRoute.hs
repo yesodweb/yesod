@@ -1,6 +1,6 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TupleSections #-}
 
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute

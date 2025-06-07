@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.WebSockets
     ( -- * Core API

@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 -- | Some next-gen helper functions for the scaffolding's configuration system.
 module Yesod.Default.Config2
     ( -- * Locally defined

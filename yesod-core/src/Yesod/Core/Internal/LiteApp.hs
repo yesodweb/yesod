@@ -1,4 +1,7 @@
-{-# LANGUAGE TypeFamilies, PatternGuards, CPP #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Yesod.Core.Internal.LiteApp where
 
 #if !(MIN_VERSION_base(4,11,0))

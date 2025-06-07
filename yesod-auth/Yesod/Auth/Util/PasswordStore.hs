@@ -1,5 +1,7 @@
-{-# LANGUAGE OverloadedStrings, BangPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 -- |
 -- This is a fork of pwstore-fast, originally copyright (c) Peter Scott, 2011,
 -- and released under a BSD-style licence.
