@@ -29,4 +29,3 @@ getHomeR = do
             <p>
                 Stub #{show x}
         |]
-

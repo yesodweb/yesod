@@ -91,7 +91,7 @@ injectDefaultP env path p@(OptP o)
   where
     modifyParserI cmd parseri =
         parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
-    cmdMap f cmds = 
+    cmdMap f cmds =
         let mkCmd cmd =
                 let (Just parseri) = f cmd
                 in  modifyParserI cmd parseri
@@ -110,4 +110,3 @@ getEnvValue _ _ _                = Nothing
 
 normalizeName :: String -> String
 normalizeName = map toLower . filter isAlphaNum
-

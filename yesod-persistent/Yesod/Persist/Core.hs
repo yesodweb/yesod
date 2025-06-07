@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Defines the core functionality of this package. This package is
 -- distinguished from Yesod.Persist in that the latter additionally exports the
 -- persistent modules themselves.

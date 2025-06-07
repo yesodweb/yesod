@@ -33,7 +33,7 @@ module Yesod.Core.Internal.TH
     , mkDispatchInstance
 
     , mkYesodSubDispatch
-    
+
     , subTopDispatch
     , instanceD
 
@@ -70,7 +70,7 @@ import Yesod.Core.Internal.Run
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.
 --
--- Contexts and type variables in the name of the datatype are parsed. 
+-- Contexts and type variables in the name of the datatype are parsed.
 -- For example, a datatype @App a@ with typeclass constraint @MyClass a@ can be written as @\"(MyClass a) => App a\"@.
 mkYesod :: String -- ^ name of the argument datatype
         -> [ResourceTree String]
@@ -88,8 +88,8 @@ mkYesodOpts opts name = fmap (uncurry (++)) . mkYesodWithParserOpts opts name Fa
 
 
 {-# DEPRECATED mkYesodWith "Contexts and type variables are now parsed from the name in `mkYesod`. <https://github.com/yesodweb/yesod/pull/1366>" #-}
--- | Similar to 'mkYesod', except contexts and type variables are not parsed. 
--- Instead, they are explicitly provided. 
+-- | Similar to 'mkYesod', except contexts and type variables are not parsed.
+-- Instead, they are explicitly provided.
 -- You can write @(MyClass a) => App a@ with @mkYesodWith [[\"MyClass\",\"a\"]] \"App\" [\"a\"] ...@.
 mkYesodWith :: [[String]] -- ^ list of contexts
             -> String -- ^ name of the argument datatype
@@ -173,7 +173,7 @@ mkYesodWithParserOpts opts name isSub f resS = do
             _ <- char ')'
             return r
 
-        parseContexts = 
+        parseContexts =
             sepBy1 (many1 parseWord) (spaces >> char ',' >> return ())
 
 
@@ -219,7 +219,7 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
-    let appCxt = fmap (\(c:rest) -> 
+    let appCxt = fmap (\(c:rest) ->
             foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
           ) appCxt'
     mname <- lookupTypeName namestr
@@ -290,11 +290,11 @@ mkDispatchInstance :: Type                      -- ^ The master site type
                    -> [ResourceTree c]          -- ^ The resource
                    -> DecsQ
 mkDispatchInstance master cxt f res = do
-    clause' <- 
-        mkDispatchClause 
-            (mkMDS 
-                f 
-                [|yesodRunner|] 
+    clause' <-
+        mkDispatchClause
+            (mkMDS
+                f
+                [|yesodRunner|]
                 [|\parentRunner getSub toParent env -> yesodSubDispatch
                     YesodSubRunnerEnv
                     { ysreParentRunner = parentRunner
@@ -312,12 +312,12 @@ mkDispatchInstance master cxt f res = do
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
-    clause' <- 
+    clause' <-
         mkDispatchClause
-            (mkMDS 
-                return 
-                [|subHelper|] 
-                [|subTopDispatch|]) 
+            (mkMDS
+                return
+                [|subHelper|]
+                [|subTopDispatch|])
         res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
@@ -331,7 +331,7 @@ mkYesodSubDispatch res = do
     return $ LetE [fun] (VarE helper)
 
 
-subTopDispatch :: 
+subTopDispatch ::
     (YesodSubDispatch sub master) =>
         (forall content. ToTypedContent content =>
             SubHandlerFor child master content ->

@@ -28,4 +28,3 @@ getHomeR = defaultLayout
         <p>
             Stub
     |]
-

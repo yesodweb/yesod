@@ -173,7 +173,7 @@ instance Monad m => Monad (AForm m) where
     (AForm f) >>= k = AForm $ \mr env ints -> do
         (a, b, ints', c) <- f mr env ints
         case a of
-          FormSuccess r -> do 
+          FormSuccess r -> do
             (x, y, ints'', z) <- unAForm (k r) mr env ints'
             return (x, b . y, ints'', c `mappend` z)
           FormFailure err -> pure (FormFailure err, b, ints', c)
