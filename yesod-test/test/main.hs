@@ -1,16 +1,16 @@
--- Ignore warnings about using deprecated byLabel/fileByLabel functions
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
-
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+-- Ignore warnings about using deprecated byLabel/fileByLabel functions
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
+
 module Main
     ( main
     -- avoid warnings

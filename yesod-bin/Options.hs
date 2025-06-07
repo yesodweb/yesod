@@ -1,6 +1,6 @@
-{-# LANGUAGE PatternGuards       #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
 
 module Options (injectDefaults) where
 
