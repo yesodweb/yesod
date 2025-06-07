@@ -1,5 +1,9 @@
-{-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes,
-  TypeFamilies, MultiParamTypeClasses, ViewPatterns #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module YesodCoreTest.Header
   ( headerTest

@@ -1,7 +1,11 @@
-{-# LANGUAGE QuasiQuotes, TypeFamilies, OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Yesod.Core
 import Control.Monad.IO.Class (liftIO)
 import Network.Wai.Handler.Warp (run)

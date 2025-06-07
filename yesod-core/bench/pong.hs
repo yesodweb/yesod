@@ -1,4 +1,9 @@
-{-# LANGUAGE OverloadedStrings, QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Yesod.Dispatch
 import Yesod.Content
 import Yesod.Internal.Core
