@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings, NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 import Network.Wai.Application.Static
 
 import Test.Hspec.Monadic
