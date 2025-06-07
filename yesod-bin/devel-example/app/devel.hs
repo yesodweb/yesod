@@ -1,4 +1,5 @@
 {-# LANGUAGE PackageImports #-}
+
 import "devel-example" DevelExample (develMain)
 
 main :: IO ()
