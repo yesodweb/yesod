@@ -1,11 +1,12 @@
 {-# LANGUAGE ConstrainedClassMethods #-}
-{-# LANGUAGE FlexibleContexts        #-}
-{-# LANGUAGE OverloadedStrings       #-}
-{-# LANGUAGE PatternGuards           #-}
-{-# LANGUAGE QuasiQuotes             #-}
-{-# LANGUAGE Rank2Types              #-}
-{-# LANGUAGE ScopedTypeVariables     #-}
-{-# LANGUAGE TypeFamilies            #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+
 -- | A Yesod plugin for Authentication via e-mail
 --
 -- This plugin works out of the box by only setting a few methods on
