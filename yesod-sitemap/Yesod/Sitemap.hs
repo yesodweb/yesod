@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Sitemap
