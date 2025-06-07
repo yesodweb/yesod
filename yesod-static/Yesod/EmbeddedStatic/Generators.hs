@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | A generator is executed at compile time to load a list of entries
 -- to embed into the subsite.  This module contains several basic generators,
 -- but the design of generators and entries is such that it is straightforward
