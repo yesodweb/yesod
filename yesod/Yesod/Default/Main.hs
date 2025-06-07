@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+
 module Yesod.Default.Main
     ( defaultMain
     , defaultMainLog
@@ -46,7 +47,7 @@ defaultMain :: IO (AppConfig env extra)
 defaultMain load getApp = do
     config <- load
     app <- getApp config
-    runSettings 
+    runSettings
         ( setPort (appPort config)
         $ setHost (appHost config)
         $ defaultSettings
@@ -64,7 +65,7 @@ defaultMainLog :: IO (AppConfig env extra)
 defaultMainLog load getApp = do
     config <- load
     (app, logFunc) <- getApp config
-    runSettings 
+    runSettings
         ( setPort (appPort config)
         $ setHost (appHost config)
         $ setOnException (const $ \e -> when (shouldLog' e) $ logFunc

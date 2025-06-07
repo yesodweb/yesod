@@ -12,6 +12,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Yesod.Auth
     ( -- * Subsite
       Auth

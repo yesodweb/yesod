@@ -38,4 +38,3 @@ specs = describe "Test.JsAttributes" $ do
 
 runner :: YesodDispatch master => master -> Session () -> IO ()
 runner app f = toWaiApp app >>= runSession f
-

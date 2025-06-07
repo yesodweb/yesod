@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Default.Handlers
     ( getFaviconR
     , getRobotsR

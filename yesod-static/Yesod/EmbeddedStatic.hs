@@ -99,7 +99,7 @@ mkRoute (c@ComputedEntry { cHaskellName = Just name }) = do
            , ValD (VarP name) (NormalB link) []
            ]
 
--- | Creates an 'EmbeddedStatic' by running, at compile time, a list of generators. 
+-- | Creates an 'EmbeddedStatic' by running, at compile time, a list of generators.
 -- Each generator produces a list of entries to embed into the executable.
 --
 -- This template haskell splice creates a variable binding holding the resulting

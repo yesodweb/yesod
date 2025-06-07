@@ -57,4 +57,3 @@ main :: IO ()
 main = do
     m <- newManager tlsManagerSettings
     toWaiApp (BID m) >>= run 3000
-
