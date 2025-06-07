@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP                #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Yesod.Default.Main
     ( defaultMain
     , defaultMainLog

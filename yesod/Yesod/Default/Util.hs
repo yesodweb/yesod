@@ -1,6 +1,6 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE CPP #-}
 -- | Various utilities used in the scaffolded site.
 module Yesod.Default.Util
     ( addStaticContentExternal
