@@ -30,7 +30,7 @@ import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
-import Control.Applicative ((<$>), Alternative (..), Applicative (..))
+import Control.Applicative (Alternative (..))
 import Control.Monad (liftM)
 import Control.Monad.Trans.Class
 import Data.String (IsString (..))
@@ -54,18 +54,22 @@ instance Functor FormResult where
     fmap _ FormMissing = FormMissing
     fmap _ (FormFailure errs) = FormFailure errs
     fmap f (FormSuccess a) = FormSuccess $ f a
-instance Control.Applicative.Applicative FormResult where
+instance Applicative FormResult where
     pure = FormSuccess
     (FormSuccess f) <*> (FormSuccess g) = FormSuccess $ f g
     (FormFailure x) <*> (FormFailure y) = FormFailure $ x ++ y
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
+#if MIN_VERSION_base(4,11,0)
 instance Monoid m => Monoid (FormResult m) where
+#else
+instance (Monoid m, Semigroup m) => Monoid (FormResult m) where
+#endif
     mempty = pure mempty
-    mappend x y = mappend <$> x <*> y
+    mappend = (<>)
 instance Semigroup m => Semigroup (FormResult m) where
-    x <> y = (<>) Control.Applicative.<$> x <*> y
+    x <> y = (<>) <$> x <*> y
 
 -- | @since 1.4.5
 instance Data.Foldable.Foldable FormResult where
@@ -174,9 +178,13 @@ instance Monad m => Monad (AForm m) where
           FormFailure err -> pure (FormFailure err, b, ints', c)
           FormMissing -> pure (FormMissing, b, ints', c)
 #endif
+#if MIN_VERSION_base(4,11,0)
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
+#else
+instance (Monad m, Monoid a, Semigroup a) => Monoid (AForm m a) where
+#endif
     mempty = pure mempty
-    mappend a b = mappend <$> a <*> b
+    mappend = (<>)
 instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
     a <> b = (<>) <$> a <*> b
 
