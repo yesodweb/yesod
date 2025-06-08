@@ -90,12 +90,14 @@ injectDefaultP env path p@(OptP o)
   where
     modifyParserI cmd parseri =
         parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
+#if !MIN_VERSION_optparse_applicative(0,18,0)
     cmdMap f cmds =
         let mkCmd cmd =
-                let (Just parseri) = f cmd
-                in  modifyParserI cmd parseri
+                case f cmd of
+                    Nothing -> error "yesod-bin/Options.injectDefaultP: should never happen"
+                    Just parseri -> modifyParserI cmd parseri
         in  M.fromList (map (\c -> (c, mkCmd c)) cmds)
-
+#endif
 
 injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)

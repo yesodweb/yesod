@@ -39,7 +39,11 @@ keter :: String -- ^ cabal command
       -> IO ()
 keter cabal noBuild noCopyTo buildArgs = do
     ketercfg <- keterConfig
+#if MIN_VERSION_yaml(0,8,4)
+    mvalue <- decodeFileEither ketercfg >>= either throwIO pure
+#else
     mvalue <- decodeFile ketercfg
+#endif
     value <-
         case mvalue of
             Nothing -> error "No config/keter.yaml found"
