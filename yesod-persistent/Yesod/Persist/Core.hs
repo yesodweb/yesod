@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Defines the core functionality of this package. This package is
@@ -26,7 +27,6 @@ module Yesod.Persist.Core
 import Database.Persist
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 
-import Data.Foldable (toList)
 import Yesod.Core
 import Data.Conduit
 import Blaze.ByteString.Builder (Builder)
@@ -36,6 +36,7 @@ import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 #if MIN_VERSION_persistent(2,13,0)
+import Data.List.NonEmpty (toList)
 import qualified Database.Persist.SqlBackend.Internal as SQL
 #endif
 
@@ -170,44 +171,46 @@ getBy404 key = do
 -- is violated.
 --
 -- @since 1.4.1
+insert400
+    :: ( MonadIO m
+       , PersistUniqueWrite backend
+       , PersistRecordBackend val backend
 #if MIN_VERSION_persistent(2,14,0)
-insert400
-    :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend, SafeToInsert val)
-    => val
-    -> ReaderT backend m (Key val)
-#else
-insert400
-    :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
-    => val
-    -> ReaderT backend m (Key val)
+       , SafeToInsert val
 #endif
+       )
+    => val
+    -> ReaderT backend m (Key val)
 insert400 datum = do
     conflict <- checkUnique datum
     case conflict of
         Just unique ->
-#if MIN_VERSION_persistent(2, 12, 0)
--- toList is called here because persistent-2.13 changed this
--- to a nonempty list. for versions of persistent prior to 2.13, toList
--- will be a no-op. for persistent-2.13, it'll convert the NonEmptyList to
--- a List.
-            badRequest' $ map (unFieldNameHS . fst) $ toList $ persistUniqueToFieldNames unique
-#else
-            badRequest' $ map (unHaskellName . fst) $ persistUniqueToFieldNames unique
-#endif
+            badRequest' $ map (getName . fst) $ mkList $ persistUniqueToFieldNames unique
         Nothing -> insert datum
+  where
+#if MIN_VERSION_persistent(2,12,0)
+    getName = unFieldNameHS
+#else
+    getName = unHaskellName
+#endif
+#if MIN_VERSION_persistent(2,13,0)
+    mkList = toList
+#else
+    mkList = id
+#endif
 
 -- | Same as 'insert400', but doesn’t return a key.
 --
 -- @since 1.4.1
+insert400_ :: ( MonadIO m
+              , PersistUniqueWrite backend
+              , PersistRecordBackend val backend
 #if MIN_VERSION_persistent(2,14,0)
-insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend, SafeToInsert val)
-           => val
-           -> ReaderT backend m ()
-#else
-insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
-           => val
-           -> ReaderT backend m ()
+              , SafeToInsert val
 #endif
+              )
+           => val
+           -> ReaderT backend m ()
 insert400_ datum = insert400 datum >> return ()
 
 -- | Should be equivalent to @lift . notFound@, but there's an apparent bug in
