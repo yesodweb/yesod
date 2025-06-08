@@ -26,7 +26,6 @@ module Yesod.Form.Types
 import Control.Monad.Trans.RWS (RWST)
 import Control.Monad.Trans.Writer (WriterT)
 import Data.Text (Text)
-import Data.Monoid (Monoid (..))
 import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
@@ -37,7 +36,9 @@ import Control.Monad.Trans.Class
 import Data.String (IsString (..))
 import Yesod.Core
 import qualified Data.Map as Map
+#if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup (Semigroup, (<>))
+#endif
 import Data.Traversable
 import Data.Foldable
 
@@ -63,7 +64,7 @@ instance Control.Applicative.Applicative FormResult where
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
-instance Data.Monoid.Monoid m => Monoid (FormResult m) where
+instance Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
 instance Semigroup m => Semigroup (FormResult m) where

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -14,7 +15,9 @@ import Network.Wai.Test
 import Web.Cookie
 import qualified Data.Map as Map
 import Data.ByteString.Lazy (fromStrict)
-import Data.Monoid ((<>))
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 
 data App = App
 

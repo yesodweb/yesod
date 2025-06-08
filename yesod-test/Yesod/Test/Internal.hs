@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | This module exposes functions that are used internally by yesod-test.
@@ -18,7 +19,9 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as DTLE
 import qualified Yesod.Core.Content as Content
-import Data.Semigroup (Semigroup(..))
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 
 -- | Helper function to get the first 1024 characters of the body, assuming it is UTF-8.
 -- This function is used to preview the body in case of an assertion failure.

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
@@ -289,7 +290,11 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
                      typePlain
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
                      (reqSession req)
+#if MIN_VERSION_wai(3,2,4)
+      fakeWaiRequest = setRequestBodyChunks (pure mempty) Request
+#else
       fakeWaiRequest = Request
+#endif
           { requestMethod  = "POST"
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
@@ -300,7 +305,9 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , remoteHost     = error "runFakeHandler-remoteHost"
           , pathInfo       = ["runFakeHandler", "pathInfo"]
           , queryString    = []
+#if !MIN_VERSION_wai(3,2,4)
           , requestBody    = return mempty
+#endif
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           , requestHeaderRange = Nothing

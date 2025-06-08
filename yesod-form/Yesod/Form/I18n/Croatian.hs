@@ -3,7 +3,6 @@
 module Yesod.Form.I18n.Croatian where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 croatianFormMessage :: FormMessage -> Text

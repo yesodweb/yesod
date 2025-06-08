@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -12,7 +13,9 @@ import Control.Monad.Trans.Reader
 import Control.Concurrent (threadDelay)
 import Data.Time
 import Conduit
-import Data.Monoid ((<>))
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text)
 import UnliftIO.Exception (try, SomeException)

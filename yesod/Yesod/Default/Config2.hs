@@ -29,7 +29,9 @@ module Yesod.Default.Config2
 
 import Data.Yaml.Config
 
+#if !MIN_VERSION_base(4,11,0)
 import Data.Semigroup
+#endif
 import Data.Aeson
 import System.Environment (getEnvironment)
 import Network.Wai (Application)

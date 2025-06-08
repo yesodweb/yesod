@@ -19,7 +19,9 @@ import System.Process
 import Control.Monad
 import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe,isJust,maybeToList)
-import Data.Monoid
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 import System.FilePath ((</>))
 import qualified Codec.Archive.Tar as Tar
 import Control.Exception
@@ -94,7 +96,7 @@ keter cabal noBuild noCopyTo buildArgs = do
             useStack = inStackExec || isJust mStackYaml || stackQueryRunSuccess
 
         if useStack
-            then do let stackYaml = maybeToList $ fmap ("--stack-yaml="<>) mStackYaml
+            then do let stackYaml = maybeToList $ fmap ("--stack-yaml=" <>) mStackYaml
                         localBinPath = cwd' </> "dist/bin"
                     run "stack" $ stackYaml <> ["clean"]
                     createDirectoryIfMissing True localBinPath

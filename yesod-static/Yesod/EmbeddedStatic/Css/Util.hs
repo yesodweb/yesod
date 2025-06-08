@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -9,7 +10,9 @@ module Yesod.EmbeddedStatic.Css.Util where
 import Control.Applicative
 import Control.Monad (void, foldM)
 import Data.Hashable (Hashable)
-import Data.Monoid
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup ((<>))
+#endif
 import Network.Mime (MimeType, defaultMimeLookup)
 import Text.CSS.Parse (parseBlocks)
 import Language.Haskell.TH (litE, stringL)

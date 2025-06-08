@@ -3,11 +3,10 @@
 module Yesod.Form.I18n.Japanese where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 japaneseFormMessage :: FormMessage -> Text
-japaneseFormMessage (MsgInvalidInteger t) = "無効な整数です: " `Data.Monoid.mappend` t
+japaneseFormMessage (MsgInvalidInteger t) = "無効な整数です: " `mappend` t
 japaneseFormMessage (MsgInvalidNumber t) = "無効な数値です: " `mappend` t
 japaneseFormMessage (MsgInvalidEntry t) = "無効な入力です: " `mappend` t
 japaneseFormMessage MsgInvalidTimeFormat = "無効な時刻です。HH:MM[:SS]フォーマットで入力してください"

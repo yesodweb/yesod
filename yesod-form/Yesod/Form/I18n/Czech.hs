@@ -3,11 +3,10 @@
 module Yesod.Form.I18n.Czech where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 czechFormMessage :: FormMessage -> Text
-czechFormMessage (MsgInvalidInteger t) = "Neplatné celé číslo: " `Data.Monoid.mappend` t
+czechFormMessage (MsgInvalidInteger t) = "Neplatné celé číslo: " `mappend` t
 czechFormMessage (MsgInvalidNumber t) = "Neplatné číslo: " `mappend` t
 czechFormMessage (MsgInvalidEntry t) = "Neplatná položka: " `mappend` t
 czechFormMessage MsgInvalidTimeFormat = "Neplatný čas, musí být ve formátu HH:MM[:SS]"

@@ -25,7 +25,7 @@ library
                    , data-default-class
                    , directory
                    , fast-logger
-                   , file-embed
+                   , file-embed                >= 0.0.10
                    , monad-logger
                    , shakespeare
                    , streaming-commons

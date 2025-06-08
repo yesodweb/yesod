@@ -455,12 +455,3 @@ genSaltRandom gen = (salt, newgen)
               where (a, g') = randomR ('\NUL', '\255') g
           salt   = makeSalt $ B.pack $ map fst (rands gen 16)
           newgen = snd $ last (rands gen 16)
-
-#if !MIN_VERSION_base(4, 6, 0)
--- | Strict version of 'modifySTRef'
-modifySTRef' :: STRef s a -> (a -> a) -> ST s ()
-modifySTRef' ref f = do
-    x <- readSTRef ref
-    let x' = f x
-    x' `seq` writeSTRef ref x'
-#endif

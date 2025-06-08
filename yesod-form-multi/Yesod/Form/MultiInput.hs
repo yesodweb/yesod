@@ -7,6 +7,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+#if !MIN_VERSION_shakespeare(2,0,18)
+{-# OPTIONS_GHC -Wno-orphans #-}
+#endif
 
 -- | A module providing a means of creating multiple input forms without
 -- the need to submit the form to generate a new input field unlike
@@ -35,13 +38,10 @@ import Yesod.Form.Fields (intField)
 import Yesod.Form.Functions
 import Yesod.Form.Types
 
-#ifdef MIN_VERSION_shakespeare(2,0,18)
-#if MIN_VERSION_shakespeare(2,0,18)
-#else
+#if !MIN_VERSION_shakespeare(2,0,18)
 import Text.Julius (ToJavascript (..))
 instance ToJavascript String where toJavascript = toJavascript . toJSON
 instance ToJavascript Text where toJavascript = toJavascript . toJSON
-#endif
 #endif
 
 -- | By default delete buttons have a @margin-left@ property of @0.75rem@.
