@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module YesodCoreTest.LiteApp (specs) where
 
 import Yesod.Core

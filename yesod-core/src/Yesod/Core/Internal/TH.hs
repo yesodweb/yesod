@@ -219,8 +219,11 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
-    let appCxt = fmap (\(c:rest) ->
-            foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
+    let appCxt = fmap (\ctxs ->
+            case ctxs of
+                c:rest ->
+                    foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
+                [] -> error $ "Bad context: " ++ show ctxs
           ) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of

@@ -6,6 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TypeOperators #-}
 
 module YesodCoreTest.NoOverloadedStrings
     ( noOverloadedTest
