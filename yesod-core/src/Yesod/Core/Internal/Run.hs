@@ -290,29 +290,12 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
                      typePlain
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
                      (reqSession req)
-#if MIN_VERSION_wai(3,2,4)
-      fakeWaiRequest = setRequestBodyChunks (pure mempty) Request
-#else
-      fakeWaiRequest = Request
-#endif
+      fakeWaiRequest = defaultRequest
           { requestMethod  = "POST"
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
-          , rawQueryString = ""
-          , requestHeaderHost = Nothing
-          , requestHeaders = []
-          , isSecure       = False
           , remoteHost     = error "runFakeHandler-remoteHost"
           , pathInfo       = ["runFakeHandler", "pathInfo"]
-          , queryString    = []
-#if !MIN_VERSION_wai(3,2,4)
-          , requestBody    = return mempty
-#endif
-          , vault          = mempty
-          , requestBodyLength = KnownLength 0
-          , requestHeaderRange = Nothing
-          , requestHeaderReferer = Nothing
-          , requestHeaderUserAgent = Nothing
           }
       fakeRequest =
         YesodRequest
