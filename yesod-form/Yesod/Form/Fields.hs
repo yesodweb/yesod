@@ -113,7 +113,7 @@ import qualified Data.Map as Map
 import Yesod.Persist (selectList, Filter, SelectOpt, Key)
 import Control.Arrow ((&&&))
 
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 
 import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
@@ -343,7 +343,7 @@ timeParser = do
   where
     hour = do
         x <- digit
-        y <- (return Control.Applicative.<$> digit) <|> return []
+        y <- (return <$> digit) <|> return []
         let xy = x : y
         let i = read xy
         if i < 0 || i >= 24

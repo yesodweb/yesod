@@ -10,7 +10,6 @@ import Yesod.Core
 import Yesod.Form
 import Yesod.Form.Nic
 import Yesod.Form.MassInput
-import Control.Applicative
 import Data.Text (Text, pack)
 import Network.Wai.Handler.Warp (run)
 import Data.Time (utctDay, getCurrentTime)

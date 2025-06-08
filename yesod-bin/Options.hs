@@ -4,7 +4,6 @@
 
 module Options (injectDefaults) where
 
-import           Control.Applicative
 import qualified Control.Exception         as E
 import           Control.Monad
 import           Control.Monad.Trans.Except
