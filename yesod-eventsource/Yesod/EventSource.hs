@@ -11,7 +11,6 @@ module Yesod.EventSource
 
 import Blaze.ByteString.Builder (Builder)
 import Control.Monad (when)
-import Data.Functor ((<$>))
 import Yesod.Core
 import Data.Conduit
 import qualified Network.Wai as W
@@ -24,7 +23,7 @@ import qualified Network.Wai.EventSource.EventStream as ES
 -- set any necessary headers.
 prepareForEventSource :: MonadHandler m => m EventSourcePolyfill
 prepareForEventSource = do
-  reqWith <- lookup "X-Requested-With" . W.requestHeaders Data.Functor.<$> waiRequest
+  reqWith <- lookup "X-Requested-With" . W.requestHeaders <$> waiRequest
   let polyfill | reqWith == Just "XMLHttpRequest" = Remy'sESPolyfill
                | otherwise                        = NoESPolyfill
   addHeader "Cache-Control" "no-cache" -- extremely important!

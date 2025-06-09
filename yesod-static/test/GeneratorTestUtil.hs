@@ -4,7 +4,6 @@
 
 module GeneratorTestUtil where
 
-import Control.Applicative
 import Control.Monad (when)
 import Data.List (sortBy)
 import Language.Haskell.TH
@@ -25,7 +24,7 @@ data GenTestResult = GenError String
 
 -- | Creates a GenTestResult at compile time by testing the entry.
 testEntry :: Maybe String -> Y.Location -> IO BL.ByteString -> Entry -> ExpQ
-testEntry name _ _ e | ebHaskellName e /= (mkName Control.Applicative.<$> name) =
+testEntry name _ _ e | ebHaskellName e /= (mkName <$> name) =
     [| GenError ("haskell name " ++ $(litE $ stringL $ show $ ebHaskellName e)
                                  ++ " /= "
                                  ++ $(litE $ stringL $ show name)) |]

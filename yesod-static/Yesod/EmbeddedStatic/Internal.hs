@@ -16,7 +16,6 @@ module Yesod.EmbeddedStatic.Internal (
     , widgetSettings
 ) where
 
-import Control.Applicative as A ((<$>))
 import Data.IORef
 import Language.Haskell.TH
 import Network.HTTP.Types (Status(..), status404, status200, status304)
@@ -134,7 +133,7 @@ staticContentHelper :: (site -> EmbeddedStatic)
                     -> (BL.ByteString -> Either a BL.ByteString)
                     -> AddStaticContent site
 staticContentHelper getStatic staticR minify ext _ ct = do
-    wIORef <- widgetFiles . getStatic A.<$> getYesod
+    wIORef <- widgetFiles . getStatic <$> getYesod
     let hash = T.pack $ base64md5 ct
         hash' = Just $ T.encodeUtf8 hash
         filename = T.concat [hash, ".", ext]

@@ -87,7 +87,7 @@ import Data.Text (Text, pack)
 import qualified Data.Text as T
 import qualified Data.Map as M
 import Data.IORef (readIORef, newIORef, writeIORef)
-import Data.Char (isLower, isDigit)
+import Data.Char (isLower)
 import Data.List (foldl')
 import qualified Data.ByteString as S
 import System.PosixCompat.Files (getFileStatus, modificationTime)
@@ -392,11 +392,10 @@ mkStaticFilesList' fp fs makeHash = do
     mkRoute (alias, f) = do
         let name' = intercalate "_" $ map (map replace') alias
             routeName = mkName $
-                case () of
-                    ()
-                        | null name' -> error "null-named file"
-                        | isDigit (head name') -> '_' : name'
-                        | isLower (head name') -> name'
+                case name' of
+                    [] -> error "null-named file"
+                    n : _
+                        | isLower n -> name'
                         | otherwise -> '_' : name'
         f' <- [|map pack $(TH.lift f)|]
         qs <- if makeHash

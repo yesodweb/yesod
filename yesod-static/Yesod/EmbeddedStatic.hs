@@ -49,7 +49,6 @@ module Yesod.EmbeddedStatic (
   , module Yesod.EmbeddedStatic.Generators
 ) where
 
-import Control.Applicative as A ((<$>))
 import Data.IORef
 import Data.Maybe (catMaybes)
 import Language.Haskell.TH
@@ -132,7 +131,7 @@ mkEmbeddedStatic :: Bool -- ^ development?
                  -> [Generator] -- ^ the generators (see "Yesod.EmbeddedStatic.Generators")
                  -> Q [Dec]
 mkEmbeddedStatic dev esName gen = do
-    entries <- concat A.<$> sequence gen
+    entries <- concat <$> sequence gen
     computed <- runIO $ mapM (if dev then devEmbed else prodEmbed) entries
 
     let settings = Static.mkSettings $ return $ map cStEntry computed
