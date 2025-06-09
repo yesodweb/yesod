@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 module Yesod.Core.Internal.Util
     ( putTime
     , getTime

@@ -120,9 +120,6 @@ import Yesod.Persist.Core
 
 import Data.String (IsString)
 
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
 
 import Data.Char (isHexDigit)
 

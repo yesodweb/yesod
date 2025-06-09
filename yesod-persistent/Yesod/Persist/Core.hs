@@ -38,9 +38,6 @@ import qualified Database.Persist.Sql as SQL
 #if MIN_VERSION_persistent(2,13,0)
 import qualified Database.Persist.SqlBackend.Internal as SQL
 #endif
-#if MIN_VERSION_persistent(2,14,0)
-import Database.Persist.Class.PersistEntity
-#endif
 
 unSqlPersistT :: a -> a
 unSqlPersistT = id
@@ -100,15 +97,9 @@ newtype DBRunner site = DBRunner
 -- | Helper for implementing 'getDBRunner'.
 --
 -- Since 1.2.0
-#if MIN_VERSION_persistent(2,5,0)
 defaultGetDBRunner :: (SQL.IsSqlBackend backend, YesodPersistBackend site ~ backend)
                    => (site -> Pool backend)
                    -> HandlerFor site (DBRunner site, HandlerFor site ())
-#else
-defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
-                   => (site -> Pool SQL.SqlBackend)
-                   -> HandlerFor site (DBRunner site, HandlerFor site ())
-#endif
 defaultGetDBRunner getPool = do
     pool <- fmap getPool getYesod
     let withPrep conn f = f (persistBackend conn) (SQL.getStmtConn $ persistBackend conn)
@@ -154,15 +145,9 @@ respondSourceDB :: YesodPersistRunner site
 respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
-#if MIN_VERSION_persistent(2,5,0)
 get404 :: (MonadIO m, PersistStoreRead backend, PersistRecordBackend val backend)
        => Key val
        -> ReaderT backend m val
-#else
-get404 :: (MonadIO m, PersistStore (PersistEntityBackend val), PersistEntity val)
-       => Key val
-       -> ReaderT (PersistEntityBackend val) m val
-#endif
 get404 key = do
     mres <- get key
     case mres of
@@ -171,15 +156,9 @@ get404 key = do
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
-#if MIN_VERSION_persistent(2,5,0)
 getBy404 :: (PersistUniqueRead backend, PersistRecordBackend val backend, MonadIO m)
          => Unique val
          -> ReaderT backend m (Entity val)
-#else
-getBy404 :: (PersistUnique (PersistEntityBackend val), PersistEntity val, MonadIO m)
-         => Unique val
-         -> ReaderT (PersistEntityBackend val) m (Entity val)
-#endif
 getBy404 key = do
     mres <- getBy key
     case mres of
@@ -196,16 +175,11 @@ insert400
     :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend, SafeToInsert val)
     => val
     -> ReaderT backend m (Key val)
-#elif MIN_VERSION_persistent(2,5,0)
+#else
 insert400
     :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
     => val
     -> ReaderT backend m (Key val)
-#else
-insert400
-    :: (MonadIO m, PersistUnique (PersistEntityBackend val), PersistEntity val)
-    => val
-    -> ReaderT (PersistEntityBackend val) m (Key val)
 #endif
 insert400 datum = do
     conflict <- checkUnique datum
@@ -229,15 +203,10 @@ insert400 datum = do
 insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend, SafeToInsert val)
            => val
            -> ReaderT backend m ()
-
-#elif MIN_VERSION_persistent(2,5,0)
+#else
 insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
            => val
            -> ReaderT backend m ()
-#else
-insert400_ :: (MonadIO m, PersistUnique (PersistEntityBackend val), PersistEntity val)
-           => val
-           -> ReaderT (PersistEntityBackend val) m ()
 #endif
 insert400_ datum = insert400 datum >> return ()
 

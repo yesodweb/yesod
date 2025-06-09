@@ -195,7 +195,7 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
             _ -> fail "Expected map"
 
     let host    = fromString $ T.unpack $ fromMaybe "*" $ lookupScalar "host"    m
-    mport <- parseMonad (\x -> x .: "port") m
+    mport <- parseEitherM (\x -> x .: "port") m
     let approot' = fromMaybe "" $ lookupScalar "approot" m
 
     -- Handle the DISPLAY_PORT environment variable for yesod devel
@@ -208,7 +208,7 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
                     Nothing -> return approot'
                     Just p -> return $ prefix `T.append` T.pack (':' : p)
 
-    extra <- parseMonad (parseExtra env) m
+    extra <- parseEitherM (parseExtra env) m
 
     -- set some default arguments
     let port' = fromMaybe 80 mport
@@ -244,5 +244,9 @@ withYamlEnvironment fp env f = do
         Left err ->
           fail $ "Invalid YAML file: " ++ show fp ++ " " ++ prettyPrintParseException err
         Right (Object obj)
-            | Just v <- M.lookup (fromString $ show env) obj -> parseMonad f v
+            | Just v <- M.lookup (fromString $ show env) obj -> parseEitherM f v
         _ -> fail $ "Could not find environment: " ++ show env
+
+-- | Replacement for `parseMonad`
+parseEitherM :: (a -> Parser b) -> a -> IO b
+parseEitherM p = either fail pure . parseEither p

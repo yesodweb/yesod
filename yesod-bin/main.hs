@@ -1,9 +1,7 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Main (main) where
 
-import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
 import           System.Exit            (exitFailure)

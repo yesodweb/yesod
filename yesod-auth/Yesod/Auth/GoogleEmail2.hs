@@ -89,7 +89,6 @@ import           Data.Aeson.Types            (FromJSON (parseJSON), parseEither,
 import           Data.Conduit
 import           Data.Conduit.Attoparsec     (sinkParser)
 import           Data.Maybe                  (fromMaybe)
-import           Data.Monoid                 (mappend)
 import           Data.Text                   (Text)
 import qualified Data.Text                   as T
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
@@ -189,7 +188,7 @@ authPlugin storeToken clientID clientSecret =
         return $ decodeUtf8
                $ toByteString
                $ fromByteString "https://accounts.google.com/o/oauth2/auth"
-                    `Data.Monoid.mappend` renderQueryText True qs
+                    `mappend` renderQueryText True qs
 
     login tm = do
         [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]

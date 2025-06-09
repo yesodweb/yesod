@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.23.1
+
+* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
+
 ## 1.6.23
 
 * Add `MonadFail` to `SIO` so tests can fail on pattern match failure. [#1874](https://github.com/yesodweb/yesod/pull/1874)

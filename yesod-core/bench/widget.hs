@@ -9,7 +9,6 @@ import Gauge.Main
 import Text.Hamlet
 import qualified Data.ByteString.Lazy as L
 import qualified Text.Blaze.Html.Renderer.Utf8 as Utf8
-import Data.Monoid (mconcat)
 import Text.Blaze.Html5 (table, tr, td)
 import Text.Blaze.Html (toHtml)
 import Data.Int
@@ -64,6 +63,6 @@ bigTableWidget rows = fmap (L.length . Utf8.renderHtml . ($ render)) (run [whaml
     -}
 
 bigTableBlaze :: Show a => [[a]] -> Int64
-bigTableBlaze t = L.length $ Utf8.renderHtml $ table $ Data.Monoid.mconcat $ map row t
+bigTableBlaze t = L.length $ Utf8.renderHtml $ table $ concatMap row t
   where
-    row r = tr $ mconcat $ map (td . toHtml . show) r
+    row r = tr $ concatMap (td . toHtml . show) r

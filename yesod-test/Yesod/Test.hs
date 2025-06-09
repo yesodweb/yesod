@@ -268,16 +268,7 @@ import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
 import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
-import Data.Monoid (mempty)
-#if MIN_VERSION_base(4,9,0)
 import GHC.Stack (HasCallStack)
-#elif MIN_VERSION_base(4,8,1)
-import GHC.Stack (CallStack)
-type HasCallStack = (?callStack :: CallStack)
-#else
-import GHC.Exts (Constraint)
-type HasCallStack = (() :: Constraint)
-#endif
 import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
 import Data.Aeson (eitherDecode')
@@ -1427,7 +1418,7 @@ getLocation = do
   where decodePath b = let (x, y) = BS8.break (=='?') b
                        in (H.decodePathSegments x, unJust <$> H.parseQueryText y)
         unJust (a, Just b) = (a, b)
-        unJust (a, Nothing) = (a, Data.Monoid.mempty)
+        unJust (a, Nothing) = (a, mempty)
 
 -- | Sets the HTTP method used by the request.
 --

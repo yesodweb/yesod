@@ -30,14 +30,13 @@ import           Data.Time                             (getCurrentTime)
 import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
 #if MIN_VERSION_Cabal(3,8,0)
-import qualified Distribution.Simple.PackageDescription as D
-#endif
-#if MIN_VERSION_Cabal(2, 2, 0)
-import qualified Distribution.PackageDescription.Parsec as D
+import qualified Distribution.Simple.PackageDescription as D (readGenericPackageDescription)
+#elif MIN_VERSION_Cabal(2, 2, 0)
+import qualified Distribution.PackageDescription.Parsec as D (readGenericPackageDescription)
 #else
-import qualified Distribution.PackageDescription.Parse as D
+import qualified Distribution.PackageDescription.Parse as D (readGenericPackageDescription)
 #endif
-import qualified Distribution.Simple.Utils             as D
+import qualified Distribution.Simple.Utils             as D (tryFindPackageDesc)
 import qualified Distribution.Verbosity                as D
 import           Network.HTTP.Client                   (newManager)
 import           Network.HTTP.Client                   (managerSetProxy,
@@ -309,7 +308,7 @@ devel opts passThroughArgs = do
 
     let pd = D.packageDescription gpd
         D.PackageIdentifier packageNameWrapped _version = D.package pd
-#if MIN_VERSION_Cabal(2, 0, 0)
+#if MIN_VERSION_Cabal(1, 22, 0)
         packageName = D.unPackageName packageNameWrapped
 #else
         D.PackageName packageName = packageNameWrapped

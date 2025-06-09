@@ -2,7 +2,6 @@
 
 import Yesod.Core
 import Data.Aeson
-import Data.Monoid ((<>))
 import Data.Text (Text, pack)
 
 people :: [(Text, Int)]

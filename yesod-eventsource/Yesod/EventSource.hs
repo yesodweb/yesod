@@ -12,7 +12,6 @@ module Yesod.EventSource
 import Blaze.ByteString.Builder (Builder)
 import Control.Monad (when)
 import Data.Functor ((<$>))
-import Data.Monoid (Monoid (..))
 import Yesod.Core
 import Data.Conduit
 import qualified Network.Wai as W
@@ -91,7 +90,7 @@ pollingEventSource initial act = do
       -- when we the connection should be closed.
       joinEvents (ev:evs) acc =
         case ES.eventToBuilder ev of
-          Just b  -> joinEvents evs (acc `Data.Monoid.mappend` b)
+          Just b  -> joinEvents evs (acc `mappend` b)
           Nothing -> (fst $ joinEvents [] acc, False)
       joinEvents [] acc = (acc, True)
 

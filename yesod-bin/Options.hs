@@ -14,7 +14,6 @@ import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (mapMaybe)
-import           Data.Monoid
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory

@@ -27,7 +27,6 @@ import Control.Exception (SomeException, try, AsyncException(..))
 import           UnliftIO.Exception(finally)
 import Network.HTTP.Types (Status, mkStatus)
 import Data.ByteString.Builder (Builder, toLazyByteString)
-import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
 import qualified Network.Wai.Handler.Warp as Warp
@@ -125,7 +124,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
+goodBuilderContent = mconcat $ replicate 100 $ "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent

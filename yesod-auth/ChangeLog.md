@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.12.1
+
+* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
+
 ## 1.6.12.0
 
 * Add `afterPasswordRouteHandler` [#1863](https://github.com/yesodweb/yesod/pull/1863)

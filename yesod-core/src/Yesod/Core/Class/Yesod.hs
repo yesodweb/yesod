@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Yesod.Core.Class.Yesod where
@@ -26,7 +25,7 @@ import Data.Aeson (object, (.=))
 import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
 import           Data.Maybe                         (catMaybes)
-import           Data.Monoid
+import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import qualified Data.Text.Encoding                 as TE

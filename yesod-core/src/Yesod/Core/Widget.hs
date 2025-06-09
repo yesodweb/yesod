@@ -57,7 +57,7 @@ module Yesod.Core.Widget
     , asWidgetT
     ) where
 
-import Data.Monoid
+import Data.Monoid (Last (..))
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
