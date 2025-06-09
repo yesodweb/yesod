@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Yesod.Default.Config
     ( DefaultEnv (..)
@@ -19,7 +20,15 @@ module Yesod.Default.Config
 import Data.Char (toUpper)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Yaml
+import Data.Yaml (
+    Object,
+    Parser,
+    Value (..),
+    decodeFileEither,
+    parseEither,
+    prettyPrintParseException,
+    (.:)
+ )
 import Data.Maybe (fromMaybe)
 import System.Environment (getArgs, getProgName, getEnvironment)
 import System.Exit (exitFailure)
@@ -45,9 +54,9 @@ data ArgConfig env = ArgConfig
     , port        :: Int
     } deriving Show
 
-parseArgConfig :: (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
+parseArgConfig :: forall env. (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
 parseArgConfig = do
-    let envs = [minBound..maxBound]
+    let envs = [minBound..maxBound] :: [env]
     args <- getArgs
     (portS, args') <- getPort id args
     portI <-
@@ -58,10 +67,7 @@ parseArgConfig = do
         [e] -> do
             case reads $ capitalize e of
                 (e', _):_ -> return $ ArgConfig e' portI
-                [] -> do
-                    () <- error $ "Invalid environment, valid entries are: " ++ show envs
-                    -- next line just provided to force the type of envs
-                    return $ ArgConfig (head envs) 0
+                [] -> error $ "Invalid environment, valid entries are: " ++ show envs
         _ -> do
             pn <- getProgName
             putStrLn $ "Usage: " ++ pn ++ " <environment> [--port <port>]"
