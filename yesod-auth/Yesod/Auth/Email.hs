@@ -118,7 +118,6 @@ module Yesod.Auth.Email
     , defaultRegisterHelper
     ) where
 
-import           Control.Applicative           ((<$>), (<*>))
 import qualified Crypto.Hash                   as H
 import qualified Crypto.Nonce                  as Nonce
 import           Data.Aeson.Types              (Parser, Result (..), parseMaybe,
@@ -493,8 +492,7 @@ defaultEmailLoginHandler toParent = do
         passwordMsg <- renderMessage' Msg.Password
         (passwordRes, passwordView) <- mreq passwordField (passwordSettings passwordMsg) Nothing
 
-        let userRes = UserLoginForm Control.Applicative.<$> emailRes
-                                    Control.Applicative.<*> passwordRes
+        let userRes = UserLoginForm <$> emailRes <*> passwordRes
         let widget = do
               [whamlet|
                   #{extra}

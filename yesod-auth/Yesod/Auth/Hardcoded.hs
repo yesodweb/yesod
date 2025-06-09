@@ -138,8 +138,6 @@ import           Yesod.Auth          (AuthHandler, AuthPlugin (..), AuthRoute,
 import qualified Yesod.Auth.Message  as Msg
 import           Yesod.Core
 import           Yesod.Form          (ireq, runInputPost, textField)
-
-import           Control.Applicative ((<$>), (<*>))
 import           Data.Text           (Text)
 
 
@@ -188,8 +186,8 @@ postLoginR :: YesodAuthHardcoded site
            => AuthHandler site TypedContent
 postLoginR =
   do (username, password) <- runInputPost
-       ((,) Control.Applicative.<$> ireq textField "username"
-            Control.Applicative.<*> ireq textField "password")
+       ((,) <$> ireq textField "username"
+            <*> ireq textField "password")
      isValid <- validatePassword username password
      if isValid
         then setCredsRedirect (Creds "hardcoded" username [])
