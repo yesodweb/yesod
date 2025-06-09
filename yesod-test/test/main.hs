@@ -29,7 +29,6 @@ import Yesod.Test.TransversingCSS
 import Text.XML
 import Data.Text (Text, pack)
 import Data.Char (toUpper)
-import Control.Applicative
 import Network.Wai (pathInfo, rawQueryString, requestHeaders)
 import Network.Wai.Test (SResponse(simpleBody))
 import Numeric (showHex)
@@ -601,7 +600,7 @@ app = liteApp $ do
         ((mfoo, widget), _) <- runFormPost
                         $ renderDivs
                         $ (,)
-                      Control.Applicative.<$> areqMsg textField "Some Label" ("Missing Label" :: SomeMessage LiteApp) Nothing
+                      <$> areqMsg textField "Some Label" ("Missing Label" :: SomeMessage LiteApp) Nothing
                       <*> areq fileField "Some File" Nothing
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
@@ -612,7 +611,7 @@ app = liteApp $ do
           (field2F, field2V) <- mreq fileField "Some MFile" Nothing
 
           return
-            ( (,) Control.Applicative.<$> field1F <*> field2F
+            ( (,) <$> field1F <*> field2F
             , [field1V, field2V]
             )
         case mfoo of
@@ -623,7 +622,7 @@ app = liteApp $ do
           field1F <- wreqMsg textField "Some WLabel" ("Missing WLabel" :: SomeMessage LiteApp) Nothing
           field2F <- wreq fileField "Some WFile" Nothing
 
-          return $ (,) Control.Applicative.<$> field1F <*> field2F
+          return $ (,) <$> field1F <*> field2F
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
             _                    -> defaultLayout widget

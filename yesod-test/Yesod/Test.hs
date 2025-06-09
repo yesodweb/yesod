@@ -266,7 +266,6 @@ import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
-import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
 import GHC.Stack (HasCallStack)
 import Data.ByteArray.Encoding (convertToBase, Base(..))
@@ -1245,10 +1244,15 @@ fileByLabelSuffix = fileByLabelWithMatch T.isSuffixOf
 -- >   addToken_ "#formID"
 addToken_ :: HasCallStack => Query -> RequestBuilder site ()
 addToken_ scope = do
-  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> " input[name=_token][type=hidden][value]"
+  matches <-
+    htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $
+      scope <> " input[name=_token][type=hidden][value]"
   case matches of
+    [element] ->
+      case attribute "value" $ parseHTML element of
+        [] -> failure "Expected at least one value in 'value' attribute"
+        valAttr : _ -> addPostParam "_token" valAttr
     [] -> failure $ "No CSRF token found in the current page"
-    element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
     _ -> failure $ "More than one CSRF token found in the page"
 
 -- | For responses that display a single form, just lookup the only CSRF token available.
@@ -1313,7 +1317,7 @@ addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
 getRequestCookies :: HasCallStack => RequestBuilder site Cookies
 getRequestCookies = do
   requestBuilderData <- getSIO
-  headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
+  headers <- case simpleHeaders <$> rbdResponse requestBuilderData of
                   Just h -> return h
                   Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
 
