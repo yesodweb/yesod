@@ -140,7 +140,6 @@ import           Yesod.Auth
 import qualified Yesod.Auth.Message            as Msg
 import qualified Yesod.Auth.Util.PasswordStore as PS
 import           Yesod.Core
-import           Yesod.Core.Types              (TypedContent (TypedContent))
 import           Yesod.Form
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
@@ -626,13 +625,13 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                             return $ Just (lid, False, key, identifier)
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
-                Just creds@(_, False, _, _) -> sendConfirmationEmail creds
-                Just creds@(_, True, _, _) -> do
+                Just regCreds@(_, False, _, _) -> sendConfirmationEmail regCreds
+                Just regCreds@(_, True, _, _) -> do
                   if forgotPassword
-                    then sendConfirmationEmail creds
+                    then sendConfirmationEmail regCreds
                     else case emailPreviouslyRegisteredResponse identifier of
                       Just response -> response
-                      Nothing       -> sendConfirmationEmail creds
+                      Nothing       -> sendConfirmationEmail regCreds
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
@@ -936,11 +935,10 @@ postPasswordR = do
                   Left e -> loginErrorMessage (tm setpassR) e
                   Right () -> do
                      salted <- hashAndSaltPassword new
-                     y <- do
-                                setPassword aid salted
-                                deleteSession loginLinkKey
-                                addMessageI "success" msgOk
-                                getYesod
+                     setPassword aid salted
+                     deleteSession loginLinkKey
+                     addMessageI "success" msgOk
+                     _ <- getYesod
 
                      mr <- getMessageRender
                      selectRep $ do
