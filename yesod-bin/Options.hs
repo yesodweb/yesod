@@ -14,9 +14,6 @@ import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (mapMaybe)
-#if !MIN_VERSION_base(4,11,0)
-import           Data.Semigroup ((<>))
-#endif
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory

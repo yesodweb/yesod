@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -30,9 +29,6 @@ import Yesod.Test.TransversingCSS
 import Text.XML
 import Data.Text (Text, pack)
 import Data.Char (toUpper)
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup ((<>))
-#endif
 import Control.Applicative
 import Network.Wai (pathInfo, rawQueryString, requestHeaders)
 import Network.Wai.Test (SResponse(simpleBody))

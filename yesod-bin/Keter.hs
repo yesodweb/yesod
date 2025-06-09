@@ -19,9 +19,6 @@ import System.Process
 import Control.Monad
 import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe,isJust,maybeToList)
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup ((<>))
-#endif
 import System.FilePath ((</>))
 import qualified Codec.Archive.Tar as Tar
 import Control.Exception

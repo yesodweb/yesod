@@ -268,9 +268,6 @@ import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
 import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup ((<>))
-#endif
 import GHC.Stack (HasCallStack)
 import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)

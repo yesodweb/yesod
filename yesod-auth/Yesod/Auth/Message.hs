@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Yesod.Auth.Message
     ( AuthMessage (..)
@@ -24,9 +23,6 @@ module Yesod.Auth.Message
     , romanianMessage
     ) where
 
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup ((<>))
-#endif
 import Data.Text (Text)
 
 data AuthMessage =

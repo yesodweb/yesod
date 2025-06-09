@@ -36,9 +36,6 @@ import Control.Monad.Trans.Class
 import Data.String (IsString (..))
 import Yesod.Core
 import qualified Data.Map as Map
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup (Semigroup, (<>))
-#endif
 import Data.Traversable
 import Data.Foldable
 
@@ -106,9 +103,6 @@ instance ToValue Enctype where
     toValue Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
-#if !(MIN_VERSION_base(4,11,0))
-    mappend = (<>)
-#endif
 instance Semigroup Enctype where
     UrlEncoded <> UrlEncoded = UrlEncoded
     _          <> _          = Multipart

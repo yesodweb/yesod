@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-form
-version:         1.7.9
+version:         1.7.9.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -20,7 +20,7 @@ flag network-uri
 
 library
     default-language: Haskell2010
-    build-depends:   base                  >= 4.10     && < 5
+    build-depends:   base                  >= 4.11     && < 5
                    , aeson
                    , attoparsec            >= 0.10
                    , blaze-builder         >= 0.2.1.4

@@ -1,8 +1,6 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Yesod.Core.Class.Yesod where
@@ -28,9 +26,6 @@ import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
 import           Data.Maybe                         (catMaybes)
 import           Data.Monoid                        (Last (..))
-#if !MIN_VERSION_base(4,11,0)
-import           Data.Semigroup                     ((<>))
-#endif
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import qualified Data.Text.Encoding                 as TE
