@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -7,9 +6,6 @@
 import Data.Conduit
 import qualified Data.Conduit.Binary as CB
 import Control.Concurrent.Lifted (threadDelay)
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup ((<>))
-#endif
 import qualified Data.Text as T
 import Control.Monad (forM_)
 
