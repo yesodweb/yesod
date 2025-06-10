@@ -54,7 +54,7 @@ data Selector
   | ByAttrContains Text Text
   | ByAttrStarts Text Text
   | ByAttrEnds Text Text
-  | Asterisk  -- TODO: This needs to be deep.
+  | Asterisk
   deriving (Show, Eq)
 
 
@@ -78,14 +78,14 @@ parseQuery = parseOnly cssQuery
 
 -- Below this line is the Parsec parser for css queries.
 cssQuery :: Parser [[SelectorGroup]]
-cssQuery = many (char ' ') >> sepBy rules (char ',' >> many (char ' '))
+cssQuery = (many (char ' ') >> sepBy rules (char ',' >> many (char ' ')))
 
 rules :: Parser [SelectorGroup]
 rules = many $ directChildren <|> deepChildren
 
 directChildren :: Parser SelectorGroup
 directChildren =
-    string "> " >> (many (char ' ')) >> DirectChildren <$> pOptionalTrailingSpace parseSelectorTypes
+    string "> " >> many (char ' ') >> DirectChildren <$> pOptionalTrailingSpace parseSelectorTypes
 
 deepChildren :: Parser SelectorGroup
 deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectorTypes

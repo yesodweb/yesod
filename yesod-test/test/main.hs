@@ -130,6 +130,8 @@ main = hspec $ do
             findBySelector_ html "p:nth-child(-n-1)" @?= []
             findBySelector_ html "p:nth-child(-n-0)" @?= []
             findBySelector_ html "p:nth-child(-n+3)" @?= ["<p>1</p>", "<p>2</p>", "<p>3</p>"]
+            let ps = ["<p>" <> show n <> "</p>" | n <- [1..10]] in
+              findBySelector_ html "*" @?= ["<html>" <> concat ps <> "</html>"] <> ps
         
     describe "HTML parsing" $ do
         it "XHTML" $

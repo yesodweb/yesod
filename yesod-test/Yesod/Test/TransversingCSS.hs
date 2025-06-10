@@ -89,7 +89,7 @@ runQuery html query = concatMap (runGroup html) query
 runGroup :: Cursor -> [SelectorGroup] -> [Cursor]
 runGroup c [] = [c]
 runGroup c (DirectChildren s:gs) = concatMap (flip runGroup gs) $ c $/ selectors s
-runGroup c (DeepChildren s:gs) = concatMap (flip runGroup gs) $ c $// selectors s
+runGroup c (DeepChildren s:gs) = concatMap (flip runGroup gs) $ c $.// selectors s
 
 selectors :: [SelectorType] -> Cursor -> [Cursor]
 selectors cs c
@@ -125,7 +125,9 @@ selector c (ByAttrEnds n v) =
     case attribute (Name n Nothing Nothing) c of
         t:_ -> v `T.isSuffixOf` t
         [] -> False
-selector _ Asterisk = True
+selector c Asterisk = case node c of
+  NodeElement _ -> True
+  _ -> False
 
 pseudoselector :: Cursor -> Selector -> PseudoSelector -> Bool
 pseudoselector c _ FirstChild = null $ precedingSibling c
