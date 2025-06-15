@@ -61,11 +61,7 @@ instance Applicative FormResult where
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
-#if MIN_VERSION_base(4,11,0)
 instance Monoid m => Monoid (FormResult m) where
-#else
-instance (Monoid m, Semigroup m) => Monoid (FormResult m) where
-#endif
     mempty = pure mempty
     mappend = (<>)
 instance Semigroup m => Semigroup (FormResult m) where
@@ -178,11 +174,7 @@ instance Monad m => Monad (AForm m) where
           FormFailure err -> pure (FormFailure err, b, ints', c)
           FormMissing -> pure (FormMissing, b, ints', c)
 #endif
-#if MIN_VERSION_base(4,11,0)
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
-#else
-instance (Monad m, Monoid a, Semigroup a) => Monoid (AForm m a) where
-#endif
     mempty = pure mempty
     mappend = (<>)
 instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
