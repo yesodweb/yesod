@@ -170,7 +170,7 @@ pbkdf2 password (SaltBS salt) c =
     let hLen = 32
         dkLen = hLen in go hLen dkLen
   where
-    go hLen dkLen | dkLen > (2^(32 :: Int) - 1) * hLen = error "Derived key too long."
+    go hLen dkLen | dkLen > (2 ^ (32 :: Int) - 1) * hLen = error "Derived key too long."
                   | otherwise =
                       let !l = ceiling ((fromIntegral dkLen / fromIntegral hLen) :: Double)
                           !r = dkLen - (l - 1) * hLen
@@ -282,7 +282,7 @@ makePasswordWith :: (ByteString -> Salt -> Int -> ByteString)
                  -> IO ByteString
 makePasswordWith algorithm password strength = do
   salt <- genSaltIO
-  return $ makePasswordSaltWith algorithm (2^) password salt strength
+  return $ makePasswordSaltWith algorithm (2 ^) password salt strength
 
 -- | A generic version of 'makePasswordSalt', meant to give the user
 -- the maximum control over the generation parameters.
@@ -316,7 +316,7 @@ makePasswordSaltWith algorithm strengthModifier pwd salt strength = writePwHash 
 -- @since 1.4.18
 --
 makePasswordSalt :: ByteString -> Salt -> Int -> ByteString
-makePasswordSalt = makePasswordSaltWith pbkdf1 (2^)
+makePasswordSalt = makePasswordSaltWith pbkdf1 (2 ^)
 
 -- | 'verifyPasswordWith' @algorithm userInput pwHash@ verifies
 -- the password @userInput@ given by the user against the stored password
@@ -353,7 +353,7 @@ verifyPasswordWith algorithm strengthModifier userInput pwHash =
 -- @since 1.4.18
 --
 verifyPassword :: ByteString -> ByteString -> Bool
-verifyPassword = verifyPasswordWith pbkdf1 (2^)
+verifyPassword = verifyPasswordWith pbkdf1 (2 ^)
 
 -- | Try to strengthen a password hash, by hashing it some more
 -- times. @'strengthenPassword' pwHash new_strength@ will return a new password
@@ -378,7 +378,7 @@ strengthenPassword pwHash newstr =
           else
               pwHash
           where newHash = encode $ hashRounds hash extraRounds
-                extraRounds = (2^newstr) - (2^oldstr)
+                extraRounds = (2 ^ newstr) - (2 ^ oldstr)
                 hash = decodeLenient hashB64
 
 -- | Return the strength of a password hash.

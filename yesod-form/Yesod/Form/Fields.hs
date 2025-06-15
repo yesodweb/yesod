@@ -1018,7 +1018,7 @@ prependZero t0 = if T.null t1
                            then "-0." `T.append` (T.drop 2 t1)
                            else t1
 
-  where t1 = T.dropWhile (==' ') t0
+  where t1 = T.dropWhile (== ' ') t0
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.

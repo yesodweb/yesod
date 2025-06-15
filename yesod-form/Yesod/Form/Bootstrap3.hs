@@ -114,10 +114,10 @@ toOffset (ColMd columns) = "col-md-offset-" ++ show columns
 toOffset (ColLg columns) = "col-lg-offset-" ++ show columns
 
 addGO :: BootstrapGridOptions -> BootstrapGridOptions -> BootstrapGridOptions
-addGO (ColXs a) (ColXs b) = ColXs (a+b)
-addGO (ColSm a) (ColSm b) = ColSm (a+b)
-addGO (ColMd a) (ColMd b) = ColMd (a+b)
-addGO (ColLg a) (ColLg b) = ColLg (a+b)
+addGO (ColXs a) (ColXs b) = ColXs (a + b)
+addGO (ColSm a) (ColSm b) = ColSm (a + b)
+addGO (ColMd a) (ColMd b) = ColMd (a + b)
+addGO (ColLg a) (ColLg b) = ColLg (a + b)
 addGO a b     | a > b = addGO b a
 addGO (ColXs a) other = addGO (ColSm a) other
 addGO (ColSm a) other = addGO (ColMd a) other
