@@ -48,7 +48,7 @@ cookieShouldSatisfy name spec response =
     cookiesIn r =
       DL.map
         (Cookie.parseSetCookie . snd)
-        (DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders r)
+        (DL.filter (("Set-Cookie" ==) . fst) $ simpleHeaders r)
 
 sslOnlySpec :: Spec
 sslOnlySpec = describe "A Yesod application with sslOnly on" $ do
