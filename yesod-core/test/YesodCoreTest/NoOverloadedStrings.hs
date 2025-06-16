@@ -19,7 +19,6 @@ import YesodCoreTest.NoOverloadedStringsSub
 import Yesod.Core
 import Network.Wai
 import Network.Wai.Test
-import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
 
@@ -70,7 +69,7 @@ runner f = toWaiApp Y >>= runSession f
 case_sanity :: IO ()
 case_sanity = runner $ do
     res <- request defaultRequest
-    assertBody Data.Monoid.mempty res
+    assertBody mempty res
 
 case_subsite :: IO ()
 case_subsite = runner $ do

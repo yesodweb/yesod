@@ -14,7 +14,6 @@ import Network.Wai.Test
 import Web.Cookie
 import qualified Data.Map as Map
 import Data.ByteString.Lazy (fromStrict)
-import Data.Monoid ((<>))
 
 data App = App
 

@@ -12,7 +12,6 @@ import Control.Monad.Trans.Reader
 import Control.Concurrent (threadDelay)
 import Data.Time
 import Conduit
-import Data.Monoid ((<>))
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text)
 import qualified Data.Map as M

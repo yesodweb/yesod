@@ -9,7 +9,6 @@ module Yesod.EmbeddedStatic.Css.Util where
 import Control.Applicative
 import Control.Monad (void, foldM)
 import Data.Hashable (Hashable)
-import Data.Monoid
 import Network.Mime (MimeType, defaultMimeLookup)
 import Text.CSS.Parse (parseBlocks)
 import Language.Haskell.TH (litE, stringL)
@@ -73,8 +72,7 @@ parseBackgroundImage n v = (n, case P.parseOnly parseUrl v of
 
 parseCssWith :: (T.Text -> T.Text -> EithUrl) -> T.Text -> Either String Css
 parseCssWith urlParser contents =
-    let mparsed = parseBlocks contents in
-    case mparsed of
+    case parseBlocks contents of
         Left err -> Left err
         Right blocks -> Right [ (t, map (uncurry urlParser) b) | (t,b) <- blocks ]
 

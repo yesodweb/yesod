@@ -3,11 +3,10 @@
 module Yesod.Form.I18n.Portuguese where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 portugueseFormMessage :: FormMessage -> Text
-portugueseFormMessage (MsgInvalidInteger t) = "Número inteiro inválido: " `Data.Monoid.mappend` t
+portugueseFormMessage (MsgInvalidInteger t) = "Número inteiro inválido: " `mappend` t
 portugueseFormMessage (MsgInvalidNumber t) = "Número inválido: " `mappend` t
 portugueseFormMessage (MsgInvalidEntry t) = "Entrada inválida: " `mappend` t
 portugueseFormMessage MsgInvalidTimeFormat = "Hora inválida, deve estar no formato HH:MM[:SS]"

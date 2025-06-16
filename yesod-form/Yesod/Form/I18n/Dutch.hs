@@ -3,11 +3,10 @@
 module Yesod.Form.I18n.Dutch where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 dutchFormMessage :: FormMessage -> Text
-dutchFormMessage (MsgInvalidInteger t) = "Ongeldig aantal: " `Data.Monoid.mappend` t
+dutchFormMessage (MsgInvalidInteger t) = "Ongeldig aantal: " `mappend` t
 dutchFormMessage (MsgInvalidNumber t)  = "Ongeldig getal: " `mappend` t
 dutchFormMessage (MsgInvalidEntry t)   = "Ongeldige invoer: " `mappend` t
 dutchFormMessage MsgInvalidTimeFormat  = "Ongeldige tijd, het juiste formaat is (UU:MM[:SS])"

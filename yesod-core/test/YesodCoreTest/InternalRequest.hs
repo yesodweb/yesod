@@ -6,7 +6,6 @@ import Data.List (nub)
 import Network.Wai as W
 import Yesod.Core.Internal (randomString, parseWaiRequest)
 import Test.Hspec
-import Data.Monoid (mempty)
 import Data.Map (singleton)
 import Yesod.Core
 import Data.Word (Word64)
@@ -58,7 +57,7 @@ tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
 
 noDisabledToken :: Bool
 noDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest Data.Monoid.mempty False 1000
+  r = parseWaiRequest' defaultRequest mempty False 1000
 
 ignoreDisabledToken :: Bool
 ignoreDisabledToken = reqToken r == Nothing where

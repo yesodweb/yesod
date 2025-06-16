@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.6.2.1
+version:         1.6.2.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -18,14 +18,14 @@ library
     if os(windows)
         cpp-options: -DWINDOWS
 
-    build-depends:   base                      >= 4.10     && < 5
+    build-depends:   base                      >= 4.11     && < 5
                    , aeson
                    , bytestring
                    , conduit                   >= 1.3
                    , data-default-class
                    , directory
                    , fast-logger
-                   , file-embed
+                   , file-embed                >= 0.0.10
                    , monad-logger
                    , shakespeare
                    , streaming-commons
