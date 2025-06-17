@@ -24,7 +24,7 @@ import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
 
 -- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
-#if !WINDOWS
+#ifndef WINDOWS
 import qualified YesodCoreTest.RawResponse as RawResponse
 #endif
 
@@ -57,7 +57,7 @@ specs = do
       JsLoader.specs
       RequestBodySize.specs
       Json.specs
-#if !WINDOWS
+#ifndef WINDOWS
       RawResponse.specs
 #endif
       Streaming.specs

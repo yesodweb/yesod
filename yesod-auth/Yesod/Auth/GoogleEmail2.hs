@@ -71,7 +71,6 @@ import           Yesod.Core                  (HandlerSite, MonadHandler,
 
 
 import           Blaze.ByteString.Builder    (fromByteString, toByteString)
-import           Control.Applicative         ((<$>), (<*>))
 import           Control.Arrow               (second)
 import           Control.Monad               (unless, when)
 import           Control.Monad.IO.Class      (MonadIO)
@@ -308,9 +307,10 @@ data Token = Token { accessToken :: Text
                    } deriving (Show, Eq)
 
 instance FromJSON Token where
-    parseJSON = withObject "Tokens" $ \o -> Token
-        Control.Applicative.<$> o .: "access_token"
-        Control.Applicative.<*> o .: "token_type"
+    parseJSON = withObject "Tokens" $ \o ->
+        Token
+            <$> o .: "access_token"
+            <*> o .: "token_type"
 
 --------------------------------------------------------------------------------
 -- | Gender of the person

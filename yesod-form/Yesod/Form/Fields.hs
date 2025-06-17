@@ -6,6 +6,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Field functions allow you to easily create and validate forms, cleanly handling the uncertainty of parsing user input.
 --
@@ -112,7 +113,7 @@ import qualified Data.Map as Map
 import Yesod.Persist (selectList, Filter, SelectOpt, Key)
 import Control.Arrow ((&&&))
 
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 
 import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
@@ -342,7 +343,7 @@ timeParser = do
   where
     hour = do
         x <- digit
-        y <- (return Control.Applicative.<$> digit) <|> return []
+        y <- (return <$> digit) <|> return []
         let xy = x : y
         let i = read xy
         if i < 0 || i >= 24
@@ -1017,7 +1018,7 @@ prependZero t0 = if T.null t1
                            then "-0." `T.append` (T.drop 2 t1)
                            else t1
 
-  where t1 = T.dropWhile (==' ') t0
+  where t1 = T.dropWhile (== ' ') t0
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.

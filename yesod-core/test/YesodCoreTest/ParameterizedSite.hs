@@ -18,7 +18,7 @@ import YesodCoreTest.ParameterizedSite.Compat (Compat (..))
 parameterizedSiteTest :: Spec
 parameterizedSiteTest = describe "Polymorphic Yesod sites" $ do
     it "Polymorphic unconstrained stub" $ runStub (PolyAny ())
-    it "Polymorphic stub with Show" $ runStub' "1337" (PolyShow 1337)
+    it "Polymorphic stub with Show" $ runStub' "1337" (PolyShow (1337 :: Int))
     it "Polymorphic unconstrained stub, old-style" $ runStub (Compat () ())
 
 runStub :: YesodDispatch a => a -> IO ()

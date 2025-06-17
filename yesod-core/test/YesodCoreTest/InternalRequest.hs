@@ -11,10 +11,10 @@ import Yesod.Core
 import Data.Word (Word64)
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad (replicateM)
-import System.Random
+import System.Random (randomIO)
 
 gen :: IO Int
-gen = getStdRandom next
+gen = randomIO
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do

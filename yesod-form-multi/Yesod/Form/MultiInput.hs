@@ -7,6 +7,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 #if !MIN_VERSION_shakespeare(2,0,18)
 {-# OPTIONS_GHC -Wno-orphans #-}
 #endif
@@ -184,7 +185,10 @@ amulti field fs defs minVals ms = formToAForm $
         mform = do
             (fr, MultiView {..}) <- mmulti field fs defs minVals ms
 
-            let (fv : _) = mvFields
+            let fv =
+                    case mvFields of
+                        [] -> error "amulti: expected at least one input field"
+                        inputField : _ -> inputField
                 widget = do
                     [whamlet|
                         $maybe tooltip <- fvTooltip fv
@@ -235,7 +239,7 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals MultiSettings {..} = do
+mhelperMulti field fs@FieldSettings{..} wrapperClass defs minVals MultiSettings{..} = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
@@ -458,7 +462,7 @@ mkRes :: (site ~ HandlerSite m, MonadHandler m)
     -> (site -> [Text] -> FormResult b)
     -> (a -> FormResult b)
     -> MForm m (FormResult b, Either Text a)
-mkRes Field {..} FieldSettings {..} p mfs name onMissing onFound = do
+mkRes Field{..} _ p mfs name onMissing onFound = do
     tell fieldEnctype
     (_, site, langs) <- ask
     let mvals = fromMaybe [] $ Map.lookup name p
@@ -485,7 +489,7 @@ mkView :: (site ~ HandlerSite m, MonadHandler m)
     -> Text
     -> Bool
     -> MForm m (FieldView site)
-mkView Field {..} FieldSettings {..} (res, val) mdel merrW errClass theId name isReq = do
+mkView Field{..} FieldSettings{..} (res, val) mdel merrW errClass theId name isReq = do
     (_, site, langs) <- ask
     let mr2 = renderMessage site langs
         merr = case res of

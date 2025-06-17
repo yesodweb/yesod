@@ -8,6 +8,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -51,7 +52,6 @@ module Yesod.Auth
 
 import Control.Monad                 (when)
 import Control.Monad.Trans.Maybe
-import UnliftIO                      (withRunInIO, MonadUnliftIO)
 
 import Yesod.Auth.Routes
 import Data.Text.Encoding (decodeUtf8With)

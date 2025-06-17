@@ -118,7 +118,6 @@ module Yesod.Auth.Email
     , defaultRegisterHelper
     ) where
 
-import           Control.Applicative           ((<$>), (<*>))
 import qualified Crypto.Hash                   as H
 import qualified Crypto.Nonce                  as Nonce
 import           Data.Aeson.Types              (Parser, Result (..), parseMaybe,
@@ -140,7 +139,6 @@ import           Yesod.Auth
 import qualified Yesod.Auth.Message            as Msg
 import qualified Yesod.Auth.Util.PasswordStore as PS
 import           Yesod.Core
-import           Yesod.Core.Types              (TypedContent (TypedContent))
 import           Yesod.Form
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
@@ -494,8 +492,7 @@ defaultEmailLoginHandler toParent = do
         passwordMsg <- renderMessage' Msg.Password
         (passwordRes, passwordView) <- mreq passwordField (passwordSettings passwordMsg) Nothing
 
-        let userRes = UserLoginForm Control.Applicative.<$> emailRes
-                                    Control.Applicative.<*> passwordRes
+        let userRes = UserLoginForm <$> emailRes <*> passwordRes
         let widget = do
               [whamlet|
                   #{extra}
@@ -626,13 +623,13 @@ defaultRegisterHelper allowUsername forgotPassword dest = do
                             return $ Just (lid, False, key, identifier)
             case registerCreds of
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
-                Just creds@(_, False, _, _) -> sendConfirmationEmail creds
-                Just creds@(_, True, _, _) -> do
+                Just regCreds@(_, False, _, _) -> sendConfirmationEmail regCreds
+                Just regCreds@(_, True, _, _) -> do
                   if forgotPassword
-                    then sendConfirmationEmail creds
+                    then sendConfirmationEmail regCreds
                     else case emailPreviouslyRegisteredResponse identifier of
                       Just response -> response
-                      Nothing       -> sendConfirmationEmail creds
+                      Nothing       -> sendConfirmationEmail regCreds
               where sendConfirmationEmail (lid, _, verKey, email) = do
                       render <- getUrlRender
                       tp <- getRouteToParent
@@ -936,11 +933,10 @@ postPasswordR = do
                   Left e -> loginErrorMessage (tm setpassR) e
                   Right () -> do
                      salted <- hashAndSaltPassword new
-                     y <- do
-                                setPassword aid salted
-                                deleteSession loginLinkKey
-                                addMessageI "success" msgOk
-                                getYesod
+                     setPassword aid salted
+                     deleteSession loginLinkKey
+                     addMessageI "success" msgOk
+                     _ <- getYesod
 
                      mr <- getMessageRender
                      selectRep $ do

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Auth.Message
     ( AuthMessage (..)
     , defaultMessage

@@ -386,7 +386,11 @@ devel opts passThroughArgs = do
         -- changing the destination port for reverse proxying to -1. We also
         -- make sure that all content to stdout or stderr from the build
         -- process is piped to the actual stdout and stderr handles.
+#if MIN_VERSION_conduit_extra(1,3,4)
+        withProcessTerm_ procConfig $ \p -> do
+#else
         withProcess_ procConfig $ \p -> do
+#endif
             let helper getter h =
                       runConduit
                     $ getter p
@@ -503,7 +507,11 @@ devel opts passThroughArgs = do
             sayV $ "Running child process: " ++ show procDef
 
             -- Start running the child process with GHC
+#if MIN_VERSION_conduit_extra(1,3,4)
+            withProcessTerm procDef $ \p -> do
+#else
             withProcess procDef $ \p -> do
+#endif
                 -- Wait for either the process to exit, or for a new build to come through
                 eres <- atomically (fmap Left (waitExitCodeSTM p) <|> fmap Right
                     (do changed <- readTVar changedVar

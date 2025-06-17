@@ -6,7 +6,7 @@
 
 module Yesod.EmbeddedStatic.Css.Util where
 
-import Control.Applicative
+import Control.Applicative ((<|>))
 import Control.Monad (void, foldM)
 import Data.Hashable (Hashable)
 import Network.Mime (MimeType, defaultMimeLookup)

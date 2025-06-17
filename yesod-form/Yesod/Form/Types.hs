@@ -30,7 +30,7 @@ import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
-import Control.Applicative ((<$>), Alternative (..), Applicative (..))
+import Control.Applicative (Alternative (..))
 import Control.Monad (liftM)
 import Control.Monad.Trans.Class
 import Data.String (IsString (..))
@@ -54,7 +54,7 @@ instance Functor FormResult where
     fmap _ FormMissing = FormMissing
     fmap _ (FormFailure errs) = FormFailure errs
     fmap f (FormSuccess a) = FormSuccess $ f a
-instance Control.Applicative.Applicative FormResult where
+instance Applicative FormResult where
     pure = FormSuccess
     (FormSuccess f) <*> (FormSuccess g) = FormSuccess $ f g
     (FormFailure x) <*> (FormFailure y) = FormFailure $ x ++ y
@@ -63,9 +63,9 @@ instance Control.Applicative.Applicative FormResult where
     _ <*> _ = FormMissing
 instance Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
-    mappend x y = mappend <$> x <*> y
+    mappend = (<>)
 instance Semigroup m => Semigroup (FormResult m) where
-    x <> y = (<>) Control.Applicative.<$> x <*> y
+    x <> y = (<>) <$> x <*> y
 
 -- | @since 1.4.5
 instance Data.Foldable.Foldable FormResult where
@@ -176,7 +176,7 @@ instance Monad m => Monad (AForm m) where
 #endif
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
     mempty = pure mempty
-    mappend a b = mappend <$> a <*> b
+    mappend = (<>)
 instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
     a <> b = (<>) <$> a <*> b
 

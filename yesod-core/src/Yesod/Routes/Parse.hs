@@ -101,7 +101,11 @@ resourcesFromString =
                     , Just attrs <- mapM parseAttr rest ->
                     let (children, otherLines'') = parse (length spaces + 1) otherLines
                         children' = addAttrs attrs children
-                        (pieces, Nothing, check) = piecesFromStringCheck pattern
+                        (pieces, check) =
+                            case piecesFromStringCheck pattern of
+                                (p, Nothing, c) -> (p, c)
+                                -- FIXME: Give better error message
+                                _ -> error "Invalid resource line: bad overlap"
                      in ((ResourceParent constr check pieces children' :), otherLines'')
                 (pattern:constr:rest) ->
                     let (pieces, mmulti, check) = piecesFromStringCheck pattern
@@ -303,6 +307,6 @@ dropBracket x = x
 lineContinuations :: String -> [String] -> [String]
 lineContinuations this [] = [this]
 lineContinuations this below@(next:rest) = case unsnoc this of
-    Just (this', '\\') -> (this'++next):rest
+    Just (this', '\\') -> (this' ++ next):rest
     _ -> this:below
   where unsnoc s = if null s then Nothing else Just (init s, last s)

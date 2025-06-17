@@ -10,7 +10,7 @@ module Yesod.Test.CssQuery
 import Prelude hiding (takeWhile)
 import Data.Text (Text)
 import Data.Attoparsec.Text
-import Control.Applicative
+import Control.Applicative (many, (<|>))
 import Data.Char
 
 import qualified Data.Text as T

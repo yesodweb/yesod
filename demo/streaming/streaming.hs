@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
+import Yesod.Core
 import Data.Conduit
 import qualified Data.Conduit.Binary as CB
 import Control.Concurrent.Lifted (threadDelay)

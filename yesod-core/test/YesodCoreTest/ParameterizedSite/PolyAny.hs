@@ -5,6 +5,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module YesodCoreTest.ParameterizedSite.PolyAny
     ( PolyAny (..)

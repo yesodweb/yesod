@@ -53,7 +53,6 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
-import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
 import UnliftIO (SomeException, catch, MonadUnliftIO)

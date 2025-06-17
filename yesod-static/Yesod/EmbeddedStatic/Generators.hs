@@ -33,10 +33,9 @@ module Yesod.EmbeddedStatic.Generators (
   -- $example
 ) where
 
-import Control.Applicative as A ((<$>), (<*>))
 import Control.Exception (try, SomeException)
 import Control.Monad (forM, when)
-import Data.Char (isDigit, isLower)
+import Data.Char (isLower)
 import Data.Default (def)
 import Data.Maybe (isNothing)
 import Language.Haskell.TH
@@ -210,9 +209,9 @@ compressTool f opts ct = do
                 }
     (Just hin, Just hout, _, ph) <- Proc.createProcess p
     (compressed, (), code) <- runConcurrently $ (,,)
-        A.<$> Concurrently (runConduit $ sourceHandle hout .| sinkLazy)
-        A.<*> Concurrently (BL.hPut hin ct >> hClose hin)
-        A.<*> Concurrently (Proc.waitForProcess ph)
+        <$> Concurrently (runConduit $ sourceHandle hout .| sinkLazy)
+        <*> Concurrently (BL.hPut hin ct >> hClose hin)
+        <*> Concurrently (Proc.waitForProcess ph)
     if code == ExitSuccess
         then do
             putStrLn $ "Compressed successfully with " ++ f
@@ -249,11 +248,10 @@ pathToName f = routeName
         | otherwise = '_'
       name = map replace f
       routeName = mkName $
-            case () of
-                ()
-                    | null name -> error "null-named file"
-                    | isDigit (head name) -> '_' : name
-                    | isLower (head name) -> name
+            case name of
+                [] -> error "null-named file"
+                n : _
+                    | isLower n -> name
                     | otherwise -> '_' : name
 
 

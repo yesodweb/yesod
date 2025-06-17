@@ -5,7 +5,6 @@
 
 module Main where
 
-import           Control.Applicative ((<$>))
 import           Wiki
 import           Yesod
 

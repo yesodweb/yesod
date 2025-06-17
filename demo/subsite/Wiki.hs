@@ -12,7 +12,6 @@ module Wiki
     ( module WikiRoutes
     ) where
 
-import           Control.Applicative ((<$>))
 import           Control.Monad       (unless)
 import           Data.IORef.Lifted   (readIORef, atomicModifyIORef)
 import           Data.Map            (Map)

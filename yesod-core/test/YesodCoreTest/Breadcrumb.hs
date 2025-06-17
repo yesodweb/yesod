@@ -5,19 +5,17 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module YesodCoreTest.Breadcrumb
   ( breadcrumbTest,
   )
 where
 
-import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Text (Text)
-import Data.Typeable (Typeable)
 import Network.Wai
 import Network.Wai.Test
 import Test.Hspec
-import UnliftIO.IORef
 import Yesod.Core
 
 data A = A

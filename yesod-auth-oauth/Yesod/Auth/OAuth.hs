@@ -16,7 +16,6 @@ module Yesod.Auth.OAuth
     , tumblrUrl
     , module Web.Authenticate.OAuth
     ) where
-import           Control.Applicative      as A ((<$>), (<*>))
 import           Control.Arrow            ((***))
 import           UnliftIO.Exception
 import           Control.Monad.IO.Class
@@ -79,8 +78,8 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
                                 ]
           else do
             (verifier, oaTok) <-
-                runInputGet $ (,) A.<$> ireq textField "oauth_verifier"
-                                  A.<*> ireq textField "oauth_token"
+                runInputGet $ (,) <$> ireq textField "oauth_verifier"
+                                  <*> ireq textField "oauth_token"
             return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)
                                 , ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)
