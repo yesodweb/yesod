@@ -27,6 +27,7 @@ import Yesod.Test
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
 import Text.XML
+import Data.List (foldl')
 import Data.Text (Text, pack)
 import Data.Char (toUpper)
 import Network.Wai (pathInfo, rawQueryString, requestHeaders)
@@ -36,7 +37,7 @@ import Data.Maybe (fromMaybe, isNothing)
 import Data.Either (isLeft, isRight)
 
 import Test.HUnit.Lang
-import Data.ByteString.Lazy.Char8 ()
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
 import Network.HTTP.Types.Status (status200, status301, status303, status403, status422, unsupportedMediaType415)
@@ -49,6 +50,9 @@ import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
+
+assertQueries :: HasCallStack => [Text] -> [[SelectorGroup]] -> Assertion
+assertQueries queries result = mapM_ ((@?= result)  . parseQuery_) queries
 
 findBySelector_ :: HtmlLBS -> Query -> [String]
 findBySelector_ x = either error id . findBySelector x
@@ -68,9 +72,17 @@ mkYesod "RoutedApp" [parseRoutes|
 main :: IO ()
 main = hspec $ do
     describe "CSS selector parsing" $ do
-        it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [ByTagName "strong"]]]
-        it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [ByTagName "strong"], DirectChildren [ByTagName "i"]]]
-        it "comma" $ parseQuery_ "strong.bar, #foo" @?= [[DeepChildren [ByTagName "strong", ByClass "bar"]], [DeepChildren [ById "foo"]]]
+        it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [SimpleSelector (ByTagName "strong")]]]
+        it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [SimpleSelector (ByTagName "strong")], DirectChildren [SimpleSelector (ByTagName "i")]]]
+        it "comma" $ parseQuery_ "strong.bar, #foo" @?= [[DeepChildren [SimpleSelector (ByTagName "strong"), SimpleSelector (ByClass "bar")]], [DeepChildren [SimpleSelector (ById "foo")]]]
+        describe "pseudo-classes" $ do
+          it ":first-child, :last-child" $
+            parseQuery_ "p:first-child, p:last-child" @?= [[DeepChildren [CompoundSelector (ByTagName "p") [FirstChild]]], [DeepChildren [CompoundSelector (ByTagName "p") [LastChild]]]]
+          it ":nth-child" $ do
+            assertQueries ["*:nth-child(3n)", ":nth-child(3n)"] [[DeepChildren [CompoundSelector Asterisk [NthChild $ Repetition 3 0]]]]
+            assertQueries [":nth-child(2n+1)", ":nth-child( 2n+1   )", ":nth-child(  2n +1)", ":nth-child(2n+   1 )"] [[DeepChildren [CompoundSelector Asterisk [NthChild $ Repetition 2 1]]]]
+            parseQuery_ "a > span:nth-child(2)" @?= [[DeepChildren [SimpleSelector (ByTagName "a")], DirectChildren [CompoundSelector (ByTagName "span") [NthChild $ Position 2]]]]
+            parseQuery_ "tr:nth-child(odd), tr:nth-child(even)" @?= [[DeepChildren [CompoundSelector (ByTagName "tr") [NthChild Odd]]], [DeepChildren [CompoundSelector (ByTagName "tr") [NthChild Even]]]]
     describe "find by selector" $ do
         it "XHTML" $
             let html = "<html><head><title>foo</title></head><body><p>Hello World</p></body></html>"
@@ -96,6 +108,31 @@ main = hspec $ do
             let html = "<html><p><b><i>hello</i></b></p></html>"
                 query = "p i"
              in findBySelector_ html query @?= ["<i>hello</i>"]
+        describe "pseudo-classes" $ do
+          let html = LBS.pack $ "<html>" <> foldl' (\accum n -> concat [accum, "<p>", show n, "</p>"]) "" [1..10] <> "</html>"
+          it ":first-child" $
+            findBySelector_ html "p:first-child" @?= ["<p>1</p>"]
+          it ":last-child" $
+            findBySelector_ html "p:last-child" @?= ["<p>10</p>"]
+          it "nth-child" $ do
+            findBySelector_ html "p:nth-child(even)" @?= ["<p>2</p>", "<p>4</p>", "<p>6</p>", "<p>8</p>", "<p>10</p>"]
+            findBySelector_ html "p:nth-child(2n+0)" @?= ["<p>2</p>", "<p>4</p>", "<p>6</p>", "<p>8</p>", "<p>10</p>"]
+            findBySelector_ html "p:nth-child(odd)" @?= ["<p>1</p>", "<p>3</p>", "<p>5</p>", "<p>7</p>", "<p>9</p>"]
+            findBySelector_ html "p:nth-child(2n+1)" @?= ["<p>1</p>", "<p>3</p>", "<p>5</p>", "<p>7</p>", "<p>9</p>"]
+            findBySelector_ html "p:nth-child(5)" @?= ["<p>5</p>"]
+            findBySelector_ html "p:nth-child(n+9)" @?= ["<p>9</p>", "<p>10</p>"]
+            findBySelector_ html "p:nth-child(2n)" @?= ["<p>2</p>", "<p>4</p>", "<p>6</p>", "<p>8</p>", "<p>10</p>"]
+            findBySelector_ html "p:nth-child(2n+3)" @?= ["<p>3</p>", "<p>5</p>", "<p>7</p>", "<p>9</p>"]
+            findBySelector_ html "p:nth-child(2n-1)" @?= ["<p>1</p>", "<p>3</p>", "<p>5</p>", "<p>7</p>", "<p>9</p>"]
+            findBySelector_ html "p:nth-child(0n+5)" @?= ["<p>5</p>"]
+            findBySelector_ html "p:nth-child(1)" @?= ["<p>1</p>"]
+            findBySelector_ html "p:nth-child(0n+0)" @?= []
+            findBySelector_ html "p:nth-child(-n-1)" @?= []
+            findBySelector_ html "p:nth-child(-n-0)" @?= []
+            findBySelector_ html "p:nth-child(-n+3)" @?= ["<p>1</p>", "<p>2</p>", "<p>3</p>"]
+            let ps = ["<p>" <> show n <> "</p>" | n <- [1..10]] in
+              findBySelector_ html "*" @?= ["<html>" <> concat ps <> "</html>"] <> ps
+        
     describe "HTML parsing" $ do
         it "XHTML" $
             let html = "<html><head><title>foo</title></head><body><p>Hello World</p></body></html>"

@@ -3,7 +3,10 @@
 -- | Parsing CSS selectors into queries.
 module Yesod.Test.CssQuery
     ( SelectorGroup (..)
+    , SelectorType (..)
     , Selector (..)
+    , ANPlusB (..)
+    , PseudoSelector (..)
     , parseQuery
     ) where
 
@@ -16,8 +19,30 @@ import Data.Char
 import qualified Data.Text as T
 
 data SelectorGroup
-  = DirectChildren [Selector]
-  | DeepChildren [Selector]
+  = DirectChildren [SelectorType]
+  | DeepChildren [SelectorType]
+  deriving (Show, Eq)
+
+-- | The notation used in CSS selectors level 3 to denote a rule
+-- for matching indexed occurrences of elements.
+--
+-- Examples: odd, 3n+4, 2.
+data ANPlusB
+  = Repetition Int Int
+  | Position Int
+  | Odd
+  | Even
+  deriving (Show, Eq)
+
+data PseudoSelector
+  = FirstChild
+  | LastChild
+  | NthChild ANPlusB 
+  deriving (Show, Eq)
+
+data SelectorType
+  = CompoundSelector Selector [PseudoSelector]
+  | SimpleSelector Selector
   deriving (Show, Eq)
 
 data Selector
@@ -29,6 +54,7 @@ data Selector
   | ByAttrContains Text Text
   | ByAttrStarts Text Text
   | ByAttrEnds Text Text
+  | Asterisk
   deriving (Show, Eq)
 
 
@@ -59,14 +85,27 @@ rules = many $ directChildren <|> deepChildren
 
 directChildren :: Parser SelectorGroup
 directChildren =
-    string "> " >> (many (char ' ')) >> DirectChildren <$> pOptionalTrailingSpace parseSelectors
+    string "> " >> many (char ' ') >> DirectChildren <$> pOptionalTrailingSpace parseSelectorTypes
 
 deepChildren :: Parser SelectorGroup
-deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectors
+deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectorTypes
 
-parseSelectors :: Parser [Selector]
-parseSelectors = many1 $
-    parseId <|> parseClass <|> parseTag <|> parseAttr
+parseSelectorTypes :: Parser [SelectorType]
+parseSelectorTypes = many1 parseSelectorType
+
+parseSelectorType :: Parser SelectorType 
+parseSelectorType = choice
+  [ CompoundSelector
+      <$> option Asterisk parseSelector 
+      <*> many1 parsePseudoSelector
+  , SimpleSelector <$> parseSelector
+  ]
+
+parseSelector :: Parser Selector
+parseSelector = choice [parseId, parseClass, parseTag, parseAttr, parseAsterisk]
+
+parseAsterisk :: Parser Selector
+parseAsterisk = char '*' >> pure Asterisk
 
 parseId :: Parser Selector
 parseId = char '#' >> ById <$> pIdent
@@ -85,6 +124,42 @@ parseAttr = pSquare $ choice
     , ByAttrEnds <$> pIdent <*> (string "$=" *> pAttrValue)
     , ByAttrExists <$> pIdent
     ]
+
+spaceSurrounded :: Parser a -> Parser a
+spaceSurrounded m = skipSpaces *> m <* skipSpaces
+  where skipSpaces = skipMany $ char ' '
+
+pArg :: Parser ANPlusB
+pArg = char '(' *> spaceSurrounded pANPlusB <* char ')'
+
+pANPlusB :: Parser ANPlusB 
+pANPlusB = choice [repetition, position, fixed]
+  where repetition = Repetition
+          <$> option 1
+            ( choice 
+                [ char '-' *> fmap negate decimal
+                , char '-' >> pure (-1)
+                , decimal
+                ]
+            ) <* char 'n'
+          <*> option 0 
+            ( choice 
+                [ spaceSurrounded (char '+') *> decimal
+                , spaceSurrounded (char '-') *> fmap negate decimal
+                ]
+            )
+        position = Position <$> decimal
+        fixed = choice
+          [ string "odd" >> pure Odd
+          , string "even" >> pure Even
+          ]
+
+parsePseudoSelector :: Parser PseudoSelector 
+parsePseudoSelector = char ':' >> choice
+  [ string "first-child" >> pure FirstChild
+  , string "last-child" >> pure LastChild
+  , string "nth-child" >> NthChild <$> pArg
+  ] <|> fail "unknown or unsupported pseudo-class"
 
 -- | pIdent : Parse an identifier (not yet supporting escapes and unicode as
 -- part of the identifier). Basically the regex: [-]?[_a-zA-Z][_a-zA-Z0-9]*

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.6.24
+
+* Add CSS Level 3 structural pseudo-class support for `:nth-child`, `:first-child`, `:last-child` to yesod-test. [#1878](https://github.com/yesodweb/yesod/pull/1878)
+
 ## 1.6.23.1
 
 * Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
