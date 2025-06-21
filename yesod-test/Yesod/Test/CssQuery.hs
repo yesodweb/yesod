@@ -78,7 +78,7 @@ parseQuery = parseOnly cssQuery
 
 -- Below this line is the Parsec parser for css queries.
 cssQuery :: Parser [[SelectorGroup]]
-cssQuery = (many (char ' ') >> sepBy rules (char ',' >> many (char ' ')))
+cssQuery = many (char ' ') >> sepBy rules (char ',' >> many (char ' '))
 
 rules :: Parser [SelectorGroup]
 rules = many $ directChildren <|> deepChildren
@@ -135,8 +135,19 @@ pArg = char '(' *> spaceSurrounded pANPlusB <* char ')'
 pANPlusB :: Parser ANPlusB 
 pANPlusB = choice [repetition, position, fixed]
   where repetition = Repetition
-          <$> option 1 (choice [char '-' *> fmap negate decimal, char '-' >> pure (-1), decimal]) <* char 'n'
-          <*> option 0 (choice [spaceSurrounded (char '+') *> decimal, spaceSurrounded (char '-') *> fmap negate decimal])
+          <$> option 1
+            ( choice 
+                [ char '-' *> fmap negate decimal
+                , char '-' >> pure (-1)
+                , decimal
+                ]
+            ) <* char 'n'
+          <*> option 0 
+            ( choice 
+                [ spaceSurrounded (char '+') *> decimal
+                , spaceSurrounded (char '-') *> fmap negate decimal
+                ]
+            )
         position = Position <$> decimal
         fixed = choice
           [ string "odd" >> pure Odd
