@@ -42,6 +42,7 @@ module Yesod.Core.Internal.TH
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setCreateResources
     )
  where
 
@@ -219,11 +220,16 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
+<<<<<<< Updated upstream
     let appCxt = fmap (\ctxs ->
             case ctxs of
                 c:rest ->
                     foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
                 [] -> error $ "Bad context: " ++ show ctxs
+=======
+    let appCxt = fmap (\(c:rest) ->
+            foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
+>>>>>>> Stashed changes
           ) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of
@@ -254,11 +260,16 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     dispatchDec    <- mkDispatchInstance site appCxt f res
     parseRoute <- mkParseRouteInstance appCxt site res
     let rname = mkName $ "resources" ++ namestr
-    eres <- lift resS
-    let resourcesDec =
-            [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
-            , FunD rname [Clause [] (NormalB eres) []]
-            ]
+    resourcesDec <-
+        if shouldCreateResources opts
+            then do
+                eres <- lift resS
+                pure
+                    [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
+                    , FunD rname [Clause [] (NormalB eres) []]
+                    ]
+            else do
+                pure []
     let dataDec = concat
             [ [parseRoute]
             , renderRouteDec
