@@ -1,6 +1,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# language RankNTypes #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
+{-# language GADTs #-}
+{-# language DeriveFunctor #-}
+{-# language GeneralizedNewtypeDeriving #-}
 
 module Yesod.Core.Types (
     module Yesod.Core.Types
