@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Yesod.Default.Config
     ( DefaultEnv (..)
     , fromArgs
@@ -18,7 +20,15 @@ module Yesod.Default.Config
 import Data.Char (toUpper)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Yaml
+import Data.Yaml (
+    Object,
+    Parser,
+    Value (..),
+    decodeFileEither,
+    parseEither,
+    prettyPrintParseException,
+    (.:)
+ )
 import Data.Maybe (fromMaybe)
 import System.Environment (getArgs, getProgName, getEnvironment)
 import System.Exit (exitFailure)
@@ -44,9 +54,9 @@ data ArgConfig env = ArgConfig
     , port        :: Int
     } deriving Show
 
-parseArgConfig :: (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
+parseArgConfig :: forall env. (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
 parseArgConfig = do
-    let envs = [minBound..maxBound]
+    let envs = [minBound..maxBound] :: [env]
     args <- getArgs
     (portS, args') <- getPort id args
     portI <-
@@ -57,10 +67,7 @@ parseArgConfig = do
         [e] -> do
             case reads $ capitalize e of
                 (e', _):_ -> return $ ArgConfig e' portI
-                [] -> do
-                    () <- error $ "Invalid environment, valid entries are: " ++ show envs
-                    -- next line just provided to force the type of envs
-                    return $ ArgConfig (head envs) 0
+                [] -> error $ "Invalid environment, valid entries are: " ++ show envs
         _ -> do
             pn <- getProgName
             putStrLn $ "Usage: " ++ pn ++ " <environment> [--port <port>]"
@@ -194,7 +201,7 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
             _ -> fail "Expected map"
 
     let host    = fromString $ T.unpack $ fromMaybe "*" $ lookupScalar "host"    m
-    mport <- parseMonad (\x -> x .: "port") m
+    mport <- parseEitherM (\x -> x .: "port") m
     let approot' = fromMaybe "" $ lookupScalar "approot" m
 
     -- Handle the DISPLAY_PORT environment variable for yesod devel
@@ -207,7 +214,7 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
                     Nothing -> return approot'
                     Just p -> return $ prefix `T.append` T.pack (':' : p)
 
-    extra <- parseMonad (parseExtra env) m
+    extra <- parseEitherM (parseExtra env) m
 
     -- set some default arguments
     let port' = fromMaybe 80 mport
@@ -243,5 +250,9 @@ withYamlEnvironment fp env f = do
         Left err ->
           fail $ "Invalid YAML file: " ++ show fp ++ " " ++ prettyPrintParseException err
         Right (Object obj)
-            | Just v <- M.lookup (fromString $ show env) obj -> parseMonad f v
+            | Just v <- M.lookup (fromString $ show env) obj -> parseEitherM f v
         _ -> fail $ "Could not find environment: " ++ show env
+
+-- | Replacement for `parseMonad`
+parseEitherM :: (a -> Parser b) -> a -> IO b
+parseEitherM p = either fail pure . parseEither p

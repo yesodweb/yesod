@@ -1,9 +1,8 @@
-{-# LANGUAGE TypeFamilies, PatternGuards, CPP #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Yesod.Core.Internal.LiteApp where
 
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup (Semigroup(..))
-#endif
 import Yesod.Routes.Class
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
@@ -47,9 +46,6 @@ instance Semigroup LiteApp where
 
 instance Monoid LiteApp where
     mempty = LiteApp $ \_ _ -> Nothing
-#if !(MIN_VERSION_base(4,11,0))
-    mappend = (<>)
-#endif
 
 type LiteHandler = HandlerFor LiteApp
 type LiteWidget = WidgetFor LiteApp

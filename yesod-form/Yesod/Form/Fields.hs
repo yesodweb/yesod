@@ -1,11 +1,13 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
 -- | Field functions allow you to easily create and validate forms, cleanly handling the uncertainty of parsing user input.
 --
 -- When possible, the field functions use a specific input type (e.g. "number"), allowing supporting browsers to validate the input before form submission. Browsers can also improve usability with this information; for example, mobile browsers might present a specialized keyboard for an input of type "email" or "number".
@@ -111,7 +113,7 @@ import qualified Data.Map as Map
 import Yesod.Persist (selectList, Filter, SelectOpt, Key)
 import Control.Arrow ((&&&))
 
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 
 import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
@@ -119,9 +121,6 @@ import Yesod.Persist.Core
 
 import Data.String (IsString)
 
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
 
 import Data.Char (isHexDigit)
 
@@ -344,7 +343,7 @@ timeParser = do
   where
     hour = do
         x <- digit
-        y <- (return Control.Applicative.<$> digit) <|> return []
+        y <- (return <$> digit) <|> return []
         let xy = x : y
         let i = read xy
         if i < 0 || i >= 24
@@ -1019,7 +1018,7 @@ prependZero t0 = if T.null t1
                            then "-0." `T.append` (T.drop 2 t1)
                            else t1
 
-  where t1 = T.dropWhile (==' ') t0
+  where t1 = T.dropWhile (== ' ') t0
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.

@@ -1,11 +1,15 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
-{-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 import Yesod.Core
 import Yesod.Form
 import Yesod.Form.Nic
 import Yesod.Form.MassInput
-import Control.Applicative
 import Data.Text (Text, pack)
 import Network.Wai.Handler.Warp (run)
 import Data.Time (utctDay, getCurrentTime)

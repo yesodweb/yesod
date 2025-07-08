@@ -1,4 +1,9 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Yesod.Core
 import Yesod.WebSockets
 import qualified Data.Text.Lazy as TL
@@ -7,7 +12,6 @@ import Control.Monad.Trans.Reader
 import Control.Concurrent (threadDelay)
 import Data.Time
 import Conduit
-import Data.Monoid ((<>))
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text)
 import qualified Data.Map as M
@@ -110,7 +114,7 @@ getHomeR = do
                 p.appendChild(document.createTextNode(e.data));
                 output.appendChild(p);
             };
-/* ******************************************************************************************************* 
+/* *******************************************************************************************************
 The following code demonstrates one way to prevent timeouts. The "if" test is added to prevent chat participants from getting the ping message “dcba” every twenty seconds. It also prevents participants from receiving any message ending with “dcba” sent by any chat participant. “ e.data.split("").reverse().join("").substring(0,4)” changes, for example, “user:abc123dcba” to “abcd321cba:resu” and grabs the first four characters; i.e., “abcd”. Messages are broadcast only if the last four characters are not “dcba”. Note that the variable "t" controls the length of the timeout period. t = 3 allows one minute of inactivity. t = 30 allows ten minutes, and t = 180 allows an hour. The value inserted below is 360 (2 hours).
 */
             conn.onmessage = function(e) {
@@ -118,13 +122,13 @@ The following code demonstrates one way to prevent timeouts. The "if" test is ad
                 p.appendChild(document.createTextNode(e.data));
                 if (e.data.split("").reverse().join("").substring(0,4) != "abcd") {
                     output.appendChild(p);
-                }   
+                }
             };
-            var t = 360                                 
+            var t = 360
             setInterval (function () {
-            	t = t - 1;
-            	if (t > 0) 
-            	{
+                t = t - 1;
+                if (t > 0)
+                {
                   conn.send("dcba");
                 }
             }, 20000);

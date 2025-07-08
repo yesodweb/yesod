@@ -1,20 +1,18 @@
-{-# LANGUAGE PatternGuards       #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
 
 module Options (injectDefaults) where
 
-import           Control.Applicative
 import qualified Control.Exception         as E
-import           Control.Monad
-import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.Reader
+import           Control.Monad             (msum)
+import           Control.Monad.Trans.Except (runExcept, throwE)
+import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.Char                 (isAlphaNum, isSpace, toLower)
 import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (mapMaybe)
-import           Data.Monoid
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory
@@ -40,7 +38,7 @@ injectDefaults prefix lenses parser = do
   e      <- getEnvironment
   config <- (readFile . (</> "config") =<< getAppUserDataDirectory prefix)
               `E.catch` \(_::E.SomeException) -> return ""
-  let env = M.fromList . filter ((==[prefix]) . take 1 . fst) $
+  let env = M.fromList . filter ((== [prefix]) . take 1 . fst) $
                configLines config <>                              -- config first
                map (\(k,v) -> (splitOn "_" $ map toLower k, v)) e -- env vars override config
       p' =  parser { infoParser = injectDefaultP env [prefix] (infoParser parser) }
@@ -54,10 +52,10 @@ updateA env key upd a =
 
 -- | really simple key/value file reader:   x.y = z -> (["x","y"],"z")
 configLines :: String -> [([String], String)]
-configLines = mapMaybe (mkLine . takeWhile (/='#')) . lines
+configLines = mapMaybe (mkLine . takeWhile (/= '#')) . lines
   where
     trim = let f = reverse . dropWhile isSpace in f . f
-    mkLine l | (k, '=':v) <- break (=='=') l = Just (splitOn "." (trim k), trim v)
+    mkLine l | (k, '=':v) <- break (== '=') l = Just (splitOn "." (trim k), trim v)
              | otherwise                       = Nothing
 
 -- | inject the environment into the parser
@@ -86,17 +84,19 @@ injectDefaultP env path p@(OptP o)
                           . getEnvValue env path)
                         names)
   | (Option (FlagReader names a) _) <- o =
-     p <|> if any ((==Just "1") . getEnvValue env path) names then pure a else empty
+     p <|> if any ((== Just "1") . getEnvValue env path) names then pure a else empty
   | otherwise = p
   where
     modifyParserI cmd parseri =
         parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
-    cmdMap f cmds = 
+#if !MIN_VERSION_optparse_applicative(0,18,0)
+    cmdMap f cmds =
         let mkCmd cmd =
-                let (Just parseri) = f cmd
-                in  modifyParserI cmd parseri
+                case f cmd of
+                    Nothing -> error "yesod-bin/Options.injectDefaultP: should never happen"
+                    Just parseri -> modifyParserI cmd parseri
         in  M.fromList (map (\c -> (c, mkCmd c)) cmds)
-
+#endif
 
 injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)
@@ -110,4 +110,3 @@ getEnvValue _ _ _                = Nothing
 
 normalizeName :: String -> String
 normalizeName = map toLower . filter isAlphaNum
-

@@ -1,5 +1,21 @@
 # ChangeLog for yesod-test
 
+## 1.6.23.1
+
+* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
+
+## 1.6.23
+
+* Add `MonadFail` to `SIO` so tests can fail on pattern match failure. [#1874](https://github.com/yesodweb/yesod/pull/1874)
+
+## 1.6.22
+
+- Add upper bounds to all build dependencies to comply with Hackage upload requirements. [#1873](https://github.com/yesodweb/yesod/pull/1873)
+
+## 1.6.21
+
+* Add `browseBody` to yesod-test. [#1872](https://github.com/yesodweb/yesod/pull/1872)
+
 ## 1.6.20
 
 * Add `HasCallStack` to more functions. [#1858](https://github.com/yesodweb/yesod/pull/1858)

@@ -1,20 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module YesodCoreTest.InternalRequest (internalRequestTest) where
 
 import Data.List (nub)
 import Network.Wai as W
 import Yesod.Core.Internal (randomString, parseWaiRequest)
 import Test.Hspec
-import Data.Monoid (mempty)
 import Data.Map (singleton)
 import Yesod.Core
 import Data.Word (Word64)
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad (replicateM)
-import System.Random
+import System.Random (randomIO)
 
 gen :: IO Int
-gen = getStdRandom next
+gen = randomIO
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
@@ -57,7 +57,7 @@ tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
 
 noDisabledToken :: Bool
 noDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest Data.Monoid.mempty False 1000
+  r = parseWaiRequest' defaultRequest mempty False 1000
 
 ignoreDisabledToken :: Bool
 ignoreDisabledToken = reqToken r == Nothing where

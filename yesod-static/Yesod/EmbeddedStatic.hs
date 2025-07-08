@@ -1,13 +1,13 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | A subsite which serves static content which is embedded at compile time.
 --
 -- At compile time, you supply a list of files, directories, processing functions (like javascript
@@ -49,7 +49,6 @@ module Yesod.EmbeddedStatic (
   , module Yesod.EmbeddedStatic.Generators
 ) where
 
-import Control.Applicative as A ((<$>))
 import Data.IORef
 import Data.Maybe (catMaybes)
 import Language.Haskell.TH
@@ -98,7 +97,7 @@ mkRoute (c@ComputedEntry { cHaskellName = Just name }) = do
            , ValD (VarP name) (NormalB link) []
            ]
 
--- | Creates an 'EmbeddedStatic' by running, at compile time, a list of generators. 
+-- | Creates an 'EmbeddedStatic' by running, at compile time, a list of generators.
 -- Each generator produces a list of entries to embed into the executable.
 --
 -- This template haskell splice creates a variable binding holding the resulting
@@ -132,7 +131,7 @@ mkEmbeddedStatic :: Bool -- ^ development?
                  -> [Generator] -- ^ the generators (see "Yesod.EmbeddedStatic.Generators")
                  -> Q [Dec]
 mkEmbeddedStatic dev esName gen = do
-    entries <- concat A.<$> sequence gen
+    entries <- concat <$> sequence gen
     computed <- runIO $ mapM (if dev then devEmbed else prodEmbed) entries
 
     let settings = Static.mkSettings $ return $ map cStEntry computed

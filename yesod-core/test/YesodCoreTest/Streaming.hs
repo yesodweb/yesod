@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module YesodCoreTest.Streaming (specs) where
 
 import Yesod.Core

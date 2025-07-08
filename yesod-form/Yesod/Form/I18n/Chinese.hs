@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Form.I18n.Chinese where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 chineseFormMessage :: FormMessage -> Text
-chineseFormMessage (MsgInvalidInteger t) = "无效的整数: " `Data.Monoid.mappend` t
+chineseFormMessage (MsgInvalidInteger t) = "无效的整数: " `mappend` t
 chineseFormMessage (MsgInvalidNumber t) = "无效的数字: " `mappend` t
 chineseFormMessage (MsgInvalidEntry t) = "无效的条目: " `mappend` t
 chineseFormMessage MsgInvalidTimeFormat = "无效的时间, 必须符合HH:MM[:SS]格式"

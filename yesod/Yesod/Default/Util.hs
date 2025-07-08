@@ -1,6 +1,7 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE CPP #-}
+
 -- | Various utilities used in the scaffolded site.
 module Yesod.Default.Util
     ( addStaticContentExternal
@@ -22,7 +23,10 @@ import Yesod.Core -- purposely using complete import so that Haddock will see ad
 import Control.Monad (when, unless)
 import Conduit
 import System.Directory (doesFileExist, createDirectoryIfMissing)
-import Language.Haskell.TH.Syntax hiding (makeRelativeToProject)
+import Language.Haskell.TH.Syntax
+#if MIN_VERSION_template_haskell(2,19,0)
+    hiding (makeRelativeToProject)
+#endif
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)

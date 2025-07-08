@@ -1,5 +1,9 @@
 # ChangeLog for yesod
 
+## 1.6.2.2
+
+* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
+
 ## 1.6.2.1
 
 * Support `template-haskell-2.19.0.0` [#1769](https://github.com/yesodweb/yesod/pull/1769)

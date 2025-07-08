@@ -1,7 +1,8 @@
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | NOTE: Mozilla Persona will be shut down by the end of 2016, therefore this
 -- module is no longer recommended for use.
 module Yesod.Auth.BrowserId

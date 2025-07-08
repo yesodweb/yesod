@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
+
 {- |
 This module uses HXT to transverse an HTML document using CSS selectors.
 
@@ -42,7 +42,6 @@ where
 
 import Yesod.Test.CssQuery
 import qualified Data.Text as T
-import qualified Control.Applicative
 import Text.XML
 import Text.XML.Cursor
 import qualified Data.ByteString.Lazy as L
@@ -60,7 +59,7 @@ type HtmlLBS = L.ByteString
 -- * Right: List of matching Html fragments.
 findBySelector :: HtmlLBS -> Query -> Either String [String]
 findBySelector html query =
-  map (renderHtml . toHtml . node) Control.Applicative.<$> findCursorsBySelector html query
+  map (renderHtml . toHtml . node) <$> findCursorsBySelector html query
 
 -- | Perform a css 'Query' on 'Html'. Returns Either
 --
@@ -69,8 +68,7 @@ findBySelector html query =
 -- * Right: List of matching Cursors
 findCursorsBySelector :: HtmlLBS -> Query -> Either String [Cursor]
 findCursorsBySelector html query =
-  runQuery (fromDocument $ HD.parseLBS html)
-       Control.Applicative.<$> parseQuery query
+  runQuery (fromDocument $ HD.parseLBS html) <$> parseQuery query
 
 -- | Perform a css 'Query' on 'Html'. Returns Either
 --
@@ -81,7 +79,7 @@ findCursorsBySelector html query =
 -- @since 1.5.7
 findAttributeBySelector :: HtmlLBS -> Query -> T.Text -> Either String [[T.Text]]
 findAttributeBySelector html query attr =
-  map (laxAttribute attr) Control.Applicative.<$> findCursorsBySelector html query
+  map (laxAttribute attr) <$> findCursorsBySelector html query
 
 
 -- Run a compiled query on Html, returning a list of matching Html fragments.

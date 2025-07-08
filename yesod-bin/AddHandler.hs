@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
+
 module AddHandler (addHandler) where
 
 import Prelude hiding (readFile)

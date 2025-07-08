@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 -- | Some next-gen helper functions for the scaffolding's configuration system.
 module Yesod.Default.Config2
     ( -- * Locally defined
@@ -28,7 +29,6 @@ module Yesod.Default.Config2
 
 import Data.Yaml.Config
 
-import Data.Semigroup
 import Data.Aeson
 import System.Environment (getEnvironment)
 import Network.Wai (Application)

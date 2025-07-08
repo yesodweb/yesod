@@ -1,4 +1,9 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Yesod.Core
 import Yesod.WebSockets
 import qualified Data.Text.Lazy as TL
@@ -7,7 +12,6 @@ import Control.Monad.Trans.Reader
 import Control.Concurrent (threadDelay)
 import Data.Time
 import Conduit
-import Data.Monoid ((<>))
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text)
 import UnliftIO.Exception (try, SomeException)

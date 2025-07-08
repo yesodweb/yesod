@@ -1,15 +1,18 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -249,7 +252,6 @@ import           Data.Kind                     (Type)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
-import           Yesod.Routes.Class            (Route)
 import           Data.ByteString.Builder (Builder)
 import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
@@ -415,9 +417,15 @@ handlerToIO =
           where
             oldReq    = handlerRequest oldHandlerData
             oldWaiReq = reqWaiRequest oldReq
+#if MIN_VERSION_wai(3,2,4)
+            newWaiReq =
+                W.setRequestBodyChunks (return mempty) $
+                    oldWaiReq { W.requestBodyLength = W.KnownLength 0 }
+#else
             newWaiReq = oldWaiReq { W.requestBody = return mempty
                                   , W.requestBodyLength = W.KnownLength 0
                                   }
+#endif
         oldEnv = handlerEnv oldHandlerData
     newState <- liftIO $ do
       oldState <- I.readIORef (handlerState oldHandlerData)
@@ -1434,7 +1442,11 @@ rawRequestBody :: MonadHandler m => ConduitT i S.ByteString m ()
 rawRequestBody = do
     req <- lift waiRequest
     let loop = do
+#if MIN_VERSION_wai(3,2,2)
+            bs <- liftIO $ W.getRequestBodyChunk req
+#else
             bs <- liftIO $ W.requestBody req
+#endif
             unless (S.null bs) $ do
                 yield bs
                 loop

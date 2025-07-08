@@ -1,17 +1,18 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns#-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -ddump-splices #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ViewPatterns#-}
+-- {-# OPTIONS_GHC -ddump-splices #-}
+
 import Test.Hspec
 import Test.HUnit ((@?=))
 import Data.Text (Text, pack, unpack, singleton)
@@ -86,11 +87,10 @@ do
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
         } ress
-    return
+    return $
+        InstanceD
 #if MIN_VERSION_template_haskell(2,11,0)
-        $ InstanceD Nothing
-#else
-        $ InstanceD
+            Nothing
 #endif
             []
             (ConT ''Dispatcher

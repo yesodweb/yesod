@@ -1,12 +1,16 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE QuasiQuotes  #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+#if !MIN_VERSION_shakespeare(2,0,18)
+{-# OPTIONS_GHC -Wno-orphans #-}
+#endif
 
 -- | A module providing a means of creating multiple input forms without
 -- the need to submit the form to generate a new input field unlike
@@ -35,13 +39,10 @@ import Yesod.Form.Fields (intField)
 import Yesod.Form.Functions
 import Yesod.Form.Types
 
-#ifdef MIN_VERSION_shakespeare(2,0,18)
-#if MIN_VERSION_shakespeare(2,0,18)
-#else
+#if !MIN_VERSION_shakespeare(2,0,18)
 import Text.Julius (ToJavascript (..))
 instance ToJavascript String where toJavascript = toJavascript . toJSON
 instance ToJavascript Text where toJavascript = toJavascript . toJSON
-#endif
 #endif
 
 -- | By default delete buttons have a @margin-left@ property of @0.75rem@.
@@ -65,7 +66,7 @@ data MultiSettings site = MultiSettings
 -- both the field and it's corresponding delete button.
 --
 -- The structure is illustrated by the following:
--- 
+--
 -- > <div .#{wrapperClass}>
 -- >     <div .#{wrapperClass}-inner>
 -- >         ^{fieldWidget}
@@ -76,7 +77,7 @@ data MultiSettings site = MultiSettings
 -- is returned in the 'MultiView' should you wish to change the styling. The inner wrapper
 -- uses the same class followed by @-inner@. By default the wrapper and inner wrapper has
 -- classes are as follows:
--- 
+--
 -- > .#{wrapperClass} {
 -- >     margin-bottom: 1rem;
 -- > }
@@ -105,7 +106,7 @@ bs3Settings = MultiSettings
     "has-error"
     Nothing Nothing (Just errW)
     where
-        errW err = 
+        errW err =
             [whamlet|
                 <span .help-block>#{err}
             |]
@@ -140,7 +141,7 @@ bs3FASettings = MultiSettings
     where
         addIcon = Just [shamlet|<i class="fas fa-plus">|]
         delIcon = Just [shamlet|<i class="fas fa-trash-alt">|]
-        errW err = 
+        errW err =
             [whamlet|
                 <span .help-block>#{err}
             |]
@@ -184,7 +185,10 @@ amulti field fs defs minVals ms = formToAForm $
         mform = do
             (fr, MultiView {..}) <- mmulti field fs defs minVals ms
 
-            let (fv : _) = mvFields
+            let fv =
+                    case mvFields of
+                        [] -> error "amulti: expected at least one input field"
+                        inputField : _ -> inputField
                 widget = do
                     [whamlet|
                         $maybe tooltip <- fvTooltip fv
@@ -205,7 +209,7 @@ amulti field fs defs minVals ms = formToAForm $
                     , fvErrors = fvErrors mvAddBtn
                     , fvRequired = False
                     }
-            
+
             return (fr, view)
 
 -- | Converts a form field into a monadic form containing an arbitrary
@@ -235,7 +239,7 @@ mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMe
     -> Int
     -> MultiSettings site
     -> MForm m (FormResult [a], MultiView site)
-mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals MultiSettings {..} = do
+mhelperMulti field fs@FieldSettings{..} wrapperClass defs minVals MultiSettings{..} = do
     mp <- askParams
     (_, site, langs) <- ask
     name <- maybe newFormIdent return fsName
@@ -258,7 +262,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
             _ -> False
 
     mfs <- askFiles
-    
+
     -- get counter value (starts counting from 0)
     cr@(cRes, _) <- case mp of
         Nothing -> return (FormMissing, Right cDef)
@@ -332,7 +336,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                     $('##{rawJS delBtnId}').click(function() {
                         var field = $('##{rawJS fieldId}');
                         deleteField_#{rawJS theId}(field.parents('.#{rawJS wrapperClass}'));
-                    });                    
+                    });
                 |]
 
     -- generate field views
@@ -348,19 +352,19 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                 zs -> zs
         rvs <- mapM mkView' ys
         return $ unzip rvs
-    
+
     -- check values
     let rs' = [ fmap fromJust r | r <- rs
                                 , not $ isSuccNothing r ]
         err = T.pack $ "Please enter at least " ++ show minVals ++ " values."
-        (res, tooFewVals) = 
+        (res, tooFewVals) =
             case foldr (<*>) (FormSuccess []) (map (fmap $ (:)) rs') of
                 FormSuccess xs ->
                     if length xs < minVals
                         then (FormFailure [err], True)
                         else (FormSuccess xs, False)
                 fRes -> (fRes, False)
-    
+
         -- create add button
         -- also includes some styling / functions that we only want to include once
         btnWidget = do
@@ -392,7 +396,7 @@ mhelperMulti field@Field {..} fs@FieldSettings {..} wrapperClass defs minVals Mu
                         var newName = #{name} + "-" + newNumber;
                         var newId = #{theId} + "-" + newNumber;
                         var newDelId = #{delBtnPrefix} + newId;
-                        
+
                         // get new wrapper and remove old error messages
                         var newWrapper = $('.#{rawJS wrapperClass}').first().clone();
                         newWrapper.children( ':not(.#{rawJS wrapperClass}-inner)' ).remove();
@@ -458,7 +462,7 @@ mkRes :: (site ~ HandlerSite m, MonadHandler m)
     -> (site -> [Text] -> FormResult b)
     -> (a -> FormResult b)
     -> MForm m (FormResult b, Either Text a)
-mkRes Field {..} FieldSettings {..} p mfs name onMissing onFound = do
+mkRes Field{..} _ p mfs name onMissing onFound = do
     tell fieldEnctype
     (_, site, langs) <- ask
     let mvals = fromMaybe [] $ Map.lookup name p
@@ -468,7 +472,7 @@ mkRes Field {..} FieldSettings {..} p mfs name onMissing onFound = do
         Left msg -> (FormFailure [renderMessage site langs msg], maybe (Left "") Left (listToMaybe mvals))
         Right mx ->
             case mx of
-                Nothing -> (onMissing site langs, Left "") 
+                Nothing -> (onMissing site langs, Left "")
                 Just x -> (onFound x, Right x)
 
 -- Generate a FieldView for the given field with the given result.
@@ -485,7 +489,7 @@ mkView :: (site ~ HandlerSite m, MonadHandler m)
     -> Text
     -> Bool
     -> MForm m (FieldView site)
-mkView Field {..} FieldSettings {..} (res, val) mdel merrW errClass theId name isReq = do
+mkView Field{..} FieldSettings{..} (res, val) mdel merrW errClass theId name isReq = do
     (_, site, langs) <- ask
     let mr2 = renderMessage site langs
         merr = case res of
@@ -499,11 +503,11 @@ mkView Field {..} FieldSettings {..} (res, val) mdel merrW errClass theId name i
                         <div .#{wrapperClass}-inner>
                             ^{fv'}
                             ^{delBtn}
-                            
+
                         $maybe err <- merr
                             $maybe errW <- merrW
                                 ^{errW err}
-                        
+
                 $nothing
                     ^{fv'}
             |]

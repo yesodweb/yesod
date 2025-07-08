@@ -1,13 +1,14 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE CPP #-}
+
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -127,11 +128,10 @@ do
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
         } resources
-    return
+    return $
+        InstanceD
 #if MIN_VERSION_template_haskell(2,11,0)
-        $ InstanceD Nothing
-#else
-        $ InstanceD
+            Nothing
 #endif
             []
             (ConT ''Dispatcher

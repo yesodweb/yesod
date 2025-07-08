@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Form.I18n.Korean where
 
 import Yesod.Form.Types (FormMessage (..))
-import Data.Monoid (mappend)
 import Data.Text (Text)
 
 koreanFormMessage :: FormMessage -> Text
-koreanFormMessage (MsgInvalidInteger t) = "잘못된 정수입니다: " `Data.Monoid.mappend` t
+koreanFormMessage (MsgInvalidInteger t) = "잘못된 정수입니다: " `mappend` t
 koreanFormMessage (MsgInvalidNumber t) = "잘못된 숫자입니다: " `mappend` t
 koreanFormMessage (MsgInvalidEntry t) = "잘못된 입력입니다: " `mappend` t
 koreanFormMessage MsgInvalidTimeFormat = "잘못된 시간입니다. HH:MM[:SS] 형태로 입력하세요"

@@ -1,13 +1,13 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
@@ -218,6 +218,7 @@ module Yesod.Test
 
     -- * Debug output
     , printBody
+    , browseBody
     , printMatches
 
     -- * Utils for building your own assertions
@@ -265,18 +266,8 @@ import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
-import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
-import Data.Monoid (mempty)
-#if MIN_VERSION_base(4,9,0)
 import GHC.Stack (HasCallStack)
-#elif MIN_VERSION_base(4,8,1)
-import GHC.Stack (CallStack)
-type HasCallStack = (?callStack :: CallStack)
-#else
-import GHC.Exts (Constraint)
-type HasCallStack = (() :: Constraint)
-#endif
 import Data.ByteArray.Encoding (convertToBase, Base(..))
 import Network.HTTP.Types.Header (hContentType)
 import Data.Aeson (eitherDecode')
@@ -284,6 +275,10 @@ import Control.Monad (unless)
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 import Yesod.Test.Internal.SIO
+
+import System.Directory (getTemporaryDirectory)
+import System.Info (os)
+import System.Process (callCommand)
 
 {-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact, byLabelContain, byLabelPrefix or byLabelSuffix instead" #-}
 {-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact, fileByLabelContain, fileByLabelPrefix or fileByLabelSuffix instead" #-}
@@ -716,7 +711,7 @@ htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
     [] -> failure $ "Nothing matched css query: " <> query
-    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search  ++ " matches: " ++ show matches) $
+    _ -> liftIO $ HUnit.assertBool ("Not all " ++ T.unpack query ++ " contain " ++ search ++ " matches: " ++ show matches) $
           DL.all (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches)
 
 -- | puts the search trough the same escaping as the matches are.
@@ -739,7 +734,7 @@ htmlAnyContain query search = do
   matches <- htmlQuery query
   case matches of
     [] -> failure $ "Nothing matched css query: " <> query
-    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search ++ " matches: " ++ show matches) $
+    _ -> liftIO $ HUnit.assertBool ("None of " ++ T.unpack query ++ " contain " ++ search ++ " matches: " ++ show matches) $
           DL.any (DL.isInfixOf (escape search)) (map (TL.unpack . decodeUtf8) matches)
 
 -- | Queries the HTML using a CSS selector, and fails if any matched
@@ -773,7 +768,7 @@ htmlCount :: HasCallStack => Query -> Int -> YesodExample site ()
 htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
   liftIO $ flip HUnit.assertBool (matches == count)
-    ("Expected "++(show count)++" elements to match "++T.unpack query++", found "++(show matches))
+    ("Expected " ++ (show count) ++ " elements to match " ++ T.unpack query ++ ", found " ++ (show matches))
 
 -- | Parses the response body from JSON into a Haskell value, throwing an error if parsing fails.
 --
@@ -809,6 +804,29 @@ requireJSONResponse = do
 printBody :: YesodExample site ()
 printBody = withResponse $ \ SResponse { simpleBody = b } ->
   liftIO $ BSL8.hPutStrLn stderr b
+
+-- | Render the last response and open it in a web browser
+--
+-- This is similar to 'printBody', except that it opens the markup in your web
+-- browser instead, which may be easier to read than seeing it printed in the
+-- terminal.
+--
+-- @since 1.6.21
+browseBody :: YesodExample site ()
+browseBody = withResponse $ \SResponse{ simpleBody = b } -> liftIO $ do
+  tempDir <- getTemporaryDirectory
+  (fp, h) <- openTempFile tempDir "yesod-test-response.html"
+  BSL8.hPutStrLn h b
+  hFlush h
+  hClose h
+  openInBrowser fp
+  where
+  openInBrowser path = callCommand $ cmd ++ " " ++ path
+  cmd = case os of
+    "darwin"  -> "open"
+    "linux"   -> "xdg-open"
+    "mingw32" -> "start"
+    _         -> error $ "Unsupported OS: " ++ os
 
 -- | Performs a CSS query and print the matches to stderr.
 --
@@ -1226,10 +1244,15 @@ fileByLabelSuffix = fileByLabelWithMatch T.isSuffixOf
 -- >   addToken_ "#formID"
 addToken_ :: HasCallStack => Query -> RequestBuilder site ()
 addToken_ scope = do
-  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> " input[name=_token][type=hidden][value]"
+  matches <-
+    htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $
+      scope <> " input[name=_token][type=hidden][value]"
   case matches of
+    [element] ->
+      case attribute "value" $ parseHTML element of
+        [] -> failure "Expected at least one value in 'value' attribute"
+        valAttr : _ -> addPostParam "_token" valAttr
     [] -> failure $ "No CSRF token found in the current page"
-    element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
     _ -> failure $ "More than one CSRF token found in the page"
 
 -- | For responses that display a single form, just lookup the only CSRF token available.
@@ -1294,7 +1317,7 @@ addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
 getRequestCookies :: HasCallStack => RequestBuilder site Cookies
 getRequestCookies = do
   requestBuilderData <- getSIO
-  headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
+  headers <- case simpleHeaders <$> rbdResponse requestBuilderData of
                   Just h -> return h
                   Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
 
@@ -1396,10 +1419,10 @@ getLocation = do
       Just h -> case parseRoute $ decodePath h of
         Nothing -> return $ Left "getLocation called, but couldn’t parse it into a route"
         Just l -> return $ Right l
-  where decodePath b = let (x, y) = BS8.break (=='?') b
+  where decodePath b = let (x, y) = BS8.break (== '?') b
                        in (H.decodePathSegments x, unJust <$> H.parseQueryText y)
         unJust (a, Just b) = (a, b)
-        unJust (a, Nothing) = (a, Data.Monoid.mempty)
+        unJust (a, Nothing) = (a, mempty)
 
 -- | Sets the HTTP method used by the request.
 --
@@ -1438,7 +1461,7 @@ setUrl url' = do
     let (urlPath, urlQuery) = T.break (== '?') url
     modifySIO $ \rbd -> rbd
         { rbdPath =
-            case DL.filter (/="") $ H.decodePathSegments $ TE.encodeUtf8 urlPath of
+            case DL.filter (/= "") $ H.decodePathSegments $ TE.encodeUtf8 urlPath of
                 ("http:":_:rest) -> rest
                 ("https:":_:rest) -> rest
                 x -> x
@@ -1656,7 +1679,7 @@ request reqBuilder = do
 
 
 parseSetCookies :: [H.Header] -> [Cookie.SetCookie]
-parseSetCookies headers = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ headers
+parseSetCookies headers = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie" ==) . fst) $ headers
 
 -- Yes, just a shortcut
 failure :: (HasCallStack, MonadIO a) => T.Text -> a b

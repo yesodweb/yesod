@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings, CPP #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Core.Internal.Request
     ( parseWaiRequest
     , RequestBodyContents
@@ -49,9 +51,12 @@ import qualified Data.Word8 as Word8
 limitRequestBody :: Word64 -> W.Request -> IO W.Request
 limitRequestBody maxLen req = do
     ref <- newIORef maxLen
-    return req
-        { W.requestBody = do
+    let bd = do
+#if MIN_VERSION_wai(3,2,2)
+            bs <- W.getRequestBodyChunk req
+#else
             bs <- W.requestBody req
+#endif
             remaining <- readIORef ref
             let len = fromIntegral $ S8.length bs
                 remaining' = remaining - len
@@ -60,7 +65,11 @@ limitRequestBody maxLen req = do
                 else do
                     writeIORef ref remaining'
                     return bs
-        }
+#if MIN_VERSION_wai(3,2,4)
+    return $ W.setRequestBodyChunks bd req
+#else
+    return req { W.requestBody = bd }
+#endif
 
 tooLargeResponse :: Word64 -> Word64 -> W.Response
 tooLargeResponse maxLen bodyLen = W.responseLBS

@@ -1,10 +1,12 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeOperators #-}
+
 module Yesod.Form.Functions
     ( -- * Running in MForm monad
       newFormIdent
@@ -72,7 +74,6 @@ import Text.Blaze (Markup, toMarkup)
 #define toHtml toMarkup
 import Yesod.Core
 import Network.Wai (requestMethod)
-import Data.Monoid (mempty, (<>))
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
@@ -328,7 +329,7 @@ postHelper form env = do
     let tokenKey = defaultCsrfParamName
     let token =
             case reqToken req of
-                Nothing -> Data.Monoid.mempty
+                Nothing -> mempty
                 Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
     m <- getYesod
     langs <- languages

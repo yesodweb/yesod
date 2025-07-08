@@ -1,8 +1,8 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 -------------------------------------------------------------------------------
 --
 -- Module        : Yesod.RssFeed
@@ -68,7 +68,7 @@ template Feed {..} render =
         ++
         case feedLogo of
             Nothing -> []
-            Just (route, desc) -> [Element "image" Map.empty 
+            Just (route, desc) -> [Element "image" Map.empty
                 [ NodeElement $ Element "url" Map.empty [NodeContent $ render route]
                 , NodeElement $ Element "title" Map.empty [NodeContent desc]
                 , NodeElement $ Element "link" Map.empty [NodeContent $ render feedLinkHome]

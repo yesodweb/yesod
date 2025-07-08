@@ -1,14 +1,7 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE RankNTypes #-}
+
 module Yesod.Core.Types (
     module Yesod.Core.Types
   , module Yesod.Core.Types.ErrorResponse
@@ -39,7 +32,6 @@ import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
 import           Data.Monoid                        (Endo (..), Last (..))
-import           Data.Semigroup                     (Semigroup(..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
@@ -278,9 +270,6 @@ data WidgetData site = WidgetData
 
 instance a ~ () => Monoid (WidgetFor site a) where
     mempty = return ()
-#if !(MIN_VERSION_base(4,11,0))
-    mappend = (<>)
-#endif
 instance a ~ () => Semigroup (WidgetFor site a) where
     x <> y = x >> y
 
@@ -377,13 +366,9 @@ newtype Title = Title { unTitle :: Html }
 newtype Description = Description { unDescription :: Text }
 
 newtype Head url = Head (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Head url) where
-  (<>) = mappend
+    deriving (Semigroup, Monoid)
 newtype Body url = Body (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Body url) where
-  (<>) = mappend
+    deriving (Semigroup, Monoid)
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 
@@ -399,9 +384,6 @@ data GWData a = GWData
     }
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty mempty
-#if !(MIN_VERSION_base(4,11,0))
-    mappend = (<>)
-#endif
 instance Semigroup (GWData a) where
     GWData a1 a2 a3 a4 a5 a6 a7 a8 <>
       GWData b1 b2 b3 b4 b5 b6 b7 b8 = GWData
@@ -487,9 +469,6 @@ instance MonadLoggerIO (HandlerFor site) where
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id
-#if !(MIN_VERSION_base(4,11,0))
-    mappend = (<>)
-#endif
 instance Semigroup (UniqueList x) where
     UniqueList x <> UniqueList y = UniqueList $ x . y
 

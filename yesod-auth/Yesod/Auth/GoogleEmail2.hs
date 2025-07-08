@@ -1,9 +1,10 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Use an email address as an identifier via Google's login system.
 --
 -- Note that this is a replacement for "Yesod.Auth.GoogleEmail", which depends
@@ -70,7 +71,6 @@ import           Yesod.Core                  (HandlerSite, MonadHandler,
 
 
 import           Blaze.ByteString.Builder    (fromByteString, toByteString)
-import           Control.Applicative         ((<$>), (<*>))
 import           Control.Arrow               (second)
 import           Control.Monad               (unless, when)
 import           Control.Monad.IO.Class      (MonadIO)
@@ -88,7 +88,6 @@ import           Data.Aeson.Types            (FromJSON (parseJSON), parseEither,
 import           Data.Conduit
 import           Data.Conduit.Attoparsec     (sinkParser)
 import           Data.Maybe                  (fromMaybe)
-import           Data.Monoid                 (mappend)
 import           Data.Text                   (Text)
 import qualified Data.Text                   as T
 import           Data.Text.Encoding          (decodeUtf8, encodeUtf8)
@@ -188,7 +187,7 @@ authPlugin storeToken clientID clientSecret =
         return $ decodeUtf8
                $ toByteString
                $ fromByteString "https://accounts.google.com/o/oauth2/auth"
-                    `Data.Monoid.mappend` renderQueryText True qs
+                    `mappend` renderQueryText True qs
 
     login tm = do
         [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
@@ -308,9 +307,10 @@ data Token = Token { accessToken :: Text
                    } deriving (Show, Eq)
 
 instance FromJSON Token where
-    parseJSON = withObject "Tokens" $ \o -> Token
-        Control.Applicative.<$> o .: "access_token"
-        Control.Applicative.<*> o .: "token_type"
+    parseJSON = withObject "Tokens" $ \o ->
+        Token
+            <$> o .: "access_token"
+            <*> o .: "token_type"
 
 --------------------------------------------------------------------------------
 -- | Gender of the person

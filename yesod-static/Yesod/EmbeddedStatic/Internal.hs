@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE CPP #-}
+
 module Yesod.EmbeddedStatic.Internal (
       EmbeddedStatic(..)
     , Route(..)
@@ -16,7 +16,6 @@ module Yesod.EmbeddedStatic.Internal (
     , widgetSettings
 ) where
 
-import Control.Applicative as A ((<$>))
 import Data.IORef
 import Language.Haskell.TH
 import Network.HTTP.Types (Status(..), status404, status200, status304)
@@ -39,16 +38,6 @@ import qualified WaiAppStatic.Storage.Embedded as Static
 
 import Yesod.Static (base64md5)
 import Yesod.EmbeddedStatic.Types
-
-#if !MIN_VERSION_base(4,6,0)
--- copied from base
-atomicModifyIORef' :: IORef a -> (a -> (a,b)) -> IO b
-atomicModifyIORef' ref f = do
-    b <- atomicModifyIORef ref
-            (\x -> let (a, b) = f x
-                    in (a, a `seq` b))
-    b `seq` return b
-#endif
 
 -- | The subsite for the embedded static file server.
 data EmbeddedStatic = EmbeddedStatic {
@@ -144,7 +133,7 @@ staticContentHelper :: (site -> EmbeddedStatic)
                     -> (BL.ByteString -> Either a BL.ByteString)
                     -> AddStaticContent site
 staticContentHelper getStatic staticR minify ext _ ct = do
-    wIORef <- widgetFiles . getStatic A.<$> getYesod
+    wIORef <- widgetFiles . getStatic <$> getYesod
     let hash = T.pack $ base64md5 ct
         hash' = Just $ T.encodeUtf8 hash
         filename = T.concat [hash, ".", ext]

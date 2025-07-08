@@ -1,7 +1,8 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Devel
     ( devel
     , develSignal
@@ -29,14 +30,13 @@ import           Data.Time                             (getCurrentTime)
 import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
 #if MIN_VERSION_Cabal(3,8,0)
-import qualified Distribution.Simple.PackageDescription as D
-#endif
-#if MIN_VERSION_Cabal(2, 2, 0)
-import qualified Distribution.PackageDescription.Parsec as D
+import qualified Distribution.Simple.PackageDescription as D (readGenericPackageDescription)
+#elif MIN_VERSION_Cabal(2, 2, 0)
+import qualified Distribution.PackageDescription.Parsec as D (readGenericPackageDescription)
 #else
-import qualified Distribution.PackageDescription.Parse as D
+import qualified Distribution.PackageDescription.Parse as D (readGenericPackageDescription)
 #endif
-import qualified Distribution.Simple.Utils             as D
+import qualified Distribution.Simple.Utils             as D (tryFindPackageDesc)
 import qualified Distribution.Verbosity                as D
 import           Network.HTTP.Client                   (newManager)
 import           Network.HTTP.Client                   (managerSetProxy,
@@ -308,7 +308,7 @@ devel opts passThroughArgs = do
 
     let pd = D.packageDescription gpd
         D.PackageIdentifier packageNameWrapped _version = D.package pd
-#if MIN_VERSION_Cabal(2, 0, 0)
+#if MIN_VERSION_Cabal(1, 22, 0)
         packageName = D.unPackageName packageNameWrapped
 #else
         D.PackageName packageName = packageNameWrapped
@@ -386,7 +386,11 @@ devel opts passThroughArgs = do
         -- changing the destination port for reverse proxying to -1. We also
         -- make sure that all content to stdout or stderr from the build
         -- process is piped to the actual stdout and stderr handles.
+#if MIN_VERSION_conduit_extra(1,3,4)
+        withProcessTerm_ procConfig $ \p -> do
+#else
         withProcess_ procConfig $ \p -> do
+#endif
             let helper getter h =
                       runConduit
                     $ getter p
@@ -503,7 +507,11 @@ devel opts passThroughArgs = do
             sayV $ "Running child process: " ++ show procDef
 
             -- Start running the child process with GHC
+#if MIN_VERSION_conduit_extra(1,3,4)
+            withProcessTerm procDef $ \p -> do
+#else
             withProcess procDef $ \p -> do
+#endif
                 -- Wait for either the process to exit, or for a new build to come through
                 eres <- atomically (fmap Left (waitExitCodeSTM p) <|> fmap Right
                     (do changed <- readTVar changedVar

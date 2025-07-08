@@ -1,8 +1,7 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Yesod.Core.Class.Yesod where
 
@@ -26,7 +25,7 @@ import Data.Aeson (object, (.=))
 import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
 import           Data.Maybe                         (catMaybes)
-import           Data.Monoid
+import           Data.Monoid                        (Last (..))
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import qualified Data.Text.Encoding                 as TE
@@ -54,7 +53,6 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Data.CaseInsensitive (CI)
-import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Request
 import Data.IORef
 import UnliftIO (SomeException, catch, MonadUnliftIO)
@@ -78,7 +76,7 @@ class RenderRoute site => Yesod site where
     --  allows the user to specify how exceptions are cought.
     --  by default all async exceptions are thrown and synchronous
     --  exceptions render a 500 page.
-    -- To catch all exceptions (even async) to render a 500 page, 
+    -- To catch all exceptions (even async) to render a 500 page,
     -- set this to 'UnliftIO.Exception.catchSyncOrAsync'. Beware
     -- this may have negative effects with functions like 'timeout'.
     catchHandlerExceptions :: MonadUnliftIO m => site -> m a -> (SomeException -> m a) -> m a

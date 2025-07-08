@@ -1,12 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ImplicitParams #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | The 'SIO' type is used by "Yesod.Test" to provide exception-safe
@@ -23,12 +18,22 @@ import Conduit (MonadThrow)
 import qualified Control.Monad.State.Class as MS
 import Yesod.Core
 import Data.IORef
+#if MIN_VERSION_base(4,13,0)
+import GHC.Stack (HasCallStack)
+#endif
 
 -- | State + IO
 --
 -- @since 1.6.0
 newtype SIO s a = SIO (ReaderT (IORef s) IO a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadUnliftIO)
+
+#if MIN_VERSION_base(4,13,0)
+-- | @since 1.6.23
+instance MonadFail (SIO s) where
+  fail :: HasCallStack => String -> SIO s a
+  fail = error
+#endif
 
 instance MS.MonadState s (SIO s)
   where

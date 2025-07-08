@@ -1,7 +1,11 @@
-{-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances, ViewPatterns #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module YesodCoreTest.CleanPath
     ( cleanPathTest
     , Widget
@@ -21,7 +25,6 @@ import qualified Data.Text as TS
 import qualified Data.Text.Encoding as TE
 import Control.Arrow ((***))
 import Network.HTTP.Types (encodePath)
-import Data.Monoid (mappend)
 import Data.Text.Encoding (encodeUtf8Builder)
 
 data Subsite = Subsite
@@ -64,7 +67,7 @@ instance Yesod Y where
         corrected = filter (not . TS.null) s
 
     joinPath Y ar pieces' qs' =
-        encodeUtf8Builder ar `Data.Monoid.mappend` encodePath pieces qs
+        encodeUtf8Builder ar `mappend` encodePath pieces qs
       where
         pieces = if null pieces' then [""] else pieces'
         qs = map (TE.encodeUtf8 *** go) qs'

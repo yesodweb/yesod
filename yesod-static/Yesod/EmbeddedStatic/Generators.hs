@@ -1,4 +1,7 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | A generator is executed at compile time to load a list of entries
 -- to embed into the subsite.  This module contains several basic generators,
 -- but the design of generators and entries is such that it is straightforward
@@ -30,10 +33,9 @@ module Yesod.EmbeddedStatic.Generators (
   -- $example
 ) where
 
-import Control.Applicative as A ((<$>), (<*>))
 import Control.Exception (try, SomeException)
 import Control.Monad (forM, when)
-import Data.Char (isDigit, isLower)
+import Data.Char (isLower)
 import Data.Default (def)
 import Data.Maybe (isNothing)
 import Language.Haskell.TH
@@ -93,7 +95,7 @@ getRecursiveContents prefix topdir = do
   return (concat paths)
 
 -- | Embed all files in a directory into the static subsite.
--- 
+--
 -- Equivalent to passing the empty string as the location to 'embedDirAt',
 -- so the directory path itself is not part of the resource locations (and so
 -- also not part of the generated route variable names).
@@ -112,7 +114,7 @@ embedDir = embedDirAt ""
 -- * js/jquery.js
 --
 -- * js/bootstrap.js
--- 
+--
 -- then @embedDirAt \"somefolder\" \"static\"@ will
 --
 -- * Make the file @static\/css\/bootstrap.css@ available at the location
@@ -207,9 +209,9 @@ compressTool f opts ct = do
                 }
     (Just hin, Just hout, _, ph) <- Proc.createProcess p
     (compressed, (), code) <- runConcurrently $ (,,)
-        A.<$> Concurrently (runConduit $ sourceHandle hout .| sinkLazy)
-        A.<*> Concurrently (BL.hPut hin ct >> hClose hin)
-        A.<*> Concurrently (Proc.waitForProcess ph)
+        <$> Concurrently (runConduit $ sourceHandle hout .| sinkLazy)
+        <*> Concurrently (BL.hPut hin ct >> hClose hin)
+        <*> Concurrently (Proc.waitForProcess ph)
     if code == ExitSuccess
         then do
             putStrLn $ "Compressed successfully with " ++ f
@@ -246,11 +248,10 @@ pathToName f = routeName
         | otherwise = '_'
       name = map replace f
       routeName = mkName $
-            case () of
-                ()
-                    | null name -> error "null-named file"
-                    | isDigit (head name) -> '_' : name
-                    | isLower (head name) -> name
+            case name of
+                [] -> error "null-named file"
+                n : _
+                    | isLower n -> name
                     | otherwise -> '_' : name
 
 
@@ -295,7 +296,7 @@ pathToName f = routeName
 --
 -- Here is a small example yesod program using this generator.  Try toggling
 -- the development argument to @mkEmbeddedStatic@.
--- 
+--
 -- >{-# LANGUAGE TemplateHaskell, QuasiQuotes, TypeFamilies #-}
 -- >module Main where
 -- >
@@ -321,7 +322,7 @@ pathToName f = routeName
 -- >getHomeR :: Handler Html
 -- >getHomeR = defaultLayout $ [whamlet|
 -- ><h1>Hello
--- ><p>Check the 
+-- ><p>Check the
 -- >    <a href=@{StaticR compile_time_json}>compile time
 -- >|]
 -- >

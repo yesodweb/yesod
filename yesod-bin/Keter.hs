@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Keter
     ( keter
     ) where
@@ -18,7 +19,6 @@ import System.Process
 import Control.Monad
 import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe,isJust,maybeToList)
-import Data.Monoid
 import System.FilePath ((</>))
 import qualified Codec.Archive.Tar as Tar
 import Control.Exception
@@ -39,7 +39,11 @@ keter :: String -- ^ cabal command
       -> IO ()
 keter cabal noBuild noCopyTo buildArgs = do
     ketercfg <- keterConfig
+#if MIN_VERSION_yaml(0,8,4)
+    mvalue <- decodeFileEither ketercfg >>= either throwIO pure
+#else
     mvalue <- decodeFile ketercfg
+#endif
     value <-
         case mvalue of
             Nothing -> error "No config/keter.yaml found"
@@ -93,7 +97,7 @@ keter cabal noBuild noCopyTo buildArgs = do
             useStack = inStackExec || isJust mStackYaml || stackQueryRunSuccess
 
         if useStack
-            then do let stackYaml = maybeToList $ fmap ("--stack-yaml="<>) mStackYaml
+            then do let stackYaml = maybeToList $ fmap ("--stack-yaml=" <>) mStackYaml
                         localBinPath = cwd' </> "dist/bin"
                     run "stack" $ stackYaml <> ["clean"]
                     createDirectoryIfMissing True localBinPath

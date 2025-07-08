@@ -1,6 +1,10 @@
-{-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module YesodCoreTest.JsAttributes
     ( specs
       -- To avoid unused warning
@@ -34,4 +38,3 @@ specs = describe "Test.JsAttributes" $ do
 
 runner :: YesodDispatch master => master -> Session () -> IO ()
 runner app f = toWaiApp app >>= runSession f
-

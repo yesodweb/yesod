@@ -1,10 +1,8 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
 module HsFile (mkHsFile) where
+
 import Text.ProjectTemplate (createTemplate)
 import Conduit
 import qualified Data.ByteString as BS
-import Control.Monad.IO.Class (liftIO)
 import Data.String (fromString)
 
 mkHsFile :: IO ()

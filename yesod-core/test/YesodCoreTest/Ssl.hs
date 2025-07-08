@@ -1,4 +1,9 @@
-{-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module YesodCoreTest.Ssl ( sslOnlySpec, unsecSpec, sameSiteSpec ) where
 import qualified YesodCoreTest.StubSslOnly as Ssl
 import qualified YesodCoreTest.StubLaxSameSite as LaxSameSite
@@ -43,7 +48,7 @@ cookieShouldSatisfy name spec response =
     cookiesIn r =
       DL.map
         (Cookie.parseSetCookie . snd)
-        (DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders r)
+        (DL.filter (("Set-Cookie" ==) . fst) $ simpleHeaders r)
 
 sslOnlySpec :: Spec
 sslOnlySpec = describe "A Yesod application with sslOnly on" $ do

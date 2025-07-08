@@ -1,7 +1,11 @@
-{-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
@@ -10,7 +14,6 @@ module YesodCoreTest.ErrorHandling
     ) where
 
 import  Data.Typeable(cast)
-import qualified System.Mem as Mem
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent as Conc
 import Yesod.Core
@@ -20,10 +23,8 @@ import Network.Wai.Test
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try, AsyncException(..))
-import           UnliftIO.Exception(finally)
 import Network.HTTP.Types (Status, mkStatus)
 import Data.ByteString.Builder (Builder, toLazyByteString)
-import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
 import qualified Network.Wai.Handler.Warp as Warp
@@ -121,7 +122,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ "This is a test\n"
+goodBuilderContent = mconcat $ replicate 100 $ "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent

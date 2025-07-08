@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Yesod.Auth.Message
     ( AuthMessage (..)
     , defaultMessage
@@ -23,8 +24,7 @@ module Yesod.Auth.Message
     , romanianMessage
     ) where
 
-import           Data.Monoid (mappend, (<>))
-import           Data.Text   (Text)
+import Data.Text (Text)
 
 data AuthMessage =
       NoOpenID
@@ -92,9 +92,7 @@ englishMessage RegisterLong = "Register a new account"
 englishMessage EnterEmail = "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
 englishMessage ConfirmationEmailSentTitle = "Confirmation e-mail sent"
 englishMessage (ConfirmationEmailSent email) =
-    "A confirmation e-mail has been sent to " `Data.Monoid.mappend`
-    email `mappend`
-    "."
+    "A confirmation e-mail has been sent to " `mappend` email `mappend` "."
 englishMessage AddressVerified = "Email address verified, please set a new password"
 englishMessage EmailVerifiedChangePass = "Email address verified, please set a new password"
 englishMessage EmailVerified = "Email address verified"
@@ -885,7 +883,7 @@ romanianMessage RegisterLong = "Înregistrați un cont nou"
 romanianMessage EnterEmail = "Introduceți adresa dvs. de e-mail pentru a primi un e-mail de confirmare."
 romanianMessage ConfirmationEmailSentTitle = "Un mesaj de confirmare a fost trimis la adresa dvs. de e-mail"
 romanianMessage (ConfirmationEmailSent email) =
-    "Un mesaj de confirmare a fost trimis la " `Data.Monoid.mappend` email `mappend` "."
+    "Un mesaj de confirmare a fost trimis la " `mappend` email `mappend` "."
 romanianMessage AddressVerified = "Adresa de e-mail a fost verificată, vă rugăm să setați o parolă nouă"
 romanianMessage EmailVerifiedChangePass = "Adresa de e-mail a fost verificată, vă rugăm să setați o parolă nouă"
 romanianMessage EmailVerified = "Adresa de e-mail a fost verificată"
