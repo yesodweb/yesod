@@ -1,9 +1,5 @@
 name:            yesod-core
-<<<<<<< Updated upstream
-version:         1.6.27.1
-=======
 version:         1.6.28.0
->>>>>>> Stashed changes
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>

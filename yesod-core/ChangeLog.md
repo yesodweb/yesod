@@ -1,14 +1,12 @@
 # ChangeLog for yesod-core
 
-<<<<<<< Updated upstream
-## 1.6.27.1
-
-* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
-=======
 ## 1.6.28.0
 
 * Allow users to control generation of the `resourcesSite :: [ResourceTree String]` value. []()
->>>>>>> Stashed changes
+
+## 1.6.27.1
+
+* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
 
 ## 1.6.27.0
 
