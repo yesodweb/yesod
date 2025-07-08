@@ -2,7 +2,7 @@
 
 ## 1.6.28.0
 
-* Allow users to control generation of the `resourcesSite :: [ResourceTree String]` value. []()
+* Allow users to control generation of the `resourcesSite :: [ResourceTree String]` value. [#1881](https://github.com/yesodweb/yesod/pull/1881)
 
 ## 1.6.27.1
 
