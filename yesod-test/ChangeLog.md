@@ -1,6 +1,6 @@
 # ChangeLog for yesod-test
 
-## 1.6.24
+## 1.7.0
 
 * Make post params be added in addition order like normal forms. [#1867](https://github.com/yesodweb/yesod/pull/1867)
 
