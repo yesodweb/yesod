@@ -11,6 +11,7 @@ import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import Data.Set (fromList)
 import Data.Text (pack)
+import Control.Monad
 
 mkRouteAttrsInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
 mkRouteAttrsInstance cxt typ ress = do
@@ -20,9 +21,15 @@ mkRouteAttrsInstance cxt typ ress = do
         ]
 
 goTree :: (Pat -> Pat) -> ResourceTree a -> Q [Clause]
-goTree front (ResourceLeaf res) = return <$> goRes front res
-goTree front (ResourceParent name _check pieces trees) =
-    concat <$> mapM (goTree front') trees
+goTree front (ResourceLeaf res) = return $ goRes front res
+goTree front (ResourceParent name _check pieces trees) = do
+    mainClauses <- concat <$> mapM (goTree front') trees
+    pure $ mainClauses <>
+        [ Clause
+            [ WildP ]
+            (NormalB $ VarE 'mempty)
+            []
+        ]
   where
     ignored = (replicate toIgnore WildP ++) . return
     toIgnore = length $ filter isDynamic pieces
@@ -34,8 +41,9 @@ goTree front (ResourceParent name _check pieces trees) =
 #endif
                    . ignored
 
-goRes :: (Pat -> Pat) -> Resource a -> Q Clause
-goRes front Resource {..} =
+goRes :: (Pat -> Pat) -> Resource a -> [Clause]
+goRes front Resource {..} = do
+    guard (not (null resourceAttrs))
     return $ Clause
         [front $ RecP (mkName resourceName) []]
         (NormalB $ VarE 'fromList `AppE` ListE (map toText resourceAttrs))
