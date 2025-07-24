@@ -33,6 +33,7 @@ import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
+import Hierarchy.ResourceTree (hierarchyResources, Hierarchy(..))
 
 class ToText a where
     toText :: a -> Text
@@ -77,42 +78,8 @@ runHandler
     -> App sub master
 runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
 
-data Hierarchy = Hierarchy
-
 do
-    let resources = [parseRoutes|
-/ HomeR GET
-
-----------------------------------------
-
-/!#Int BackwardsR GET
-
-/admin/#Int AdminR:
-    /            AdminRootR GET
-    /login       LoginR     GET POST
-    /table/#Text TableR     GET
-
-/nest/ NestR !NestingAttr:
-
-  /spaces      SpacedR   GET !NonNested
-
-  /nest2 Nest2:
-    /           GetPostR  GET POST
-    /get        Get2      GET
-    /post       Post2         POST
---    /#Int       Delete2            DELETE
-  /nest3 Nest3:
-    /get        Get3      GET
-    /post       Post3         POST
---    /#Int       Delete3            DELETE
-
-/afterwards AfterR !parent !key=value1:
-  /             After     GET !child !key=value2
-
--- /trailing-nest TrailingNestR:
---  /foo TrailingFooR GET
---  /#Int TrailingIntR GET
-|]
+    let resources = hierarchyResources
 
     rrinst <- mkRenderRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources

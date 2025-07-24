@@ -1,0 +1,11 @@
+{-# language TemplateHaskell #-}
+{-# options_ghc -ddump-splices #-}
+
+module Hierarchy.Nest3 where
+
+import Yesod.Routes.Parse
+import Yesod.Routes.TH
+import Hierarchy.ResourceTree
+import Language.Haskell.TH
+
+mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "Nest3") defaultOpts) [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)

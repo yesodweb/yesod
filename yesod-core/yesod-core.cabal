@@ -112,6 +112,10 @@ test-suite test-routes
     hs-source-dirs: test, src
 
     other-modules: Hierarchy
+                   Hierarchy.ResourceTree
+                   Hierarchy.Nest2
+                   Hierarchy.Nest3
+                   Hierarchy.Nest
                    Yesod.Routes.Class
                    Yesod.Routes.Overlap
                    Yesod.Routes.Parse
