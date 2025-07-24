@@ -48,7 +48,7 @@ library
     , transformers      >= 0.2.2   && < 0.7
     , wai               >= 3.0     && < 3.3
     , wai-extra         >= 3.0     && < 3.2
-    , xml-conduit       >= 1.0     && < 1.10
+    , xml-conduit       >= 1.0     && < 1.11
     , xml-types         >= 0.3     && < 0.4
     , yesod-core        >= 1.6.17  && < 1.7
 
