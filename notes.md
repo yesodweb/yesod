@@ -273,3 +273,6 @@ So we actually *do* have  reasonable "recursion point" - we `go` on `children` w
 I think the way forward here is to reuse this logic. Filter the `[ResourceTree a]` until you find one with a `ResourceParent "YourSubrouteR" _ _ _`, then call this on that.
 The same customization applies.
 We *do* need to have the `extraParams` and `extraCons` threaded through, so the `ParseRouteNested` needs to account for these values.
+
+Although, we do not need the prefix information to construct an `x :: AdminR` value, that we then apply to `AdminR :: AdminR -> Route app`.
+So maybe this is actually much easier: we just strip out the "prefix" that's been successfully parsed out?

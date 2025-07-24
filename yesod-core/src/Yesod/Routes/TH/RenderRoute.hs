@@ -80,7 +80,7 @@ mkRouteCons = mkRouteConsOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkRouteConsOpts :: RouteOpts -> [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteConsOpts opts rttypes =
+mkRouteConsOpts opts rttypes = do
     mconcat <$> mapM mkRouteCon rttypes
   where
     mkRouteCon (ResourceLeaf res) =
@@ -103,12 +103,23 @@ mkRouteConsOpts opts rttypes =
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteConsOpts opts children
         let conts = mapM conT $ instanceNamesFromOpts opts
+        let childDataName = mkName name
+
+        -- See if the datatype already exists.
+        mname' <- lookupTypeName name
+        mdec <- case mname' of
+            Nothing -> do
+                -- datatype has not already been generated, generate it
 #if MIN_VERSION_template_haskell(2,12,0)
-        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
+                Just . DataD [] childDataName [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
 #else
-        dec <- DataD [] (mkName name) [] Nothing cons <$> conts
+                Just . DataD [] childDataName [] Nothing cons <$> conts
 #endif
-        return ([con], dec : decs)
+            Just _ -> do
+                -- datatype already exists, we can just refer to it
+                pure Nothing
+
+        return ([con], maybe id (:) mdec decs)
       where
         con = NormalC (mkName name)
             $ map (notStrict,)
