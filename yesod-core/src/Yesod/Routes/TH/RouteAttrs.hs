@@ -17,7 +17,11 @@ mkRouteAttrsInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
 mkRouteAttrsInstance cxt typ ress = do
     clauses <- mapM (goTree id) ress
     return $ instanceD cxt (ConT ''RouteAttrs `AppT` typ)
-        [ FunD 'routeAttrs $ concat clauses
+        [ FunD 'routeAttrs $ case concat clauses of
+            [] ->
+                [Clause [ WildP ] (NormalB $ VarE 'mempty) []]
+            cs ->
+                cs
         ]
 
 goTree :: (Pat -> Pat) -> ResourceTree a -> Q [Clause]
