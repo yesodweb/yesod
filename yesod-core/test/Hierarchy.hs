@@ -38,6 +38,9 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
 import Hierarchy.ResourceTree (hierarchyResources, Hierarchy(..))
+import Hierarchy.Nest
+import Hierarchy.Nest2
+import Hierarchy.Nest3
 
 class ToText a where
     toText :: a -> Text
