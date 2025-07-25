@@ -1,5 +1,4 @@
 {-# language TemplateHaskell #-}
-{-# options_ghc -ddump-deriv #-}
 
 module Hierarchy.Nest where
 
@@ -10,4 +9,4 @@ import Hierarchy.Nest3
 import Hierarchy.Nest2
 import Language.Haskell.TH
 
-mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "Nest") defaultOpts) [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)

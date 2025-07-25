@@ -9,6 +9,9 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -21,6 +24,7 @@ module Hierarchy
     -- to avoid warnings
     , deleteDelete2
     , deleteDelete3
+    , testRouteDatatype
     ) where
 
 import Test.Hspec
@@ -184,3 +188,39 @@ hierarchy = describe "hierarchy" $ do
         routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
     it "pair attributes" $
         routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
+
+-- This value should compile if all routes are present as expected.
+testRouteDatatype :: Route Hierarchy -> Int
+testRouteDatatype r =
+    case r of
+        HomeR -> 0
+        BackwardsR _ -> 1
+        AdminR _ sub ->
+            case sub of
+                AdminRootR -> 0
+                LoginR -> 0
+                TableR _ -> 1
+        NestR sub -> testNestR sub
+        -- NOTE: This is a bug in the behavior of the parser. See issue
+        -- https://github.com/yesodweb/yesod/issues/1886
+        --
+        -- Nest3, by layout, should be under `NestR`. However, since there
+        -- is a comment on column 0, this causes the parser to reset the
+        -- column count.
+        Nest3 sub ->
+            case sub of
+                Get3 -> 0
+                Post3 -> 0
+        AfterR sub ->
+            case sub of
+                After -> 0
+
+testNestR :: NestR -> Int
+testNestR sub =
+    case sub of
+        SpacedR -> 1
+        Nest2 sub' ->
+            case sub' of
+                GetPostR -> 0
+                Get2 -> 0
+                Post2 -> 0
