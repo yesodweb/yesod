@@ -112,6 +112,7 @@ test-suite test-routes
     hs-source-dirs: test, src
 
     other-modules: Hierarchy
+                   Hierarchy.Admin
                    Hierarchy.ResourceTree
                    Hierarchy.Nest2
                    Hierarchy.Nest3

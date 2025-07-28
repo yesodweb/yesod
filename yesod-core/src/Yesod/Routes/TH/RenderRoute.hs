@@ -153,9 +153,15 @@ mkRouteConsOpts opts rttypes = do
                         -- generate
                         pure Nothing
                     _ -> do
-                        mkChildDataGen childDataName cons conts
+                        childData <- mkChildDataGen childDataName cons conts
+                        childClauses <- mkRenderRouteClauses children
+                        childInstances <- do
+                            pure $ InstanceD Nothing [] (ConT ''RenderRouteNested `AppT` ConT childDataName)
+                                [ FunD 'renderRouteNested childClauses
+                                ]
+                        pure $ Just (childData : [childInstances])
 
-        return ([con], maybe id (:) mdec decs)
+        return ([con], maybe id (<>) mdec decs)
       where
         con = NormalC (mkName name)
             $ map (notStrict,)
@@ -167,9 +173,9 @@ mkRouteConsOpts opts rttypes = do
 
         mkChildDataGen childDataName cons conts =
 #if MIN_VERSION_template_haskell(2,12,0)
-            Just . DataD [] childDataName [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
+            DataD [] childDataName [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
 #else
-            Just . DataD [] childDataName [] Nothing cons <$> conts
+            DataD [] childDataName [] Nothing cons <$> conts
 #endif
 
 -- | Clauses for the 'renderRoute' method.
@@ -190,9 +196,22 @@ mkRenderRouteClauses =
         tsp <- [|toPathPiece|]
         let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
 
+        typeExists <- lookupTypeName name
+        hasNestInstance <- case typeExists of
+            Just _ ->
+                isInstance ''RenderRouteNested [ConT (mkName name)]
+            Nothing ->
+                pure False
+
+
         childRender <- newName "childRender"
         let rr = VarE childRender
-        childClauses <- mkRenderRouteClauses children
+        childClauses <-
+            if hasNestInstance
+            then
+                pure [Clause [] (NormalB (VarE 'renderRouteNested)) []]
+            else
+                mkRenderRouteClauses children
 
         a <- newName "a"
         b <- newName "b"
