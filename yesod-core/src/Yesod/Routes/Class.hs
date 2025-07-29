@@ -42,7 +42,14 @@ class RenderRouteNested a => ParseRouteNested a where
     -- |
     --
     -- @since TODO
-    parseRouteNested :: ([Text], [(Text, Text)]) -> Maybe a
+    parseRouteNested
+        :: ([Text], [(Text, Text)])
+        -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
+        --
+        -- Unlike for 'parseRoute', this will not include URL fragments as
+        -- part of parent routes. It is expected that parents will take the
+        -- resulting @a@ and construct the parent from that.
+        -> Maybe a
 
 class RenderRoute a => RouteAttrs a where
     routeAttrs :: Route a

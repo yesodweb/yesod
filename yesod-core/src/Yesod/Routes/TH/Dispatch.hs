@@ -46,10 +46,9 @@ data SDC = SDC
 -- Since 1.4.0
 mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q Clause
 mkDispatchClause MkDispatchSettings {..} resources = do
-    suffix <- qRunIO $ randomRIO (1000, 9999 :: Int)
-    envName <- newName $ "env" ++ show suffix
-    reqName <- newName $ "req" ++ show suffix
-    helperName <- newName $ "helper" ++ show suffix
+    envName <- newName "env"
+    reqName <- newName "req"
+    helperName <- newName "helper"
 
     let envE = VarE envName
         reqE = VarE reqName
