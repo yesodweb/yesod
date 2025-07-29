@@ -44,7 +44,7 @@ goTree mtarget front (ResourceLeaf res) =
             return $ toList $ goRes front res
         Just _ ->
             return []
-goTree (Just target) front (ResourceParent name _check pieces trees)
+goTree (Just target) _ (ResourceParent name _check _pieces _trees)
     | target /= name = pure []
 goTree mtarget front (ResourceParent name _check pieces trees) = do
     doesTypeExist <- lookupTypeName name

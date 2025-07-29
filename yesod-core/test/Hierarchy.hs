@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
+-- {-# OPTIONS_GHC -ddump-splices #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hierarchy
@@ -102,6 +102,7 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
+        , mdsHandleNestedRoute = Nothing
         } resources
     return $
         InstanceD

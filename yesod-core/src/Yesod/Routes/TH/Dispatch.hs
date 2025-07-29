@@ -16,7 +16,6 @@ import Data.Maybe (catMaybes)
 import Control.Monad (forM)
 import Data.List (foldl')
 import Control.Arrow (second)
-import System.Random (randomRIO)
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
 
@@ -30,6 +29,14 @@ data MkDispatchSettings b site c = MkDispatchSettings
     , mds405 :: Q Exp
     , mdsGetHandler :: Maybe String -> String -> Q Exp
     , mdsUnwrapper :: Exp -> Q Exp
+    , mdsHandleNestedRoute :: Maybe NestedRouteSettings
+    }
+
+data NestedRouteSettings = NestedRouteSettings
+    { nrsClassName :: Name
+    -- ^ The class to lookup an instance for a 'ResourceParent' name.
+    , nrsFunctionName :: Name
+    -- ^ The function name to use to delegate the rest of the dispatch.
     }
 
 data SDC = SDC
@@ -93,13 +100,18 @@ mkDispatchClause MkDispatchSettings {..} resources = do
 
     go :: SDC -> ResourceTree a -> Q Clause
     go sdc (ResourceParent name _check pieces children) = do
-        (pats, dyns) <- handlePieces pieces
-        let sdc' = sdc
-                { extraParams = extraParams sdc ++ dyns
-                , extraCons = extraCons sdc ++ [mkCon name dyns]
-                }
-        childClauses <- mapM (go sdc') children
+        datatypeExists <- lookupTypeName name
+        instanceExists <- case datatypeExists of
+            Nothing ->
+                pure False
+            Just typeName -> do
+                case mdsHandleNestedRoute of
+                    Nothing ->
+                        pure False
+                    Just NestedRouteSettings {..} ->
+                        isInstance nrsClassName [ConT typeName]
 
+        (pats, dyns) <- handlePieces pieces
         restName <- newName "rest"
         let restE = VarE restName
             restP = VarP restName
@@ -107,10 +119,30 @@ mkDispatchClause MkDispatchSettings {..} resources = do
         helperName <- newName $ "helper" ++ name
         let helperE = VarE helperName
 
-        return $ Clause
-            [mkPathPat restP pats]
-            (NormalB $ helperE `AppE` restE)
-            [FunD helperName $ childClauses ++ [clause404 sdc]]
+        case instanceExists of
+            True
+                | Just NestedRouteSettings {..} <- mdsHandleNestedRoute -> do
+                    let childClause =
+                            Clause
+                                []
+                                (NormalB $ VarE nrsFunctionName)
+                                []
+                    return $ Clause
+                        [mkPathPat restP pats]
+                        (NormalB $ helperE `AppE` restE)
+                        [FunD helperName [childClause, clause404 sdc]]
+            _ -> do
+                let sdc' = sdc
+                        { extraParams = extraParams sdc ++ dyns
+                        , extraCons = extraCons sdc ++ [mkCon name dyns]
+                        }
+                childClauses <- mapM (go sdc') children
+
+
+                return $ Clause
+                    [mkPathPat restP pats]
+                    (NormalB $ helperE `AppE` restE)
+                    [FunD helperName $ childClauses ++ [clause404 sdc]]
     go SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dyns) <- handlePieces pieces
 

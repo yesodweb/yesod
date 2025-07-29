@@ -86,6 +86,7 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
+        , mdsHandleNestedRoute = Nothing
         } ress
     return $
         InstanceD

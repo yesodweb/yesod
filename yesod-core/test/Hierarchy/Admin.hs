@@ -1,6 +1,6 @@
 {-# language TemplateHaskell #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
+-- {-# OPTIONS_GHC -ddump-splices #-}
 
 module Hierarchy.Admin where
 

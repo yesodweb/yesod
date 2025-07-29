@@ -280,6 +280,7 @@ mkMDS f rh sd = MkDispatchSettings
     , mds405 = [|void badMethod|]
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = f
+    , mdsHandleNestedRoute = Nothing
     }
 
 -- | If the generation of @'YesodDispatch'@ instance require finer

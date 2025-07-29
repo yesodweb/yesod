@@ -24,6 +24,7 @@ mkParseRouteInstance cxt typ ress = do
             , mdsSetPathInfo = [|\p (_, q) -> (p, q)|]
             , mdsSubDispatcher = [|\_runHandler _getSub toMaster _env -> fmap toMaster . parseRoute|]
             , mdsUnwrapper = return
+            , mdsHandleNestedRoute = Nothing
             }
         (map removeMethods ress)
     helper <- newName "helper"
