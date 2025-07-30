@@ -158,9 +158,6 @@ getGetPostR = pack "get"
 postGetPostR :: Handler site Text
 postGetPostR = pack "post"
 
-
--- $> hspec hierarchy
-
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
     it "nested with spacing" $
