@@ -276,3 +276,35 @@ We *do* need to have the `extraParams` and `extraCons` threaded through, so the 
 
 Although, we do not need the prefix information to construct an `x :: AdminR` value, that we then apply to `AdminR :: AdminR -> Route app`.
 So maybe this is actually much easier: we just strip out the "prefix" that's been successfully parsed out?
+
+# OK, dispatch code is nuts
+
+This code is quite hard to work with!
+Indirection makes it tricky to follow exactly what is going on.
+
+So, right now, the `NestInner` test isn't working, because we're generating the code that only has the "Nothing" case covered.
+This is specifically happening in the triply nested case, repreoduced here:
+
+```
+/nest/ NestR !NestingAttr:
+
+  /spaces      SpacedR   GET !NonNested
+
+  /nest2 Nest2:
+    /           GetPostR  GET POST
+    /get        Get2      GET
+    /post       Post2         POST
+    /nest-inner NestInner:
+        /       NestInnerIndexR GET
+```
+
+Datatype generation works fine.
+And parsing appears to work fine for *some* subroutes.
+So why is this not working?
+
+We appear to be failing to generate a `Clause` for this.
+
+THe problem is that in a multi-nested step, we were filtering it out.
+So `mnrs` would detect a match in the string we want at `NestInner`, and then it would parse the route correctly.
+But we go up in the recursion to `Nest2`.
+So now I think we need to manage the `sdc` better...

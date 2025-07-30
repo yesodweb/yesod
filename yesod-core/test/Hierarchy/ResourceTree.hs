@@ -4,6 +4,7 @@
 module Hierarchy.ResourceTree where
 
 import Yesod.Routes.Parse
+import Language.Haskell.TH (Type)
 import Yesod.Routes.TH
 
 data Hierarchy = Hierarchy
@@ -45,3 +46,6 @@ hierarchyResources = [parseRoutes|
 --  /foo TrailingFooR GET
 --  /#Int TrailingIntR GET
 |]
+
+hierarchyResourcesWithType :: [ResourceTree Type]
+hierarchyResourcesWithType = map (fmap parseType) hierarchyResources

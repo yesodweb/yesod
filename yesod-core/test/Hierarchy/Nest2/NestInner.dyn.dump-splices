@@ -36,3 +36,801 @@
                   helper_a63uL _
                     = (\ _ _ x_a63uM _ -> x_a63uM)
                         (error "mds404") env_a63uJ Nothing req_a63uK
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a6wjN x_a6wjO -> f_a6wjN () x_a6wjO) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a6wjM)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a6wjM)
+            helper_a6wjL
+        where
+            helper_a6wjL env_a6wjr req_a6wjs
+              = helper_a6wjt (fst req_a6wjs)
+              where
+                  helper_a6wjt _
+                    = (\ _ _ x_a6wju _ -> x_a6wju)
+                        (error "mds404") env_a6wjr Nothing req_a6wjs
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a6FbQ x_a6FbR -> f_a6FbQ () x_a6FbR) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a6FbP)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a6FbP)
+            helper_a6FbO
+        where
+            helper_a6FbO env_a6Fbu req_a6Fbv
+              = helper_a6Fbw (fst req_a6Fbv)
+              where
+                  helper_a6Fbw _
+                    = (\ _ _ x_a6Fbx _ -> x_a6Fbx)
+                        (error "mds404") env_a6Fbu Nothing req_a6Fbv
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a6SJ2 x_a6SJ3 -> f_a6SJ2 () x_a6SJ3) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a6SJ1)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a6SJ1)
+            helper_a6SJ0
+        where
+            helper_a6SJ0 env_a6SIG req_a6SIH
+              = helper_a6SII (fst req_a6SIH)
+              where
+                  helper_a6SII _
+                    = (\ _ _ x_a6SIJ _ -> x_a6SIJ)
+                        (error "mds404") env_a6SIG Nothing req_a6SIH
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7vTk x_a7vTl -> f_a7vTk () x_a7vTl) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7vTj)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7vTj)
+            helper_a7vTi
+        where
+            helper_a7vTi env_a7vSY req_a7vSZ
+              = helper_a7vT0 (fst req_a7vSZ)
+              where
+                  helper_a7vT0 _
+                    = (\ _ _ x_a7vT1 _ -> x_a7vT1)
+                        (error "mds404") env_a7vSY Nothing req_a7vSZ
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7CcS x_a7CcT -> f_a7CcS () x_a7CcT) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7CcR)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7CcR)
+            helper_a7CcQ
+        where
+            helper_a7CcQ env_a7Ccw req_a7Ccx
+              = helper_a7Ccy (fst req_a7Ccx)
+              where
+                  helper_a7Ccy _
+                    = (\ _ _ x_a7Ccz _ -> x_a7Ccz)
+                        (error "mds404") env_a7Ccw Nothing req_a7Ccx
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7K2F x_a7K2G -> f_a7K2F () x_a7K2G) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7K2E)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7K2E)
+            helper_a7K2D
+        where
+            helper_a7K2D env_a7K2j req_a7K2k
+              = helper_a7K2l (fst req_a7K2k)
+              where
+                  helper_a7K2l _
+                    = (\ _ _ x_a7K2m _ -> x_a7K2m)
+                        (error "mds404") env_a7K2j Nothing req_a7K2k
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7OXG x_a7OXH -> f_a7OXG () x_a7OXH) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7OXF)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7OXF)
+            helper_a7OXE
+        where
+            helper_a7OXE env_a7OXj req_a7OXk
+              = helper_a7OXl (fst req_a7OXk)
+              where
+                  helper_a7OXl _
+                    = (\ _ _ x_a7OXm _ -> x_a7OXm)
+                        (error "mds404") env_a7OXj Nothing req_a7OXk
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance RenderRouteNested NestInner where
+      renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance RouteAttrsNested NestInner where
+      routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:16:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance ParseRouteNested NestInner where
+      parseRouteNested
+        = ((\ f_a7Pea x_a7Peb -> f_a7Pea () x_a7Peb) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7Pe9)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7Pe9)
+            helper_a7Pe8
+        where
+            helper_a7Pe8 env_a7PdN req_a7PdO
+              = helper_a7PdP (fst req_a7PdO)
+              where
+                  helper_a7PdP _
+                    = (\ _ _ x_a7PdQ _ -> x_a7PdQ)
+                        (error "mds404") env_a7PdN Nothing req_a7PdO
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance RenderRouteNested NestInner where
+      renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance RouteAttrsNested NestInner where
+      routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:16:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance ParseRouteNested NestInner where
+      parseRouteNested
+        = ((\ f_a7PtG x_a7PtH -> f_a7PtG () x_a7PtH) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7PtF)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7PtF)
+            helper_a7PtE
+        where
+            helper_a7PtE env_a7Ptj req_a7Ptk
+              = helper_a7Ptl (fst req_a7Ptk)
+              where
+                  helper_a7Ptl _
+                    = (\ _ _ x_a7Ptm _ -> x_a7Ptm)
+                        (error "mds404") env_a7Ptj Nothing req_a7Ptk
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance RenderRouteNested NestInner where
+      renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance RouteAttrsNested NestInner where
+      routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:16:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance ParseRouteNested NestInner where
+      parseRouteNested
+        = ((\ f_a7PLP x_a7PLQ -> f_a7PLP () x_a7PLQ) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7PLO)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7PLO)
+            helper_a7PLN
+        where
+            helper_a7PLN env_a7PLs req_a7PLt
+              = helper_a7PLu (fst req_a7PLt)
+              where
+                  helper_a7PLu _
+                    = (\ _ _ x_a7PLv _ -> x_a7PLv)
+                        (error "mds404") env_a7PLs Nothing req_a7PLt
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7Qcd x_a7Qce -> f_a7Qcd () x_a7Qce) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7Qcc)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7Qcc)
+            helper_a7Qcb
+        where
+            helper_a7Qcb env_a7QbQ req_a7QbR
+              = helper_a7QbS (fst req_a7QbR)
+              where
+                  helper_a7QbS _
+                    = (\ _ _ x_a7QbT _ -> x_a7QbT)
+                        (error "mds404") env_a7QbQ Nothing req_a7QbR
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7S0T x_a7S0U -> f_a7S0T () x_a7S0U) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7S0S)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7S0S)
+            helper_a7S0R
+        where
+            helper_a7S0R env_a7S0x req_a7S0y
+              = helper_a7S0z (fst req_a7S0y)
+              where
+                  helper_a7S0z _
+                    = (\ _ _ x_a7S0A _ -> x_a7S0A)
+                        (error "mds404") env_a7S0x Nothing req_a7S0y
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:15:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7TGZ x_a7TH0 -> f_a7TGZ () x_a7TH0) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7TGY)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7TGY)
+            helper_a7TGX
+        where
+            helper_a7TGX env_a7TGD req_a7TGE
+              = helper_a7TGF (fst req_a7TGE)
+              where
+                  helper_a7TGF _
+                    = (\ _ _ x_a7TGG _ -> x_a7TGG)
+                        (error "mds404") env_a7TGD Nothing req_a7TGE
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7Vsf x_a7Vsg -> f_a7Vsf () x_a7Vsg) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7Vse)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7Vse)
+            helper_a7Vsd
+        where
+            helper_a7Vsd env_a7VrJ req_a7VrK
+              = helper_a7VrL (fst req_a7VrK)
+              where
+                  helper_a7VrL _
+                    = (\ _ _ x_a7VrM _ -> x_a7VrM)
+                        (error "mds404") env_a7VrJ Nothing req_a7VrK
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7WTd x_a7WTe -> f_a7WTd () x_a7WTe) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7WTc)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7WTc)
+            helper_a7WTb
+        where
+            helper_a7WTb env_a7WSA req_a7WSB
+              = helper_a7WSC (fst req_a7WSB)
+              where
+                  helper_a7WSC _
+                    = (\ _ _ x_a7WSE _ -> x_a7WSE)
+                        (error "mds404") env_a7WSA Nothing req_a7WSB
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a7YyN x_a7YyO -> f_a7YyN () x_a7YyO) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a7YyM)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a7YyM)
+            helper_a7YyL
+        where
+            helper_a7YyL env_a7Yyr req_a7Yys
+              = helper_a7Yyt (fst req_a7Yys)
+              where
+                  helper_a7Yyt _
+                    = (\ _ _ x_a7Yyu _ -> x_a7Yyu)
+                        (error "mds404") env_a7Yyr Nothing req_a7Yys
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a802S x_a802T -> f_a802S () x_a802T) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a802R)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a802R)
+            helper_a802Q
+        where
+            helper_a802Q env_a8029 req_a802a
+              = helper_a802b (fst req_a802a)
+              where
+                  helper_a802b _
+                    = (\ _ _ x_a802d _ -> x_a802d)
+                        (error "mds404") env_a8029 Nothing req_a802a
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a81w0 x_a81w1 -> f_a81w0 () x_a81w1) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a81vZ)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a81vZ)
+            helper_a81vY
+        where
+            helper_a81vY env_a81vC req_a81vD
+              = helper_a81vE (fst req_a81vD)
+              where
+                  helper_a81vE _
+                    = (\ _ _ x_a81vF _ -> x_a81vF)
+                        (error "mds404") env_a81vC Nothing req_a81vD
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a82Zn x_a82Zo -> f_a82Zn () x_a82Zo) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a82Zm)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a82Zm)
+            helper_a82Zl
+        where
+            helper_a82Zl env_a82Yn req_a82Yp
+              = helper_a82Yr (fst req_a82Yp)
+              where
+                  helper_a82Yr _
+                    = (\ _ _ x_a82Yt _ -> x_a82Yt)
+                        (error "mds404") env_a82Yn Nothing req_a82Yp
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a84Eu x_a84Ev -> f_a84Eu () x_a84Ev) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a84Et)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a84Et)
+            helper_a84Es
+        where
+            helper_a84Es env_a84Dr req_a84Ds
+              = helper_a84Dt (fst req_a84Ds)
+              where
+                  helper_a84Dt _
+                    = (\ _ _ x_a84Du _ -> x_a84Du)
+                        (error "mds404") env_a84Dr Nothing req_a84Ds
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:12:1-144: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "NestInner") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data NestInner
+      = NestInnerIndexR
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested NestInner where
+      Yesod.Routes.Class.renderRouteNested NestInnerIndexR = ([], [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:13:1-99: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested NestInner where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Nest2/NestInner.hs:14:1-77: Splicing declarations
+    mkParseRouteInstanceFor "NestInner"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested NestInner where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a86nS x_a86nT -> f_a86nS () x_a86nT) ::
+             (()
+              -> ([Data.Text.Internal.Text],
+                  [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                 -> Maybe a_a86nR)
+             -> ([Data.Text.Internal.Text],
+                 [(Data.Text.Internal.Text, Data.Text.Internal.Text)])
+                -> Maybe a_a86nR)
+            helper_a86nQ
+        where
+            helper_a86nQ env_a86lL req_a86lM
+              = helper_a86lN (fst req_a86lM)
+              where
+                  helper_a86lN _
+                    = (\ _ _ x_a86lP _ -> x_a86lP)
+                        (error "mds404") env_a86lL Nothing req_a86lM

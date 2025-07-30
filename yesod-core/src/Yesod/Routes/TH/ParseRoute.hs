@@ -69,7 +69,7 @@ mkParseRouteInstanceFor target ress = do
                 , nrsTargetName = Just target
                 }
             }
-        (map removeMethods ress)
+        (focusTarget (map removeMethods ress))
     helper <- newName "helper"
     fixer <- [|(\f x -> f () x) :: (() -> ([Text], [(Text, Text)]) -> Maybe a) -> ([Text], [(Text, Text)]) -> Maybe a|]
     return $ [instanceD [] (ConT ''ParseRouteNested `AppT` ConT (mkName target))
@@ -80,6 +80,18 @@ mkParseRouteInstanceFor target ress = do
         ]
         ]
   where
+    focusTarget =
+        foldr k []
+      where
+        k res acc =
+            case res of
+                ResourceLeaf _ ->
+                    acc
+                ResourceParent name _ _ children ->
+                    if name == target
+                    then res : acc
+                    else focusTarget children <> acc
+
     -- We do this in order to ski the unnecessary method parsing
     removeMethods (ResourceLeaf res) = ResourceLeaf $ removeMethodsLeaf res
     removeMethods (ResourceParent w x y z) = ResourceParent w x y $ map removeMethods z

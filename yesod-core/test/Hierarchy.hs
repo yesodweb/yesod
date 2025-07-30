@@ -38,7 +38,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
 import Hierarchy.Admin
-import Hierarchy.ResourceTree (hierarchyResources, Hierarchy(..))
+import Hierarchy.ResourceTree
 import Hierarchy.Nest
 import Hierarchy.Nest2
 import Hierarchy.Nest3
@@ -87,12 +87,15 @@ runHandler
     -> App sub master
 runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
 
+mkRenderRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+
+pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+
+pure <$> mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+
 do
     let resources = map (fmap parseType) hierarchyResources
 
-    rrinst <- mkRenderRouteInstance [] (ConT ''Hierarchy) resources
-    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
-    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
@@ -105,7 +108,7 @@ do
         , mdsUnwrapper = return
         , mdsHandleNestedRoute = Nothing
         } resources
-    return $
+    return $ pure $
         InstanceD
 #if MIN_VERSION_template_haskell(2,11,0)
             Nothing
@@ -115,9 +118,6 @@ do
                 `AppT` ConT ''Hierarchy
                 `AppT` ConT ''Hierarchy)
             [FunD (mkName "dispatcher") [dispatch]]
-        : prinst
-        : rainst
-        : rrinst
 
 getSpacedR :: Handler site String
 getSpacedR = "root-leaf"
@@ -215,6 +215,10 @@ hierarchy = describe "hierarchy" $ do
                 describe "NestInner" $ do
                     it "works" $ do
                         parseRoute (["nest", "nest2", "nest-inner"], []) @?= Just (NestR (Nest2 (NestInner NestInnerIndexR)))
+    describe "parseRouteNested" $ do
+        describe "NestInner" $ do
+            it "works" $ do
+                parseRouteNested ([], []) @?= Just NestInnerIndexR
     it "inherited attributes" $ do
         routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
     it "pair attributes" $

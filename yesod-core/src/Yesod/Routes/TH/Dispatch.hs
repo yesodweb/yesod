@@ -13,8 +13,8 @@ module Yesod.Routes.TH.Dispatch
 import Prelude hiding (exp)
 import Language.Haskell.TH.Syntax
 import Web.PathPieces
-import Data.Maybe (catMaybes)
-import Control.Monad (forM)
+import Data.Maybe (catMaybes, fromMaybe)
+import Control.Monad
 import Data.List (foldl')
 import Control.Arrow (second)
 import Yesod.Routes.TH.Types
@@ -65,6 +65,7 @@ data SDC = SDC
     , reqExp :: Exp
     }
 
+
 -- | A simpler version of Yesod.Routes.TH.Dispatch.mkDispatchClause, based on
 -- view patterns.
 --
@@ -90,12 +91,13 @@ mkDispatchClause MkDispatchSettings {..} resources = do
             , envExp = envE
             , reqExp = reqE
             }
-    clauses <- mapM (go mdsHandleNestedRoute sdc) resources
+    clauses <- concat <$> mapM (go mdsHandleNestedRoute sdc) resources
 
+    -- reportWarning $ show ("top-level", clauses)
     return $ Clause
         [VarP envName, VarP reqName]
         (NormalB $ helperE `AppE` pathInfo)
-        [FunD helperName $ concat clauses ++ [clause404']]
+        [FunD helperName $ fmap snd clauses ++ [clause404']]
   where
     handlePiece :: Piece a -> Q (Pat, Maybe Exp)
     handlePiece (Static str) = return (LitP $ StringL str, Nothing)
@@ -116,39 +118,39 @@ mkDispatchClause MkDispatchSettings {..} resources = do
       where
         addPat x y = conPCompat '(:) [x, y]
 
-    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q [Clause]
+    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q [(String, Clause)]
     go mnrs sdc (ResourceParent name _check pieces children) = do
-        let targetMatch =
-                case mnrs of
-                    Nothing ->
-                        True
-                    Just nrs ->
-                        case nrsTargetName nrs of
-                            Nothing ->
-                                True
-                            Just targetName ->
-                                targetName == name
+        let mtargetName = mnrs >>= nrsTargetName
+        let mtargetMatch =
+                fmap (name ==) mtargetName
 
-        let mnrs' =
-                case mnrs of
-                    Nothing -> Nothing
-                    Just nrs ->
-                        if targetMatch
-                            then Just nrs { nrsTargetName = Nothing }
-                            else mnrs
+        -- If the target name is a match, then we want to set target name
+        -- to Nothing so that we start generating code in recursion.
+        let mnrs' = do
+                nrs <- mnrs
+                if fromMaybe False mtargetMatch
+                    then Just nrs { nrsTargetName = Nothing }
+                    else mnrs
 
-        datatypeExists <- lookupTypeName name
-        instanceExists <- case datatypeExists of
-            Nothing ->
-                pure False
-            Just typeName -> do
-                case mnrs of
-                    Just NestedRouteSettings {..} ->
-                        if targetMatch
-                        then isInstance nrsClassName [ConT typeName]
-                        else pure False
-                    Nothing ->
-                        pure False
+        instanceExists <- do
+            -- Generate delegated clauses if the datatype and instance
+            -- already exist.
+            datatypeExists <- lookupTypeName name
+            case datatypeExists of
+                Nothing ->
+                    pure Nothing
+                Just typeName -> do
+                    case mnrs of
+                        Just nrs ->
+                            if fromMaybe True mtargetMatch
+                            then do
+                                t <- isInstance (nrsClassName nrs) [ConT typeName]
+                                pure $ if t
+                                    then Just nrs
+                                    else Nothing
+                            else pure Nothing
+                        Nothing ->
+                            pure Nothing
 
         (pats, dyns) <- handlePieces pieces
         restName <- newName "rest"
@@ -159,47 +161,79 @@ mkDispatchClause MkDispatchSettings {..} resources = do
         let helperE = VarE helperName
 
         case instanceExists of
-            True
-                | Just NestedRouteSettings {..} <- mnrs -> do
+            Just NestedRouteSettings {..} -> do
                     -- TODO: Handle extraCons here.
                     let constr = foldl' AppE (ConE (mkName name)) dyns
-
                     expr <- [e|fmap $(pure constr) ($(pure (VarE nrsFunctionName)) ($(pure restE), snd $(pure (reqExp sdc))))|]
                     let childClause =
                             Clause
                                 [restP]
                                 (NormalB expr)
                                 []
-                    return $ [ Clause
+                    return $ [ (,) name $ Clause
                         [mkPathPat restP pats]
                         (NormalB $ helperE `AppE` restE)
                         [FunD helperName [childClause]]]
-            _ -> do
+            Nothing -> do
+
                 let sdcEnhanced =
                         sdc
                             { extraParams = extraParams sdc ++ dyns
                             , extraCons = extraCons sdc ++ [mkCon name dyns]
                             }
                     sdc' =
-                        -- If we're targeting a subroute, we don't want to
-                        -- accumulate extra constructors or patterns,
-                        -- unless we've got a match on the target.
-                        maybe sdcEnhanced (const sdc) $ mnrs >>= nrsTargetName
-                childClauses <- mapM (go mnrs' sdc') children
+                        case mnrs >>= nrsTargetName of
+                            Nothing ->
+                                -- In this branch, we either have no
+                                -- settings, no target, or the target has
+                                -- been cleared and route processing should
+                                -- start. In this case, we want to provide
+                                -- the enhanced version.
+                                sdcEnhanced
+                            Just target ->
+                                if target == name
+                                then
+                                    -- In this case, we are exactly at the
+                                    -- root node for what we are focusing
+                                    -- on.
+                                    sdc
+                                else
+                                    -- In this case, we are not yet at the
+                                    -- node we are focusing on, so we should
+                                    -- not accumulate.
+                                    sdcEnhanced
 
-                case mnrs >>= nrsTargetName of
-                    Just target | target /= name -> do
+                childClauses <- concat <$> mapM (go mnrs' sdc') children
+
+                if fromMaybe True mtargetMatch || not (null childClauses)
+                    then do
+                        let fullReturn =
+                                [ (,) name $ Clause
+                                    [mkPathPat restP pats]
+                                    (NormalB $ helperE `AppE` restE)
+                                    [FunD helperName $ fmap snd childClauses ++ [clause404 sdc]]]
+                            passThru =
+                                return childClauses
+
+                        case mtargetMatch of
+                            Nothing ->
+                                -- no match, or no matching. return full.
+                                pure fullReturn
+                            Just True ->
+                                -- we are currently in a match.
+                                passThru
+                            Just False ->
+                                pure fullReturn
+
+                    else do
+                        -- reportWarning $ show ("Dropping clauses for", name, childClauses)
                         -- Don't generate clauses for a nested thing we're
                         -- not targeting.
                         pure []
-                    _ ->
-                        return $ [ Clause
-                            [mkPathPat restP pats]
-                            (NormalB $ helperE `AppE` restE)
-                            [FunD helperName $ concat childClauses ++ [clause404 sdc]]]
+
     go mnrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         case mnrs >>= nrsTargetName of
-            Just _ -> do
+            Just _target -> do
                 -- Don't generate a clause if we're focused on a target.
                 -- Other code branches will set nrsTargetName to Nothing
                 -- when a match has hit, so we'll generate clauses for
@@ -210,7 +244,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
 
                 (chooseMethod, finalPat) <- handleDispatch dispatch dyns
 
-                return $ pure $ Clause
+                return $ pure $ (,) name $ Clause
                     [mkPathPat finalPat pats]
                     (NormalB chooseMethod)
                     []
