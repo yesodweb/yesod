@@ -29,6 +29,8 @@ hierarchyResources = [parseRoutes|
     /           GetPostR  GET POST
     /get        Get2      GET
     /post       Post2         POST
+    /nest-inner NestInner:
+        /       NestInnerIndexR GET
 -- lol
 
   /nest3 Nest3:

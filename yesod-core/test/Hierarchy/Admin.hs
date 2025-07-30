@@ -1,6 +1,6 @@
-{-# language TemplateHaskell #-}
+{-# language TemplateHaskell, ViewPatterns, OverloadedStrings #-}
 
--- {-# OPTIONS_GHC -ddump-splices #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Hierarchy.Admin where
 
@@ -12,3 +12,4 @@ import Data.Text (Text)
 
 mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "AdminR") defaultOpts) [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
 mkRouteAttrsInstanceFor [] (ConT ''AdminR) "AdminR" $ map (fmap parseType) hierarchyResources
+mkParseRouteInstanceFor "AdminR" $ map (fmap parseType) hierarchyResources

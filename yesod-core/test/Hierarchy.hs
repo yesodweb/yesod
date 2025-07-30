@@ -42,6 +42,7 @@ import Hierarchy.ResourceTree (hierarchyResources, Hierarchy(..))
 import Hierarchy.Nest
 import Hierarchy.Nest2
 import Hierarchy.Nest3
+import Hierarchy.Nest2.NestInner
 
 class ToText a where
     toText :: a -> Text
@@ -87,11 +88,11 @@ runHandler
 runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
 
 do
-    let resources = hierarchyResources
+    let resources = map (fmap parseType) hierarchyResources
 
-    rrinst <- mkRenderRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
-    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
-    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
+    rrinst <- mkRenderRouteInstance [] (ConT ''Hierarchy) resources
+    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
+    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
@@ -132,6 +133,9 @@ getAfter   :: Handler site String; getAfter = "after"
 
 getHomeR :: Handler site String
 getHomeR = "home"
+
+getNestInnerIndexR :: Handler site String
+getNestInnerIndexR = "inner"
 
 getBackwardsR :: Int -> Handler site Text
 getBackwardsR _ = pack "backwards"
@@ -229,3 +233,6 @@ testNestR sub =
                 GetPostR -> 0
                 Get2 -> 0
                 Post2 -> 0
+                NestInner sub'' ->
+                    case sub'' of
+                        NestInnerIndexR -> 0

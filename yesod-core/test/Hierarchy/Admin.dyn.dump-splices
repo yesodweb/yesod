@@ -1,0 +1,59 @@
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Admin.hs:13:1-141: Splicing declarations
+    mkRenderRouteInstanceOpts
+      (setFocusOnNestedRoute (Just "AdminR") defaultOpts) []
+      (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+  ======>
+    data AdminR
+      = AdminRootR | LoginR | TableR Text
+      deriving (Eq, Show, Read)
+    instance Yesod.Routes.Class.RenderRouteNested AdminR where
+      Yesod.Routes.Class.renderRouteNested AdminRootR = ([], [])
+      Yesod.Routes.Class.renderRouteNested LoginR
+        = ((Data.Text.Internal.pack "login" : []), [])
+      Yesod.Routes.Class.renderRouteNested (TableR dyn_a5SkX)
+        = ((Data.Text.Internal.pack "table"
+              : (Web.PathPieces.toPathPiece dyn_a5SkX : [])), 
+           [])
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Admin.hs:14:1-93: Splicing declarations
+    mkRouteAttrsInstanceFor [] (ConT ''AdminR) "AdminR"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.RouteAttrsNested AdminR where
+      Yesod.Routes.Class.routeAttrsNested _ = mempty
+/home/matt/Projects/yesod/yesod-core/test/Hierarchy/Admin.hs:15:1-74: Splicing declarations
+    mkParseRouteInstanceFor "AdminR"
+      $ map (fmap parseType) hierarchyResources
+  ======>
+    instance Yesod.Routes.Class.ParseRouteNested AdminR where
+      Yesod.Routes.Class.parseRouteNested
+        = ((\ f_a5SqO x_a5SqP -> f_a5SqO () x_a5SqP) ::
+             (() -> ([Text], [(Text, Text)]) -> Maybe a_a5SqN)
+             -> ([Text], [(Text, Text)]) -> Maybe a_a5SqN)
+            helper_a5SqM
+        where
+            helper_a5SqM env_a5Sqo req_a5Sqp
+              = helper_a5Sqq (fst req_a5Sqp)
+              where
+                  helper_a5Sqq
+                    ((:) "admin"
+                         ((:) (Web.PathPieces.fromPathPiece -> Just dyn_a5Sqv) rest_a5Sqw))
+                    = helperAdminR_a5Sqx rest_a5Sqw
+                    where
+                        helperAdminR_a5Sqx []
+                          = (\ _ _ x_a5Sqy _ -> x_a5Sqy)
+                              (error "mdsGetHandler") env_a5Sqo (Just AdminRootR) req_a5Sqp
+                        helperAdminR_a5Sqx ((:) "login" [])
+                          = (\ _ _ x_a5Sqz _ -> x_a5Sqz)
+                              (error "mdsGetHandler") env_a5Sqo (Just LoginR) req_a5Sqp
+                        helperAdminR_a5Sqx
+                          ((:) "table"
+                               ((:) (Web.PathPieces.fromPathPiece -> Just dyn_a5SqA) []))
+                          = (\ _ _ x_a5SqB _ -> x_a5SqB)
+                              (error "mdsGetHandler" dyn_a5SqA) env_a5Sqo
+                              (Just (TableR dyn_a5SqA)) req_a5Sqp
+                        helperAdminR_a5Sqx _
+                          = (\ _ _ x_a5Sqr _ -> x_a5Sqr)
+                              (error "mds404") env_a5Sqo Nothing req_a5Sqp
+                  helper_a5Sqq _
+                    = (\ _ _ x_a5Sqr _ -> x_a5Sqr)
+                        (error "mds404") env_a5Sqo Nothing req_a5Sqp
