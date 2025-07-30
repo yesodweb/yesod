@@ -232,9 +232,14 @@ hierarchy = describe "hierarchy" $ do
         it "pair attributes" $
             routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
 
-        describe "Nesting" $ do
-            it "works" $ do
+        describe "NestingAttr inherits properly" $ do
+            it "routeAttrs" $ do
                 routeAttrs (NestR (Nest2 GetPostR)) @?= Set.fromList ["NestingAttr"]
+            it "routeAttrsNested" $ do
+                routeAttrsNested GetPostR @?= Set.fromList ["NestingAttr"]
+            it "routeAttrsNested InnerNest" $ do
+                routeAttrsNested NestInnerIndexR @?= Set.fromList ["NestingAttr"]
+
 
 -- This value should compile if all routes are present as expected.
 testRouteDatatype :: Route Hierarchy -> Int
