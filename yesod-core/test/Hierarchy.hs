@@ -202,6 +202,13 @@ hierarchy = describe "hierarchy" $ do
                 parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
             it "fails with extra character" $ do
                 parseRoute (["admin!", "5"], []) @?= parseNothing
+            it "works with a subroute with param" $ do
+                parseRoute (["admin", "6", "table", "hello"], []) @?= Just (AdminR 6 (TableR "hello"))
+            describe "parseNestedRoute" $ do
+                it "works" $ do
+                    parseRouteNested ([], []) @?= Just AdminRootR
+                it "works with param" $ do
+                    parseRouteNested (["table", "hello"], []) @?= Just (TableR "hello")
         describe "NestR" $ do
             it "fails because there's no top-level handler" $ do
                 parseRoute (["nest"], []) @?= parseNothing
@@ -219,10 +226,15 @@ hierarchy = describe "hierarchy" $ do
         describe "NestInner" $ do
             it "works" $ do
                 parseRouteNested ([], []) @?= Just NestInnerIndexR
-    it "inherited attributes" $ do
-        routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
-    it "pair attributes" $
-        routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
+    describe "routeAttrs" $ do
+        it "inherited attributes" $ do
+            routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
+        it "pair attributes" $
+            routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
+
+        describe "Nesting" $ do
+            it "works" $ do
+                routeAttrs (NestR (Nest2 GetPostR)) @?= Set.fromList ["NestingAttr"]
 
 -- This value should compile if all routes are present as expected.
 testRouteDatatype :: Route Hierarchy -> Int

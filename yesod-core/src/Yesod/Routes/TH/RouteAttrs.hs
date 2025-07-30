@@ -44,8 +44,8 @@ goTree mtarget front (ResourceLeaf res) =
             return $ toList $ goRes front res
         Just _ ->
             return []
-goTree (Just target) _ (ResourceParent name _check _pieces _trees)
-    | target /= name = pure []
+goTree (Just target) front (ResourceParent name _check _pieces trees)
+    | target /= name = concat <$> mapM (goTree (Just target) front) trees
 goTree mtarget front (ResourceParent name _check pieces trees) = do
     doesTypeExist <- lookupTypeName name
     doesNestedInstanceExist <-
