@@ -159,6 +159,8 @@ postGetPostR :: Handler site Text
 postGetPostR = pack "post"
 
 
+-- $> hspec hierarchy
+
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
     it "nested with spacing" $
@@ -188,11 +190,31 @@ hierarchy = describe "hierarchy" $ do
 
     it "dispatches root correctly" $ disp "GET" ["admin", "7"] @?= ("admin root: 7", Just $ AdminR 7 AdminRootR)
     it "dispatches table correctly" $ disp "GET" ["admin", "8", "table", "bar"] @?= ("TableR bar", Just $ AdminR 8 $ TableR "bar")
-    it "parses" $ do
-        parseRoute ([], []) @?= Just HomeR
-        parseRoute ([], [("foo", "bar")]) @?= Just HomeR
-        parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
-        parseRoute (["admin!", "5"], []) @?= (Nothing :: Maybe (Route Hierarchy))
+    describe "parseRoute" $ do
+        let parseNothing = Nothing :: Maybe (Route Hierarchy)
+        describe "HomeR" $ do
+            it "works" $ do
+                parseRoute ([], []) @?= Just HomeR
+            it "with extraneous query params" $ do
+                parseRoute ([], [("foo", "bar")]) @?= Just HomeR
+        describe "AdminR" $ do
+            it "works" $ do
+                parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
+            it "fails with extra character" $ do
+                parseRoute (["admin!", "5"], []) @?= parseNothing
+        describe "NestR" $ do
+            it "fails because there's no top-level handler" $ do
+                parseRoute (["nest"], []) @?= parseNothing
+            it "works for SpacedR" $ do
+                parseRoute (["nest", "spaces"], []) @?= Just (NestR SpacedR)
+            it "works with parseRouteNested" $ do
+                parseRouteNested (["spaces"], []) @?= Just SpacedR
+            describe "Nest2" $ do
+                it "works" $ do
+                    parseRoute (["nest", "nest2"], []) @?= Just (NestR (Nest2 GetPostR))
+                describe "NestInner" $ do
+                    it "works" $ do
+                        parseRoute (["nest", "nest2", "nest-inner"], []) @?= Just (NestR (Nest2 (NestInner NestInnerIndexR)))
     it "inherited attributes" $ do
         routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
     it "pair attributes" $
