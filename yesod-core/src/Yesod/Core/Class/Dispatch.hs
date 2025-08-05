@@ -18,6 +18,26 @@ import Yesod.Core.Class.Yesod
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
+instance YesodDispatchNested a where
+    -- | The 'ParentArgs' are the route fragments necessary to call the
+    -- dispatched route that are not part of the route fragments used in
+    -- parsing the route.
+    type ParentArgs a :: Type
+    type ParentArgs a = ()
+
+    -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
+    -- route frag
+    yesodDispatchNested
+        :: ParentArgs a
+        -- ^ The parts of the parent route
+        -> Text
+        -- ^ The HTTP Method invoked from the request.
+        -> [Text]
+        -- ^ The path fragments, after parsing out the parent.
+        -> (HandlerFor site TypedContent, Maybe a)
+        -- ^ The handler for the route (possibly notFound or badMethod)
+        -- along with the parsed route constructor.
+
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application
 

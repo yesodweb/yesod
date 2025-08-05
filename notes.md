@@ -412,7 +412,7 @@ class YesodNestedDispatch nest where
         -- ^ Method
         -> [Text]
         -- ^ remaining path fragments
-        -> HandlerFor site TypedContent
+        -> (HandlerFor site TypedContent, a)
 ```
 
 So, the form of what we're going to do, is generate:
@@ -428,14 +428,20 @@ instance YesodNestedDispatch ParentR where
         helper (fromPathPiece -> Just dyn0 : "child" : []) =
             case method of
                 "GET" ->
-                    toTypedContent' $ 
+                    ( toTypedContent' $ 
                         getChildR parentArg0 dyn0
+                    , Just (ChildR dyn0)
+                    )
                 _ ->
-                    toTypedContent' $
+                    ( toTypedContent' $
                         void badMethod
+                    , Nothing
+                    )
         helper _ =
-            toTypedContent' $
+            ( toTypedContent' $
                 void notFound
+            , Nothing
+            )
 ```
 
-Let's get this working, and then I'll do the TH.
+I think this does what we need here.
