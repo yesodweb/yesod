@@ -308,3 +308,134 @@ THe problem is that in a multi-nested step, we were filtering it out.
 So `mnrs` would detect a match in the string we want at `NestInner`, and then it would parse the route correctly.
 But we go up in the recursion to `Nest2`.
 So now I think we need to manage the `sdc` better...
+
+OK, now all the `Hierarchy` tests pass.
+Let's run the rest of the tests and see how things are doing...
+
+All tests pass, great.
+Now, it's time for dispatch.
+
+# Dispatch
+
+The `Yesod.Routes.TH.Dispatch` creates an instance of `YesodDispatch`.
+The test `test/YesodCoreTest/Reps.hs` generates the following instance:
+
+```haskell
+    instance YesodDispatch App where
+      yesodDispatch env req
+        = helper (pathInfo req)
+        where
+            helper []
+              = case requestMethod req of
+                  "GET" -> yesodRunner getHomeR env (Just HomeR) req
+                  _ -> yesodRunner
+                         (void badMethod) env (Just HomeR) req
+            helper ((:) "json" [])
+              = case requestMethod req of
+                  "GET" -> yesodRunner getJsonR env (Just JsonR) req
+                  _ -> yesodRunner
+                         (void badMethod) env (Just JsonR) req
+            helper
+              ((:) "parent" ((:) (fromPathPiece -> Just dyn) rest))
+              = helperParentR rest
+              where
+                  helperParentR
+                    ((:) (fromPathPiece -> Just dyn') ((:) "child" []))
+                    = yesodRunner
+                        (handleChildR dyn dyn') env
+                        (Just (ParentR dyn (ChildR dyn'))) req
+                  helperParentR _
+                    = yesodRunner
+                        (void notFound) env Nothing req
+            helper _
+              = yesodRunner
+                  (void notFound) env Nothing req
+```
+
+So we call [`yesodRunner`](https://github.com/yesodweb/yesod/blob/c27d5116445453470b88287eef18a4b7fda96135/yesod-core/src/Yesod/Core/Internal/Run.hs?plain=1#L308-L312), which returns a full WAI `Application` given a `HandlerFor site res` and a `Maybe (Route site)`.
+
+In `YesodDispatchNested`, in order to call `yesodRunner`, we will need to propagate the arguments from the path (`dyn`, defined in the signature on `helperParentR`), and maybe also a function `sub -> Route site`?
+
+A function `sub -> Route site` would require that the *callsite* of the `yesodDispatchNested` function to know about `Route site` and construct it manually, which isn't really great.
+
+So, perhaps, instead of `yesodRunner`, we return the `HandlerFor site res`.
+We need to pass in a potentially dynamic "parent args" value.
+So, possible class design,
+
+```haskell
+class YesodNestedDispatch parent nest | nest -> parent where
+    type ParentArgs nest :: Type
+    type ParentArgs = ()
+    yesodNestedDispatch 
+        :: (ToTypedContent res, Yesod parent) 
+        => ParentArgs nest
+        -> YesodRunnerEnv parent
+        -> Request
+        -- ^ original request:
+        -> [Text]
+        -- ^ remaining path fragments
+        -> HandlerFor site res
+```
+
+But I don't think this quite works either.
+Because we're not going to be returning the *same* thing, we're returning potentially *different* things.
+We could call `ToTypedContent` on it, since that's what the calling function does anyway - calls `runHandler`, which calls `basicRunHandler`, which [calls `toTypedContent`](https://github.com/yesodweb/yesod/blob/c27d5116445453470b88287eef18a4b7fda96135/yesod-core/src/Yesod/Core/Internal/Run.hs?plain=1#L91).
+
+So that changes our API methods to
+
+```haskell
+class YesodNestedDispatch parent nest | nest -> parent where
+    type ParentArgs nest :: Type
+    type ParentArgs = ()
+    yesodNestedDispatch 
+        :: (Yesod parent) 
+        => ParentArgs nest
+        -> YesodRunnerEnv parent
+        -> Request
+        -- ^ original request:
+        -> [Text]
+        -- ^ remaining path fragments
+        -> HandlerFor site TypedContent
+```
+
+It'd be interesting to see if `Yesod parent` is even necessary here.
+Or `YesodRunnerEnv`.
+Since we're just returning essentially `fmap toTypedContent methodRouteNameHereR`, and allowing the parent to actually *run* the `Handler`, we should be doing alright.
+
+```haskell
+class YesodNestedDispatch nest where
+    type ParentArgs nest :: Type
+    type ParentArgs = ()
+    yesodNestedDispatch 
+        :: ParentArgs nest
+        -> Text
+        -- ^ Method
+        -> [Text]
+        -- ^ remaining path fragments
+        -> HandlerFor site TypedContent
+```
+
+So, the form of what we're going to do, is generate:
+
+```haskell
+instance YesodNestedDispatch ParentR where
+    type ParentArgs ParentR = Int
+
+    yesodNestedDispatch parentArg0 method fragments =
+        helper fragments
+      where
+        toTypedContent' = fmap toTypedContent
+        helper (fromPathPiece -> Just dyn0 : "child" : []) =
+            case method of
+                "GET" ->
+                    toTypedContent' $ 
+                        getChildR parentArg0 dyn0
+                _ ->
+                    toTypedContent' $
+                        void badMethod
+        helper _ =
+            toTypedContent' $
+                void notFound
+```
+
+Let's get this working, and then I'll do the TH.

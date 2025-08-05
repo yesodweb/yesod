@@ -31,7 +31,10 @@ data MkDispatchSettings b site c = MkDispatchSettings
     , mdsGetHandler :: Maybe String -> String -> Q Exp
     , mdsUnwrapper :: Exp -> Q Exp
     , mdsHandleNestedRoute :: Maybe NestedRouteSettings
-    -- ^ These settings d
+    -- ^ These settings describe how to handle nested routes. If 'Nothing'
+    -- is provided, then we generate everything flat. If 'Just' is
+    -- provided, then the 'NestedRouteSettings' behavior kicks on, and
+    -- matches are delegated to prior code instead of flat generation.
     --
     -- @since TODO
     }
@@ -93,7 +96,6 @@ mkDispatchClause MkDispatchSettings {..} resources = do
             }
     clauses <- concat <$> mapM (go mdsHandleNestedRoute sdc) resources
 
-    -- reportWarning $ show ("top-level", clauses)
     return $ Clause
         [VarP envName, VarP reqName]
         (NormalB $ helperE `AppE` pathInfo)
@@ -226,7 +228,6 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                 pure fullReturn
 
                     else do
-                        -- reportWarning $ show ("Dropping clauses for", name, childClauses)
                         -- Don't generate clauses for a nested thing we're
                         -- not targeting.
                         pure []

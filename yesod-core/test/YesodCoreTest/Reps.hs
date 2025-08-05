@@ -5,6 +5,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+
+
+--
 module YesodCoreTest.Reps
     ( specs
     , Widget
