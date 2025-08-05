@@ -5,7 +5,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module YesodCoreTest.Reps
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+
+module YesodCoreTest.NestedDispatch
     ( specs
     , Widget
     , resourcesApp
@@ -23,15 +25,10 @@ import Data.Maybe (fromJust)
 import Data.Monoid (Endo (..))
 import qualified Control.Monad.Trans.Writer    as Writer
 import qualified Data.Set as Set
+import YesodCoreTest.NestedDispatch.Resources
+import YesodCoreTest.NestedDispatch.NestR
 
-data App = App
-
-mkYesod "App" [parseRoutes|
-/     HomeR GET !home
-/json JsonR GET
-/parent/#Int ParentR:
-    /#Text/child ChildR !child
-|]
+mkYesod "App" nestedDispatchResources
 
 instance Yesod App
 
@@ -45,6 +42,13 @@ getHomeR = selectRep $ do
     rep typeXml "XML"
     rep typeJson "JSON"
 
+getChild2R :: Int -> Int -> HandlerFor App ()
+getChild2R = undefined
+
+postChild2R :: Int -> Int -> HandlerFor App ()
+postChild2R = undefined
+
+
 rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
 
@@ -53,8 +57,8 @@ getJsonR = selectRep $ do
   rep typeHtml "HTML"
   provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
 
-handleChildR :: Int -> Text -> Handler ()
-handleChildR _ _ = return ()
+handleChild1R :: Int -> Text -> Handler ()
+handleChild1R _ _ = return ()
 
 testRequest :: Int -- ^ http status code
             -> Request
@@ -96,4 +100,4 @@ specs = do
   describe "routeAttrs" $ do
     it "HomeR" $ routeAttrs HomeR `shouldBe` Set.singleton "home"
     it "JsonR" $ routeAttrs JsonR `shouldBe` Set.empty
-    it "ChildR" $ routeAttrs (ParentR 5 $ ChildR "ignored") `shouldBe` Set.singleton "child"
+    it "ChildR" $ routeAttrs (ParentR 5 $ Child1R "ignored") `shouldBe` Set.singleton "child"

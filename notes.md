@@ -449,3 +449,5 @@ I think this does what we need here.
 Step 1) is actually hand-writing this instance.
 Step 2) is writing the TH code to properly delegate it.
 Step 3) is writing the TH code to generate it.
+
+OK, so handwriting revealed that we do need the type of the parent.

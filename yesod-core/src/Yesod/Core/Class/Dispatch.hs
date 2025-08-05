@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,6 +9,8 @@
 
 module Yesod.Core.Class.Dispatch where
 
+import Data.Text (Text)
+import Data.Kind (Type)
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
@@ -18,7 +22,7 @@ import Yesod.Core.Class.Yesod
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
-instance YesodDispatchNested a where
+class YesodDispatchNested site a | a -> site where
     -- | The 'ParentArgs' are the route fragments necessary to call the
     -- dispatched route that are not part of the route fragments used in
     -- parsing the route.
