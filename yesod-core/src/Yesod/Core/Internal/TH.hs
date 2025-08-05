@@ -306,7 +306,14 @@ mkDispatchInstance master cxt f res = do
                     , ysreToParentRoute = toParent
                     , ysreParentEnv = env
                     }
-                |])
+                |]) { mdsHandleNestedRoute =
+                        Just NestedRouteSettings
+                            { nrsClassName = ''YesodDispatchNested
+                            , nrsFunctionName = 'yesodDispatchNested
+                            , nrsTargetName = Nothing
+                            }
+                    }
+
             res
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [instanceD cxt yDispatch [thisDispatch]]

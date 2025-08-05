@@ -27,8 +27,9 @@ getNestIndexR = pure "getNestIndexR"
 postNestIndexR :: HandlerFor App Text
 postNestIndexR = pure "hello"
 
-instance YesodDispatchNested App NestR where
+instance YesodDispatchNested NestR where
     type ParentArgs NestR = ()
+    type ParentSite NestR = App
     yesodDispatchNested () method routes =
         helper routes
       where
@@ -46,4 +47,8 @@ instance YesodDispatchNested App NestR where
                     ( fmap toTypedContent $ void $ badMethod
                     , Just NestIndexR
                     )
+        helper _ =
+            ( fmap toTypedContent $ void notFound
+            , Nothing
+            )
 

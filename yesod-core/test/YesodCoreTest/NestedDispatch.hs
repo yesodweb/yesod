@@ -26,7 +26,7 @@ import Data.Monoid (Endo (..))
 import qualified Control.Monad.Trans.Writer    as Writer
 import qualified Data.Set as Set
 import YesodCoreTest.NestedDispatch.Resources
-import YesodCoreTest.NestedDispatch.NestR
+import YesodCoreTest.NestedDispatch.NestR (NestR(..))
 
 mkYesod "App" nestedDispatchResources
 
