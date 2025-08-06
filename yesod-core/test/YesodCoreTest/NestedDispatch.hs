@@ -86,22 +86,61 @@ acceptRequest accept = defaultRequest
             { requestHeaders = [("Accept", S8.pack accept)]
             }
 
+
+-- $> hspec YesodCoreTest.NestedDispatch.specs
+--
 specs :: Spec
 specs = do
-  describe "selectRep" $ do
-    test "application/json" "JSON"
-    test (S8.unpack typeJson) "JSON"
-    test "text/xml" "XML"
-    test (S8.unpack typeXml) "XML"
-    test "text/xml,application/json" "XML"
-    test "text/xml;q=0.9,application/json;q=1.0" "JSON"
-    test (S8.unpack typeHtml) "HTML"
-    test "text/html" "HTML"
-    test specialHtml "HTMLSPECIAL"
-    testRequest 200 (acceptRequest "application/json") { pathInfo = ["json"] } "{\"message\":\"Invalid Login\"}"
-    test "text/*" "HTML"
-    test "*/*" "HTML"
-  describe "routeAttrs" $ do
-    it "HomeR" $ routeAttrs HomeR `shouldBe` Set.singleton "home"
-    it "JsonR" $ routeAttrs JsonR `shouldBe` Set.empty
-    it "ChildR" $ routeAttrs (ParentR 5 $ Child1R "ignored") `shouldBe` Set.singleton "child"
+    describe "Dispatch" $ do
+        describe "properly does nested dispatch" $ do
+            it "GET" $ do
+                app <- toWaiApp App
+                flip runSession app $ do
+                    res <- request $ defaultRequest
+                      { pathInfo = ["nest"]
+                      , requestMethod = "GET"
+                      }
+                    assertStatus 200 res
+                    assertBodyContains "getNestIndexR" res
+            it "POST" $ do
+                app <- toWaiApp App
+                flip runSession app $ do
+                    res <- request $ defaultRequest
+                      { pathInfo = ["nest"]
+                      , requestMethod = "POST"
+                      }
+                    assertStatus 200 res
+                    assertBodyContains "hello" res
+            it "invalid route" $ do
+                app <- toWaiApp App
+                flip runSession app $ do
+                    res <- request $ defaultRequest
+                      { pathInfo = ["nest", "oops"]
+                      }
+                    assertStatus 404 res
+            it "invalid method" $ do
+                app <- toWaiApp App
+                flip runSession app $ do
+                    res <- request $ defaultRequest
+                      { pathInfo = ["nest"]
+                      , requestMethod = "PUT"
+                      }
+                    assertStatus 405 res
+
+    describe "selectRep" $ do
+        test "application/json" "JSON"
+        test (S8.unpack typeJson) "JSON"
+        test "text/xml" "XML"
+        test (S8.unpack typeXml) "XML"
+        test "text/xml,application/json" "XML"
+        test "text/xml;q=0.9,application/json;q=1.0" "JSON"
+        test (S8.unpack typeHtml) "HTML"
+        test "text/html" "HTML"
+        test specialHtml "HTMLSPECIAL"
+        testRequest 200 (acceptRequest "application/json") { pathInfo = ["json"] } "{\"message\":\"Invalid Login\"}"
+        test "text/*" "HTML"
+        test "*/*" "HTML"
+    describe "routeAttrs" $ do
+        it "HomeR" $ routeAttrs HomeR `shouldBe` Set.singleton "home"
+        it "JsonR" $ routeAttrs JsonR `shouldBe` Set.empty
+        it "ChildR" $ routeAttrs (ParentR 5 $ Child1R "ignored") `shouldBe` Set.singleton "child"
