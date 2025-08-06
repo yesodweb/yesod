@@ -8,6 +8,7 @@ module Yesod.Routes.TH.Dispatch
     , mkDispatchClause
     , defaultGetHandler
     , NestedRouteSettings (..)
+    , SDC(..)
     ) where
 
 import Prelude hiding (exp)
@@ -54,7 +55,17 @@ data MkDispatchSettings b site c = MkDispatchSettings
 data NestedRouteSettings = NestedRouteSettings
     { nrsClassName :: Name
     -- ^ The class to lookup an instance for a 'ResourceParent' name.
-    , nrsFunctionName :: Name
+    , nrsDispatchCall
+        :: Exp
+        -- ^ the "rest" of the route fragments
+        -> SDC
+        -- ^ The SDC (containing reqExp and other things at this point)
+        -> Exp
+        -- ^ The parent constructor
+        -> [Exp]
+        -- ^ The names of the bound variables from the path.
+        -> Q Exp
+        -- ^ The expression we want to splice in for delegating.
     -- ^ The function name to use to delegate the rest of the dispatch.
     , nrsTargetName :: Maybe String
     -- ^ The name of the target that we are currently generating code for.
@@ -164,9 +175,9 @@ mkDispatchClause MkDispatchSettings {..} resources = do
 
         case instanceExists of
             Just NestedRouteSettings {..} -> do
-                    -- TODO: Handle extraCons here.
+                    -- TODO: Handle extraPats here.
                     let constr = foldl' AppE (ConE (mkName name)) dyns
-                    expr <- [e|fmap $(pure constr) ($(pure (VarE nrsFunctionName)) ($(pure restE), snd $(pure (reqExp sdc))))|]
+                    expr <- nrsDispatchCall restE sdc constr (extraParams sdc ++ dyns)
                     let childClause =
                             Clause
                                 [restP]
@@ -202,7 +213,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                 else
                                     -- In this case, we are not yet at the
                                     -- node we are focusing on, so we should
-                                    -- not accumulate.
+                                    -- accumulate.
                                     sdcEnhanced
 
                 childClauses <- concat <$> mapM (go mnrs' sdc') children

@@ -294,9 +294,8 @@ mkDispatchInstance :: Type                      -- ^ The master site type
                    -> [ResourceTree c]          -- ^ The resource
                    -> DecsQ
 mkDispatchInstance master cxt f res = do
-    clause' <-
-        mkDispatchClause
-            (mkMDS
+    let mds =
+            mkMDS
                 f
                 [|yesodRunner|]
                 [|\parentRunner getSub toParent env -> yesodSubDispatch
@@ -306,15 +305,34 @@ mkDispatchInstance master cxt f res = do
                     , ysreToParentRoute = toParent
                     , ysreParentEnv = env
                     }
-                |]) { mdsHandleNestedRoute =
-                        Just NestedRouteSettings
-                            { nrsClassName = ''YesodDispatchNested
-                            , nrsFunctionName = 'yesodDispatchNested
-                            , nrsTargetName = Nothing
-                            }
-                    }
+                |]
+        mdsWithNestedDispatch = mds
+            { mdsHandleNestedRoute = Just NestedRouteSettings
+                { nrsClassName = ''YesodDispatchNested
+                , nrsDispatchCall =
+                    \restExpr sdc constrExpr dyns -> do
+                        let tupleDyns = TupE $ map Just dyns
+                        [e|
+                            let (hndlr, subConstr) =
+                                    yesodDispatchNested
+                                        $(pure tupleDyns)
+                                        ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                        $(pure restExpr)
+                            in
+                                $(mdsRunHandler mds)
+                                    hndlr
+                                    $(pure $ envExp sdc)
+                                    ($(pure constrExpr) <$> subConstr)
+                                    $(pure $ reqExp sdc)
 
-            res
+
+
+
+                            |]
+                , nrsTargetName = Nothing
+                }
+            }
+    clause' <- mkDispatchClause mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [instanceD cxt yDispatch [thisDispatch]]
   where

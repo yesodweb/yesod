@@ -27,7 +27,8 @@ mkParseRouteInstance cxt typ ress = do
             , mdsUnwrapper = return
             , mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''ParseRouteNested
-                , nrsFunctionName = 'parseRouteNested
+                , nrsDispatchCall = \restExpr sdc constrExpr _dyns ->
+                    [e| fmap $(pure constrExpr) (parseRouteNested ($(pure restExpr), snd $(pure $ reqExp sdc))) |]
                 , nrsTargetName = Nothing
                 }
             }
@@ -65,7 +66,8 @@ mkParseRouteInstanceFor target ress = do
             , mdsUnwrapper = return
             , mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''ParseRouteNested
-                , nrsFunctionName = 'parseRouteNested
+                , nrsDispatchCall = \restExpr sdc constrExpr _dyns ->
+                    [e| fmap $(pure constrExpr) (parseRouteNested ($(pure restExpr), snd $(pure $ reqExp sdc))) |]
                 , nrsTargetName = Just target
                 }
             }

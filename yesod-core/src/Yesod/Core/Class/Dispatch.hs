@@ -16,6 +16,7 @@ import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Handler (sendWaiApplication)
 import Yesod.Core.Class.Yesod
+import Network.HTTP.Types.Method (Method)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -36,7 +37,7 @@ class YesodDispatchNested a where
     yesodDispatchNested
         :: ParentArgs a
         -- ^ The parts of the parent route
-        -> Text
+        -> Method
         -- ^ The HTTP Method invoked from the request.
         -> [Text]
         -- ^ The path fragments, after parsing out the parent.

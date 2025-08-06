@@ -5,6 +5,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
+-- asdf
+
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module YesodCoreTest.NestedDispatch

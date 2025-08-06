@@ -451,3 +451,28 @@ Step 2) is writing the TH code to properly delegate it.
 Step 3) is writing the TH code to generate it.
 
 OK, so handwriting revealed that we do need the type of the parent.
+
+# Delegation Template Haskell
+
+OK, so initial attempt - leveraging the prior stuff - *obviously* fails, because we're generating something pretty silly that's for route parsing.
+
+```haskell
+        case instanceExists of
+            Just NestedRouteSettings {..} -> do
+                    -- TODO: Handle extraCons here.
+                    let constr = foldl' AppE (ConE (mkName name)) dyns
+                    expr <- [e|fmap $(pure constr) ($(pure (VarE nrsFunctionName)) ($(pure restE), snd $(pure (reqExp sdc))))|]
+                    let childClause =
+                            Clause
+                                [restP]
+                                (NormalB expr)
+                                []
+                    return $ [ (,) name $ Clause
+                        [mkPathPat restP pats]
+                        (NormalB $ helperE `AppE` restE)
+                        [FunD helperName [childClause]]]
+```
+
+So, `nrsFunctionName` is being used here.
+But really we want to provide something like `Exp -> Exp -> Exp -> Q Exp` - where each `Exp` is an "interesting" thing we are providing.
+Here we have `
