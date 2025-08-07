@@ -5,8 +5,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
--- asdf
-
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
@@ -17,6 +15,7 @@ module YesodCoreTest.NestedDispatch
     , resourcesApp
     ) where
 
+import Data.Foldable (for_)
 import Yesod.Core
 import Test.Hspec
 import Network.Wai
@@ -34,7 +33,8 @@ import YesodCoreTest.NestedDispatch.NestR (NestR(..))
 
 mkYesod "App" nestedDispatchResources
 
-instance Yesod App
+instance Yesod App where
+    messageLoggerSource = mempty
 
 specialHtml :: IsString a => a
 specialHtml = "text/html; charset=special"
@@ -69,11 +69,19 @@ testRequest :: Int -- ^ http status code
             -> ByteString -- ^ expected body
             -> Spec
 testRequest status req expected = it (S8.unpack $ fromJust $ lookup "Accept" $ requestHeaders req) $ do
+    testRequestIO status req (Just expected)
+
+testRequestIO :: Int -- ^ http status code
+            -> Request
+            -> Maybe ByteString -- ^ expected body
+            -> IO ()
+testRequestIO status req mexpected = do
     app <- toWaiApp App
     flip runSession app $ do
         sres <- request req
         assertStatus status sres
-        assertBody expected sres
+        for_ mexpected $ \expected -> do
+            assertBody expected sres
 
 test :: String -- ^ accept header
      -> ByteString -- ^ expected body
@@ -94,38 +102,37 @@ specs = do
     describe "Dispatch" $ do
         describe "properly does nested dispatch" $ do
             it "GET" $ do
-                app <- toWaiApp App
-                flip runSession app $ do
-                    res <- request $ defaultRequest
-                      { pathInfo = ["nest"]
-                      , requestMethod = "GET"
-                      }
-                    assertStatus 200 res
-                    assertBodyContains "getNestIndexR" res
+                testRequestIO
+                    200
+                    defaultRequest
+                        { pathInfo = ["nest"]
+                        , requestMethod = "GET"
+                        }
+                    (Just "getNestIndexR")
             it "POST" $ do
-                app <- toWaiApp App
-                flip runSession app $ do
-                    res <- request $ defaultRequest
-                      { pathInfo = ["nest"]
-                      , requestMethod = "POST"
-                      }
-                    assertStatus 200 res
-                    assertBodyContains "hello" res
+                testRequestIO
+                    200
+                    defaultRequest
+                        { pathInfo = ["nest"]
+                        , requestMethod = "POST"
+                        }
+                    (Just "hello")
             it "invalid route" $ do
-                app <- toWaiApp App
-                flip runSession app $ do
-                    res <- request $ defaultRequest
-                      { pathInfo = ["nest", "oops"]
-                      }
-                    assertStatus 404 res
+                testRequestIO
+                    404
+                    defaultRequest
+                        { pathInfo = ["nest", "oops"]
+                        , requestMethod = "GET"
+                        }
+                    Nothing
             it "invalid method" $ do
-                app <- toWaiApp App
-                flip runSession app $ do
-                    res <- request $ defaultRequest
-                      { pathInfo = ["nest"]
-                      , requestMethod = "PUT"
-                      }
-                    assertStatus 405 res
+                testRequestIO
+                    405
+                    defaultRequest
+                        { pathInfo = ["nest"]
+                        , requestMethod = "PUT"
+                        }
+                    Nothing
 
     describe "selectRep" $ do
         test "application/json" "JSON"
