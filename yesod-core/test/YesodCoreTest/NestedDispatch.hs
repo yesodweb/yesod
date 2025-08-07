@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -24,12 +25,14 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.String (IsString)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Data.Maybe (fromJust)
 import Data.Monoid (Endo (..))
 import qualified Control.Monad.Trans.Writer    as Writer
 import qualified Data.Set as Set
 import YesodCoreTest.NestedDispatch.Resources
 import YesodCoreTest.NestedDispatch.NestR (NestR(..))
+import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
 
 mkYesod "App" nestedDispatchResources
 
@@ -39,19 +42,15 @@ instance Yesod App where
 specialHtml :: IsString a => a
 specialHtml = "text/html; charset=special"
 
+tshow :: Show a => a -> Text
+tshow = Text.pack . show
+
 getHomeR :: Handler TypedContent
 getHomeR = selectRep $ do
     rep typeHtml "HTML"
     rep specialHtml "HTMLSPECIAL"
     rep typeXml "XML"
     rep typeJson "JSON"
-
-getChild2R :: Int -> Int -> HandlerFor App ()
-getChild2R = undefined
-
-postChild2R :: Int -> Int -> HandlerFor App ()
-postChild2R = undefined
-
 
 rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
@@ -60,9 +59,6 @@ getJsonR :: Handler TypedContent
 getJsonR = selectRep $ do
   rep typeHtml "HTML"
   provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
-
-handleChild1R :: Int -> Text -> Handler ()
-handleChild1R _ _ = return ()
 
 testRequest :: Int -- ^ http status code
             -> Request
@@ -101,38 +97,79 @@ specs :: Spec
 specs = do
     describe "Dispatch" $ do
         describe "properly does nested dispatch" $ do
-            it "GET" $ do
-                testRequestIO
-                    200
-                    defaultRequest
-                        { pathInfo = ["nest"]
-                        , requestMethod = "GET"
-                        }
-                    (Just "getNestIndexR")
-            it "POST" $ do
-                testRequestIO
-                    200
-                    defaultRequest
-                        { pathInfo = ["nest"]
-                        , requestMethod = "POST"
-                        }
-                    (Just "hello")
-            it "invalid route" $ do
-                testRequestIO
-                    404
-                    defaultRequest
-                        { pathInfo = ["nest", "oops"]
-                        , requestMethod = "GET"
-                        }
-                    Nothing
-            it "invalid method" $ do
-                testRequestIO
-                    405
-                    defaultRequest
-                        { pathInfo = ["nest"]
-                        , requestMethod = "PUT"
-                        }
-                    Nothing
+            describe "NestR" $ do
+                it "GET" $ do
+                    testRequestIO
+                        200
+                        defaultRequest
+                            { pathInfo = ["nest"]
+                            , requestMethod = "GET"
+                            }
+                        (Just "getNestIndexR")
+                it "POST" $ do
+                    testRequestIO
+                        200
+                        defaultRequest
+                            { pathInfo = ["nest"]
+                            , requestMethod = "POST"
+                            }
+                        (Just "hello")
+                it "invalid route" $ do
+                    testRequestIO
+                        404
+                        defaultRequest
+                            { pathInfo = ["nest", "oops"]
+                            , requestMethod = "GET"
+                            }
+                        Nothing
+                it "invalid method" $ do
+                    testRequestIO
+                        405
+                        defaultRequest
+                            { pathInfo = ["nest"]
+                            , requestMethod = "PUT"
+                            }
+                        Nothing
+
+            describe "ParentR" $ do
+                describe "Child1R" $ do
+                    it "works" $ do
+                        testRequestIO
+                            200
+                            defaultRequest
+                                { pathInfo =
+                                    ["parent", tshow @Int 1, "hello", "child1"]
+                                }
+                            (Just "1hello")
+
+                describe "Child2R" $ do
+                    it "GET" $ do
+                        testRequestIO
+                            200
+                            defaultRequest
+                                { pathInfo =
+                                    ["parent", tshow @Int 1, tshow @Int 3, "child2"]
+                                , requestMethod = "GET"
+                                }
+                            (Just "GET(1,3)")
+                    it "POST" $ do
+                        testRequestIO
+                            200
+                            defaultRequest
+                                { pathInfo =
+                                    ["parent", tshow @Int 1, tshow @Int 3, "child2"]
+                                , requestMethod = "POST"
+                                }
+                            (Just "POST(1,3)")
+                    it "PUT" $ do
+                        testRequestIO
+                            405
+                            defaultRequest
+                                { pathInfo =
+                                    ["parent", tshow @Int 1, tshow @Int 3, "child2"]
+                                , requestMethod = "PUT"
+                                }
+                            Nothing
 
     describe "selectRep" $ do
         test "application/json" "JSON"

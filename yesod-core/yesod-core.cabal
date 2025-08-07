@@ -167,6 +167,8 @@ test-suite tests
                    YesodCoreTest.MediaData
                    YesodCoreTest.Meta
                    YesodCoreTest.NestedDispatch
+                   YesodCoreTest.NestedDispatch.NestR
+                   YesodCoreTest.NestedDispatch.ParentR
                    YesodCoreTest.NestedDispatch.Resources
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
