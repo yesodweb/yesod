@@ -16,10 +16,13 @@ import Yesod.Routes.Parse
 import Language.Haskell.TH
 import Yesod.Routes.TH
 import Yesod.Core.Class.Dispatch
+import Yesod.Core.Internal.TH
 
 mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) [] (ConT ''App) (map (fmap parseType) nestedDispatchResources)
 mkRouteAttrsInstanceFor [] (ConT ''NestR) "NestR" $ map (fmap parseType) nestedDispatchResources
 mkParseRouteInstanceFor "NestR" $ map (fmap parseType) nestedDispatchResources
+
+mkYesodDispatchOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) "App" nestedDispatchResources
 
 getNestIndexR :: HandlerFor App Text
 getNestIndexR = pure "getNestIndexR"
@@ -27,28 +30,28 @@ getNestIndexR = pure "getNestIndexR"
 postNestIndexR :: HandlerFor App Text
 postNestIndexR = pure "hello"
 
-instance YesodDispatchNested NestR where
-    type ParentArgs NestR = ()
-    type ParentSite NestR = App
-    yesodDispatchNested () method routes =
-        helper routes
-      where
-        helper [] =
-            case method of
-                "GET" ->
-                    ( fmap toTypedContent $ getNestIndexR
-                    , Just NestIndexR
-                    )
-                "POST" ->
-                    ( fmap toTypedContent $ postNestIndexR
-                    , Just NestIndexR
-                    )
-                _ ->
-                    ( fmap toTypedContent $ void $ badMethod
-                    , Just NestIndexR
-                    )
-        helper _ =
-            ( fmap toTypedContent $ void notFound
-            , Nothing
-            )
-
+-- instance YesodDispatchNested NestR where
+--     type ParentArgs NestR = ()
+--     type ParentSite NestR = App
+--     yesodDispatchNested () method routes =
+--         helper routes
+--       where
+--         helper [] =
+--             case method of
+--                 "GET" ->
+--                     ( fmap toTypedContent $ getNestIndexR
+--                     , Just NestIndexR
+--                     )
+--                 "POST" ->
+--                     ( fmap toTypedContent $ postNestIndexR
+--                     , Just NestIndexR
+--                     )
+--                 _ ->
+--                     ( fmap toTypedContent $ void $ badMethod
+--                     , Just NestIndexR
+--                     )
+--         helper _ =
+--             ( fmap toTypedContent $ void notFound
+--             , Nothing
+--             )
+--

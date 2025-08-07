@@ -42,6 +42,7 @@ module Yesod.Core.Internal.TH
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setFocusOnNestedRoute
     )
  where
 
@@ -65,6 +66,7 @@ import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
+import Yesod.Routes.TH.RenderRoute (roFocusOnNestedRoute)
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
@@ -141,9 +143,9 @@ mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> [ResourceTree String]
                       -> Q([Dec],[Dec])
 mkYesodWithParserOpts opts name isSub f resS = do
-    let (name', rest, cxt) = case parse parseName "" name of
-            Left err -> error $ show err
-            Right a -> a
+    (name', rest, cxt) <- case parse parseName "" name of
+            Left err -> fail $ show err
+            Right a -> pure a
     mkYesodGeneralOpts opts cxt name' rest isSub f resS
 
     where
@@ -251,7 +253,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
         res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt site res
     routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
-    dispatchDec    <- mkDispatchInstance site appCxt f res
+    dispatchDec    <- mkDispatchInstance (roFocusOnNestedRoute opts) site appCxt f res
     parseRoute <- mkParseRouteInstance appCxt site res
     let rname = mkName $ "resources" ++ namestr
     eres <- lift resS
@@ -288,12 +290,19 @@ mkMDS f rh sd = MkDispatchSettings
 -- hardly need this generality. However, in certain situations, like
 -- when writing library/plugin for yesod, this combinator becomes
 -- handy.
-mkDispatchInstance :: Type                      -- ^ The master site type
-                   -> Cxt                       -- ^ Context of the instance
-                   -> (Exp -> Q Exp)            -- ^ Unwrap handler
-                   -> [ResourceTree c]          -- ^ The resource
-                   -> DecsQ
-mkDispatchInstance master cxt f res = do
+mkDispatchInstance
+    :: Maybe String
+    -- ^ The nested subroute we're focusing on, if present.
+    -> Type
+    -- ^ The master site type
+    -> Cxt
+    -- ^ Context of the instance
+    -> (Exp -> Q Exp)
+    -- ^ Unwrap handler
+    -> [ResourceTree c]
+    -- ^ The resource
+    -> DecsQ
+mkDispatchInstance Nothing master cxt f res = do
     let mds =
             mkMDS
                 f
@@ -311,11 +320,15 @@ mkDispatchInstance master cxt f res = do
                 { nrsClassName = ''YesodDispatchNested
                 , nrsDispatchCall =
                     \restExpr sdc constrExpr dyns -> do
-                        let tupleDyns = TupE $ map Just dyns
+                        let dynsExpr =
+                                case dyns of
+                                    [] -> [| () |]
+                                    [a] -> pure a
+                                    _ -> pure $ TupE $ map Just dyns
                         [e|
                             let (hndlr, subConstr) =
                                     yesodDispatchNested
-                                        $(pure tupleDyns)
+                                        $(dynsExpr)
                                         ($(mdsMethod mds) $(pure $ reqExp sdc))
                                         $(pure restExpr)
                             in
@@ -337,6 +350,67 @@ mkDispatchInstance master cxt f res = do
     return [instanceD cxt yDispatch [thisDispatch]]
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
+mkDispatchInstance (Just target) master cxt f res = do
+    let mds =
+            mkMDS
+                f
+                [|yesodRunner|]
+                [|\parentRunner getSub toParent env -> yesodSubDispatch
+                    YesodSubRunnerEnv
+                    { ysreParentRunner = parentRunner
+                    , ysreGetSub = getSub
+                    , ysreToParentRoute = toParent
+                    , ysreParentEnv = env
+                    }
+                |]
+        mdsWithNestedDispatch = mds
+            { mdsHandleNestedRoute = Just NestedRouteSettings
+                { nrsClassName = ''YesodDispatchNested
+                , nrsDispatchCall =
+                    \restExpr sdc constrExpr dyns -> do
+                        let dynsExpr =
+                                case dyns of
+                                    [] -> [| () |]
+                                    [a] -> pure a
+                                    _ -> pure $ TupE $ map Just dyns
+                        [e|
+                            let (hndlr, subConstr) =
+                                    yesodDispatchNested
+                                        $(dynsExpr)
+                                        ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                        $(pure restExpr)
+                            in
+                                $(mdsRunHandler mds)
+                                    hndlr
+                                    $(pure $ envExp sdc)
+                                    ($(pure constrExpr) <$> subConstr)
+                                    $(pure $ reqExp sdc)
+
+
+
+
+                            |]
+                , nrsTargetName = Nothing
+                }
+            }
+    (parentDyns, subres) <- findNestedRoute target res
+    clause' <- mkDispatchClause mdsWithNestedDispatch subres
+    let thisDispatch = FunD 'yesodDispatchNested [clause']
+    yDispatchNested <- [t| YesodDispatchNested $(conT (mkName target)) |]
+    return [instanceD cxt yDispatchNested [thisDispatch]]
+
+-- | Given a target 'String', find the 'ResourceParent' in the
+-- @['ResourceTree' 'String']@ corresponding to that target and return it.
+-- Also return the @[Type]@ captures that precede it.
+findNestedRoute :: String -> [ResourceTree String] -> Q (Maybe ([Type], [ResourceTree String]))
+findNestedRoute target (res : ress) =
+    case res of
+        ResourceLeaf _ -> do
+            findNestedRoute target ress
+        ResourceParent name overlap pieces children -> do
+
+
+
 
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp

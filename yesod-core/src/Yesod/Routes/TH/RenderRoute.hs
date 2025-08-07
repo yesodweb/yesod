@@ -16,6 +16,7 @@ module Yesod.Routes.TH.RenderRoute
     , setShowDerived
     , setReadDerived
     , setFocusOnNestedRoute
+    , roFocusOnNestedRoute
     ) where
 
 import Yesod.Routes.TH.Types

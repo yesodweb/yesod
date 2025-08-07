@@ -7,7 +7,6 @@
 
 module YesodCoreTest.NestedDispatch.ParentR where
 
-import Data.Tuple (Solo(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Control.Monad (void)
@@ -34,9 +33,9 @@ postChild2R :: Int -> Int -> HandlerFor App Text
 postChild2R i0 i1 = return ("POST" <> Text.pack (show (i0, i1)))
 
 instance YesodDispatchNested ParentR where
-    type ParentArgs ParentR = Solo Int
+    type ParentArgs ParentR = Int
     type ParentSite ParentR = App
-    yesodDispatchNested (MkSolo parentDyn) method routes =
+    yesodDispatchNested parentDyn method routes =
         helper routes
       where
         helper ((fromPathPiece -> Just dyn0) : "child1" : []) =
