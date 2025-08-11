@@ -56,6 +56,7 @@ import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
+import Data.Maybe
 import Control.Monad (replicateM, void)
 import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
@@ -299,7 +300,7 @@ mkDispatchInstance
     -- ^ Context of the instance
     -> (Exp -> Q Exp)
     -- ^ Unwrap handler
-    -> [ResourceTree c]
+    -> [ResourceTree Type]
     -- ^ The resource
     -> DecsQ
 mkDispatchInstance Nothing master cxt f res = do
@@ -337,15 +338,14 @@ mkDispatchInstance Nothing master cxt f res = do
                                     $(pure $ envExp sdc)
                                     ($(pure constrExpr) <$> subConstr)
                                     $(pure $ reqExp sdc)
-
-
-
-
                             |]
                 , nrsTargetName = Nothing
                 }
             }
     clause' <- mkDispatchClause mdsWithNestedDispatch res
+    nestHelpN <- newName "nestHelp"
+    methodN <- newName "method"
+    fragmentsN <- newName "fragments"
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [instanceD cxt yDispatch [thisDispatch]]
   where
@@ -364,7 +364,10 @@ mkDispatchInstance (Just target) master cxt f res = do
                     }
                 |]
         mdsWithNestedDispatch = mds
-            { mdsHandleNestedRoute = Just NestedRouteSettings
+            { mdsRunHandler = [| \h _env mroute _req -> (fmap toTypedContent h, mroute) |]
+            , mdsGetPathInfo = [| snd |]
+            , mdsMethod = [| fst |]
+            , mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''YesodDispatchNested
                 , nrsDispatchCall =
                     \restExpr sdc constrExpr dyns -> do
@@ -385,33 +388,65 @@ mkDispatchInstance (Just target) master cxt f res = do
                                     $(pure $ envExp sdc)
                                     ($(pure constrExpr) <$> subConstr)
                                     $(pure $ reqExp sdc)
-
-
-
-
                             |]
                 , nrsTargetName = Nothing
                 }
             }
-    (parentDyns, subres) <- findNestedRoute target res
+    mstuff <- findNestedRoute target res
+    (prePieces, subres) <- case mstuff of
+        Nothing ->
+            fail "Target was not found in resources."
+        Just stuff ->
+            pure stuff
     clause' <- mkDispatchClause mdsWithNestedDispatch subres
+
     let thisDispatch = FunD 'yesodDispatchNested [clause']
+    let preDyns =
+            mapMaybe
+                (\p -> case p of
+                    Static _ -> Nothing
+                    Dynamic a -> Just a)
+                prePieces
+
+    nestHelpN <- newName "nestHelp"
+    methodN <- newName "method"
+    fragmentsN <- newName "fragments"
+    let thisDispatch = FunD 'yesodDispatchNested
+            [Clause
+                [VarP (mkName "parentDyns"), VarP methodN, VarP fragmentsN]
+                (NormalB $ VarE nestHelpN `AppE` ConE '() `AppE` TupE [Just (VarE methodN), Just (VarE fragmentsN)])
+                [FunD nestHelpN [clause']]
+            ]
     yDispatchNested <- [t| YesodDispatchNested $(conT (mkName target)) |]
-    return [instanceD cxt yDispatchNested [thisDispatch]]
+
+    tyLhs <- [t| ParentSite $(conT (mkName target)) |]
+    return
+        [ instanceD cxt yDispatchNested
+            [ TySynInstD $ TySynEqn Nothing tyLhs master
+            -- TODO: Make the parent dyns type instance
+            , thisDispatch
+            ]
+        ]
 
 -- | Given a target 'String', find the 'ResourceParent' in the
--- @['ResourceTree' 'String']@ corresponding to that target and return it.
--- Also return the @[Type]@ captures that precede it.
-findNestedRoute :: String -> [ResourceTree String] -> Q (Maybe ([Type], [ResourceTree String]))
+-- @['ResourceTree' a]@ corresponding to that target and return it.
+-- Also return the @['Piece' a]@ captures that precede it.
+findNestedRoute :: String -> [ResourceTree a] -> Q (Maybe ([Piece a], [ResourceTree a]))
+findNestedRoute _ [] = pure Nothing
 findNestedRoute target (res : ress) =
     case res of
         ResourceLeaf _ -> do
             findNestedRoute target ress
         ResourceParent name overlap pieces children -> do
-
-
-
-
+            if name == target
+                then pure $ Just (pieces, children)
+                else do
+                    mresult <- findNestedRoute target children
+                    case mresult of
+                        Nothing -> do
+                            findNestedRoute target ress
+                        Just (typs, childRoute) -> do
+                            pure $ Just (pieces <> typs, childRoute)
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do

@@ -33,7 +33,7 @@ class YesodDispatchNested a where
     type ParentSite a :: Type
 
     -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
-    -- route frag
+    -- route fragment provided.
     yesodDispatchNested
         :: ParentArgs a
         -- ^ The parts of the parent route
