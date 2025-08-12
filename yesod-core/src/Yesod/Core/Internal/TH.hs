@@ -1,9 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Yesod.Core.Internal.TH
@@ -335,7 +336,7 @@ mkDispatchInstance Nothing master cxt f res = do
                                 case dyns of
                                     [] -> [| () |]
                                     [a] -> pure a
-                                    _ -> pure $ TupE $ map Just dyns
+                                    _ -> pure $ mkTupE dyns
                         [e|
                             let (hndlr, subConstr) =
                                     yesodDispatchNested
@@ -404,7 +405,7 @@ mkDispatchInstance (Just target) master cxt f res = do
                                 case map VarE parentDynNs <> dyns of
                                     [] -> [| () |]
                                     [a] -> pure a
-                                    vars -> pure $ TupE $ map Just vars
+                                    vars -> pure $ mkTupE vars
                         [e|
                             let (hndlr, subConstr) =
                                     yesodDispatchNested
@@ -465,7 +466,7 @@ mkDispatchInstance (Just target) master cxt f res = do
                 (NormalB $
                     VarE nestHelpN
                     `AppE` VarE parentDynN
-                    `AppE` TupE [Just (VarE methodN), Just (VarE fragmentsN)]
+                    `AppE` mkTupE [VarE methodN, VarE fragmentsN]
                 )
                 [FunD nestHelpN [clause']]
             ]
@@ -545,3 +546,10 @@ subTopDispatch _ getSub toParent env = yesodSubDispatch
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
+
+mkTupE :: [Exp] -> Exp
+mkTupE =
+    TupE
+#if MIN_VERSION_template_haskell(2,16,0)
+        . fmap Just
+#endif

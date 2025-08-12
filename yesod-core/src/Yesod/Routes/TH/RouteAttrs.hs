@@ -58,7 +58,7 @@ goTree mtarget front (ResourceParent name _check pieces trees) = do
     if doesNestedInstanceExist
         then do
             x <- newName "x"
-            pure [Clause [ConP (mkName name) [] (ignored (VarP x))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
+            pure [Clause [mkConP (mkName name) (ignored (VarP x))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
         else do
             let mtarget' = do
                     target <- mtarget
@@ -77,10 +77,7 @@ goTree mtarget front (ResourceParent name _check pieces trees) = do
     toIgnore = length $ filter isDynamic pieces
     isDynamic Dynamic{} = True
     isDynamic Static{} = False
-    front' = front . ConP (mkName name)
-#if MIN_VERSION_template_haskell(2,18,0)
-                          []
-#endif
+    front' = front . mkConP (mkName name)
                    . ignored
 
 goRes :: (Pat -> Pat) -> Resource a -> Maybe Clause
@@ -95,3 +92,11 @@ goRes front Resource {..} = do
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
+
+mkConP :: Name -> [Pat] -> Pat
+mkConP n p =
+    ConP n
+#if MIN_VERSION_template_haskell(2,18,0)
+        []
+#endif
+        p
