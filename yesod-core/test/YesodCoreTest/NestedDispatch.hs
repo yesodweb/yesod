@@ -91,8 +91,6 @@ acceptRequest accept = defaultRequest
             }
 
 
--- $> hspec YesodCoreTest.NestedDispatch.specs
---
 specs :: Spec
 specs = do
     describe "Dispatch" $ do

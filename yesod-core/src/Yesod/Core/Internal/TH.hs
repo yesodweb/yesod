@@ -214,7 +214,7 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
-                   -> [[String]]                -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
+                   -> [[String]]                -- ^ Application context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                    -> String                    -- ^ foundation type
                    -> [String]                  -- ^ arguments for the type
                    -> Bool                      -- ^ is this a subsite
@@ -253,9 +253,20 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt site res
-    routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
+    routeAttrsDec  <-
+        case roFocusOnNestedRoute opts of
+            Nothing ->
+                pure <$> mkRouteAttrsInstance appCxt site res
+            Just target ->
+                mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
+
     dispatchDec    <- mkDispatchInstance (roFocusOnNestedRoute opts) site appCxt f res
-    parseRoute <- mkParseRouteInstance appCxt site res
+    parseRoute <-
+        case roFocusOnNestedRoute opts of
+            Nothing ->
+                pure <$> mkParseRouteInstance appCxt site res
+            Just target ->
+                mkParseRouteInstanceFor target res
     let rname = mkName $ "resources" ++ namestr
     eres <- lift resS
     let resourcesDec =
@@ -263,9 +274,9 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             , FunD rname [Clause [] (NormalB eres) []]
             ]
     let dataDec = concat
-            [ [parseRoute]
+            [ parseRoute
             , renderRouteDec
-            , [routeAttrsDec]
+            , routeAttrsDec
             , resourcesDec
             , if isSub then [] else masterTypeSyns argvars site
             ]
@@ -415,7 +426,7 @@ mkDispatchInstance (Just target) master cxt f res = do
             ts ->
                 pure $ foldl' AppT (TupleT (length ts)) ts
 
-    parentDynNs <- forM preDyns $ \preDyn -> newName (show preDyn)
+    parentDynNs <- forM preDyns $ \_ -> newName "parentDyn"
 
     parentDynsP <-
         case parentDynNs of

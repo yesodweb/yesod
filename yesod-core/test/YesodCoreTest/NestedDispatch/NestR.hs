@@ -5,25 +5,20 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{-# OPTIONS_GHC -ddump-to-file -ddump-splices #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module YesodCoreTest.NestedDispatch.NestR where
 
 import Data.Text (Text)
 import Yesod.Core.Handler
 import YesodCoreTest.NestedDispatch.Resources
+import Language.Haskell.TH (Type(ConT))
 import Yesod.Routes.Parse
-import Language.Haskell.TH
-import Yesod.Routes.TH
+import Yesod.Routes.TH (mkRenderRouteInstanceOpts, mkRouteAttrsInstanceFor, mkParseRouteInstanceFor)
 import Yesod.Core.Internal.TH
 
-mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) [] (ConT ''App) (map (fmap parseType) nestedDispatchResources)
-mkRouteAttrsInstanceFor [] (ConT ''NestR) "NestR" $ map (fmap parseType) nestedDispatchResources
-mkParseRouteInstanceFor "NestR" $ map (fmap parseType) nestedDispatchResources
+mkYesodOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) "App" nestedDispatchResources
 
-mkYesodDispatchOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) "App" nestedDispatchResources
-
---
 getNestIndexR :: HandlerFor App Text
 getNestIndexR = pure "getNestIndexR"
 
