@@ -1,6 +1,5 @@
 {-# language TemplateHaskell #-}
 {-# language OverloadedStrings, ViewPatterns, TemplateHaskell #-}
--- {-# options_ghc -ddump-splices #-}
 
 module Hierarchy.Nest2 where
 

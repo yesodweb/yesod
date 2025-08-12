@@ -175,7 +175,6 @@ mkDispatchClause MkDispatchSettings {..} resources = do
 
         case instanceExists of
             Just NestedRouteSettings {..} -> do
-                    -- TODO: Handle extraPats here.
                     let constr = foldl' AppE (ConE (mkName name)) dyns
                     expr <- nrsDispatchCall restE sdc constr (extraParams sdc ++ dyns)
                     let childClause =
@@ -187,8 +186,8 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                         [mkPathPat restP pats]
                         (NormalB $ helperE `AppE` restE)
                         [FunD helperName [childClause]]]
-            Nothing -> do
 
+            Nothing -> do
                 let sdcEnhanced =
                         sdc
                             { extraParams = extraParams sdc ++ dyns
