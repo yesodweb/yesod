@@ -438,13 +438,7 @@ mkDispatchInstance (Just target) master cxt f res = do
             xs -> pure $ TupP $ map VarP xs
 
     let addParentDynsToDispatch exp = do
-            case parentDynNs of
-                [] ->
-                    pure exp
-                [x] ->
-                    [e| $(pure exp) $(varE x) |]
-                ns -> do
-                    pure $ foldl' AppE exp (map VarE ns)
+            foldl' AppE exp (map VarE parentDynNs)
 
     nestHelpN <- newName "nestHelp"
     methodN <- newName "method"
@@ -453,9 +447,9 @@ mkDispatchInstance (Just target) master cxt f res = do
 
     let finalMds =
             mdsWithNestedDispatch
-                { mdsGetHandler = \mmethod name -> do
-                    expr <- mdsGetHandler mdsWithNestedDispatch mmethod name
-                    addParentDynsToDispatch expr
+                { mdsGetHandler = \mmethod name ->
+                    addParentDynsToDispatch <$>
+                        mdsGetHandler mdsWithNestedDispatch mmethod name
                 }
 
     clause' <- mkDispatchClause finalMds subres
