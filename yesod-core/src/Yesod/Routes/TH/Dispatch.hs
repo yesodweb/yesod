@@ -110,7 +110,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
     return $ Clause
         [VarP envName, VarP reqName]
         (NormalB $ helperE `AppE` pathInfo)
-        [FunD helperName $ fmap snd clauses ++ [clause404']]
+        [FunD helperName $ clauses ++ [clause404']]
   where
     handlePiece :: Piece a -> Q (Pat, Maybe Exp)
     handlePiece (Static str) = return (LitP $ StringL str, Nothing)
@@ -131,7 +131,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
       where
         addPat x y = conPCompat '(:) [x, y]
 
-    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q [(String, Clause)]
+    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q [Clause]
     go mnrs sdc (ResourceParent name _check pieces children) = do
         let mtargetName = mnrs >>= nrsTargetName
         let mtargetMatch =
@@ -183,7 +183,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                 [restP]
                                 (NormalB expr)
                                 []
-                    return $ [ (,) name $ Clause
+                    return $ [ Clause
                         [mkPathPat restP pats]
                         (NormalB $ helperE `AppE` restE)
                         [FunD helperName [childClause]]]
@@ -221,10 +221,10 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                 if fromMaybe True mtargetMatch || not (null childClauses)
                     then do
                         let fullReturn =
-                                [ (,) name $ Clause
+                                [ Clause
                                     [mkPathPat restP pats]
                                     (NormalB $ helperE `AppE` restE)
-                                    [FunD helperName $ fmap snd childClauses ++ [clause404 sdc]]]
+                                    [FunD helperName $ childClauses ++ [clause404 sdc]]]
                             passThru =
                                 return childClauses
 
@@ -256,7 +256,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
 
                 (chooseMethod, finalPat) <- handleDispatch dispatch dyns
 
-                return $ pure $ (,) name $ Clause
+                return $ pure $ Clause
                     [mkPathPat finalPat pats]
                     (NormalB chooseMethod)
                     []

@@ -33,6 +33,7 @@ import qualified Data.Set as Set
 import YesodCoreTest.NestedDispatch.Resources
 import YesodCoreTest.NestedDispatch.NestR (NestR(..))
 import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
+import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..))
 
 mkYesod "App" nestedDispatchResources
 

@@ -276,8 +276,8 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             [ parseRoute
             , renderRouteDec
             , routeAttrsDec
-            , resourcesDec
-            , if isSub then [] else masterTypeSyns argvars site
+            , if isJust (roFocusOnNestedRoute opts) then [] else resourcesDec
+            , if isSub || isJust (roFocusOnNestedRoute opts) then [] else masterTypeSyns argvars site
             ]
     return (dataDec, dispatchDec)
 
@@ -357,7 +357,24 @@ mkDispatchInstance Nothing master cxt f res = do
     return [instanceD cxt yDispatch [thisDispatch]]
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
+
 mkDispatchInstance (Just target) master cxt f res = do
+    mstuff <- findNestedRoute target res
+    (prePieces, subres) <- case mstuff of
+        Nothing ->
+            fail "Target was not found in resources."
+        Just stuff ->
+            pure stuff
+
+    let preDyns =
+            mapMaybe
+                (\p -> case p of
+                    Static _ -> Nothing
+                    Dynamic a -> Just a)
+                prePieces
+
+    parentDynNs <- forM preDyns $ \_ -> newName "parentDyn"
+
     let mds =
             mkMDS
                 f
@@ -384,18 +401,18 @@ mkDispatchInstance (Just target) master cxt f res = do
                 , nrsDispatchCall =
                     \restExpr sdc constrExpr dyns -> do
                         let dynsExpr =
-                                case dyns of
+                                case map VarE parentDynNs <> dyns of
                                     [] -> [| () |]
                                     [a] -> pure a
-                                    _ -> pure $ TupE $ map Just dyns
+                                    vars -> pure $ TupE $ map Just vars
                         [e|
                             let (hndlr, subConstr) =
                                     yesodDispatchNested
                                         $(dynsExpr)
-                                        ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                        ($(mdsMethod mdsWithNestedDispatch) $(pure $ reqExp sdc))
                                         $(pure restExpr)
                             in
-                                $(mdsRunHandler mds)
+                                $(mdsRunHandler mdsWithNestedDispatch)
                                     hndlr
                                     $(pure $ envExp sdc)
                                     ($(pure constrExpr) <$> subConstr)
@@ -404,19 +421,6 @@ mkDispatchInstance (Just target) master cxt f res = do
                 , nrsTargetName = Nothing
                 }
             }
-    mstuff <- findNestedRoute target res
-    (prePieces, subres) <- case mstuff of
-        Nothing ->
-            fail "Target was not found in resources."
-        Just stuff ->
-            pure stuff
-
-    let preDyns =
-            mapMaybe
-                (\p -> case p of
-                    Static _ -> Nothing
-                    Dynamic a -> Just a)
-                prePieces
 
     parentDynT <-
         case preDyns of
@@ -425,7 +429,6 @@ mkDispatchInstance (Just target) master cxt f res = do
             ts ->
                 pure $ foldl' AppT (TupleT (length ts)) ts
 
-    parentDynNs <- forM preDyns $ \_ -> newName "parentDyn"
 
     parentDynsP <-
         case parentDynNs of
@@ -453,6 +456,7 @@ mkDispatchInstance (Just target) master cxt f res = do
                     expr <- mdsGetHandler mdsWithNestedDispatch mmethod name
                     addParentDynsToDispatch expr
                 }
+
     clause' <- mkDispatchClause finalMds subres
 
     let thisDispatch = FunD 'yesodDispatchNested

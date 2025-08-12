@@ -170,6 +170,8 @@ test-suite tests
                    YesodCoreTest.NestedDispatch
                    YesodCoreTest.NestedDispatch.NestR
                    YesodCoreTest.NestedDispatch.ParentR
+                   YesodCoreTest.NestedDispatch.Parent0R
+                   YesodCoreTest.NestedDispatch.Parent0R.Child0R
                    YesodCoreTest.NestedDispatch.Resources
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub

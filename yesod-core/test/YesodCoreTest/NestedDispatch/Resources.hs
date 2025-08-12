@@ -22,5 +22,13 @@ nestedDispatchResources = [parseRoutes|
 /parent/#Int ParentR:
     /#Text/child1 Child1R !child
     /#Int/child2 Child2R !child GET POST
+
+/parent0/#Int Parent0R:
+    / Parent0IndexR GET
+
+    /child0/#Text Child0R:
+        / ParentChildIndexR GET POST
+        /#String ParentChildR GET POST
 |]
 
+--
