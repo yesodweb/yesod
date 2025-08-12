@@ -170,6 +170,86 @@ specs = do
                                 }
                             Nothing
 
+            describe "Parent0R" $ do
+                describe "Parent0IndexR" $ do
+                    it "GET works" $ do
+                        testRequestIO
+                            200
+                            defaultRequest
+                                { pathInfo =
+                                    ["parent0", tshow @Int 1]
+                                , requestMethod = "GET"
+                                }
+                            (Just "1")
+                    it "POST errors" $ do
+                        testRequestIO
+                            405
+                            defaultRequest
+                                { pathInfo =
+                                    ["parent0", tshow @Int 1]
+                                , requestMethod = "POST"
+                                }
+                            Nothing
+
+                describe "Child0R" $ do
+                    describe "ParentChildIndexR" $ do
+                        it "GET works" $ do
+                            testRequestIO
+                                200
+                                defaultRequest
+                                    { pathInfo =
+                                        ["parent0", tshow @Int 1, "child0", "asdf"]
+                                    , requestMethod = "GET"
+                                    }
+                                (Just "(1,\"asdf\")")
+                        it "POST works" $ do
+                            testRequestIO
+                                200
+                                defaultRequest
+                                    { pathInfo =
+                                        ["parent0", tshow @Int 2, "child0", "asdf"]
+                                    , requestMethod = "POST"
+                                    }
+                                (Just "(2,\"asdf\")")
+                        it "PUT errors" $ do
+                            testRequestIO
+                                405
+                                defaultRequest
+                                    { pathInfo =
+                                        ["parent0", tshow @Int 2, "child0", "asdf"]
+                                    , requestMethod = "PUT"
+                                    }
+                                Nothing
+
+                    describe "ParentChildR" $ do
+                        it "GET works" $ do
+                            testRequestIO
+                                200
+                                defaultRequest
+                                    { pathInfo =
+                                        ["parent0", tshow @Int 1, "child0", "asdf", "foobar"]
+                                    , requestMethod = "GET"
+                                    }
+                                (Just "(1,\"asdf\",\"foobar\")")
+                        it "POST works" $ do
+                            testRequestIO
+                                200
+                                defaultRequest
+                                    { pathInfo =
+                                        ["parent0", tshow @Int 1, "child0", "asdf", "foobar"]
+                                    , requestMethod = "POST"
+                                    }
+                                (Just "(1,\"asdf\",\"foobar\")")
+                        it "PUT fails" $ do
+                            testRequestIO
+                                405
+                                defaultRequest
+                                    { pathInfo =
+                                        ["parent0", tshow @Int 1, "child0", "asdf", "foobar"]
+                                    , requestMethod = "PUT"
+                                    }
+                                Nothing
+
     describe "selectRep" $ do
         test "application/json" "JSON"
         test (S8.unpack typeJson) "JSON"
