@@ -23,7 +23,11 @@ import Network.HTTP.Types.Method (Method)
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
--- | A way to dispatch on a nested route fragment.
+-- | This class enables you to dispatch on a route fragment without needing
+-- to know how to dispatch on the entire route structure. This allows you
+-- to break up route generation into multiple files.
+--
+-- For details on use, see 'setFocusOnNestedRoute'.
 --
 -- @since TODO
 class YesodDispatchNested a where

@@ -20,7 +20,8 @@ class Eq (Route a) => RenderRoute a where
     renderRoute :: Route a
                 -> ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
 
--- | This class is for subroutes.
+-- | This class acts as a delegation class for 'RenderRoute' on nested
+-- route fragments.
 --
 -- @since TODO
 class Eq a => RenderRouteNested a where
@@ -35,7 +36,8 @@ class RenderRoute a => ParseRoute a where
     parseRoute :: ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
                -> Maybe (Route a)
 
--- |
+-- | Like 'RenderRouteNested', this acts as a delegation class for nested
+-- route fragments.
 --
 -- @since TODO
 class RenderRouteNested a => ParseRouteNested a where
@@ -55,11 +57,12 @@ class RenderRoute a => RouteAttrs a where
     routeAttrs :: Route a
                -> Set Text -- ^ A set of <http://www.yesodweb.com/book/route-attributes attributes associated with the route>.
 
--- |
+-- | Like 'RenderRouteNested', this acts as a delegation class for nested
+-- route fragments to provide 'RouteAttrs'.
 --
 -- @since TODO
 class RenderRouteNested a => RouteAttrsNested a where
-    -- |
+    -- | Retrieve the 'RouteAttrs' for a given route fragment.
     --
     -- @since TODO
     routeAttrsNested :: a -> Set Text

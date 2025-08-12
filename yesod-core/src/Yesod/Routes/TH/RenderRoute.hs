@@ -54,8 +54,61 @@ data RouteOpts = MkRouteOpts
 defaultOpts :: RouteOpts
 defaultOpts = MkRouteOpts True True True Nothing
 
--- | Set an optional string. If this string is present, then the route
--- generation will "focus" on target route, avoiding creating others.
+-- | If you set this with @Just routeName@, then the code generation will
+-- generate code for the @routeName@ to be imported in the main dispatch
+-- class. This allows you to generate code in separate modules.
+--
+-- Example:
+--
+-- First, you would put your route definitions into their own file.
+--
+-- @
+-- module App.Routes.Resources where
+--
+-- import Yesod.Core
+--
+-- appResources :: [ResourceTree String]
+-- appResources = [parseRoutes|
+--     /  HomeR GET
+--
+--     /nest NestR:
+--         /     NestIndexR GET POST
+--         /#Int NestShowR  GET POST
+--
+-- |]
+-- @
+--
+-- We have defined a nested route called @NestR@ here. A nested route is
+-- created with the @:@ after the route name.
+--
+-- Then, in a module for the route specifically, we can generate the route
+-- datatype and instances for later hooking in to the main instance.
+--
+-- @
+-- module App.Routes.NestR where
+--
+-- import App.Routes.Resources
+-- import Yesod.Core
+--
+-- mkYesodOpts (setFocusOnNestedRoute (Just "NestR") defaultOptions) "App" appResources
+-- @
+--
+-- If you only want to generate the datatypes, you can separate things
+-- further using 'mkYesodDataOpts' and 'mkYesodDispatchOpts'.
+--
+-- Finally, import that type into your main yesod macro code.
+--
+-- @
+-- module App where
+--
+-- import App.Routes.Resources (appResources)
+-- import App.Routes.NestR (NestR(..))
+--
+-- mkYesod "App" appResources
+-- @
+--
+-- The call to 'mkYesod' will delegate to the generated code for @NestR@
+-- rather than regenerating it.
 --
 -- @since TODO
 setFocusOnNestedRoute :: Maybe String -> RouteOpts -> RouteOpts

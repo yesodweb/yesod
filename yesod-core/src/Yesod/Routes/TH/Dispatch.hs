@@ -66,7 +66,6 @@ data NestedRouteSettings = NestedRouteSettings
         -- ^ The names of the bound variables from the path.
         -> Q Exp
         -- ^ The expression we want to splice in for delegating.
-    -- ^ The function name to use to delegate the rest of the dispatch.
     , nrsTargetName :: Maybe String
     -- ^ The name of the target that we are currently generating code for.
     }
