@@ -67,7 +67,6 @@ import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
-import Yesod.Routes.TH.RenderRoute (roFocusOnNestedRoute)
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.

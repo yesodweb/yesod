@@ -114,6 +114,7 @@ test-suite test-routes
     other-modules: Hierarchy
                    Hierarchy.Admin
                    Hierarchy.ResourceTree
+                   Hierarchy.Nest2.NestInner
                    Hierarchy.Nest2
                    Hierarchy.Nest3
                    Hierarchy.Nest

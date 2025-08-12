@@ -12,10 +12,8 @@ module YesodCoreTest.NestedDispatch.NestR where
 import Data.Text (Text)
 import Yesod.Core.Handler
 import YesodCoreTest.NestedDispatch.Resources
-import Language.Haskell.TH (Type(ConT))
-import Yesod.Routes.Parse
-import Yesod.Routes.TH (mkRenderRouteInstanceOpts, mkRouteAttrsInstanceFor, mkParseRouteInstanceFor)
-import Yesod.Core.Internal.TH
+import Yesod.Core
+-- import Yesod.Core.Internal.TH
 
 mkYesodOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) "App" nestedDispatchResources
 
