@@ -57,7 +57,7 @@ import qualified Network.Wai as W
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
 import Data.Maybe
-import Control.Monad (replicateM, void)
+import Control.Monad
 import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 
@@ -343,9 +343,6 @@ mkDispatchInstance Nothing master cxt f res = do
                 }
             }
     clause' <- mkDispatchClause mdsWithNestedDispatch res
-    nestHelpN <- newName "nestHelp"
-    methodN <- newName "method"
-    fragmentsN <- newName "fragments"
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [instanceD cxt yDispatch [thisDispatch]]
   where
@@ -364,9 +361,14 @@ mkDispatchInstance (Just target) master cxt f res = do
                     }
                 |]
         mdsWithNestedDispatch = mds
-            { mdsRunHandler = [| \h _env mroute _req -> (fmap toTypedContent h, mroute) |]
-            , mdsGetPathInfo = [| snd |]
-            , mdsMethod = [| fst |]
+            { mdsRunHandler =
+                [| \handler _env mroute _req ->
+                    (fmap toTypedContent handler, mroute)
+                 |]
+            , mdsGetPathInfo =
+                [| snd |]
+            , mdsMethod =
+                [| fst |]
             , mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''YesodDispatchNested
                 , nrsDispatchCall =
@@ -398,9 +400,7 @@ mkDispatchInstance (Just target) master cxt f res = do
             fail "Target was not found in resources."
         Just stuff ->
             pure stuff
-    clause' <- mkDispatchClause mdsWithNestedDispatch subres
 
-    let thisDispatch = FunD 'yesodDispatchNested [clause']
     let preDyns =
             mapMaybe
                 (\p -> case p of
@@ -408,22 +408,62 @@ mkDispatchInstance (Just target) master cxt f res = do
                     Dynamic a -> Just a)
                 prePieces
 
+    parentDynT <-
+        case preDyns of
+            [] -> [t| () |]
+            [t] -> pure t
+            ts ->
+                pure $ foldl' AppT (TupleT (length ts)) ts
+
+    parentDynNs <- forM preDyns $ \preDyn -> newName (show preDyn)
+
+    parentDynsP <-
+        case parentDynNs of
+            [] -> [p| () |]
+            [x] -> varP x
+            xs -> pure $ TupP $ map VarP xs
+
+    let addParentDynsToDispatch exp = do
+            case parentDynNs of
+                [] ->
+                    pure exp
+                [x] ->
+                    [e| $(pure exp) $(varE x) |]
+                ns -> do
+                    pure $ foldl' AppE exp (map VarE ns)
+
     nestHelpN <- newName "nestHelp"
     methodN <- newName "method"
     fragmentsN <- newName "fragments"
+    parentDynN <- newName "parentDyns"
+
+    let finalMds =
+            mdsWithNestedDispatch
+                { mdsGetHandler = \mmethod name -> do
+                    expr <- mdsGetHandler mdsWithNestedDispatch mmethod name
+                    addParentDynsToDispatch expr
+                }
+    clause' <- mkDispatchClause finalMds subres
+
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause
-                [VarP (mkName "parentDyns"), VarP methodN, VarP fragmentsN]
-                (NormalB $ VarE nestHelpN `AppE` ConE '() `AppE` TupE [Just (VarE methodN), Just (VarE fragmentsN)])
+                [AsP parentDynN parentDynsP, VarP methodN, VarP fragmentsN]
+                (NormalB $
+                    VarE nestHelpN
+                    `AppE` VarE parentDynN
+                    `AppE` TupE [Just (VarE methodN), Just (VarE fragmentsN)]
+                )
                 [FunD nestHelpN [clause']]
             ]
-    yDispatchNested <- [t| YesodDispatchNested $(conT (mkName target)) |]
+    let targetT = conT (mkName target)
+    yDispatchNested <- [t| YesodDispatchNested $(targetT) |]
 
-    tyLhs <- [t| ParentSite $(conT (mkName target)) |]
+    parentSiteT <- [t| ParentSite $(targetT) |]
+    parentDynSig <- [t| ParentArgs $(targetT) |]
     return
         [ instanceD cxt yDispatchNested
-            [ TySynInstD $ TySynEqn Nothing tyLhs master
-            -- TODO: Make the parent dyns type instance
+            [ TySynInstD $ TySynEqn Nothing parentSiteT master
+            , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
             , thisDispatch
             ]
         ]
@@ -437,7 +477,7 @@ findNestedRoute target (res : ress) =
     case res of
         ResourceLeaf _ -> do
             findNestedRoute target ress
-        ResourceParent name overlap pieces children -> do
+        ResourceParent name _overlap pieces children -> do
             if name == target
                 then pure $ Just (pieces, children)
                 else do

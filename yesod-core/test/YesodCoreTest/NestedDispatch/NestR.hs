@@ -10,14 +10,11 @@
 module YesodCoreTest.NestedDispatch.NestR where
 
 import Data.Text (Text)
-import Control.Monad (void)
 import Yesod.Core.Handler
-import Yesod.Core.Content
 import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Routes.Parse
 import Language.Haskell.TH
 import Yesod.Routes.TH
-import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.TH
 
 mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) [] (ConT ''App) (map (fmap parseType) nestedDispatchResources)
@@ -26,6 +23,7 @@ mkParseRouteInstanceFor "NestR" $ map (fmap parseType) nestedDispatchResources
 
 mkYesodDispatchOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) "App" nestedDispatchResources
 
+--
 getNestIndexR :: HandlerFor App Text
 getNestIndexR = pure "getNestIndexR"
 
