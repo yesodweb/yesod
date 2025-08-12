@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## UNRELEASED
+
+* Add the ability to focus on a nested route structure during code generation, allowing datatypes and dispatches to be generated in separate modules. [#1887](https://github.com/yesodweb/yesod/pull/1887)
+
 ## 1.6.27.1
 
 * Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)

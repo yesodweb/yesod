@@ -443,7 +443,6 @@ mkDispatchInstance (Just target) master cxt f res = do
     nestHelpN <- newName "nestHelp"
     methodN <- newName "method"
     fragmentsN <- newName "fragments"
-    parentDynN <- newName "parentDyns"
 
     let finalMds =
             mdsWithNestedDispatch
@@ -456,10 +455,13 @@ mkDispatchInstance (Just target) master cxt f res = do
 
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause
-                [AsP parentDynN parentDynsP, VarP methodN, VarP fragmentsN]
+                [parentDynsP, VarP methodN, VarP fragmentsN]
                 (NormalB $
                     VarE nestHelpN
-                    `AppE` VarE parentDynN
+                    `AppE` ConE '()
+                    -- The `mkDispatchClause` expects to take two
+                    -- arguments: env and req. But we can determine what
+                    -- those are and mean through the MDS. We do not need
                     `AppE` mkTupE [VarE methodN, VarE fragmentsN]
                 )
                 [FunD nestHelpN [clause']]

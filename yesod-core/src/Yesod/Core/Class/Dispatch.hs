@@ -23,17 +23,27 @@ import Network.HTTP.Types.Method (Method)
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
+-- | A way to dispatch on a nested route fragment.
+--
+-- @since TODO
 class YesodDispatchNested a where
     -- | The 'ParentArgs' are the route fragments necessary to call the
     -- dispatched route that are not part of the route fragments used in
     -- parsing the route.
+    --
+    -- @since TODO
     type ParentArgs a :: Type
     type ParentArgs a = ()
 
+    -- | The site type for a given route fragment.
+    --
+    -- @since TODO
     type ParentSite a :: Type
 
     -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
     -- route fragment provided.
+    --
+    -- @since TODO
     yesodDispatchNested
         :: ParentArgs a
         -- ^ The parts of the parent route
