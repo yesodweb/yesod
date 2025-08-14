@@ -132,14 +132,48 @@ test-suite test-routes
     other-extensions:      TemplateHaskell
 
     build-depends: base < 5
-                 , hspec
-                 , containers
+                 , HUnit
+                 , aeson
+                 , attoparsec-aeson
+                 , auto-update
+                 , blaze-html
+                 , blaze-markup
                  , bytestring
+                 , case-insensitive
+                 , cereal
+                 , clientsession
+                 , conduit
+                 , conduit-extra
+                 , containers
+                 , cookie
+                 , data-default
+                 , deepseq
+                 , entropy
+                 , fast-logger
+                 , hspec
+                 , http-types
+                 , memory
+                 , monad-logger
+                 , mtl
+                 , parsec
+                 , path-pieces
+                 , primitive
+                 , random
+                 , resourcet
+                 , shakespeare
                  , template-haskell
                  , text
-                 , random
-                 , path-pieces
-                 , HUnit
+                 , time
+                 , transformers
+                 , unix-compat
+                 , unliftio
+                 , unordered-containers
+                 , vector
+                 , wai
+                 , wai-extra
+                 , wai-logger
+                 , warp
+                 , word8
 
 test-suite tests
     default-language: Haskell2010
