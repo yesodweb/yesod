@@ -134,6 +134,7 @@ test-suite test-routes
                  , hspec
                  , containers
                  , bytestring
+                 , encoding
                  , template-haskell
                  , text
                  , random
