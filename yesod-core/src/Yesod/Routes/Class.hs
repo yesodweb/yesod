@@ -23,13 +23,13 @@ class Eq (Route a) => RenderRoute a where
 -- | This class acts as a delegation class for 'RenderRoute' on nested
 -- route fragments.
 --
--- @since TODO
+-- @since 1.6.28.0
 class Eq a => RenderRouteNested a where
     -- | Render the fragment of the route. To form a complete route, you'll
     -- need to `mappend` this with the result from the parent `renderRoute`
     -- or `renderRouteNested` call.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     renderRouteNested :: a -> ([Text], [(Text, Text)])
 
 class RenderRoute a => ParseRoute a where
@@ -39,11 +39,11 @@ class RenderRoute a => ParseRoute a where
 -- | Like 'RenderRouteNested', this acts as a delegation class for nested
 -- route fragments.
 --
--- @since TODO
+-- @since 1.6.28.0
 class RenderRouteNested a => ParseRouteNested a where
     -- |
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     parseRouteNested
         :: ([Text], [(Text, Text)])
         -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
@@ -60,9 +60,9 @@ class RenderRoute a => RouteAttrs a where
 -- | Like 'RenderRouteNested', this acts as a delegation class for nested
 -- route fragments to provide 'RouteAttrs'.
 --
--- @since TODO
+-- @since 1.6.28.0
 class RenderRouteNested a => RouteAttrsNested a where
     -- | Retrieve the 'RouteAttrs' for a given route fragment.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     routeAttrsNested :: a -> Set Text

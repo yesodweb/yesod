@@ -37,7 +37,7 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- provided, then the 'NestedRouteSettings' behavior kicks on, and
     -- matches are delegated to prior code instead of flat generation.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     }
 
 -- | These settings describe how to handle nested routes for the given
@@ -51,7 +51,7 @@ data MkDispatchSettings b site c = MkDispatchSettings
 -- This construction allows us to delegate nested routes to their own
 -- modules for parsing, attributes, and dispatch.
 --
--- @since TODO
+-- @since 1.6.28.0
 data NestedRouteSettings = NestedRouteSettings
     { nrsClassName :: Name
     -- ^ The class to lookup an instance for a 'ResourceParent' name.

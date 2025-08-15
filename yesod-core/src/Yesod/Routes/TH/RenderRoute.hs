@@ -43,7 +43,7 @@ data RouteOpts = MkRouteOpts
     -- ^ If this option is set, then we will only generate datatypes for
     -- the nested subroute that matches this string.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     }
 
 -- | Default options for generating routes.
@@ -110,7 +110,7 @@ defaultOpts = MkRouteOpts True True True Nothing
 -- The call to 'mkYesod' will delegate to the generated code for @NestR@
 -- rather than regenerating it.
 --
--- @since TODO
+-- @since 1.6.28.0
 setFocusOnNestedRoute :: Maybe String -> RouteOpts -> RouteOpts
 setFocusOnNestedRoute mstr rdo = rdo { roFocusOnNestedRoute = mstr }
 

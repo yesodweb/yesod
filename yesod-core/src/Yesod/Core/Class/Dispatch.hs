@@ -29,25 +29,25 @@ class Yesod site => YesodDispatch site where
 --
 -- For details on use, see 'setFocusOnNestedRoute'.
 --
--- @since TODO
+-- @since 1.6.28.0
 class YesodDispatchNested a where
     -- | The 'ParentArgs' are the route fragments necessary to call the
     -- dispatched route that are not part of the route fragments used in
     -- parsing the route.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     type ParentArgs a :: Type
     type ParentArgs a = ()
 
     -- | The site type for a given route fragment.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     type ParentSite a :: Type
 
     -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
     -- route fragment provided.
     --
-    -- @since TODO
+    -- @since 1.6.28.0
     yesodDispatchNested
         :: ParentArgs a
         -- ^ The parts of the parent route

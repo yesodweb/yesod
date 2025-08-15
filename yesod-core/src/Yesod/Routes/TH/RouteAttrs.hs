@@ -27,7 +27,7 @@ mkRouteAttrsInstance cxt typ ress = do
 -- subroute to generate nested instances instead of generating the full
 -- instance for all routes.
 --
--- @since TODO
+-- @since 1.6.28.0
 mkRouteAttrsInstanceFor :: Cxt -> Type -> String -> [ResourceTree a] -> Q [Dec]
 mkRouteAttrsInstanceFor cxt typ target ress = do
     clauses <- mapM (goTree (Just target) id) ress
