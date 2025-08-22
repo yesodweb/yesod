@@ -266,11 +266,13 @@ mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [Reso
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     cls <- mkRenderRouteClauses ress
     (cons, decs) <- mkRouteConsOpts opts cxt tyargs ress
+    let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)
-    let did = DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons inlineDerives
+            Nothing (AppT (ConT ''Route) typ)
 #else
-    let did = DataInstD [] ''Route [typ] Nothing cons inlineDerives
+            ''Route [typ]
 #endif
+            Nothing cons inlineDerives
     return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
         [ did
         , FunD (mkName "renderRoute") cls
