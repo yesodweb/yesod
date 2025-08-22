@@ -158,7 +158,9 @@ mkRouteConsOpts opts cxt tyargs rttypes =
         toSingle (Dynamic typ) = [typ]
 
         dataName = mkName name
-        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
+        consDataType = if roParameterisedSubroute opts
+            then foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
+            else ConT dataName
 
         (inlineDerives, sds) = getDerivesFor opts (nullifyWhenNoParam cxt) consDataType
 
