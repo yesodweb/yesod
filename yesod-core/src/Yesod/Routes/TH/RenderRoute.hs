@@ -258,8 +258,8 @@ mkRenderRouteClauses =
 -- | Generate the 'RenderRoute' instance.
 --
 -- This includes both the 'Route' associated type and the
--- 'renderRoute' method.  This function uses both 'mkRouteCons' and
--- 'mkRenderRouteClasses'.
+-- 'renderRoute' method.  This function uses both 'mkRouteConsOpts' and
+-- 'mkRenderRouteClauses'.
 --
 -- @since 1.6.25.0
 mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree Type] -> Q [Dec]
