@@ -39,6 +39,12 @@ deriving instance SiteClass p => Show (EditorR p v)
 deriving instance SiteClass p => Read (EditorR p v)
 
 Note that `p` is now threaded through the other data structures.
+
+Otherwise, EditorR's definition would've been:
+data EditorR
+  = AwayR (Key p)
+  deriving (Eq, Show, Read)
+which clearly doesn't work, as `p` is not in scope.
 -}
 
 instance SiteClass a => Yesod (SubRoute a v)
