@@ -280,10 +280,16 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
   where
     (inlineDerives, sds) = getDerivesFor opts cxt ( ConT ''Route `AppT` typ)
 
+-- | Get the simple derivation clauses and the standalone derivation clauses
+-- for a given type and context.
+--
+-- If there are any additional classes needed for context, we just produce standalone
+-- clauses. Else, we produce basic deriving clauses for a declaration.
+getDerivesFor :: RouteOpts -> Cxt -> Type ->
 #if MIN_VERSION_template_haskell(2,12,0)
-getDerivesFor :: RouteOpts -> Cxt -> Type -> (Q [DerivClause], [Dec])
+    (Q [DerivClause], [Dec])
 #else
-getDerivesFor :: RouteOpts -> Cxt -> Type -> (Q Cxt, [Dec])
+    (Q Cxt, [Dec])
 #endif
 getDerivesFor opts cxt typ
     | null cxt = (
