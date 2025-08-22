@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
@@ -109,13 +110,35 @@ instanceNamesFromOpts :: RouteOpts -> [Name]
 instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf roDerivedShow ''Show $ prependIf roDerivedRead ''Read []
     where prependIf b = if b then (:) else const id
 
+-- | Nullify the list unless we are using parameterised subroutes.
+nullifyWhenNoParam :: RouteOpts -> [a] -> [a]
+nullifyWhenNoParam opts = if roParameterisedSubroute opts then id else const []
+
 -- | Generate the constructors of a route data type, with custom opts.
 --
 -- @since 1.6.25.0
 mkRouteConsOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree Type] -> ([Con], [Dec])
-mkRouteConsOpts opts cxt tyargs =
-    foldMap mkRouteCon
+mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) =
+    mkRouteConsOpts'
   where
+    -- th-abstraction does cover this but the version it was introduced in
+    -- isn't always available
+    tyvarbndr =
+#if MIN_VERSION_template_haskell(2,21,0)
+        (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
+        (`PlainTV` ()) :: Name -> TyVarBndr ()
+#else
+        PlainTV :: Name -> TyVarBndr
+#endif
+
+    subrouteDecTypeArgs = fmap (tyvarbndr . snd) tyargs
+
+    (inlineDerives, mkSds) = getDerivesFor opts (nullifyWhenNoParam opts cxt)
+
+    mkRouteConsOpts' :: [ResourceTree Type] -> ([Con], [Dec])
+    mkRouteConsOpts' = foldMap mkRouteCon
+
     mkRouteCon (ResourceLeaf res) =
         ([con], [])
       where
@@ -134,37 +157,20 @@ mkRouteConsOpts opts cxt tyargs =
                 _ -> []
 
     mkRouteCon (ResourceParent name _check pieces children) =
-        let (cons, decs) = mkRouteConsOpts opts cxt tyargs children
-            dec = DataD [] dataName (nullifyWhenNoParam $ fmap (tyvarbndr . snd) tyargs) Nothing cons inlineDerives
-        in ([con], dec : decs ++ sds)
+        let (cons, decs) = mkRouteConsOpts' children
+            dec = DataD [] dataName subrouteDecTypeArgs Nothing cons inlineDerives
+        in ([con], dec : decs ++ mkSds consDataType)
       where
         con = NormalC dataName
             $ map (notStrict,)
             $ singles ++ [consDataType]
-
-        -- th-abstraction does cover this but the version it was introduced in
-        -- isn't always available
-        tyvarbndr =
-#if MIN_VERSION_template_haskell(2,21,0)
-            (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
-#elif MIN_VERSION_template_haskell(2,17,0)
-            (`PlainTV` ()) :: Name -> TyVarBndr ()
-#else
-            PlainTV :: Name -> TyVarBndr
-#endif
 
         singles = concatMap toSingle pieces
         toSingle Static{} = []
         toSingle (Dynamic typ) = [typ]
 
         dataName = mkName name
-        consDataType = if roParameterisedSubroute opts
-            then foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
-            else ConT dataName
-
-        (inlineDerives, sds) = getDerivesFor opts (nullifyWhenNoParam cxt) consDataType
-
-        nullifyWhenNoParam = if roParameterisedSubroute opts then id else const []
+        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
 
 -- | Clauses for the 'renderRoute' method.
 mkRenderRouteClauses :: [ResourceTree Type] -> Q [Clause]
@@ -270,7 +276,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     let (cons, decs) = mkRouteConsOpts opts cxt tyargs ress
     let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)
-            Nothing (AppT (ConT ''Route) typ)
+            Nothing routeDataName
 #else
             ''Route [typ]
 #endif
@@ -279,19 +285,20 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
         [ did
         , FunD (mkName "renderRoute") cls
         ]
-        : sds ++ decs
+        : mkSds routeDataName ++ decs
   where
-    (inlineDerives, sds) = getDerivesFor opts cxt ( ConT ''Route `AppT` typ)
+    routeDataName = ConT ''Route `AppT` typ
+    (inlineDerives, mkSds) = getDerivesFor opts cxt
 
 -- | Get the simple derivation clauses and the standalone derivation clauses
 -- for a given type and context.
 --
 -- If there are any additional classes needed for context, we just produce standalone
 -- clauses. Else, we produce basic deriving clauses for a declaration.
-getDerivesFor :: RouteOpts -> Cxt -> Type -> ([DerivClause], [Dec])
-getDerivesFor opts cxt typ
-    | null cxt = ([DerivClause Nothing clazzes'], [])
-    | otherwise = ([], fmap (StandaloneDerivD Nothing cxt . (`AppT` typ)) clazzes')
+getDerivesFor :: RouteOpts -> Cxt -> ([DerivClause], Type ->  [Dec])
+getDerivesFor opts cxt
+    | null cxt = ([DerivClause Nothing clazzes'], const [])
+    | otherwise = ([], \typ -> fmap (StandaloneDerivD Nothing cxt . (`AppT` typ)) clazzes')
     where
     clazzes' = ConT <$> instanceNamesFromOpts opts
 
