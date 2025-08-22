@@ -112,12 +112,12 @@ instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf 
 -- | Generate the constructors of a route data type, with custom opts.
 --
 -- @since 1.6.25.0
-mkRouteConsOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteConsOpts opts cxt tyargs rttypes =
-    mconcat <$> mapM mkRouteCon rttypes
+mkRouteConsOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree Type] -> ([Con], [Dec])
+mkRouteConsOpts opts cxt tyargs =
+    foldMap mkRouteCon
   where
     mkRouteCon (ResourceLeaf res) =
-        return ([con], [])
+        ([con], [])
       where
         con = NormalC (mkName $ resourceName res)
             $ map (notStrict,)
@@ -133,10 +133,10 @@ mkRouteConsOpts opts cxt tyargs rttypes =
                 Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
                 _ -> []
 
-    mkRouteCon (ResourceParent name _check pieces children) = do
-        (cons, decs) <- mkRouteConsOpts opts cxt tyargs children
-        let dec = DataD [] dataName (nullifyWhenNoParam $ fmap (tyvarbndr . snd) tyargs) Nothing cons inlineDerives
-        return ([con], dec : decs ++ sds)
+    mkRouteCon (ResourceParent name _check pieces children) =
+        let (cons, decs) = mkRouteConsOpts opts cxt tyargs children
+            dec = DataD [] dataName (nullifyWhenNoParam $ fmap (tyvarbndr . snd) tyargs) Nothing cons inlineDerives
+        in ([con], dec : decs ++ sds)
       where
         con = NormalC dataName
             $ map (notStrict,)
@@ -267,7 +267,7 @@ mkRenderRouteClauses =
 mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree Type] -> Q [Dec]
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     cls <- mkRenderRouteClauses ress
-    (cons, decs) <- mkRouteConsOpts opts cxt tyargs ress
+    let (cons, decs) = mkRouteConsOpts opts cxt tyargs ress
     let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)
             Nothing (AppT (ConT ''Route) typ)
