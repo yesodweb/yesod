@@ -18,6 +18,7 @@ module Yesod.Routes.TH.RenderRoute
     , setShowDerived
     , setReadDerived
     , setCreateResources
+    , setParameterisedSubroute
     ) where
 
 import Yesod.Routes.TH.Types
@@ -34,9 +35,9 @@ import Data.Foldable
 --
 -- Contains options for customizing code generation for the router in
 -- 'mkYesodData', including what type class instances will be derived for
--- the route datatype and whether or not to create the @resources ::
--- [ResourceTree String]@ value. Use the setting functions on `defaultOpts`
--- to set specific fields.
+-- the route datatype, whether to parameterize subroutes,
+-- and whether or not to create the @resources :: [ResourceTree String]@ value.
+-- Use the setting functions on `defaultOpts` to set specific fields.
 --
 -- @since 1.6.25.0
 data RouteOpts = MkRouteOpts
@@ -44,12 +45,13 @@ data RouteOpts = MkRouteOpts
     , roDerivedShow :: Bool
     , roDerivedRead :: Bool
     , roCreateResources :: Bool
+    , roParameterisedSubroute :: Bool
     }
 
 -- | Default options for generating routes.
 --
--- Defaults to all instances derived and to create the @resourcesSite ::
--- [ResourceTree String]@ term.
+-- Defaults to all instances derived, subroutes being unparameterized, and to
+-- create the @resourcesSite :: [ResourceTree String]@ term.
 --
 -- @since 1.6.25.0
 defaultOpts :: RouteOpts
@@ -58,6 +60,7 @@ defaultOpts = MkRouteOpts
     , roDerivedShow = True
     , roDerivedRead = True
     , roCreateResources = True
+    , roParameterisedSubroute = False
     }
 
 -- |
@@ -95,6 +98,12 @@ setCreateResources b rdo = rdo { roCreateResources = b }
 -- @since 1.6.28.0
 shouldCreateResources :: RouteOpts -> Bool
 shouldCreateResources = roCreateResources
+
+-- | If True, we will correctly pass parameters for subroutes around.
+--
+-- @since 1.6.28.0
+setParameterisedSubroute :: Bool -> RouteOpts -> RouteOpts
+setParameterisedSubroute b rdo = rdo { roParameterisedSubroute = b }
 
 -- |
 --
@@ -137,7 +146,7 @@ mkRouteConsOpts opts cxt tyargs rttypes =
 
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteConsOpts opts cxt tyargs children
-        dec <- DataD [] dataName (fmap (tyvarbndr . snd) tyargs) Nothing cons <$> inlineDerives
+        dec <- DataD [] dataName (nullifyWhenNoParam $ fmap (tyvarbndr . snd) tyargs) Nothing cons <$> inlineDerives
         return ([con], dec : decs ++ sds)
       where
         con = NormalC dataName
@@ -162,7 +171,9 @@ mkRouteConsOpts opts cxt tyargs rttypes =
         dataName = mkName name
         consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
 
-        (inlineDerives, sds) = getDerivesFor opts cxt consDataType
+        (inlineDerives, sds) = getDerivesFor opts (nullifyWhenNoParam cxt) consDataType
+
+        nullifyWhenNoParam = if roParameterisedSubroute opts then id else const []
 
 -- | Clauses for the 'renderRoute' method.
 mkRenderRouteClauses :: [ResourceTree Type] -> Q [Clause]

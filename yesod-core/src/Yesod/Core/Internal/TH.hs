@@ -43,6 +43,7 @@ module Yesod.Core.Internal.TH
     , setShowDerived
     , setReadDerived
     , setCreateResources
+    , setParameterisedSubroute
     )
  where
 
