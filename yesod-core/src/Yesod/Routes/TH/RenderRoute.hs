@@ -5,9 +5,7 @@
 
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
-      mkRenderRouteInstance
-    , mkRenderRouteInstanceOpts
-    , mkRouteCons
+      mkRenderRouteInstanceOpts
     , mkRouteConsOpts
     , mkRenderRouteClauses
     , shouldCreateResources
@@ -111,14 +109,6 @@ setParameterisedSubroute b rdo = rdo { roParameterisedSubroute = b }
 instanceNamesFromOpts :: RouteOpts -> [Name]
 instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf roDerivedShow ''Show $ prependIf roDerivedRead ''Read []
     where prependIf b = if b then (:) else const id
-
--- |
---
--- @since 1.6.28.0
-
--- | Generate the constructors of a route data type.
-mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteCons = mkRouteConsOpts defaultOpts [] []
 
 -- | Generate the constructors of a route data type, with custom opts.
 --
@@ -265,14 +255,6 @@ mkRenderRouteClauses =
     mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
     mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
     mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
-
--- | Generate the 'RenderRoute' instance.
---
--- This includes both the 'Route' associated type and the
--- 'renderRoute' method.  This function uses both 'mkRouteCons' and
--- 'mkRenderRouteClasses'.
-mkRenderRouteInstance :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
-mkRenderRouteInstance cxt = mkRenderRouteInstanceOpts defaultOpts cxt []
 
 -- | Generate the 'RenderRoute' instance.
 --
