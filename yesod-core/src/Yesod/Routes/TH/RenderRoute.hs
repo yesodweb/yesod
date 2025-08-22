@@ -285,22 +285,13 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
 --
 -- If there are any additional classes needed for context, we just produce standalone
 -- clauses. Else, we produce basic deriving clauses for a declaration.
-getDerivesFor :: RouteOpts -> Cxt -> Type ->
-#if MIN_VERSION_template_haskell(2,12,0)
-    (Q [DerivClause], [Dec])
-#else
-    (Q Cxt, [Dec])
-#endif
+getDerivesFor :: RouteOpts -> Cxt -> Type -> (Q [DerivClause], [Dec])
 getDerivesFor opts cxt typ
     | null cxt = (
-#if MIN_VERSION_template_haskell(2,12,0)
             fmap (pure . DerivClause Nothing)
-#endif
             aClause, [])
     | otherwise = (pure [], fmap (\t -> StandaloneDerivD
-#if MIN_VERSION_template_haskell(2,12,0)
             Nothing
-#endif
             cxt $ ConT t `AppT` typ) clazzes')
     where
     aClause = mapM conT clazzes'

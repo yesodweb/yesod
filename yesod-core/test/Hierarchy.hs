@@ -130,9 +130,7 @@ do
         } resources
     return $
         InstanceD
-#if MIN_VERSION_template_haskell(2,11,0)
             Nothing
-#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''Hierarchy
