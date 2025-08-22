@@ -20,7 +20,6 @@ module Yesod.Routes.TH.RenderRoute
     ) where
 
 import Yesod.Routes.TH.Types
-import Language.Haskell.TH (conT)
 import Language.Haskell.TH.Syntax
 import Data.Maybe (maybeToList)
 import Control.Monad (replicateM)
@@ -136,7 +135,7 @@ mkRouteConsOpts opts cxt tyargs rttypes =
 
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteConsOpts opts cxt tyargs children
-        dec <- DataD [] dataName (nullifyWhenNoParam $ fmap (tyvarbndr . snd) tyargs) Nothing cons <$> inlineDerives
+        let dec = DataD [] dataName (nullifyWhenNoParam $ fmap (tyvarbndr . snd) tyargs) Nothing cons inlineDerives
         return ([con], dec : decs ++ sds)
       where
         con = NormalC dataName
@@ -268,9 +267,9 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     cls <- mkRenderRouteClauses ress
     (cons, decs) <- mkRouteConsOpts opts cxt tyargs ress
 #if MIN_VERSION_template_haskell(2,15,0)
-    did <- DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons <$> inlineDerives
+    let did = DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons inlineDerives
 #else
-    did <- DataInstD [] ''Route [typ] Nothing cons <$> inlineDerives
+    let did = DataInstD [] ''Route [typ] Nothing cons inlineDerives
 #endif
     return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
         [ did
@@ -285,17 +284,12 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
 --
 -- If there are any additional classes needed for context, we just produce standalone
 -- clauses. Else, we produce basic deriving clauses for a declaration.
-getDerivesFor :: RouteOpts -> Cxt -> Type -> (Q [DerivClause], [Dec])
+getDerivesFor :: RouteOpts -> Cxt -> Type -> ([DerivClause], [Dec])
 getDerivesFor opts cxt typ
-    | null cxt = (
-            fmap (pure . DerivClause Nothing)
-            aClause, [])
-    | otherwise = (pure [], fmap (\t -> StandaloneDerivD
-            Nothing
-            cxt $ ConT t `AppT` typ) clazzes')
+    | null cxt = ([DerivClause Nothing clazzes'], [])
+    | otherwise = ([], fmap (StandaloneDerivD Nothing cxt . (`AppT` typ)) clazzes')
     where
-    aClause = mapM conT clazzes'
-    clazzes' = instanceNamesFromOpts opts
+    clazzes' = ConT <$> instanceNamesFromOpts opts
 
 notStrict :: Bang
 notStrict = Bang NoSourceUnpackedness NoSourceStrictness
