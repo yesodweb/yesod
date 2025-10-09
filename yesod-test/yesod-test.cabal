@@ -44,7 +44,7 @@ library
     , pretty-show       >= 1.6     && < 1.11
     , process           >= 1.6     && < 1.7
     , text              >= 1.2     && < 2.2
-    , time              >= 1.5     && < 1.13
+    , time              >= 1.5     && < 1.15
     , transformers      >= 0.2.2   && < 0.7
     , wai               >= 3.0     && < 3.3
     , wai-extra         >= 3.0     && < 3.2
