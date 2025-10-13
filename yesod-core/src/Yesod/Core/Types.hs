@@ -338,7 +338,7 @@ data ErrorResponse =
         -- ^ The requested resource was not found.
         -- Examples of when this occurs include when an incorrect URL is used, or @yesod-persistent@'s 'get404' doesn't find a value.
         -- HTTP status: 404.
-    | InternalError !Text
+    | InternalError !SomeException
         -- ^ Some sort of unexpected exception.
         -- If your application uses `throwIO` or `error` to throw an exception, this is the form it would take.
         -- HTTP status: 500.

@@ -100,7 +100,7 @@ evaluateContent (ContentBuilder b mlen) = handle f $ do
     len `seq` return (Right $ ContentBuilder (lazyByteString lbs) mlen')
   where
     f :: SomeException -> IO (Either ErrorResponse Content)
-    f = return . Left . InternalError . T.pack . show
+    f = return . Left . InternalError
 evaluateContent c = return (Right c)
 
 getStatus :: ErrorResponse -> H.Status
