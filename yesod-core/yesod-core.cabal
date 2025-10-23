@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.28.0
+version:         1.6.29.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -53,7 +53,7 @@ library
                    , random                >= 1.0.0.2  && < 1.4
                    , resourcet             >= 1.2
                    , shakespeare           >= 2.0
-                   , template-haskell      >= 2.11
+                   , template-haskell      >= 2.13
                    , text                  >= 0.7
                    , time                  >= 1.5
                    , transformers          >= 0.4
@@ -163,6 +163,7 @@ test-suite test-routes
                  , shakespeare
                  , template-haskell
                  , text
+                 , th-abstraction
                  , time
                  , transformers
                  , unix-compat
@@ -213,6 +214,7 @@ test-suite tests
                    YesodCoreTest.ParameterizedSite.Compat
                    YesodCoreTest.ParameterizedSite.PolyAny
                    YesodCoreTest.ParameterizedSite.PolyShow
+                   YesodCoreTest.ParameterizedSite.SubRoute
                    YesodCoreTest.RawResponse
                    YesodCoreTest.Redirect
                    YesodCoreTest.Reps

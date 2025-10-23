@@ -19,6 +19,6 @@ do
         Just NestInnerIndexR ->
             pure []
 
-mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "Nest2") defaultOpts) [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "Nest2") defaultOpts) [] [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
 mkRouteAttrsInstanceFor [] (ConT ''Nest2) "Nest2" $ map (fmap parseType) hierarchyResources
 mkParseRouteInstanceFor "Nest2" $ map (fmap parseType) hierarchyResources

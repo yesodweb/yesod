@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.7.0
+
+* Make post params be added in addition order like normal forms. [#1867](https://github.com/yesodweb/yesod/pull/1867)
+
 ## 1.6.23.1
 
 * Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)

@@ -1,14 +1,15 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
-      mkRenderRouteInstance
-    , mkRenderRouteInstanceOpts
-    , mkRouteCons
+      mkRenderRouteInstanceOpts
     , mkRouteConsOpts
     , mkRenderRouteClauses
+    , shouldCreateResources
 
     , RouteOpts
     , defaultOpts
@@ -17,22 +18,26 @@ module Yesod.Routes.TH.RenderRoute
     , setReadDerived
     , setFocusOnNestedRoute
     , roFocusOnNestedRoute
+    , setCreateResources
+    , setParameterizedSubroute
     ) where
 
 import Yesod.Routes.TH.Types
-import Language.Haskell.TH (conT)
 import Language.Haskell.TH.Syntax
-import Data.Bits (xor)
 import Data.Maybe (maybeToList)
 import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
+import Data.Foldable
 
 -- | General opts data type for generating yesod.
 --
--- Contains options for what instances are derived for the route. Use the setting
--- functions on `defaultOpts` to set specific fields.
+-- Contains options for customizing code generation for the router in
+-- 'mkYesodData', including what type class instances will be derived for
+-- the route datatype, whether to parameterize subroutes,
+-- and whether or not to create the @resources :: [ResourceTree String]@ value.
+-- Use the setting functions on `defaultOpts` to set specific fields.
 --
 -- @since 1.6.25.0
 data RouteOpts = MkRouteOpts
@@ -44,15 +49,25 @@ data RouteOpts = MkRouteOpts
     -- the nested subroute that matches this string.
     --
     -- @since 1.6.28.0
+    , roCreateResources :: Bool
+    , roParameterizedSubroute :: Bool
     }
 
 -- | Default options for generating routes.
 --
--- Defaults to all instances derived.
+-- Defaults to all instances derived, subroutes being unparameterized, and to
+-- create the @resourcesSite :: [ResourceTree String]@ term.
 --
 -- @since 1.6.25.0
 defaultOpts :: RouteOpts
-defaultOpts = MkRouteOpts True True True Nothing
+defaultOpts = MkRouteOpts
+    { roDerivedEq = True
+    , roDerivedShow = True
+    , roDerivedRead = True
+    , roCreateResources = True
+    , roParameterizedSubroute = False
+    , roFocusOnNestedRoute = Nothing
+    }
 
 -- | If you set this with @Just routeName@, then the code generation will
 -- generate code for the @routeName@ to be imported in the main dispatch
@@ -132,30 +147,67 @@ setShowDerived b rdo = rdo { roDerivedShow = b }
 setReadDerived :: Bool -> RouteOpts -> RouteOpts
 setReadDerived b rdo = rdo { roDerivedRead = b }
 
+-- | Determine whether or not to generate the @resourcesApp@ value.
+--
+-- Disabling this can be useful if you are creating the @routes ::
+-- [ResourceTree String]@ elsewhere in your module, and referring to it
+-- here. The @resourcesApp@ can become very large in large applications,
+-- and duplicating it can result in signifiacntly higher compile times.
+--
+-- @since 1.6.28.0
+setCreateResources :: Bool -> RouteOpts -> RouteOpts
+setCreateResources b rdo = rdo { roCreateResources = b }
+
+-- | Returns whether or not we should create the @resourcesSite ::
+-- [ResourceTree String]@ value during code generation.
+--
+-- @since 1.6.28.0
+shouldCreateResources :: RouteOpts -> Bool
+shouldCreateResources = roCreateResources
+
+-- | If True, we will correctly pass parameters for subroutes around.
+--
+-- @since 1.6.28.0
+setParameterizedSubroute :: Bool -> RouteOpts -> RouteOpts
+setParameterizedSubroute b rdo = rdo { roParameterizedSubroute = b }
+
 -- |
 --
 -- @since 1.6.25.0
 instanceNamesFromOpts :: RouteOpts -> [Name]
-instanceNamesFromOpts (MkRouteOpts eq shw rd _) = prependIf eq ''Eq $ prependIf shw ''Show $ prependIf rd ''Read []
+instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf roDerivedShow ''Show $ prependIf roDerivedRead ''Read []
     where prependIf b = if b then (:) else const id
 
--- | Generate the constructors of a route data type.
-mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteCons = mkRouteConsOpts defaultOpts
+-- | Nullify the list unless we are using parameterised subroutes.
+nullifyWhenNoParam :: RouteOpts -> [a] -> [a]
+nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 
 -- | Generate the constructors of a route data type, with custom opts.
 --
 -- @since 1.6.25.0
-mkRouteConsOpts :: RouteOpts -> [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteConsOpts opts rttypes = do
-    mconcat <$> mapM mkRouteCon rttypes
-    -- So there's two sorts of things we can be generating here:
-    -- 1. The `Route site` datatype
-    -- 2. A child datatype for a nested route
-    --
-    -- Suppose someone has called `mkRouteConsOpts` with a "focus" set. We
-    -- must recur
+mkRouteConsOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree Type] -> Q ([Con], [Dec])
+mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) =
+    mkRouteConsOpts'
   where
+    -- th-abstraction does cover this but the version it was introduced in
+    -- isn't always available
+    tyvarbndr =
+#if MIN_VERSION_template_haskell(2,21,0)
+        (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
+        (`PlainTV` ()) :: Name -> TyVarBndr ()
+#else
+        PlainTV :: Name -> TyVarBndr
+#endif
+
+    subrouteDecTypeArgs = fmap (tyvarbndr . snd) tyargs
+
+    (inlineDerives, mkStandaloneDerives) = getDerivesFor opts (nullifyWhenNoParam opts cxt)
+
+    mkRouteConsOpts' :: [ResourceTree Type] -> Q ([Con], [Dec])
+    mkRouteConsOpts' = foldMap mkRouteCon
+
+    mkRouteCon :: ResourceTree Type -> Q ([Con], [Dec])
     mkRouteCon (ResourceLeaf res) =
         case roFocusOnNestedRoute opts of
             Nothing -> do
@@ -188,8 +240,7 @@ mkRouteConsOpts opts rttypes = do
                         if target == name
                             then setFocusOnNestedRoute Nothing opts
                             else opts
-        (cons, decs) <- mkRouteConsOpts newOpts children
-        let conts = mapM conT $ instanceNamesFromOpts opts
+        (cons, decs) <- mkRouteConsOpts newOpts cxt tyargs children
         let childDataName = mkName name
 
         -- Generate the child datatype if it has not been generated
@@ -207,30 +258,33 @@ mkRouteConsOpts opts rttypes = do
                         -- generate
                         pure Nothing
                     _ -> do
-                        childData <- mkChildDataGen childDataName cons conts
+                        let childData = mkChildDataGen childDataName cons inlineDerives
+                        let childDataType = foldl' AppT (ConT childDataName) (fst <$> tyargs)
                         childClauses <- mkRenderRouteClauses children
-                        childInstances <- do
-                            pure $ InstanceD Nothing [] (ConT ''RenderRouteNested `AppT` ConT childDataName)
-                                [ FunD 'renderRouteNested childClauses
-                                ]
-                        pure $ Just (childData : [childInstances])
+                        let childInstances =
+                                InstanceD
+                                    Nothing
+                                    (cxt <> getRequiredContextFor opts (fst <$> tyargs))
+                                    (ConT ''RenderRouteNested `AppT` consDataType)
+                                    [ FunD 'renderRouteNested childClauses
+                                    ]
+                        pure $ Just (childData : [childInstances] ++ mkStandaloneDerives childDataType)
 
         return ([con], maybe id (<>) mdec decs)
       where
-        con = NormalC (mkName name)
+        con = NormalC dataName
             $ map (notStrict,)
-            $ singles ++ [ConT $ mkName name]
+            $ singles ++ [consDataType]
 
         singles = concatMap toSingle pieces
         toSingle Static{} = []
         toSingle (Dynamic typ) = [typ]
 
+        mkChildDataGen :: Name -> [Con] -> [DerivClause] -> Dec
         mkChildDataGen childDataName cons conts =
-#if MIN_VERSION_template_haskell(2,12,0)
-            DataD [] childDataName [] Nothing cons <$> fmap (pure . DerivClause Nothing) conts
-#else
-            DataD [] childDataName [] Nothing cons <$> conts
-#endif
+            DataD [] childDataName subrouteDecTypeArgs Nothing cons conts
+        dataName = mkName name
+        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
 
 -- | Clauses for the 'renderRoute' method.
 mkRenderRouteClauses :: [ResourceTree Type] -> Q [Clause]
@@ -339,39 +393,38 @@ mkRenderRouteClauses =
 -- | Generate the 'RenderRoute' instance.
 --
 -- This includes both the 'Route' associated type and the
--- 'renderRoute' method.  This function uses both 'mkRouteCons' and
--- 'mkRenderRouteClasses'.
-mkRenderRouteInstance :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
-mkRenderRouteInstance = mkRenderRouteInstanceOpts defaultOpts
-
--- | Generate the 'RenderRoute' instance.
---
--- This includes both the 'Route' associated type and the
--- 'renderRoute' method.  This function uses both 'mkRouteCons' and
--- 'mkRenderRouteClasses'.
+-- 'renderRoute' method.  This function uses both 'mkRouteConsOpts' and
+-- 'mkRenderRouteClauses'.
 --
 -- @since 1.6.25.0
-mkRenderRouteInstanceOpts :: RouteOpts -> Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
-mkRenderRouteInstanceOpts opts cxt typ ress = do
+mkRenderRouteInstanceOpts
+    :: RouteOpts
+    -> Cxt
+    -- ^ The context passed around for the instances
+    -> [(Type, Name)]
+    -- ^ Type arguments
+    -> Type
+    -- ^ The type of the foundation resource
+    -> [ResourceTree Type]
+    -- ^ The actual tree of routes to generate code for
+    -> Q [Dec]
+mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     cls <- mkRenderRouteClauses ress
-    (cons, decs) <- mkRouteConsOpts opts ress
+    (cons, decs) <- mkRouteConsOpts opts cxt tyargs ress
+    let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)
-    did <- DataInstD [] Nothing (AppT (ConT ''Route) typ) Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
-    let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
-#elif MIN_VERSION_template_haskell(2,12,0)
-    did <- DataInstD [] ''Route [typ] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
-    let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
+            Nothing routeDataName
 #else
-    did <- DataInstD [] ''Route [typ] Nothing cons <$> mapM conT (clazzes False)
-    let sds = fmap (\t -> StandaloneDerivD cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
+            ''Route [typ]
 #endif
+            Nothing cons inlineDerives
     case roFocusOnNestedRoute opts of
         Nothing -> do
             return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
                 [ did
                 , FunD (mkName "renderRoute") cls
                 ]
-                : sds ++ decs
+                : mkStandaloneDerives routeDataName ++ decs
         Just _ -> do
             -- If we're generating routes for a subtarget, then we won't
             -- generate the top-level `RenderRoute`. Instead, we'll want to
@@ -379,11 +432,37 @@ mkRenderRouteInstanceOpts opts cxt typ ress = do
             -- class declaration, eventually.
             pure decs
   where
-    clazzes standalone = if standalone `xor` null cxt then
-          clazzes'
-        else
-          []
-    clazzes' = instanceNamesFromOpts opts
+    routeDataName = ConT ''Route `AppT` typ
+    (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
+
+-- | Get the simple derivation clauses and the standalone derivation clauses
+-- for a given type and context.
+--
+-- If there are any additional classes needed for context, we just produce standalone
+-- clauses. Else, we produce basic deriving clauses for a declaration.
+getDerivesFor :: RouteOpts -> Cxt -> ([DerivClause], Type ->  [Dec])
+getDerivesFor opts cxt
+    | null cxt =
+        ( [DerivClause Nothing clazzes']
+        , const []
+        )
+    | otherwise =
+        ( []
+        , \typ -> fmap (StandaloneDerivD Nothing cxt . (`AppT` typ)) clazzes'
+        )
+  where
+    clazzes' = ConT <$> instanceNamesFromOpts opts
+
+getRequiredContextFor :: RouteOpts -> Cxt -> Cxt
+getRequiredContextFor opts cxt
+    | null cxt =
+        []
+    | otherwise = do
+        typ <- cxt
+        clazz <- clazzes'
+        pure (clazz `AppT` typ)
+  where
+    clazzes' = ConT <$> instanceNamesFromOpts opts
 
 notStrict :: Bang
 notStrict = Bang NoSourceUnpackedness NoSourceStrictness

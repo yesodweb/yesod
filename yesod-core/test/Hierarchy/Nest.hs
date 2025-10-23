@@ -14,6 +14,6 @@ import Hierarchy.Nest2
 import Language.Haskell.TH
 import Hierarchy.Nest2.NestInner
 
-mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
+mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) [] [] (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
 mkRouteAttrsInstanceFor [] (ConT ''NestR) "NestR" $ map (fmap parseType) hierarchyResources
 mkParseRouteInstanceFor "NestR" $ map (fmap parseType) hierarchyResources

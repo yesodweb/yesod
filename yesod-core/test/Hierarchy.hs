@@ -86,15 +86,19 @@ runHandler
     -> App sub master
 runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
 
-mkRenderRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 pure <$> mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 do
-    let resources = map (fmap parseType) hierarchyResources
+    let resources = hierarchyResources
 
+
+    rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) $ map (fmap parseType) resources
+    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
+    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
@@ -109,9 +113,7 @@ do
         } resources
     return $ pure $
         InstanceD
-#if MIN_VERSION_template_haskell(2,11,0)
             Nothing
-#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''Hierarchy
