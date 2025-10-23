@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -9,12 +10,14 @@ module Yesod.Routes.TH.RenderRoute
     , mkRouteCons
     , mkRouteConsOpts
     , mkRenderRouteClauses
+    , shouldCreateResources
 
     , RouteOpts
     , defaultOpts
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setCreateResources
     ) where
 
 import Yesod.Routes.TH.Types
@@ -29,23 +32,33 @@ import Yesod.Routes.Class
 
 -- | General opts data type for generating yesod.
 --
--- Contains options for what instances are derived for the route. Use the setting
--- functions on `defaultOpts` to set specific fields.
+-- Contains options for customizing code generation for the router in
+-- 'mkYesodData', including what type class instances will be derived for
+-- the route datatype and whether or not to create the @resources ::
+-- [ResourceTree String]@ value. Use the setting functions on `defaultOpts`
+-- to set specific fields.
 --
 -- @since 1.6.25.0
 data RouteOpts = MkRouteOpts
     { roDerivedEq   :: Bool
     , roDerivedShow :: Bool
     , roDerivedRead :: Bool
+    , roCreateResources :: Bool
     }
 
 -- | Default options for generating routes.
 --
--- Defaults to all instances derived.
+-- Defaults to all instances derived and to create the @resourcesSite ::
+-- [ResourceTree String]@ term.
 --
 -- @since 1.6.25.0
 defaultOpts :: RouteOpts
-defaultOpts = MkRouteOpts True True True
+defaultOpts = MkRouteOpts
+    { roDerivedEq = True
+    , roDerivedShow = True
+    , roDerivedRead = True
+    , roCreateResources = True
+    }
 
 -- |
 --
@@ -65,12 +78,34 @@ setShowDerived b rdo = rdo { roDerivedShow = b }
 setReadDerived :: Bool -> RouteOpts -> RouteOpts
 setReadDerived b rdo = rdo { roDerivedRead = b }
 
+-- | Determine whether or not to generate the @resourcesApp@ value.
+--
+-- Disabling this can be useful if you are creating the @routes ::
+-- [ResourceTree String]@ elsewhere in your module, and referring to it
+-- here. The @resourcesApp@ can become very large in large applications,
+-- and duplicating it can result in signifiacntly higher compile times.
+--
+-- @since 1.6.28.0
+setCreateResources :: Bool -> RouteOpts -> RouteOpts
+setCreateResources b rdo = rdo { roCreateResources = b }
+
+-- | Returns whether or not we should create the @resourcesSite ::
+-- [ResourceTree String]@ value during code generation.
+--
+-- @since 1.6.28.0
+shouldCreateResources :: RouteOpts -> Bool
+shouldCreateResources = roCreateResources
+
 -- |
 --
 -- @since 1.6.25.0
 instanceNamesFromOpts :: RouteOpts -> [Name]
-instanceNamesFromOpts (MkRouteOpts eq shw rd) = prependIf eq ''Eq $ prependIf shw ''Show $ prependIf rd ''Read []
+instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf roDerivedShow ''Show $ prependIf roDerivedRead ''Read []
     where prependIf b = if b then (:) else const id
+
+-- |
+--
+-- @since 1.6.28.0
 
 -- | Generate the constructors of a route data type.
 mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
