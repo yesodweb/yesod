@@ -114,7 +114,7 @@ do
 --  /#Int TrailingIntR GET
 |]
 
-    rrinst <- mkRenderRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
+    rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     dispatch <- mkDispatchClause MkDispatchSettings
@@ -130,9 +130,7 @@ do
         } resources
     return $
         InstanceD
-#if MIN_VERSION_template_haskell(2,11,0)
             Nothing
-#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''Hierarchy

@@ -3,6 +3,7 @@
 ## 1.6.28.0 (unreleased)
 
 * Allow users to control generation of the `resourcesSite :: [ResourceTree String]` value. [#1881](https://github.com/yesodweb/yesod/pull/1881)
+* Add type arguments to the sub routes [#1866](https://github.com/yesodweb/yesod/pull/1866)
 
 ## 1.6.27.1
 

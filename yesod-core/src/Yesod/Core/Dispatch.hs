@@ -29,6 +29,7 @@ module Yesod.Core.Dispatch
     , setShowDerived
     , setReadDerived
     , setCreateResources
+    , setParameterizedSubroute
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires
