@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,16 +9,55 @@
 
 module Yesod.Core.Class.Dispatch where
 
+import Data.Text (Text)
+import Data.Kind (Type)
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Handler (sendWaiApplication)
 import Yesod.Core.Class.Yesod
+import Network.HTTP.Types.Method (Method)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
+
+-- | This class enables you to dispatch on a route fragment without needing
+-- to know how to dispatch on the entire route structure. This allows you
+-- to break up route generation into multiple files.
+--
+-- For details on use, see 'setFocusOnNestedRoute'.
+--
+-- @since 1.6.28.0
+class YesodDispatchNested a where
+    -- | The 'ParentArgs' are the route fragments necessary to call the
+    -- dispatched route that are not part of the route fragments used in
+    -- parsing the route.
+    --
+    -- @since 1.6.28.0
+    type ParentArgs a :: Type
+    type ParentArgs a = ()
+
+    -- | The site type for a given route fragment.
+    --
+    -- @since 1.6.28.0
+    type ParentSite a :: Type
+
+    -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
+    -- route fragment provided.
+    --
+    -- @since 1.6.28.0
+    yesodDispatchNested
+        :: ParentArgs a
+        -- ^ The parts of the parent route
+        -> Method
+        -- ^ The HTTP Method invoked from the request.
+        -> [Text]
+        -- ^ The path fragments, after parsing out the parent.
+        -> (HandlerFor (ParentSite a) TypedContent, Maybe a)
+        -- ^ The handler for the route (possibly notFound or badMethod)
+        -- along with the parsed route constructor.
 
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application

@@ -1,9 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Yesod.Core.Internal.TH
@@ -42,6 +43,7 @@ module Yesod.Core.Internal.TH
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setFocusOnNestedRoute
     , setCreateResources
     , setParameterizedSubroute
     )
@@ -57,7 +59,8 @@ import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
-import Control.Monad (replicateM, void)
+import Data.Maybe
+import Control.Monad
 import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 
@@ -143,9 +146,9 @@ mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> [ResourceTree String]
                       -> Q([Dec],[Dec])
 mkYesodWithParserOpts opts name isSub f resS = do
-    let (name', rest, cxt) = case parse parseName "" name of
-            Left err -> error $ show err
-            Right a -> a
+    (name', rest, cxt) <- case parse parseName "" name of
+            Left err -> fail $ show err
+            Right a -> pure a
     mkYesodGeneralOpts opts cxt name' rest isSub f resS
 
     where
@@ -213,7 +216,7 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
-                   -> [[String]]                -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
+                   -> [[String]]                -- ^ Application context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                    -> String                    -- ^ foundation type
                    -> [String]                  -- ^ arguments for the type
                    -> Bool                      -- ^ is this a subsite
@@ -253,9 +256,20 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt boundNames site res
-    routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
-    dispatchDec    <- mkDispatchInstance site appCxt f res
-    parseRoute <- mkParseRouteInstance appCxt site res
+    routeAttrsDec  <-
+        case roFocusOnNestedRoute opts of
+            Nothing ->
+                pure <$> mkRouteAttrsInstance appCxt site res
+            Just target ->
+                mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
+
+    dispatchDec    <- mkDispatchInstance (roFocusOnNestedRoute opts) site appCxt f res
+    parseRoute <-
+        case roFocusOnNestedRoute opts of
+            Nothing ->
+                pure <$> mkParseRouteInstance appCxt site res
+            Just target ->
+                mkParseRouteInstanceFor target res
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
         if shouldCreateResources opts
@@ -268,11 +282,11 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             else do
                 pure []
     let dataDec = concat
-            [ [parseRoute]
+            [ parseRoute
             , renderRouteDec
-            , [routeAttrsDec]
-            , resourcesDec
-            , if isSub then [] else masterTypeSyns argvars site
+            , routeAttrsDec
+            , if isJust (roFocusOnNestedRoute opts) then [] else resourcesDec
+            , if isSub || isJust (roFocusOnNestedRoute opts) then [] else masterTypeSyns argvars site
             ]
     return (dataDec, dispatchDec)
 
@@ -288,6 +302,7 @@ mkMDS f rh sd = MkDispatchSettings
     , mds405 = [|void badMethod|]
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = f
+    , mdsHandleNestedRoute = Nothing
     }
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
@@ -295,15 +310,21 @@ mkMDS f rh sd = MkDispatchSettings
 -- hardly need this generality. However, in certain situations, like
 -- when writing library/plugin for yesod, this combinator becomes
 -- handy.
-mkDispatchInstance :: Type                      -- ^ The master site type
-                   -> Cxt                       -- ^ Context of the instance
-                   -> (Exp -> Q Exp)            -- ^ Unwrap handler
-                   -> [ResourceTree c]          -- ^ The resource
-                   -> DecsQ
-mkDispatchInstance master cxt f res = do
-    clause' <-
-        mkDispatchClause
-            (mkMDS
+mkDispatchInstance
+    :: Maybe String
+    -- ^ The nested subroute we're focusing on, if present.
+    -> Type
+    -- ^ The master site type
+    -> Cxt
+    -- ^ Context of the instance
+    -> (Exp -> Q Exp)
+    -- ^ Unwrap handler
+    -> [ResourceTree Type]
+    -- ^ The resource
+    -> DecsQ
+mkDispatchInstance Nothing master cxt f res = do
+    let mds =
+            mkMDS
                 f
                 [|yesodRunner|]
                 [|\parentRunner getSub toParent env -> yesodSubDispatch
@@ -313,13 +334,178 @@ mkDispatchInstance master cxt f res = do
                     , ysreToParentRoute = toParent
                     , ysreParentEnv = env
                     }
-                |])
-            res
+                |]
+        mdsWithNestedDispatch = mds
+            { mdsHandleNestedRoute = Just NestedRouteSettings
+                { nrsClassName = ''YesodDispatchNested
+                , nrsDispatchCall =
+                    \restExpr sdc constrExpr dyns -> do
+                        let dynsExpr =
+                                case dyns of
+                                    [] -> [| () |]
+                                    [a] -> pure a
+                                    _ -> pure $ mkTupE dyns
+                        [e|
+                            let (hndlr, subConstr) =
+                                    yesodDispatchNested
+                                        $(dynsExpr)
+                                        ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                        $(pure restExpr)
+                            in
+                                $(mdsRunHandler mds)
+                                    hndlr
+                                    $(pure $ envExp sdc)
+                                    ($(pure constrExpr) <$> subConstr)
+                                    $(pure $ reqExp sdc)
+                            |]
+                , nrsTargetName = Nothing
+                }
+            }
+    clause' <- mkDispatchClause mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [instanceD cxt yDispatch [thisDispatch]]
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
+mkDispatchInstance (Just target) master cxt f res = do
+    mstuff <- findNestedRoute target res
+    (prePieces, subres) <- case mstuff of
+        Nothing ->
+            fail "Target was not found in resources."
+        Just stuff ->
+            pure stuff
+
+    let preDyns =
+            mapMaybe
+                (\p -> case p of
+                    Static _ -> Nothing
+                    Dynamic a -> Just a)
+                prePieces
+
+    parentDynNs <- forM preDyns $ \_ -> newName "parentDyn"
+
+    let mds =
+            mkMDS
+                f
+                [|yesodRunner|]
+                [|\parentRunner getSub toParent env -> yesodSubDispatch
+                    YesodSubRunnerEnv
+                    { ysreParentRunner = parentRunner
+                    , ysreGetSub = getSub
+                    , ysreToParentRoute = toParent
+                    , ysreParentEnv = env
+                    }
+                |]
+        mdsWithNestedDispatch = mds
+            { mdsRunHandler =
+                [| \handler _env mroute _req ->
+                    (fmap toTypedContent handler, mroute)
+                 |]
+            , mdsGetPathInfo =
+                [| snd |]
+            , mdsMethod =
+                [| fst |]
+            , mdsHandleNestedRoute = Just NestedRouteSettings
+                { nrsClassName = ''YesodDispatchNested
+                , nrsDispatchCall =
+                    \restExpr sdc constrExpr dyns -> do
+                        let dynsExpr =
+                                case map VarE parentDynNs <> dyns of
+                                    [] -> [| () |]
+                                    [a] -> pure a
+                                    vars -> pure $ mkTupE vars
+                        [e|
+                            let (hndlr, subConstr) =
+                                    yesodDispatchNested
+                                        $(dynsExpr)
+                                        ($(mdsMethod mdsWithNestedDispatch) $(pure $ reqExp sdc))
+                                        $(pure restExpr)
+                            in
+                                $(mdsRunHandler mdsWithNestedDispatch)
+                                    hndlr
+                                    $(pure $ envExp sdc)
+                                    ($(pure constrExpr) <$> subConstr)
+                                    $(pure $ reqExp sdc)
+                            |]
+                , nrsTargetName = Nothing
+                }
+            }
+
+    parentDynT <-
+        case preDyns of
+            [] -> [t| () |]
+            [t] -> pure t
+            ts ->
+                pure $ foldl' AppT (TupleT (length ts)) ts
+
+
+    parentDynsP <-
+        case parentDynNs of
+            [] -> [p| () |]
+            [x] -> varP x
+            xs -> pure $ TupP $ map VarP xs
+
+    let addParentDynsToDispatch exp = do
+            foldl' AppE exp (map VarE parentDynNs)
+
+    nestHelpN <- newName "nestHelp"
+    methodN <- newName "method"
+    fragmentsN <- newName "fragments"
+
+    let finalMds =
+            mdsWithNestedDispatch
+                { mdsGetHandler = \mmethod name ->
+                    addParentDynsToDispatch <$>
+                        mdsGetHandler mdsWithNestedDispatch mmethod name
+                }
+
+    clause' <- mkDispatchClause finalMds subres
+
+    let thisDispatch = FunD 'yesodDispatchNested
+            [Clause
+                [parentDynsP, VarP methodN, VarP fragmentsN]
+                (NormalB $
+                    VarE nestHelpN
+                    `AppE` ConE '()
+                    -- The `mkDispatchClause` expects to take two
+                    -- arguments: env and req. But we can determine what
+                    -- those are and mean through the MDS. We do not need
+                    `AppE` mkTupE [VarE methodN, VarE fragmentsN]
+                )
+                [FunD nestHelpN [clause']]
+            ]
+    let targetT = conT (mkName target)
+    yDispatchNested <- [t| YesodDispatchNested $(targetT) |]
+
+    parentSiteT <- [t| ParentSite $(targetT) |]
+    parentDynSig <- [t| ParentArgs $(targetT) |]
+    return
+        [ instanceD cxt yDispatchNested
+            [ TySynInstD $ TySynEqn Nothing parentSiteT master
+            , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
+            , thisDispatch
+            ]
+        ]
+
+-- | Given a target 'String', find the 'ResourceParent' in the
+-- @['ResourceTree' a]@ corresponding to that target and return it.
+-- Also return the @['Piece' a]@ captures that precede it.
+findNestedRoute :: String -> [ResourceTree a] -> Q (Maybe ([Piece a], [ResourceTree a]))
+findNestedRoute _ [] = pure Nothing
+findNestedRoute target (res : ress) =
+    case res of
+        ResourceLeaf _ -> do
+            findNestedRoute target ress
+        ResourceParent name _overlap pieces children -> do
+            if name == target
+                then pure $ Just (pieces, children)
+                else do
+                    mresult <- findNestedRoute target children
+                    case mresult of
+                        Nothing -> do
+                            findNestedRoute target ress
+                        Just (typs, childRoute) -> do
+                            pure $ Just (pieces <> typs, childRoute)
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
@@ -364,3 +550,10 @@ subTopDispatch _ getSub toParent env = yesodSubDispatch
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
+
+mkTupE :: [Exp] -> Exp
+mkTupE =
+    TupE
+#if MIN_VERSION_template_haskell(2,16,0)
+        . fmap Just
+#endif

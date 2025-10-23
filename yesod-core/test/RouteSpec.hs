@@ -11,7 +11,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
--- {-# OPTIONS_GHC -ddump-splices #-}
 
 import Test.Hspec
 import Test.HUnit ((@?=))
@@ -86,6 +85,7 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
+        , mdsHandleNestedRoute = Nothing
         } ress
     return $
         InstanceD
