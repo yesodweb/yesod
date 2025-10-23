@@ -63,6 +63,6 @@ bigTableWidget rows = fmap (L.length . Utf8.renderHtml . ($ render)) (run [whaml
     -}
 
 bigTableBlaze :: Show a => [[a]] -> Int64
-bigTableBlaze t = L.length $ Utf8.renderHtml $ table $ concatMap row t
+bigTableBlaze t = L.length $ Utf8.renderHtml $ table $ foldMap row t
   where
-    row r = tr $ concatMap (td . toHtml . show) r
+    row r = tr $ foldMap (td . toHtml . show) r

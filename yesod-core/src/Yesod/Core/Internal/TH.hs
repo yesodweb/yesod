@@ -42,6 +42,8 @@ module Yesod.Core.Internal.TH
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setCreateResources
+    , setParameterizedSubroute
     )
  where
 
@@ -222,7 +224,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let appCxt = fmap (\ctxs ->
             case ctxs of
                 c:rest ->
-                    foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
+                    foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
                 [] -> error $ "Bad context: " ++ show ctxs
           ) appCxt'
     mname <- lookupTypeName namestr
@@ -243,22 +245,28 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     -- Generate as many variable names as the arity indicates
     vns <- replicateM (arity - length mtys) $ newName "t"
     -- types that you apply to get a concrete site name
-    let argtypes = fmap nameToType mtys ++ fmap VarT vns
+    let boundNames = fmap nameToType mtys
+        argtypes = fmap fst boundNames ++ fmap VarT vns
     -- typevars that should appear in synonym head
     let argvars = (fmap mkName . filter isTvar) mtys ++ vns
         -- Base type (site type with variables)
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
-    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt site res
+    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt boundNames site res
     routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
     dispatchDec    <- mkDispatchInstance site appCxt f res
     parseRoute <- mkParseRouteInstance appCxt site res
     let rname = mkName $ "resources" ++ namestr
-    eres <- lift resS
-    let resourcesDec =
-            [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
-            , FunD rname [Clause [] (NormalB eres) []]
-            ]
+    resourcesDec <-
+        if shouldCreateResources opts
+            then do
+                eres <- lift resS
+                pure
+                    [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
+                    , FunD rname [Clause [] (NormalB eres) []]
+                    ]
+            else do
+                pure []
     let dataDec = concat
             [ [parseRoute]
             , renderRouteDec

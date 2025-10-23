@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.6.23.1
+version:            1.7.0
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -44,11 +44,11 @@ library
     , pretty-show       >= 1.6     && < 1.11
     , process           >= 1.6     && < 1.7
     , text              >= 1.2     && < 2.2
-    , time              >= 1.5     && < 1.13
+    , time              >= 1.5     && < 1.15
     , transformers      >= 0.2.2   && < 0.7
     , wai               >= 3.0     && < 3.3
     , wai-extra         >= 3.0     && < 3.2
-    , xml-conduit       >= 1.0     && < 1.10
+    , xml-conduit       >= 1.0     && < 1.11
     , xml-types         >= 0.3     && < 0.4
     , yesod-core        >= 1.6.17  && < 1.7
 
