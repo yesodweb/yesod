@@ -22,6 +22,7 @@ import qualified YesodCoreTest.JsAttributes as JsAttributes
 import qualified YesodCoreTest.JsLoader as JsLoader
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
+import qualified YesodCoreTest.NestedRouteFallThrough as NestedRouteFallThrough
 
 -- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
 #ifndef WINDOWS
@@ -70,3 +71,4 @@ specs = do
       Csrf.csrfSpec
       breadcrumbTest
       metaTest
+      describe "NestedRouteFallThrough" NestedRouteFallThrough.spec

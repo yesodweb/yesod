@@ -43,6 +43,7 @@ module Yesod.Core.Internal.TH
     , setShowDerived
     , setReadDerived
     , setCreateResources
+    , setNestedRouteFallThrough
     )
  where
 
@@ -252,7 +253,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
         res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt site res
     routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
-    dispatchDec    <- mkDispatchInstance site appCxt f res
+    dispatchDec    <- mkDispatchInstance opts site appCxt f res
     parseRoute <- mkParseRouteInstance appCxt site res
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
@@ -293,12 +294,18 @@ mkMDS f rh sd = MkDispatchSettings
 -- hardly need this generality. However, in certain situations, like
 -- when writing library/plugin for yesod, this combinator becomes
 -- handy.
-mkDispatchInstance :: Type                      -- ^ The master site type
-                   -> Cxt                       -- ^ Context of the instance
-                   -> (Exp -> Q Exp)            -- ^ Unwrap handler
-                   -> [ResourceTree c]          -- ^ The resource
-                   -> DecsQ
-mkDispatchInstance master cxt f res = do
+mkDispatchInstance
+    :: RouteOpts
+    -> Type
+    -- ^ The master site type
+    -> Cxt
+    -- ^ Context of the instance
+    -> (Exp -> Q Exp)
+    -- ^ Unwrap handler
+    -> [ResourceTree c]
+    -- ^ The resource
+    -> DecsQ
+mkDispatchInstance opts master cxt f res = do
     clause' <-
         mkDispatchClause
             (mkMDS

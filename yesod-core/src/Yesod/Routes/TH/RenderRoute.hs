@@ -18,6 +18,7 @@ module Yesod.Routes.TH.RenderRoute
     , setShowDerived
     , setReadDerived
     , setCreateResources
+    , setNestedRouteFallThrough
     ) where
 
 import Yesod.Routes.TH.Types
@@ -43,13 +44,15 @@ data RouteOpts = MkRouteOpts
     { roDerivedEq   :: Bool
     , roDerivedShow :: Bool
     , roDerivedRead :: Bool
+    , roNestedRouteFallThrough :: Bool
     , roCreateResources :: Bool
     }
 
 -- | Default options for generating routes.
 --
--- Defaults to all instances derived and to create the @resourcesSite ::
--- [ResourceTree String]@ term.
+-- Defaults to all instances derived, to create the @resourcesSite ::
+-- [ResourceTree String]@ term, and to cause nested routes to 404 if they
+-- don't match.
 --
 -- @since 1.6.25.0
 defaultOpts :: RouteOpts
@@ -57,6 +60,7 @@ defaultOpts = MkRouteOpts
     { roDerivedEq = True
     , roDerivedShow = True
     , roDerivedRead = True
+    , roNestedRouteFallThrough = False
     , roCreateResources = True
     }
 
@@ -77,6 +81,13 @@ setShowDerived b rdo = rdo { roDerivedShow = b }
 -- @since 1.6.25.0
 setReadDerived :: Bool -> RouteOpts -> RouteOpts
 setReadDerived b rdo = rdo { roDerivedRead = b }
+
+-- | When 'True', nested routes will fall-through instead of exiting early
+-- with a 404 if the route does not match.
+--
+-- @since 1.6.29.0
+setNestedRouteFallThrough :: Bool -> RouteOpts -> RouteOpts
+setNestedRouteFallThrough b rdo = rdo { roNestedRouteFallThrough = b }
 
 -- | Determine whether or not to generate the @resourcesApp@ value.
 --

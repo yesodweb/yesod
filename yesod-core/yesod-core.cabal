@@ -161,6 +161,7 @@ test-suite tests
                    YesodCoreTest.Media
                    YesodCoreTest.MediaData
                    YesodCoreTest.Meta
+                   YesodCoreTest.NestedRouteFallThrough
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
                    YesodCoreTest.ParameterizedSite
