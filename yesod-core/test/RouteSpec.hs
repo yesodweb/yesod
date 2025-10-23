@@ -73,7 +73,7 @@ do
             [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"] True
             ]
         ress = resParent : resLeaves
-    rrinst <- mkRenderRouteInstance [] (ConT ''MyApp) ress
+    rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance [] (ConT ''MyApp) ress
     dispatch <- mkDispatchClause MkDispatchSettings
@@ -89,9 +89,7 @@ do
         } ress
     return $
         InstanceD
-#if MIN_VERSION_template_haskell(2,11,0)
             Nothing
-#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''MyApp

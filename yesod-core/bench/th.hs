@@ -17,7 +17,7 @@ import Test.Hspec
 import Control.Monad (forM_, unless)
 
 $(do
-    let (cons, decs) = mkRouteCons $ map (fmap parseType) resources
+    let (cons, decs) = mkRouteConsOpts defaultOpts [] [] $ map (fmap parseType) resources
     clause1 <- mkDispatchClause settings resources
     clause2 <- mkSimpleDispatchClause settings resources
     return $ concat
