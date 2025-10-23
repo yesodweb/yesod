@@ -19,7 +19,7 @@ newtype SubRoute a v = SubRoute a
 instance SiteClass Int where
   type Key Int = Int
 
-mkYesodOpts (setParameterisedSubroute True defaultOpts) "(SiteClass p) => SubRoute p v" [parseRoutes|
+mkYesodOpts (setParameterizedSubroute True defaultOpts) "(SiteClass p) => SubRoute p v" [parseRoutes|
 /home/#{Key p} HomeR GET
 /editor EditorR:
   /away/#{Key p} AwayR GET

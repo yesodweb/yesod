@@ -17,7 +17,7 @@ module Yesod.Routes.TH.RenderRoute
     , setShowDerived
     , setReadDerived
     , setCreateResources
-    , setParameterisedSubroute
+    , setParameterizedSubroute
     ) where
 
 import Yesod.Routes.TH.Types
@@ -43,7 +43,7 @@ data RouteOpts = MkRouteOpts
     , roDerivedShow :: Bool
     , roDerivedRead :: Bool
     , roCreateResources :: Bool
-    , roParameterisedSubroute :: Bool
+    , roParameterizedSubroute :: Bool
     }
 
 -- | Default options for generating routes.
@@ -58,7 +58,7 @@ defaultOpts = MkRouteOpts
     , roDerivedShow = True
     , roDerivedRead = True
     , roCreateResources = True
-    , roParameterisedSubroute = False
+    , roParameterizedSubroute = False
     }
 
 -- |
@@ -100,8 +100,8 @@ shouldCreateResources = roCreateResources
 -- | If True, we will correctly pass parameters for subroutes around.
 --
 -- @since 1.6.28.0
-setParameterisedSubroute :: Bool -> RouteOpts -> RouteOpts
-setParameterisedSubroute b rdo = rdo { roParameterisedSubroute = b }
+setParameterizedSubroute :: Bool -> RouteOpts -> RouteOpts
+setParameterizedSubroute b rdo = rdo { roParameterizedSubroute = b }
 
 -- |
 --
@@ -112,7 +112,7 @@ instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf 
 
 -- | Nullify the list unless we are using parameterised subroutes.
 nullifyWhenNoParam :: RouteOpts -> [a] -> [a]
-nullifyWhenNoParam opts = if roParameterisedSubroute opts then id else const []
+nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 
 -- | Generate the constructors of a route data type, with custom opts.
 --
