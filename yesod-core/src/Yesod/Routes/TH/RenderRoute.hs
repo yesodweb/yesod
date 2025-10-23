@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -52,7 +53,12 @@ data RouteOpts = MkRouteOpts
 --
 -- @since 1.6.25.0
 defaultOpts :: RouteOpts
-defaultOpts = MkRouteOpts True True True True
+defaultOpts = MkRouteOpts
+    { roDerivedEq = True
+    , roDerivedShow = True
+    , roDerivedRead = True
+    , roCreateResources = True
+    }
 
 -- |
 --
@@ -94,7 +100,7 @@ shouldCreateResources = roCreateResources
 --
 -- @since 1.6.25.0
 instanceNamesFromOpts :: RouteOpts -> [Name]
-instanceNamesFromOpts (MkRouteOpts eq shw rd _) = prependIf eq ''Eq $ prependIf shw ''Show $ prependIf rd ''Read []
+instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf roDerivedShow ''Show $ prependIf roDerivedRead ''Read []
     where prependIf b = if b then (:) else const id
 
 -- |
