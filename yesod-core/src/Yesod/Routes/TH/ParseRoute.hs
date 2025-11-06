@@ -30,7 +30,9 @@ mkParseRouteInstance cxt typ ress = do
                 , nrsDispatchCall = \restExpr sdc constrExpr _dyns ->
                     [e| fmap $(pure constrExpr) (parseRouteNested ($(pure restExpr), snd $(pure $ reqExp sdc))) |]
                 , nrsTargetName = Nothing
+                , nrsWrapDispatchCall = \_ _ -> pure
                 }
+            , mdsNestedRouteFallThrough = False
             }
         (map removeMethods ress)
     helper <- newName "helper"
@@ -69,7 +71,9 @@ mkParseRouteInstanceFor target ress = do
                 , nrsDispatchCall = \restExpr sdc constrExpr _dyns ->
                     [e| fmap $(pure constrExpr) (parseRouteNested ($(pure restExpr), snd $(pure $ reqExp sdc))) |]
                 , nrsTargetName = Just target
+                , nrsWrapDispatchCall = \_ _ -> pure
                 }
+            , mdsNestedRouteFallThrough = False
             }
         (focusTarget (map removeMethods ress))
     helper <- newName "helper"

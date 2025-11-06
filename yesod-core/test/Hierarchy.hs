@@ -110,6 +110,7 @@ do
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
         , mdsHandleNestedRoute = Nothing
+        , mdsNestedRouteFallThrough = False
         } resources
     return $ pure $
         InstanceD

@@ -20,6 +20,8 @@ import Data.List (foldl')
 import Control.Arrow (second)
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
+import Control.Monad.Trans.Maybe
+import qualified Control.Monad.Trans as Trans
 
 data MkDispatchSettings b site c = MkDispatchSettings
     { mdsRunHandler :: Q Exp
@@ -36,6 +38,12 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- is provided, then we generate everything flat. If 'Just' is
     -- provided, then the 'NestedRouteSettings' behavior kicks on, and
     -- matches are delegated to prior code instead of flat generation.
+    --
+    -- @since 1.6.28.0
+    , mdsNestedRouteFallThrough :: !Bool
+    -- ^ When 'True', fall through if no route matches (except in the final
+    -- case). When 'False', return 404 if the current route clause fails to
+    -- match.
     --
     -- @since 1.6.28.0
     }
@@ -68,6 +76,13 @@ data NestedRouteSettings = NestedRouteSettings
         -- ^ The expression we want to splice in for delegating.
     , nrsTargetName :: Maybe String
     -- ^ The name of the target that we are currently generating code for.
+    , nrsWrapDispatchCall
+        :: SDC
+        -> Exp
+        -- ^ The parent constructor
+        -> Exp
+        -> Q Exp
+    -- ^ Wrap up the dispatch call.
     }
 
 data SDC = SDC
@@ -144,25 +159,15 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                     then Just nrs { nrsTargetName = Nothing }
                     else mnrs
 
-        instanceExists <- do
+        instanceExists <- runMaybeT $ do
             -- Generate delegated clauses if the datatype and instance
             -- already exist.
-            datatypeExists <- lookupTypeName name
-            case datatypeExists of
-                Nothing ->
-                    pure Nothing
-                Just typeName -> do
-                    case mnrs of
-                        Just nrs ->
-                            if fromMaybe True mtargetMatch
-                            then do
-                                t <- isInstance (nrsClassName nrs) [ConT typeName]
-                                pure $ if t
-                                    then Just nrs
-                                    else Nothing
-                            else pure Nothing
-                        Nothing ->
-                            pure Nothing
+            typeName <- MaybeT $ lookupTypeName name
+            nrs <- MaybeT $ pure $ mnrs
+            guard $ fromMaybe True mtargetMatch
+            t <- Trans.lift $ isInstance (nrsClassName nrs) [ConT typeName]
+            guard t
+            pure nrs
 
         (pats, dyns) <- handlePieces pieces
         restName <- newName "rest"
@@ -181,6 +186,20 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                 [restP]
                                 (NormalB expr)
                                 []
+                    hndlrName <- newName "hndlr"
+                    constrName <- newName "constr"
+                    let guards =
+                            [ PatG
+                                [ BindS
+                                    (conPCompat
+                                        'Just
+                                        [ TupP [VarP hndlrName, VarP constrName]
+                                        ]
+                                    )
+                                    expr
+                                ]
+                            ]
+
                     return $ [ Clause
                         [mkPathPat restP pats]
                         (NormalB $ helperE `AppE` restE)
@@ -311,6 +330,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                 return $ CaseE methodE $ matches ++ [match405]
 
                     return (func, finalPat)
+
                 Subsite _ getSub -> do
                     restPath <- newName "restPath"
                     setPathInfoE <- mdsSetPathInfo
@@ -337,6 +357,26 @@ mkDispatchClause MkDispatchSettings {..} resources = do
         runHandler <- mdsRunHandler
         let exp = runHandler `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
         return $ Clause [WildP] (NormalB exp) []
+
+-- | Given an 'Exp' which should result in a @'Maybe' a@, does:
+--
+-- @
+--   | Just a <- exp = mkRhs a
+-- @
+--
+mkGuardedBody
+    :: Exp
+    -- ^ The expression to match Just with
+    -> (Name -> Q Exp)
+    -- ^ The function to take a 'Name' and create the right hand value on
+    -- successful match.
+    -> Q Body
+mkGuardedBody exp mkRhs = do
+    matchName <- newName "match"
+    result <- mkRhs matchName
+    let patG =
+            PatG [BindS (conPCompat 'Just [VarP matchName]) exp]
+    pure $ GuardedB [(patG, result)]
 
 defaultGetHandler :: Maybe String -> String -> Q Exp
 defaultGetHandler Nothing s = return $ VarE $ mkName $ "handle" ++ s

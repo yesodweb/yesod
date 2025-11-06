@@ -51,6 +51,14 @@ data RouteOpts = MkRouteOpts
     -- @since 1.6.28.0
     , roCreateResources :: Bool
     , roParameterizedSubroute :: Bool
+    , roNestedRouteFallthrough :: Bool
+    -- ^ If 'True', then a nested route will fall through if it fails to
+    -- match. If 'False', then a nested route will throw 'notFound' if it
+    -- does not match.
+    --
+    -- Default: 'False'.
+    --
+    -- @since 1.6.28.0
     }
 
 -- | Default options for generating routes.
@@ -67,6 +75,7 @@ defaultOpts = MkRouteOpts
     , roCreateResources = True
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
+    , roNestedRouteFallthrough = False
     }
 
 -- | If you set this with @Just routeName@, then the code generation will
@@ -128,6 +137,12 @@ defaultOpts = MkRouteOpts
 -- @since 1.6.28.0
 setFocusOnNestedRoute :: Maybe String -> RouteOpts -> RouteOpts
 setFocusOnNestedRoute mstr rdo = rdo { roFocusOnNestedRoute = mstr }
+
+-- | When 'True', a nested route can fall through if it does not match.
+--
+-- @since 1.6.28.0
+setNestedRouteFallThrough :: Bool -> RouteOpts -> RouteOpts
+setNestedRouteFallThrough b rdo = rdo { roNestedRouteFallthrough = b }
 
 -- |
 --

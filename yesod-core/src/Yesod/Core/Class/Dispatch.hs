@@ -55,9 +55,17 @@ class YesodDispatchNested a where
         -- ^ The HTTP Method invoked from the request.
         -> [Text]
         -- ^ The path fragments, after parsing out the parent.
-        -> (HandlerFor (ParentSite a) TypedContent, Maybe a)
+        -> Maybe (HandlerFor (ParentSite a) TypedContent, Maybe a)
         -- ^ The handler for the route (possibly notFound or badMethod)
-        -- along with the parsed route constructor.
+        -- along with the parsed route constructor. This returns 'Nothing'
+        -- if we are allowing pass-through in nested routes, or @'Just'
+        -- 'notFound'@ if we are not.
+
+class YesodDispatch' route site where
+    yesodDispatch' :: proxy route -> YesodRunnerEnv site -> W.Application
+
+instance YesodDispatch site => YesodDispatch' (Route site) site where
+    yesodDispatch' _ = yesodDispatch
 
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application

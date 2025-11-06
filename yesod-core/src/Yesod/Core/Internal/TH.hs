@@ -303,6 +303,7 @@ mkMDS f rh sd = MkDispatchSettings
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = f
     , mdsHandleNestedRoute = Nothing
+    , mdsNestedRouteFallThrough = False
     }
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
@@ -338,6 +339,15 @@ mkDispatchInstance Nothing master cxt f res = do
         mdsWithNestedDispatch = mds
             { mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''YesodDispatchNested
+                , nrsWrapDispatchCall =
+                    \sdc constrExpr hndlr ->
+                        [e|
+                            $(mdsRunHandler mds)
+                                $(pure hndlr)
+                                $(pure $ envExp sdc)
+                                ($(pure constrExpr) <$> subConstr)
+                                $(pure $ reqExp sdc)
+                        |]
                 , nrsDispatchCall =
                     \restExpr sdc constrExpr dyns -> do
                         let dynsExpr =
@@ -346,17 +356,10 @@ mkDispatchInstance Nothing master cxt f res = do
                                     [a] -> pure a
                                     _ -> pure $ mkTupE dyns
                         [e|
-                            let (hndlr, subConstr) =
-                                    yesodDispatchNested
-                                        $(dynsExpr)
-                                        ($(mdsMethod mds) $(pure $ reqExp sdc))
-                                        $(pure restExpr)
-                            in
-                                $(mdsRunHandler mds)
-                                    hndlr
-                                    $(pure $ envExp sdc)
-                                    ($(pure constrExpr) <$> subConstr)
-                                    $(pure $ reqExp sdc)
+                            yesodDispatchNested
+                                $(dynsExpr)
+                                ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                $(pure restExpr)
                             |]
                 , nrsTargetName = Nothing
                 }
@@ -407,25 +410,27 @@ mkDispatchInstance (Just target) master cxt f res = do
                 [| fst |]
             , mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''YesodDispatchNested
+                , nrsWrapDispatchCall =
+                    \sdc constrExpr hndlr ->
+                        [e|
+                            $(mdsRunHandler mds)
+                                $(pure hndlr)
+                                $(pure $ envExp sdc)
+                                ($(pure constrExpr) <$> subConstr)
+                                $(pure $ reqExp sdc)
+                        |]
                 , nrsDispatchCall =
                     \restExpr sdc constrExpr dyns -> do
                         let dynsExpr =
-                                case map VarE parentDynNs <> dyns of
+                                case dyns of
                                     [] -> [| () |]
                                     [a] -> pure a
-                                    vars -> pure $ mkTupE vars
+                                    _ -> pure $ mkTupE dyns
                         [e|
-                            let (hndlr, subConstr) =
-                                    yesodDispatchNested
-                                        $(dynsExpr)
-                                        ($(mdsMethod mdsWithNestedDispatch) $(pure $ reqExp sdc))
-                                        $(pure restExpr)
-                            in
-                                $(mdsRunHandler mdsWithNestedDispatch)
-                                    hndlr
-                                    $(pure $ envExp sdc)
-                                    ($(pure constrExpr) <$> subConstr)
-                                    $(pure $ reqExp sdc)
+                            yesodDispatchNested
+                                $(dynsExpr)
+                                ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                $(pure restExpr)
                             |]
                 , nrsTargetName = Nothing
                 }

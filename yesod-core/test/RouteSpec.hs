@@ -86,6 +86,7 @@ do
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
         , mdsHandleNestedRoute = Nothing
+        , mdsNestedRouteFallThrough = False
         } ress
     return $
         InstanceD
