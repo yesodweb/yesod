@@ -5,6 +5,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -ddump-splices #-}
+
 module YesodCoreTest.NestedDispatch.Parent0R where
 
 import Data.Text (Text)

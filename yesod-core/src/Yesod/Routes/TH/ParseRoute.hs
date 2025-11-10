@@ -14,7 +14,7 @@ import Yesod.Routes.TH.Dispatch
 
 mkParseRouteInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
 mkParseRouteInstance cxt typ ress = do
-    cls <- mkDispatchClause
+    (childNames, cls) <- mkDispatchClause
         MkDispatchSettings
             { mdsRunHandler = [|\_ _ x _ -> x|]
             , mds404 = [|error "mds404"|]
@@ -30,13 +30,14 @@ mkParseRouteInstance cxt typ ress = do
                 , nrsDispatchCall = \restExpr sdc constrExpr _dyns ->
                     [e| fmap $(pure constrExpr) (parseRouteNested ($(pure restExpr), snd $(pure $ reqExp sdc))) |]
                 , nrsTargetName = Nothing
-                , nrsWrapDispatchCall = \_ _ -> pure
+                , nrsWrapDispatchCall = \_ _ e -> [|Just $(pure e)|]
                 }
             , mdsNestedRouteFallThrough = False
             }
         (map removeMethods ress)
     helper <- newName "helper"
     fixer <- [|(\f x -> f () x) :: (() -> ([Text], [(Text, Text)]) -> Maybe (Route a)) -> ([Text], [(Text, Text)]) -> Maybe (Route a)|]
+
     return $ instanceD cxt (ConT ''ParseRoute `AppT` typ)
         [ FunD 'parseRoute $ return $ Clause
             []
@@ -55,7 +56,7 @@ mkParseRouteInstance cxt typ ress = do
 
 mkParseRouteInstanceFor :: String -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceFor target ress = do
-    cls <- mkDispatchClause
+    (childNames, cls) <- mkDispatchClause
         MkDispatchSettings
             { mdsRunHandler = [|\_ _ x _ -> x|]
             , mds404 = [|error "mds404"|]
@@ -71,7 +72,7 @@ mkParseRouteInstanceFor target ress = do
                 , nrsDispatchCall = \restExpr sdc constrExpr _dyns ->
                     [e| fmap $(pure constrExpr) (parseRouteNested ($(pure restExpr), snd $(pure $ reqExp sdc))) |]
                 , nrsTargetName = Just target
-                , nrsWrapDispatchCall = \_ _ -> pure
+                , nrsWrapDispatchCall = \_ _ expr -> [|Just $(pure expr)|]
                 }
             , mdsNestedRouteFallThrough = False
             }

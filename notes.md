@@ -47,5 +47,24 @@ instance YesodDispatchNested FooR where
       where
         helper [] = 
             case method of
-                "POST" -> post
+                "POST" -> postHelper
+                _ -> status405
+        help
 ```
+
+# IDEA: Just rewrite the TH for dispatch and parsing
+
+The whole parsing/dispatch code is a massive mess.
+Honestly I think I can rewrite it and be better off.
+
+# ANYWAY
+
+Let's make a table of possibilities...
+
+* Parent class: `YesodDispatch` or `ParseRoute`
+* Nesting class: Above + `Nested` (1:1)
+* Generation: I can either be generating with a top-level (and thus will be delegating to nested classes + generating nested classes) or generating with a nested class (and thus will be delegating in the same way)
+
+So, that means that, we really have a *special case* - top-level code is going to need to produce the "nested dispatch -> top-level dispatch". But everything else should be the same.
+
+

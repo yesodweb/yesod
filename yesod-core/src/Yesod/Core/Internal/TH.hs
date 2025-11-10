@@ -364,9 +364,12 @@ mkDispatchInstance Nothing master cxt f res = do
                 , nrsTargetName = Nothing
                 }
             }
-    clause' <- mkDispatchClause mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClause mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
-    return [instanceD cxt yDispatch [thisDispatch]]
+    childInstances <-
+        fmap mconcat $ forM childNames $ \name -> do
+            mkDispatchInstance (Just (nameBase name)) master cxt f res
+    return (instanceD cxt yDispatch [thisDispatch] : childInstances)
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
@@ -402,7 +405,7 @@ mkDispatchInstance (Just target) master cxt f res = do
         mdsWithNestedDispatch = mds
             { mdsRunHandler =
                 [| \handler _env mroute _req ->
-                    (fmap toTypedContent handler, mroute)
+                    Just (fmap toTypedContent handler, mroute)
                  |]
             , mdsGetPathInfo =
                 [| snd |]
@@ -429,7 +432,7 @@ mkDispatchInstance (Just target) master cxt f res = do
                         [e|
                             yesodDispatchNested
                                 $(dynsExpr)
-                                ($(mdsMethod mds) $(pure $ reqExp sdc))
+                                ($(mdsMethod mdsWithNestedDispatch) $(pure $ reqExp sdc))
                                 $(pure restExpr)
                             |]
                 , nrsTargetName = Nothing
@@ -464,7 +467,7 @@ mkDispatchInstance (Just target) master cxt f res = do
                         mdsGetHandler mdsWithNestedDispatch mmethod name
                 }
 
-    clause' <- mkDispatchClause finalMds subres
+    (childNames, clause') <- mkDispatchClause finalMds subres
 
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause
@@ -475,6 +478,7 @@ mkDispatchInstance (Just target) master cxt f res = do
                     -- The `mkDispatchClause` expects to take two
                     -- arguments: env and req. But we can determine what
                     -- those are and mean through the MDS. We do not need
+                    -- them to be the yesod site or the actual request.
                     `AppE` mkTupE [VarE methodN, VarE fragmentsN]
                 )
                 [FunD nestHelpN [clause']]
@@ -482,15 +486,19 @@ mkDispatchInstance (Just target) master cxt f res = do
     let targetT = conT (mkName target)
     yDispatchNested <- [t| YesodDispatchNested $(targetT) |]
 
+    childInstances <-
+        fmap mconcat $ forM childNames $ \name -> do
+            mkDispatchInstance (Just (nameBase name)) master cxt f res
     parentSiteT <- [t| ParentSite $(targetT) |]
     parentDynSig <- [t| ParentArgs $(targetT) |]
     return
-        [ instanceD cxt yDispatchNested
+        ( instanceD cxt yDispatchNested
             [ TySynInstD $ TySynEqn Nothing parentSiteT master
             , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
             , thisDispatch
             ]
-        ]
+        : childInstances
+        )
 
 -- | Given a target 'String', find the 'ResourceParent' in the
 -- @['ResourceTree' a]@ corresponding to that target and return it.
@@ -514,7 +522,7 @@ findNestedRoute target (res : ress) =
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
-    clause' <-
+    (childNames, clause') <-
         mkDispatchClause
             (mkMDS
                 return

@@ -75,7 +75,7 @@ do
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance [] (ConT ''MyApp) ress
-    dispatch <- mkDispatchClause MkDispatchSettings
+    (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
         , mdsGetPathInfo = [|fst|]

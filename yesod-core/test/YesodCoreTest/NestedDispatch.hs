@@ -8,6 +8,8 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+{-# OPTIONS_GHC -ddump-splices #-}
+
 module YesodCoreTest.NestedDispatch
     ( specs
     , Widget

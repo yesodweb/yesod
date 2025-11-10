@@ -97,12 +97,16 @@ data SDC = SDC
 -- | A simpler version of Yesod.Routes.TH.Dispatch.mkDispatchClause, based on
 -- view patterns.
 --
+-- The function returns the 'Clause' for the dispatch, along with
+-- a @['Name']@ corresponding to the names of types that require generating
+-- instances for delegation classes. For 'ParseRoute', that's
+-- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q Clause
-mkDispatchClause MkDispatchSettings {..} resources = do
+mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q ([Name], Clause)
+mkDispatchClause mds@MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
-    helperName <- newName "helper"
+    helperName <- newName "dispatchHelper"
 
     let envE = VarE envName
         reqE = VarE reqName
@@ -119,12 +123,15 @@ mkDispatchClause MkDispatchSettings {..} resources = do
             , envExp = envE
             , reqExp = reqE
             }
-    clauses <- concat <$> mapM (go mdsHandleNestedRoute sdc) resources
+    (childNames, clauses) <- mconcat <$> mapM (go mdsHandleNestedRoute sdc) resources
 
-    return $ Clause
-        [VarP envName, VarP reqName]
-        (NormalB $ helperE `AppE` pathInfo)
-        [FunD helperName $ clauses ++ [clause404']]
+    pure
+        ( childNames
+        , Clause
+            [VarP envName, VarP reqName]
+            (NormalB $ helperE `AppE` pathInfo)
+            [FunD helperName $ clauses ++ [clause404']]
+        )
   where
     handlePiece :: Piece a -> Q (Pat, Maybe Exp)
     handlePiece (Static str) = return (LitP $ StringL str, Nothing)
@@ -145,8 +152,17 @@ mkDispatchClause MkDispatchSettings {..} resources = do
       where
         addPat x y = conPCompat '(:) [x, y]
 
-    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q [Clause]
+    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q ([Name], [Clause])
     go mnrs sdc (ResourceParent name _check pieces children) = do
+        -- ok so basically we want to always delegate to the child class
+        -- + create instances of that nested class, if those don't exist.
+
+        {- Just result <- childCall = result -}
+
+        -- instead of
+
+        {- = childCall -}
+
         let mtargetName = mnrs >>= nrsTargetName
         let mtargetMatch =
                 fmap (name ==) mtargetName
@@ -186,24 +202,17 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                 [restP]
                                 (NormalB expr)
                                 []
-                    hndlrName <- newName "hndlr"
                     constrName <- newName "constr"
-                    let guards =
-                            [ PatG
-                                [ BindS
-                                    (conPCompat
-                                        'Just
-                                        [ TupP [VarP hndlrName, VarP constrName]
-                                        ]
-                                    )
-                                    expr
-                                ]
-                            ]
+                    body <- mkGuardedBody (helperE `AppE` restE) $ \match -> do
+                        nrsWrapDispatchCall sdc constr (VarE match)
 
-                    return $ [ Clause
-                        [mkPathPat restP pats]
-                        (NormalB $ helperE `AppE` restE)
-                        [FunD helperName [childClause]]]
+                    pure
+                        ( []
+                        , [ Clause
+                            [mkPathPat restP pats]
+                            body
+                            [FunD helperName [childClause]]]
+                        )
 
             Nothing -> do
                 let sdcEnhanced =
@@ -233,7 +242,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                                     -- accumulate.
                                     sdcEnhanced
 
-                childClauses <- concat <$> mapM (go mnrs' sdc') children
+                (childNames, childClauses) <- mconcat <$> mapM (go mnrs' sdc') children
 
                 if fromMaybe True mtargetMatch || not (null childClauses)
                     then do
@@ -245,7 +254,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                             passThru =
                                 return childClauses
 
-                        case mtargetMatch of
+                        fmap ((,) childNames) $ case mtargetMatch of
                             Nothing ->
                                 -- no match, or no matching. return full.
                                 pure fullReturn
@@ -258,7 +267,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                     else do
                         -- Don't generate clauses for a nested thing we're
                         -- not targeting.
-                        pure []
+                        pure ([], [])
 
     go mnrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         case mnrs >>= nrsTargetName of
@@ -267,16 +276,19 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                 -- Other code branches will set nrsTargetName to Nothing
                 -- when a match has hit, so we'll generate clauses for
                 -- sub-routes of a match.
-                pure []
+                pure ([], [])
             Nothing -> do
                 (pats, dyns) <- handlePieces pieces
 
                 (chooseMethod, finalPat) <- handleDispatch dispatch dyns
 
-                return $ pure $ Clause
-                    [mkPathPat finalPat pats]
-                    (NormalB chooseMethod)
-                    []
+                pure
+                    ( []
+                    , pure $ Clause
+                        [mkPathPat finalPat pats]
+                        (NormalB chooseMethod)
+                        []
+                    )
       where
         handleDispatch :: Dispatch a -> [Exp] -> Q (Exp, Pat)
         handleDispatch dispatch' dyns =

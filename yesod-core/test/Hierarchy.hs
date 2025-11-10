@@ -99,7 +99,7 @@ do
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
     prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
-    dispatch <- mkDispatchClause MkDispatchSettings
+    (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
         , mdsGetPathInfo = [|fst|]
