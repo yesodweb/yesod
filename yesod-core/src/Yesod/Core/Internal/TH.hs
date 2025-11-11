@@ -343,9 +343,9 @@ mkDispatchInstance Nothing master cxt f res = do
                     \sdc constrExpr hndlr ->
                         [e|
                             $(mdsRunHandler mds)
-                                $(pure hndlr)
+                                (fst $(pure hndlr))
                                 $(pure $ envExp sdc)
-                                ($(pure constrExpr) <$> subConstr)
+                                ($(pure constrExpr) <$> snd $(pure hndlr))
                                 $(pure $ reqExp sdc)
                         |]
                 , nrsDispatchCall =
@@ -390,6 +390,15 @@ mkDispatchInstance (Just target) master cxt f res = do
 
     parentDynNs <- forM preDyns $ \_ -> newName "parentDyn"
 
+    parentDynsP <-
+        case parentDynNs of
+            [] -> [p| () |]
+            [x] -> varP x
+            xs -> pure $ TupP $ map VarP xs
+
+    let addParentDynsToDispatch exp = do
+            foldl' AppE exp (map VarE parentDynNs)
+
     let mds =
             mkMDS
                 f
@@ -416,19 +425,19 @@ mkDispatchInstance (Just target) master cxt f res = do
                 , nrsWrapDispatchCall =
                     \sdc constrExpr hndlr ->
                         [e|
-                            $(mdsRunHandler mds)
-                                $(pure hndlr)
+                            $(mdsRunHandler mdsWithNestedDispatch)
+                                (fst $(pure hndlr))
                                 $(pure $ envExp sdc)
-                                ($(pure constrExpr) <$> subConstr)
+                                ($(pure constrExpr) <$> snd $(pure hndlr))
                                 $(pure $ reqExp sdc)
                         |]
                 , nrsDispatchCall =
                     \restExpr sdc constrExpr dyns -> do
                         let dynsExpr =
-                                case dyns of
+                                case map VarE parentDynNs <> dyns of
                                     [] -> [| () |]
                                     [a] -> pure a
-                                    _ -> pure $ mkTupE dyns
+                                    newDyns -> pure $ mkTupE newDyns
                         [e|
                             yesodDispatchNested
                                 $(dynsExpr)
@@ -437,6 +446,9 @@ mkDispatchInstance (Just target) master cxt f res = do
                             |]
                 , nrsTargetName = Nothing
                 }
+            , mdsGetHandler = \mmethod name ->
+                    addParentDynsToDispatch <$>
+                        mdsGetHandler mds mmethod name
             }
 
     parentDynT <-
@@ -447,27 +459,11 @@ mkDispatchInstance (Just target) master cxt f res = do
                 pure $ foldl' AppT (TupleT (length ts)) ts
 
 
-    parentDynsP <-
-        case parentDynNs of
-            [] -> [p| () |]
-            [x] -> varP x
-            xs -> pure $ TupP $ map VarP xs
-
-    let addParentDynsToDispatch exp = do
-            foldl' AppE exp (map VarE parentDynNs)
-
     nestHelpN <- newName "nestHelp"
     methodN <- newName "method"
     fragmentsN <- newName "fragments"
 
-    let finalMds =
-            mdsWithNestedDispatch
-                { mdsGetHandler = \mmethod name ->
-                    addParentDynsToDispatch <$>
-                        mdsGetHandler mdsWithNestedDispatch mmethod name
-                }
-
-    (childNames, clause') <- mkDispatchClause finalMds subres
+    (childNames, clause') <- mkDispatchClause mdsWithNestedDispatch subres
 
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause

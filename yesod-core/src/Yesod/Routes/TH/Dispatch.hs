@@ -71,7 +71,8 @@ data NestedRouteSettings = NestedRouteSettings
         -> Exp
         -- ^ The parent constructor
         -> [Exp]
-        -- ^ The names of the bound variables from the path.
+        -- ^ The bound variables from the parent route and the path. Used
+        -- as the first argument in yesodDispatchNested.
         -> Q Exp
         -- ^ The expression we want to splice in for delegating.
     , nrsTargetName :: Maybe String
