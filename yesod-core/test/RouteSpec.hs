@@ -11,7 +11,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
--- {-# OPTIONS_GHC -ddump-splices #-}
 
 import Test.Hspec
 import Test.HUnit ((@?=))
@@ -76,7 +75,7 @@ do
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance [] (ConT ''MyApp) ress
-    dispatch <- mkDispatchClause MkDispatchSettings
+    (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
         , mdsGetPathInfo = [|fst|]
@@ -86,6 +85,8 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
+        , mdsHandleNestedRoute = Nothing
+        , mdsNestedRouteFallthrough = False
         } ress
     return $
         InstanceD
@@ -95,9 +96,9 @@ do
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
-        : prinst
         : rainst
-        : rrinst
+        : (rrinst <> prinst)
+
 
 instance Dispatcher MySub master where
     dispatcher env (pieces, _method) =

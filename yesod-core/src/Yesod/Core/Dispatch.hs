@@ -28,8 +28,10 @@ module Yesod.Core.Dispatch
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setFocusOnNestedRoute
     , setCreateResources
     , setParameterizedSubroute
+    , setNestedRouteFallthrough
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires
