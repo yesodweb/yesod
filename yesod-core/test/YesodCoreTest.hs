@@ -23,6 +23,7 @@ import qualified YesodCoreTest.JsLoader as JsLoader
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
 import qualified YesodCoreTest.NestedDispatch as NestedDispatch
+import qualified YesodCoreTest.FallthroughDispatch as FallthroughDispatch
 
 -- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
 #ifndef WINDOWS
@@ -73,3 +74,5 @@ specs = do
       metaTest
       describe "NestedDispatch" $ do
           NestedDispatch.specs
+      describe "FallthroughDispatch" $ do
+          FallthroughDispatch.spec

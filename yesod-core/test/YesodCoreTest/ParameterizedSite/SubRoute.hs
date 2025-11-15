@@ -4,7 +4,6 @@
   , ViewPatterns, UndecidableInstances, ConstraintKinds
   #-}
 
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 module YesodCoreTest.ParameterizedSite.SubRoute where
 
 import Yesod.Core

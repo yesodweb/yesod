@@ -1,8 +1,6 @@
 {-# language TemplateHaskell #-}
 {-# language OverloadedStrings, ViewPatterns, TemplateHaskell #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
-
 module Hierarchy.Nest2 where
 
 import Yesod.Routes.Parse

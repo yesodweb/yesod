@@ -40,7 +40,7 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- matches are delegated to prior code instead of flat generation.
     --
     -- @since 1.6.28.0
-    , mdsNestedRouteFallThrough :: !Bool
+    , mdsNestedRouteFallthrough :: !Bool
     -- ^ When 'True', fall through if no route matches (except in the final
     -- case). When 'False', return 404 if the current route clause fails to
     -- match.
@@ -103,7 +103,7 @@ data SDC = SDC
 -- instances for delegation classes. For 'ParseRoute', that's
 -- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q ([Name], Clause)
+mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
 mkDispatchClause mds@MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
@@ -153,7 +153,7 @@ mkDispatchClause mds@MkDispatchSettings {..} resources = do
       where
         addPat x y = conPCompat '(:) [x, y]
 
-    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q ([Name], [Clause])
+    go :: Maybe NestedRouteSettings -> SDC -> ResourceTree a -> Q ([String], [Clause])
     go mnrs sdc (ResourceParent name _check pieces children) = do
         -- ok so basically we want to always delegate to the child class
         -- + create instances of that nested class, if those don't exist.
@@ -216,6 +216,15 @@ mkDispatchClause mds@MkDispatchSettings {..} resources = do
                         )
 
             Nothing -> do
+                -- So, in the case that we do not have an instance: we want
+                -- to generate it. However, we've collapsed several bits of
+                -- information:
+                --
+                -- 1. Does the datatype exist in scope?
+                -- 2. Does it have an instance of the nested class?
+                -- 3. Do we have nested route settings?
+                --
+                -- So we need to disentangle that information still.
                 let sdcEnhanced =
                         sdc
                             { extraParams = extraParams sdc ++ dyns
@@ -255,7 +264,7 @@ mkDispatchClause mds@MkDispatchSettings {..} resources = do
                             passThru =
                                 return childClauses
 
-                        fmap ((,) childNames) $ case mtargetMatch of
+                        fmap ((,) (name : childNames)) $ case mtargetMatch of
                             Nothing ->
                                 -- no match, or no matching. return full.
                                 pure fullReturn
@@ -366,10 +375,14 @@ mkDispatchClause mds@MkDispatchSettings {..} resources = do
                     return (exp, VarP restPath)
 
     mkClause404 envE reqE = do
-        handler <- mds404
-        runHandler <- mdsRunHandler
-        let exp = runHandler `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
-        return $ Clause [WildP] (NormalB exp) []
+        case mdsHandleNestedRoute >> guard mdsNestedRouteFallthrough of
+            Nothing -> do
+                handler <- mds404
+                runHandler <- mdsRunHandler
+                let exp = runHandler `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
+                return $ Clause [WildP] (NormalB exp) []
+            Just () -> do
+                return $ Clause [WildP] (NormalB (ConE 'Nothing)) []
 
 -- | Given an 'Exp' which should result in a @'Maybe' a@, does:
 --

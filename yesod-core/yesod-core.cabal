@@ -192,6 +192,8 @@ test-suite tests
                    YesodCoreTest.ErrorHandling
                    YesodCoreTest.ErrorHandling.CustomApp
                    YesodCoreTest.Exceptions
+                   YesodCoreTest.FallthroughDispatch
+                   YesodCoreTest.FallthroughDispatch.Resources
                    YesodCoreTest.InternalRequest
                    YesodCoreTest.JsAttributes
                    YesodCoreTest.JsLoader

@@ -8,8 +8,6 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
-
 module YesodCoreTest.NestedDispatch
     ( specs
     , Widget
@@ -52,6 +50,9 @@ getHomeR = selectRep $ do
     rep specialHtml "HTMLSPECIAL"
     rep typeXml "XML"
     rep typeJson "JSON"
+
+getNestFooR :: Handler ()
+getNestFooR = pure ()
 
 rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
@@ -267,3 +268,13 @@ specs = do
         it "HomeR" $ routeAttrs HomeR `shouldBe` Set.singleton "home"
         it "JsonR" $ routeAttrs JsonR `shouldBe` Set.empty
         it "ChildR" $ routeAttrs (ParentR 5 $ Child1R "ignored") `shouldBe` Set.singleton "child"
+
+    describe "fallthrough" $ do
+        it "is 404 because fallthrough is disabled" $ do
+            testRequestIO
+                404
+                defaultRequest
+                    { pathInfo = ["nest", "foo"]
+                    , requestMethod = "GET"
+                    }
+                Nothing

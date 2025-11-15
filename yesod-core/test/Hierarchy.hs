@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -ddump-splices #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hierarchy
@@ -36,7 +37,7 @@ import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
-import Hierarchy.Admin
+-- import Hierarchy.Admin
 import Hierarchy.ResourceTree
 import Hierarchy.Nest
 import Hierarchy.Nest2
@@ -90,7 +91,7 @@ mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResource
 
 pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
-pure <$> mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 do
     let resources = hierarchyResources
@@ -110,7 +111,7 @@ do
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
         , mdsHandleNestedRoute = Nothing
-        , mdsNestedRouteFallThrough = False
+        , mdsNestedRouteFallthrough = False
         } resources
     return $ pure $
         InstanceD

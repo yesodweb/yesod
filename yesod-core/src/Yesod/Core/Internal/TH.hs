@@ -46,6 +46,7 @@ module Yesod.Core.Internal.TH
     , setFocusOnNestedRoute
     , setCreateResources
     , setParameterizedSubroute
+    , setNestedRouteFallthrough
     )
  where
 
@@ -263,11 +264,11 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             Just target ->
                 mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
 
-    dispatchDec    <- mkDispatchInstance (roFocusOnNestedRoute opts) site appCxt f res
+    dispatchDec    <- mkDispatchInstance opts (roFocusOnNestedRoute opts) site appCxt f res
     parseRoute <-
         case roFocusOnNestedRoute opts of
             Nothing ->
-                pure <$> mkParseRouteInstance appCxt site res
+                mkParseRouteInstance appCxt site res
             Just target ->
                 mkParseRouteInstanceFor target res
     let rname = mkName $ "resources" ++ namestr
@@ -303,7 +304,7 @@ mkMDS f rh sd = MkDispatchSettings
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = f
     , mdsHandleNestedRoute = Nothing
-    , mdsNestedRouteFallThrough = False
+    , mdsNestedRouteFallthrough = False
     }
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
@@ -312,7 +313,8 @@ mkMDS f rh sd = MkDispatchSettings
 -- when writing library/plugin for yesod, this combinator becomes
 -- handy.
 mkDispatchInstance
-    :: Maybe String
+    :: RouteOpts
+    -> Maybe String
     -- ^ The nested subroute we're focusing on, if present.
     -> Type
     -- ^ The master site type
@@ -323,7 +325,7 @@ mkDispatchInstance
     -> [ResourceTree Type]
     -- ^ The resource
     -> DecsQ
-mkDispatchInstance Nothing master cxt f res = do
+mkDispatchInstance routeOpts Nothing master cxt f res = do
     let mds =
             mkMDS
                 f
@@ -337,7 +339,8 @@ mkDispatchInstance Nothing master cxt f res = do
                     }
                 |]
         mdsWithNestedDispatch = mds
-            { mdsHandleNestedRoute = Just NestedRouteSettings
+            { mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
+            , mdsHandleNestedRoute = Just NestedRouteSettings
                 { nrsClassName = ''YesodDispatchNested
                 , nrsWrapDispatchCall =
                     \sdc constrExpr hndlr ->
@@ -368,12 +371,12 @@ mkDispatchInstance Nothing master cxt f res = do
     let thisDispatch = FunD 'yesodDispatch [clause']
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
-            mkDispatchInstance (Just (nameBase name)) master cxt f res
+            mkDispatchInstance routeOpts (Just name) master cxt f res
     return (instanceD cxt yDispatch [thisDispatch] : childInstances)
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
-mkDispatchInstance (Just target) master cxt f res = do
+mkDispatchInstance routeOpts (Just target) master cxt f res = do
     mstuff <- findNestedRoute target res
     (prePieces, subres) <- case mstuff of
         Nothing ->
@@ -484,7 +487,7 @@ mkDispatchInstance (Just target) master cxt f res = do
 
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
-            mkDispatchInstance (Just (nameBase name)) master cxt f res
+            mkDispatchInstance routeOpts (Just name) master cxt f res
     parentSiteT <- [t| ParentSite $(targetT) |]
     parentDynSig <- [t| ParentArgs $(targetT) |]
     return

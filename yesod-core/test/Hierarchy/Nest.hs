@@ -2,8 +2,6 @@
 {-# language ViewPatterns #-}
 {-# language OverloadedStrings #-}
 
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
-
 module Hierarchy.Nest where
 
 import Yesod.Routes.Parse

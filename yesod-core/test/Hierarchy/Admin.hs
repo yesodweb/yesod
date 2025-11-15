@@ -1,6 +1,6 @@
 {-# language TemplateHaskell, ViewPatterns, OverloadedStrings #-}
 
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+{-# OPTIONS_GHC -ddump-splices #-}
 
 module Hierarchy.Admin where
 

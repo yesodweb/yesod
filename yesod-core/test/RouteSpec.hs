@@ -86,7 +86,7 @@ do
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
         , mdsHandleNestedRoute = Nothing
-        , mdsNestedRouteFallThrough = False
+        , mdsNestedRouteFallthrough = False
         } ress
     return $
         InstanceD
@@ -96,9 +96,9 @@ do
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
-        : prinst
         : rainst
-        : rrinst
+        : (rrinst <> prinst)
+
 
 instance Dispatcher MySub master where
     dispatcher env (pieces, _method) =

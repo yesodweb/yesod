@@ -18,8 +18,10 @@ module Yesod.Routes.TH.RenderRoute
     , setReadDerived
     , setFocusOnNestedRoute
     , roFocusOnNestedRoute
+    , roNestedRouteFallthrough
     , setCreateResources
     , setParameterizedSubroute
+    , setNestedRouteFallthrough
     ) where
 
 import Yesod.Routes.TH.Types
@@ -141,8 +143,8 @@ setFocusOnNestedRoute mstr rdo = rdo { roFocusOnNestedRoute = mstr }
 -- | When 'True', a nested route can fall through if it does not match.
 --
 -- @since 1.6.28.0
-setNestedRouteFallThrough :: Bool -> RouteOpts -> RouteOpts
-setNestedRouteFallThrough b rdo = rdo { roNestedRouteFallthrough = b }
+setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
+setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
 
 -- |
 --

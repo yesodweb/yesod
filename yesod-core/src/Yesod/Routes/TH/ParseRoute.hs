@@ -6,13 +6,14 @@ module Yesod.Routes.TH.ParseRoute
     , mkParseRouteInstanceFor
     ) where
 
+import Control.Monad
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
 import Data.Text (Text)
 import Yesod.Routes.Class
 import Yesod.Routes.TH.Dispatch
 
-mkParseRouteInstance :: Cxt -> Type -> [ResourceTree a] -> Q Dec
+mkParseRouteInstance :: Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstance cxt typ ress = do
     (childNames, cls) <- mkDispatchClause
         MkDispatchSettings
@@ -32,18 +33,23 @@ mkParseRouteInstance cxt typ ress = do
                 , nrsTargetName = Nothing
                 , nrsWrapDispatchCall = \_ _ e -> [|Just $(pure e)|]
                 }
-            , mdsNestedRouteFallThrough = False
+            , mdsNestedRouteFallthrough = False
             }
         (map removeMethods ress)
     helper <- newName "helper"
     fixer <- [|(\f x -> f () x) :: (() -> ([Text], [(Text, Text)]) -> Maybe (Route a)) -> ([Text], [(Text, Text)]) -> Maybe (Route a)|]
 
-    return $ instanceD cxt (ConT ''ParseRoute `AppT` typ)
-        [ FunD 'parseRoute $ return $ Clause
-            []
-            (NormalB $ fixer `AppE` VarE helper)
-            [FunD helper [cls]]
-        ]
+    childInstances <- fmap join $ forM childNames $ \childName ->
+        mkParseRouteInstanceFor childName ress
+
+    return
+        $ [instanceD cxt (ConT ''ParseRoute `AppT` typ)
+            [ FunD 'parseRoute $ return $ Clause
+                []
+                (NormalB $ fixer `AppE` VarE helper)
+                [FunD helper [cls]]
+            ]
+          ] <> childInstances
   where
     -- We do this in order to ski the unnecessary method parsing
     removeMethods (ResourceLeaf res) = ResourceLeaf $ removeMethodsLeaf res
@@ -74,7 +80,7 @@ mkParseRouteInstanceFor target ress = do
                 , nrsTargetName = Just target
                 , nrsWrapDispatchCall = \_ _ expr -> [|Just $(pure expr)|]
                 }
-            , mdsNestedRouteFallThrough = False
+            , mdsNestedRouteFallthrough = False
             }
         (focusTarget (map removeMethods ress))
     helper <- newName "helper"
