@@ -12,6 +12,7 @@ module Yesod.Routes.TH.Dispatch
     ) where
 
 import Prelude hiding (exp)
+import Yesod.Routes.TH.Internal
 import Language.Haskell.TH.Syntax
 import Web.PathPieces
 import Data.Maybe (catMaybes, fromMaybe)
@@ -407,10 +408,3 @@ mkGuardedBody exp mkRhs = do
 defaultGetHandler :: Maybe String -> String -> Q Exp
 defaultGetHandler Nothing s = return $ VarE $ mkName $ "handle" ++ s
 defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method ++ s
-
-conPCompat :: Name -> [Pat] -> Pat
-conPCompat n pats = ConP n
-#if MIN_VERSION_template_haskell(2,18,0)
-                         []
-#endif
-                         pats
