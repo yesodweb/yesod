@@ -5,6 +5,7 @@
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
       mkParseRouteInstance
+    , mkParseRouteInstanceOpts
     , mkParseRouteInstanceFor
     ) where
 
