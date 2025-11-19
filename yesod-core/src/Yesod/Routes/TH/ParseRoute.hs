@@ -59,10 +59,10 @@ mkParseRouteInstanceOpts routeOpts cxt typ ress = do
         mkParseRouteInstanceFor childName ress
 
     return
-        $ [instanceD cxt (ConT ''ParseRoute `AppT` typ)
+        $ childInstances <> [instanceD cxt (ConT ''ParseRoute `AppT` typ)
             [ FunD 'parseRoute (clauses ++ [Clause [WildP] (NormalB (ConE 'Nothing)) []])
             ]
-          ] <> childInstances
+          ]
   where
     recordName :: MonadState (Set.Set String) m => String -> m ()
     recordName name =
@@ -138,7 +138,9 @@ mkParseRouteInstanceOpts routeOpts cxt typ ress = do
                     then do
                         resultName <- newName "result"
                         let stmt = BindS (AsP resultName (conPCompat 'Just [WildP])) parseRouteOnRest
-                        pure $ GuardedB [(PatG [stmt], VarE resultName)]
+                            route = List.foldl' AppE (ConE (mkName name)) dyns
+                        expr <- [e| fmap $(pure route) ( $(pure (VarE resultName)) ) |]
+                        pure $ GuardedB [(PatG [stmt], expr)]
                     else do
                         expr <- [e| fmap $(pure route) ( $(pure parseRouteOnRest) ) |]
                         pure $ NormalB expr
