@@ -104,12 +104,6 @@ mkParseRouteInstanceOpts routeOpts cxt typ ress = do
                 pure $ Clause [pat] (NormalB jroute) []
 
             Subsite _ _ -> do
-                -- TODO: support fully.
-                -- mdsSubDispatcher ~ \_runHandler _getSub toMaster _env ->
-                --
-                -- toMaster uses the accumulated constructors. see
-                -- handleDispatch code in Yesod.Routes.TH.Dispatch
-
                 restName <- newName "rest"
                 queryParamsName <- newName "_queryParams"
 
@@ -171,6 +165,9 @@ data AccumulatedParams = AccumulatedParams
 
 mkParseRouteInstanceFor :: String -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceFor target ress = do
+    -- TODO: do the direct recursion here.
+    -- OPTIONALLY: extract out the actual differences to reuse? should
+    -- really be pretty similar I think. exact same structure.
     (childNames, cls) <- mkDispatchClause
         MkDispatchSettings
             { mdsRunHandler = [|\_ _ x _ -> x|]
