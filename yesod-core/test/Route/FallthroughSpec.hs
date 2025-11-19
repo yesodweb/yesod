@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -43,6 +44,11 @@ do
     /   FooIndexR
 /foo SecondFooR:
     /blah FooBlahR
+    /baz  FooBaz1R:
+        /   FooBazIndexR
+    /baz    FooBaz2R:
+        /foo    FooBaz2FooR
+
     |]
 
     let opts = setNestedRouteFallthrough True defaultOpts
@@ -51,4 +57,12 @@ do
     parse <- mkParseRouteInstanceOpts opts [] appType resources
     pure (render <> parse)
 
-
+spec :: Spec
+spec = do
+    describe "parseRoute" $ do
+        let routeShouldParse path result =
+                parseRoute (path, []) `shouldBe` Just result
+        it "can fall through" $ do
+            routeShouldParse ["foo", "blah"] (SecondFooR FooBlahR)
+        it "nested fallthrough works too" $ do
+            routeShouldParse ["foo", "baz", "foo"] (SecondFooR (FooBaz2R FooBaz2FooR))
