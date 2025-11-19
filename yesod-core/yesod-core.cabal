@@ -99,6 +99,7 @@ library
                      Yesod.Routes.TH.RenderRoute
                      Yesod.Routes.TH.ParseRoute
                      Yesod.Routes.TH.RouteAttrs
+                     Yesod.Routes.TH.Internal
 
     ghc-options:     -Wall
 
@@ -127,6 +128,7 @@ test-suite test-routes
                    Yesod.Routes.TH.RenderRoute
                    Yesod.Routes.TH.RouteAttrs
                    Yesod.Routes.TH.Types
+                   Yesod.Routes.TH.Internal
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell

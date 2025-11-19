@@ -1,7 +1,5 @@
 {-# language TemplateHaskell, ViewPatterns, OverloadedStrings #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
-
 module Hierarchy.Admin where
 
 import Yesod.Routes.Parse

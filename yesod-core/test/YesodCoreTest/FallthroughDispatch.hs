@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{-# OPTIONS_GHC -Wno-orphans -ddump-splices #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module YesodCoreTest.FallthroughDispatch where
 

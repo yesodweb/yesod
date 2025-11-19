@@ -32,6 +32,7 @@ import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 import Data.Foldable
+import Yesod.Routes.TH.Internal
 
 -- | General opts data type for generating yesod.
 --
@@ -486,10 +487,3 @@ notStrict = Bang NoSourceUnpackedness NoSourceStrictness
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
-
-conPCompat :: Name -> [Pat] -> Pat
-conPCompat n pats = ConP n
-#if MIN_VERSION_template_haskell(2,18,0)
-                         []
-#endif
-                         pats

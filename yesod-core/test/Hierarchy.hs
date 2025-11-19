@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hierarchy
