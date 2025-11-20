@@ -25,3 +25,13 @@ conPCompat n pats = ConP n
                          []
 #endif
                          pats
+
+instanceD :: Cxt -> Type -> [Dec] -> Dec
+instanceD = InstanceD Nothing
+
+mkTupE :: [Exp] -> Exp
+mkTupE =
+    TupE
+#if MIN_VERSION_template_haskell(2,16,0)
+        . fmap Just
+#endif

@@ -181,8 +181,5 @@ mkParseRouteInstanceFor target =
         []
         (ConT (mkName target))
 
-instanceD :: Cxt -> Type -> [Dec] -> Dec
-instanceD = InstanceD Nothing
-
 instance Quote (StateT s Q) where
     newName = Trans.lift . newName

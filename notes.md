@@ -67,4 +67,8 @@ Let's make a table of possibilities...
 
 So, that means that, we really have a *special case* - top-level code is going to need to produce the "nested dispatch -> top-level dispatch". But everything else should be the same.
 
+# Parsing Routes is Separate!
 
+OK, thankfully, I have rewritten the route parsing code.
+That was very straightforward and easy to do.
+Now I can untangle the dispatch code so it isn't so much of a bear to work with.

@@ -484,6 +484,3 @@ getRequiredContextFor opts cxt
 
 notStrict :: Bang
 notStrict = Bang NoSourceUnpackedness NoSourceStrictness
-
-instanceD :: Cxt -> Type -> [Dec] -> Dec
-instanceD = InstanceD Nothing
