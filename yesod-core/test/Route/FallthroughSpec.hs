@@ -62,7 +62,11 @@ spec = do
     describe "parseRoute" $ do
         let routeShouldParse path result =
                 parseRoute (path, []) `shouldBe` Just result
+            routeShouldNotParse path =
+                parseRoute (path, []) `shouldBe` (Nothing :: Maybe (Route App))
         it "can fall through" $ do
             routeShouldParse ["foo", "blah"] (SecondFooR FooBlahR)
         it "nested fallthrough works too" $ do
             routeShouldParse ["foo", "baz", "foo"] (SecondFooR (FooBaz2R FooBaz2FooR))
+        it "can fail" $ do
+            routeShouldNotParse ["asdf"]
