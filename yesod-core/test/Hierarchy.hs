@@ -9,6 +9,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -21,6 +23,7 @@ module Hierarchy
     -- to avoid warnings
     , deleteDelete2
     , deleteDelete3
+    , testRouteDatatype
     ) where
 
 import Test.Hspec
@@ -33,6 +36,12 @@ import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
+-- import Hierarchy.Admin
+import Hierarchy.ResourceTree
+import Hierarchy.Nest
+import Hierarchy.Nest2
+import Hierarchy.Nest3
+import Hierarchy.Nest2.NestInner
 
 class ToText a where
     toText :: a -> Text
@@ -77,47 +86,20 @@ runHandler
     -> App sub master
 runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
 
-data Hierarchy = Hierarchy
+mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
+
+pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+
+mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 do
-    let resources = [parseRoutes|
-/ HomeR GET
+    let resources = hierarchyResources
 
-----------------------------------------
-
-/!#Int BackwardsR GET
-
-/admin/#Int AdminR:
-    /            AdminRootR GET
-    /login       LoginR     GET POST
-    /table/#Text TableR     GET
-
-/nest/ NestR !NestingAttr:
-
-  /spaces      SpacedR   GET !NonNested
-
-  /nest2 Nest2:
-    /           GetPostR  GET POST
-    /get        Get2      GET
-    /post       Post2         POST
---    /#Int       Delete2            DELETE
-  /nest3 Nest3:
-    /get        Get3      GET
-    /post       Post3         POST
---    /#Int       Delete3            DELETE
-
-/afterwards AfterR !parent !key=value1:
-  /             After     GET !child !key=value2
-
--- /trailing-nest TrailingNestR:
---  /foo TrailingFooR GET
---  /#Int TrailingIntR GET
-|]
 
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) $ map (fmap parseType) resources
-    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
-    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) $ map (fmap parseType) resources
-    dispatch <- mkDispatchClause MkDispatchSettings
+    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
+    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
+    (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
         , mdsGetPathInfo = [|fst|]
@@ -127,8 +109,10 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
+        , mdsHandleNestedRoute = Nothing
+        , mdsNestedRouteFallthrough = False
         } resources
-    return $
+    return $ pure $
         InstanceD
             Nothing
             []
@@ -136,9 +120,6 @@ do
                 `AppT` ConT ''Hierarchy
                 `AppT` ConT ''Hierarchy)
             [FunD (mkName "dispatcher") [dispatch]]
-        : prinst
-        : rainst
-        : rrinst
 
 getSpacedR :: Handler site String
 getSpacedR = "root-leaf"
@@ -154,6 +135,9 @@ getAfter   :: Handler site String; getAfter = "after"
 
 getHomeR :: Handler site String
 getHomeR = "home"
+
+getNestInnerIndexR :: Handler site String
+getNestInnerIndexR = "inner"
 
 getBackwardsR :: Int -> Handler site Text
 getBackwardsR _ = pack "backwards"
@@ -175,7 +159,6 @@ getGetPostR = pack "get"
 
 postGetPostR :: Handler site Text
 postGetPostR = pack "post"
-
 
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
@@ -206,12 +189,92 @@ hierarchy = describe "hierarchy" $ do
 
     it "dispatches root correctly" $ disp "GET" ["admin", "7"] @?= ("admin root: 7", Just $ AdminR 7 AdminRootR)
     it "dispatches table correctly" $ disp "GET" ["admin", "8", "table", "bar"] @?= ("TableR bar", Just $ AdminR 8 $ TableR "bar")
-    it "parses" $ do
-        parseRoute ([], []) @?= Just HomeR
-        parseRoute ([], [("foo", "bar")]) @?= Just HomeR
-        parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
-        parseRoute (["admin!", "5"], []) @?= (Nothing :: Maybe (Route Hierarchy))
-    it "inherited attributes" $ do
-        routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
-    it "pair attributes" $
-        routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
+    describe "parseRoute" $ do
+        let parseNothing = Nothing :: Maybe (Route Hierarchy)
+        describe "HomeR" $ do
+            it "works" $ do
+                parseRoute ([], []) @?= Just HomeR
+            it "with extraneous query params" $ do
+                parseRoute ([], [("foo", "bar")]) @?= Just HomeR
+        describe "AdminR" $ do
+            it "works" $ do
+                parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
+            it "fails with extra character" $ do
+                parseRoute (["admin!", "5"], []) @?= parseNothing
+            it "works with a subroute with param" $ do
+                parseRoute (["admin", "6", "table", "hello"], []) @?= Just (AdminR 6 (TableR "hello"))
+            describe "parseNestedRoute" $ do
+                it "works" $ do
+                    parseRouteNested ([], []) @?= Just AdminRootR
+                it "works with param" $ do
+                    parseRouteNested (["table", "hello"], []) @?= Just (TableR "hello")
+        describe "NestR" $ do
+            it "fails because there's no top-level handler" $ do
+                parseRoute (["nest"], []) @?= parseNothing
+            it "works for SpacedR" $ do
+                parseRoute (["nest", "spaces"], []) @?= Just (NestR SpacedR)
+            it "works with parseRouteNested" $ do
+                parseRouteNested (["spaces"], []) @?= Just SpacedR
+            describe "Nest2" $ do
+                it "works" $ do
+                    parseRoute (["nest", "nest2"], []) @?= Just (NestR (Nest2 GetPostR))
+                describe "NestInner" $ do
+                    it "works" $ do
+                        parseRoute (["nest", "nest2", "nest-inner"], []) @?= Just (NestR (Nest2 (NestInner NestInnerIndexR)))
+    describe "parseRouteNested" $ do
+        describe "NestInner" $ do
+            it "works" $ do
+                parseRouteNested ([], []) @?= Just NestInnerIndexR
+    describe "routeAttrs" $ do
+        it "inherited attributes" $ do
+            routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
+        it "pair attributes" $
+            routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
+
+        describe "NestingAttr inherits properly" $ do
+            it "routeAttrs" $ do
+                routeAttrs (NestR (Nest2 GetPostR)) @?= Set.fromList ["NestingAttr"]
+            it "routeAttrsNested" $ do
+                routeAttrsNested GetPostR @?= Set.fromList ["NestingAttr"]
+            it "routeAttrsNested InnerNest" $ do
+                routeAttrsNested NestInnerIndexR @?= Set.fromList ["NestingAttr"]
+
+
+-- This value should compile if all routes are present as expected.
+testRouteDatatype :: Route Hierarchy -> Int
+testRouteDatatype r =
+    case r of
+        HomeR -> 0
+        BackwardsR _ -> 1
+        AdminR _ sub ->
+            case sub of
+                AdminRootR -> 0
+                LoginR -> 0
+                TableR _ -> 1
+        NestR sub -> testNestR sub
+        -- NOTE: This is a bug in the behavior of the parser. See issue
+        -- https://github.com/yesodweb/yesod/issues/1886
+        --
+        -- Nest3, by layout, should be under `NestR`. However, since there
+        -- is a comment on column 0, this causes the parser to reset the
+        -- column count.
+        Nest3 sub ->
+            case sub of
+                Get3 -> 0
+                Post3 -> 0
+        AfterR sub ->
+            case sub of
+                After -> 0
+
+testNestR :: NestR -> Int
+testNestR sub =
+    case sub of
+        SpacedR -> 1
+        Nest2 sub' ->
+            case sub' of
+                GetPostR -> 0
+                Get2 -> 0
+                Post2 -> 0
+                NestInner sub'' ->
+                    case sub'' of
+                        NestInnerIndexR -> 0

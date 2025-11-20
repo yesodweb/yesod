@@ -11,7 +11,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
--- {-# OPTIONS_GHC -ddump-splices #-}
 
 import Test.Hspec
 import Test.HUnit ((@?=))
@@ -25,6 +24,7 @@ import Language.Haskell.TH.Syntax
 import Hierarchy
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
+import qualified Route.FallthroughSpec as FallthroughSpec
 
 data MyApp = MyApp
 
@@ -76,7 +76,7 @@ do
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance [] (ConT ''MyApp) ress
-    dispatch <- mkDispatchClause MkDispatchSettings
+    (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
         , mdsGetPathInfo = [|fst|]
@@ -86,6 +86,8 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
+        , mdsHandleNestedRoute = Nothing
+        , mdsNestedRouteFallthrough = False
         } ress
     return $
         InstanceD
@@ -95,9 +97,9 @@ do
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
-        : prinst
         : rainst
-        : rrinst
+        : (rrinst <> prinst)
+
 
 instance Dispatcher MySub master where
     dispatcher env (pieces, _method) =
@@ -186,6 +188,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
 
 main :: IO ()
 main = hspec $ do
+    describe "Route.FallthroughSpec" FallthroughSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ pack "foo") @?= (map pack ["blog", "foo"], [])
