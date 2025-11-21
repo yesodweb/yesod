@@ -72,3 +72,32 @@ So, that means that, we really have a *special case* - top-level code is going t
 OK, thankfully, I have rewritten the route parsing code.
 That was very straightforward and easy to do.
 Now I can untangle the dispatch code so it isn't so much of a bear to work with.
+
+# The Desolation of mkMDS
+
+OK, so `mkMDS` is used to customize the `MkDispatchSettings`.
+It accepts three arguments:
+
+* `mdsUnwrapper = f`
+* `mdsRunHandler = rh`
+* `mdsSubDispatch = sd`
+
+Ah, damn, `MkDispatchSettings` is actually entirely exported.
+Damn, damn, damn.
+So, this is going to be a breaking change if I remove or touch *any* of it - but it already is, because I have added record fields to it!
+
+Alas.
+
+OK, what's the game plan?
+I think I will go ahead and make it much less terrible and accept that this huge functionality bump is going to be a major bump breaking change, but for a vanishingly small set of people using super weird and advanced functionality to custom hand-craft their instances.
+Whatever.
+
+So part of the difficulty here is that the actual code is different with `yesodDispatch` and `yesodDispatchNested` - like the APIs are pretty different.
+With `ParseRoute{,Nested}`, it was easy, because the functions had the same types.
+So generating code was really really simple.
+
+But!! Another difficulty is that we need to retain the ability to dispatch on the *entire* route.
+So probably `YesodDispatchNested` should accept the `WAI.Request` directly instead of letting the parent dig out the handler.
+This simplifies the API because now the input type is the same... sort of.
+
+# Working Backwards (Again?)

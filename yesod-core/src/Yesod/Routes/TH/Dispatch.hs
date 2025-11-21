@@ -35,7 +35,11 @@ import Yesod.Routes.TH.Types
 import Data.Char (toLower)
 import Control.Monad.Trans.Maybe
 import qualified Control.Monad.Trans as Trans
+import Yesod.Core.Internal.Run
+import Yesod.Core.Handler
 
+-- | This datatype describes how to create the dispatch clause for a route
+-- path.
 data MkDispatchSettings b site c = MkDispatchSettings
     { mdsRunHandler :: Q Exp
     , mdsSubDispatcher :: Q Exp
@@ -74,9 +78,7 @@ data MkDispatchSettings b site c = MkDispatchSettings
 --
 -- @since 1.6.28.0
 data NestedRouteSettings = NestedRouteSettings
-    { nrsClassName :: Name
-    -- ^ The class to lookup an instance for a 'ResourceParent' name.
-    , nrsDispatchCall
+    { nrsDispatchCall
         :: Exp
         -- ^ the "rest" of the route fragments
         -> SDC
@@ -195,7 +197,7 @@ mkDispatchClause mds@MkDispatchSettings {..} resources = do
             typeName <- MaybeT $ lookupTypeName name
             nrs <- MaybeT $ pure $ mnrs
             guard $ fromMaybe True mtargetMatch
-            t <- Trans.lift $ isInstance (nrsClassName nrs) [ConT typeName]
+            t <- Trans.lift $ isInstance ''YesodDispatchNested [ConT typeName]
             guard t
             pure nrs
 
@@ -428,8 +430,6 @@ defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method 
 -- handy.
 mkDispatchInstance
     :: RouteOpts
-    -> Maybe String
-    -- ^ The nested subroute we're focusing on, if present.
     -> Type
     -- ^ The master site type
     -> Cxt
@@ -439,10 +439,10 @@ mkDispatchInstance
     -> [ResourceTree Type]
     -- ^ The resource
     -> DecsQ
-mkDispatchInstance routeOpts Nothing master cxt f res = do
+mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Nothing) master cxt unwrapper res = do
     let mds =
             mkMDS
-                f
+                unwrapper
                 [|yesodRunner|]
                 [|\parentRunner getSub toParent env -> yesodSubDispatch
                     YesodSubRunnerEnv
@@ -455,8 +455,7 @@ mkDispatchInstance routeOpts Nothing master cxt f res = do
         mdsWithNestedDispatch = mds
             { mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
             , mdsHandleNestedRoute = Just NestedRouteSettings
-                { nrsClassName = ''YesodDispatchNested
-                , nrsWrapDispatchCall =
+                { nrsWrapDispatchCall =
                     \sdc constrExpr hndlr ->
                         [e|
                             $(mdsRunHandler mds)
@@ -466,7 +465,7 @@ mkDispatchInstance routeOpts Nothing master cxt f res = do
                                 $(pure $ reqExp sdc)
                         |]
                 , nrsDispatchCall =
-                    \restExpr sdc constrExpr dyns -> do
+                    \restExpr sdc _constrExpr dyns -> do
                         let dynsExpr =
                                 case dyns of
                                     [] -> [| () |]
@@ -485,12 +484,23 @@ mkDispatchInstance routeOpts Nothing master cxt f res = do
     let thisDispatch = FunD 'yesodDispatch [clause']
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
-            mkDispatchInstance routeOpts (Just name) master cxt f res
+            mkNestedDispatchInstance routeOpts name master cxt unwrapper res
     return (instanceD cxt yDispatch [thisDispatch] : childInstances)
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
-mkDispatchInstance routeOpts (Just target) master cxt f res = do
+mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Just target) master cxt unwrapper res = do
+    mkNestedDispatchInstance routeOpts target master cxt unwrapper res
+
+mkNestedDispatchInstance
+    :: RouteOpts
+    -> String
+    -> Type
+    -> Cxt
+    -> (Exp -> Q Exp)
+    -> [ResourceTree Type]
+    -> Q [Dec]
+mkNestedDispatchInstance routeOpts target master cxt unwrapper res = do
     mstuff <- findNestedRoute target res
     (prePieces, subres) <- case mstuff of
         Nothing ->
@@ -518,7 +528,7 @@ mkDispatchInstance routeOpts (Just target) master cxt f res = do
 
     let mds =
             mkMDS
-                f
+                unwrapper
                 [|yesodRunner|]
                 [|\parentRunner getSub toParent env -> yesodSubDispatch
                     YesodSubRunnerEnv
@@ -538,8 +548,7 @@ mkDispatchInstance routeOpts (Just target) master cxt f res = do
             , mdsMethod =
                 [| fst |]
             , mdsHandleNestedRoute = Just NestedRouteSettings
-                { nrsClassName = ''YesodDispatchNested
-                , nrsWrapDispatchCall =
+                { nrsWrapDispatchCall =
                     \sdc constrExpr hndlr ->
                         [e|
                             $(mdsRunHandler mdsWithNestedDispatch)
@@ -549,7 +558,7 @@ mkDispatchInstance routeOpts (Just target) master cxt f res = do
                                 $(pure $ reqExp sdc)
                         |]
                 , nrsDispatchCall =
-                    \restExpr sdc constrExpr dyns -> do
+                    \restExpr sdc _constrExpr dyns -> do
                         let dynsExpr =
                                 case map VarE parentDynNs <> dyns of
                                     [] -> [| () |]
@@ -601,7 +610,7 @@ mkDispatchInstance routeOpts (Just target) master cxt f res = do
 
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
-            mkDispatchInstance routeOpts (Just name) master cxt f res
+            mkNestedDispatchInstance routeOpts name master cxt unwrapper res
     parentSiteT <- [t| ParentSite $(targetT) |]
     parentDynSig <- [t| ParentArgs $(targetT) |]
     return
@@ -675,16 +684,16 @@ subTopDispatch _ getSub toParent env = yesodSubDispatch
             })
 
 mkMDS :: (Exp -> Q Exp) -> Q Exp -> Q Exp -> MkDispatchSettings a site b
-mkMDS f rh sd = MkDispatchSettings
-    { mdsRunHandler = rh
-    , mdsSubDispatcher = sd
+mkMDS unwrapper runHandler subDispatcher = MkDispatchSettings
+    { mdsRunHandler = runHandler
+    , mdsSubDispatcher = subDispatcher
     , mdsGetPathInfo = [|W.pathInfo|]
     , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
     , mdsMethod = [|W.requestMethod|]
     , mds404 = [|void notFound|]
     , mds405 = [|void badMethod|]
     , mdsGetHandler = defaultGetHandler
-    , mdsUnwrapper = f
+    , mdsUnwrapper = unwrapper
     , mdsHandleNestedRoute = Nothing
     , mdsNestedRouteFallthrough = False
     }

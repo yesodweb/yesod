@@ -5,7 +5,15 @@ module Yesod.Routes.TH
     , module Yesod.Routes.TH.ParseRoute
     , module Yesod.Routes.TH.RouteAttrs
       -- ** Dispatch
-    , module Yesod.Routes.TH.Dispatch
+    , MkDispatchSettings (..)
+    , mkDispatchClause
+    , defaultGetHandler
+    , NestedRouteSettings (..)
+    , SDC(..)
+    , mkDispatchInstance
+    , mkMDS
+    , mkYesodSubDispatch
+    , subTopDispatch
     ) where
 
 import Yesod.Routes.TH.Types
