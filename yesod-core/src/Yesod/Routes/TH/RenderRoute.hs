@@ -339,7 +339,7 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
                         let childInstances =
                                 InstanceD
                                     Nothing
-                                    (cxt <> getRequiredContextFor opts (fst <$> tyargs))
+                                    cxt
                                     (ConT ''RenderRouteNested `AppT` consDataType)
                                     [ TySynInstD $ TySynEqn Nothing parentSiteT master
                                     , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
