@@ -1,4 +1,4 @@
-{-# language TemplateHaskell, ViewPatterns, OverloadedStrings #-}
+{-# language TemplateHaskell, ViewPatterns, OverloadedStrings, TypeFamilies #-}
 
 module Hierarchy.Admin where
 

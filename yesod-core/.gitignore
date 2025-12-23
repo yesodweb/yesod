@@ -1,3 +1,4 @@
+.claude/
 /dist/
 *.dump-splices
 *.swp

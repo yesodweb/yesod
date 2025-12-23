@@ -1,5 +1,4 @@
-{-# language TemplateHaskell #-}
-{-# language OverloadedStrings, ViewPatterns, TemplateHaskell #-}
+{-# language TemplateHaskell, OverloadedStrings, ViewPatterns, TypeFamilies #-}
 
 module Hierarchy.Nest2 where
 

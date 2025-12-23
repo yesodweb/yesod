@@ -99,7 +99,7 @@ do
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) $ map (fmap parseType) resources
     rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
     prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
-    (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
+    (childNames, dispatch) <- mkDispatchClause TopLevelDispatch MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
         , mdsGetPathInfo = [|fst|]
@@ -109,7 +109,7 @@ do
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
         , mdsUnwrapper = return
-        , mdsHandleNestedRoute = Nothing
+        , mdsHandleNestedRoute = NestedRouteSettings { nrsTargetName = Nothing }
         , mdsNestedRouteFallthrough = False
         } resources
     return $ pure $

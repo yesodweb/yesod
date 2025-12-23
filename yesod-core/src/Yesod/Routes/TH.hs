@@ -24,8 +24,10 @@ module Yesod.Routes.TH
     , mkDispatchClause
     , defaultGetHandler
     , NestedRouteSettings (..)
+    , DispatchPhase (..)
     , SDC(..)
     , mkDispatchInstance
+    , mkNestedDispatchInstance
     , mkMDS
     , mkYesodSubDispatch
     , subTopDispatch

@@ -278,7 +278,9 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
                         if target == name
                             then setFocusOnNestedRoute Nothing opts
                             else opts
-        (cons, decs) <- mkRouteConsOpts newOpts cxt tyargs master children
+        -- Accumulate pieces for children: combine parent pieces with this route's pieces
+        let accumulatedPieces = prePieces <> pieces
+        (cons, decs) <- mkRouteConsOpts' accumulatedPieces children
         let childDataName = mkName name
 
         -- Generate the child datatype if it has not been generated
@@ -497,10 +499,6 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
         child <- newName "child"
         let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
 
-        pack' <- [|pack|]
-        tsp <- [|toPathPiece|]
-        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
-
         typeExists <- lookupTypeName name
         hasNestInstance <- case typeExists of
             Just _ ->
@@ -508,39 +506,32 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
             Nothing ->
                 pure False
 
-        let parentArgsExp =
-                case dyns of
+        -- Extract parent dynamic variables from parentArgsNames
+        let parentDyns = mapMaybe (either (const Nothing) Just) parentArgsNames
+
+        -- Accumulate parent args: combine parent dynamic vars with this route's dynamic vars
+        let allDyns = parentDyns ++ dyns
+            accumulatedParentArgsExp =
+                case allDyns of
+                    [] -> ConE '()
                     [a] -> VarE a
-                    _ -> mkTupE (map VarE dyns)
+                    _ -> mkTupE (map VarE allDyns)
+
+            -- Pattern for extracting parent args from the function parameter
             parentArgsPat =
-                case dyns of
-                    [a] -> VarP a
-                    _ -> TupP $ map VarP dyns
-        childRender <- newName "childRender"
-        let rr = VarE childRender
+                case map VarP parentDyns of
+                    [] -> WildP
+                    [a] -> a
+                    pats -> TupP pats
+
+        -- The body should call renderRouteNested with accumulated parent args
         let renderRouteNestedCall =
-                VarE 'renderRouteNested `AppE` parentArgsExp
-            childClauses =
-                [Clause [] (NormalB renderRouteNestedCall) []
-                ]
+                VarE 'renderRouteNested `AppE` accumulatedParentArgsExp `AppE` VarE child
+
             childNames =
                 if hasNestInstance
                 then []
                 else [name]
-
-        a <- newName "a"
-        b <- newName "b"
-
-        colon <- [|(:)|]
-        let cons y ys = InfixE (Just y) colon (Just ys)
-        let pieces' = foldr cons (VarE a) piecesSingle
-
-        let body = LamE [TupP [VarP a, VarP b]] (TupE
-#if MIN_VERSION_template_haskell(2,16,0)
-                                                  $ map Just
-#endif
-                                                  [pieces', VarE b]
-                                                ) `AppE` (rr `AppE` VarE child)
 
         pure
             ( [Clause [parentArgsPat, pat] (NormalB renderRouteNestedCall) []]
@@ -558,7 +549,20 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
         pack' <- [|pack|]
         tsp <- [|toPathPiece|]
-        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
+
+        -- Build the FULL path including parent pieces
+        -- parentArgsNames contains Either String Name for each piece in the parent path
+        let parentDyns = mapMaybe (either (const Nothing) Just) parentArgsNames
+            parentArgsPat =
+                case map VarP parentDyns of
+                    [] -> WildP
+                    [a] -> a
+                    pats -> TupP pats
+
+        -- Build parent path pieces from parentArgsNames
+        let parentPieces = mkParentPieces pack' tsp parentArgsNames parentDyns
+            -- Build this resource's own pieces
+            thisResourcePieces = mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
 
         piecesMulti <-
             case resourceMulti res of
@@ -566,15 +570,6 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
                 Just{} -> do
                     tmp <- [|toPathMultiPiece|]
                     return $ tmp `AppE` VarE (last dyns)
-
-        let parentDyns =
-                mapMaybe (either (const Nothing) Just) parentArgsNames
-            parentArgsPat =
-                case map VarP parentDyns of
-                    [a] -> a
-                    pats -> TupP pats
-
-
 
         body <-
             case sub of
@@ -585,7 +580,9 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
                     colon <- [|(:)|]
                     let cons y ys = InfixE (Just y) colon (Just ys)
-                    let pieces = foldr cons (VarE a) piecesSingle
+                    -- Combine parent pieces with this resource's pieces
+                    let allPieces = parentPieces ++ thisResourcePieces
+                    let pieces = foldr cons (VarE a) allPieces
 
                     return $ LamE [TupP [VarP a, VarP b]] (TupE
 #if MIN_VERSION_template_haskell(2,16,0)
@@ -596,11 +593,13 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
                 _ -> do
                     colon <- [|(:)|]
                     let cons a b = InfixE (Just a) colon (Just b)
+                    -- Combine parent pieces with this resource's pieces
+                    let allPieces = parentPieces ++ thisResourcePieces
                     return $ TupE
 #if MIN_VERSION_template_haskell(2,16,0)
                       $ map Just
 #endif
-                      [foldr cons piecesMulti piecesSingle, ListE []]
+                      [foldr cons piecesMulti allPieces, ListE []]
 
         return ( [Clause [parentArgsPat, pat] (NormalB body) []], [])
 
@@ -608,6 +607,17 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
     mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
     mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
     mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
+
+    -- Build path pieces from parentArgsNames (which contains both static and dynamic pieces)
+    mkParentPieces :: Exp -> Exp -> [Either String Name] -> [Name] -> [Exp]
+    mkParentPieces pack' tsp parentArgsNames parentDyns = go parentArgsNames parentDyns
+      where
+        go [] _ = []
+        go (Left staticStr : rest) dyns =
+            (pack' `AppE` LitE (StringL staticStr)) : go rest dyns
+        go (Right _ : rest) (dyn : dyns) =
+            (tsp `AppE` VarE dyn) : go rest dyns
+        go (Right _ : _) [] = error "mkParentPieces: dynamic piece without corresponding variable"
 
 -- | Generate the 'RenderRoute' instance.
 --
@@ -657,7 +667,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                 Nothing ->
                     fail $ "Failed to find '" <> target <> "' in routes"
                 Just (prepieces, ress') ->
-                    mkRenderRouteNestedInstanceOpts opts cxt tyargs typ prepieces target ress
+                    mkRenderRouteNestedInstanceOpts opts cxt tyargs typ prepieces target ress'
   where
     routeDataName = ConT ''Route `AppT` typ
     (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
@@ -703,5 +713,168 @@ mkRenderRouteNestedInstanceOpts
     -> String
     -> [ResourceTree Type]
     -> Q [Dec]
-mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
-    pure []
+mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress = do
+    -- Generate constructors for all children
+    (cons, _childDecs) <- mkRouteConsOpts' prepieces ress
+
+    -- Create the datatype name
+    let targetName = mkName target
+        targetDataType = foldl' (\b a -> b `AppT` fst a) (ConT targetName) tyargs
+
+    -- Set up type arguments for the datatype declaration
+    let tyvarbndr =
+#if MIN_VERSION_template_haskell(2,21,0)
+            (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
+            (`PlainTV` ()) :: Name -> TyVarBndr ()
+#else
+            PlainTV :: Name -> TyVarBndr
+#endif
+        subrouteDecTypeArgs = fmap (tyvarbndr . snd) tyargs
+
+    -- Get deriving clauses
+    let (inlineDerives, mkStandaloneDerives) = getDerivesFor routeOpts cxt
+
+    -- Create the datatype declaration
+    let dataDecl = DataD [] targetName subrouteDecTypeArgs Nothing cons inlineDerives
+
+    -- Compute ParentArgs type from accumulated dynamic pieces
+    let piecesAndNames =
+            map (\p -> case p of
+                    Static str -> Left str
+                    Dynamic a -> Right a)
+                prepieces
+        preDyns = mapMaybe (either (const Nothing) Just) piecesAndNames
+
+    parentDynT <-
+        case preDyns of
+            [] -> [t| () |]
+            [t] -> pure t
+            ts -> pure $ foldl' AppT (TupleT (length ts)) ts
+
+    -- Generate variable names for parent pieces
+    parentNames <- forM piecesAndNames $ \epiece'name -> do
+        case epiece'name of
+            Left piece ->
+                pure (Left piece)
+            Right t -> do
+                let tyName = filter isAlphaNum $ show t
+                    lowerFirst xs = case xs of
+                        (a : as) -> toLower a : as
+                        [] -> error "empty name????"
+                Right <$> newName (lowerFirst tyName)
+
+    -- Generate renderRouteNested clauses for the children
+    (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames ress
+
+    -- Create the RenderRouteNested instance
+    parentSiteT <- [t| ParentSite _ |]
+    parentDynSig <- [t| ParentArgs _ |]
+    let renderRouteNestedInstance =
+            InstanceD
+                Nothing
+                (cxt <> getRequiredContextFor routeOpts (fst <$> tyargs))
+                (ConT ''RenderRouteNested `AppT` targetDataType)
+                [ TySynInstD $ TySynEqn Nothing parentSiteT typ
+                , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
+                , FunD 'renderRouteNested childClauses
+                ]
+
+    -- Return the datatype declaration, instance, and any standalone derives
+    return $ dataDecl : renderRouteNestedInstance : mkStandaloneDerives targetDataType
+  where
+    mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
+    mkRouteConsOpts' prePieces = foldMap (mkRouteCon' prePieces)
+
+    mkRouteCon' :: [Piece Type] -> ResourceTree Type -> Q ([Con], [Dec])
+    mkRouteCon' _ (ResourceLeaf res) = do
+        pure ([con], [])
+      where
+        con = NormalC (mkName $ resourceName res)
+            $ map (notStrict,)
+            $ concat [singles, multi, sub]
+        singles = concatMap toSingle $ resourcePieces res
+        toSingle Static{} = []
+        toSingle (Dynamic typ) = [typ]
+
+        multi = maybeToList $ resourceMulti res
+
+        sub =
+            case resourceDispatch res of
+                Subsite { subsiteType = subtyp } -> [ConT ''Route `AppT` subtyp]
+                _ -> []
+
+    mkRouteCon' prePieces (ResourceParent name _check pieces children) = do
+        -- For nested parents within the focused route, recursively generate
+        let accumulatedPieces = prePieces <> pieces
+        (cons, decs) <- mkRouteConsOpts' accumulatedPieces children
+        let childDataName = mkName name
+
+        -- Check if the child datatype already exists
+        mname' <- lookupTypeName name
+        mdec <- case mname' of
+            Just _ -> pure Nothing
+            Nothing -> do
+                -- Generate the child datatype and instances
+                let tyvarbndr' =
+#if MIN_VERSION_template_haskell(2,21,0)
+                        (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
+                        (`PlainTV` ()) :: Name -> TyVarBndr ()
+#else
+                        PlainTV :: Name -> TyVarBndr
+#endif
+                    subrouteDecTypeArgs' = fmap (tyvarbndr' . snd) tyargs
+                    (inlineDerives', mkStandaloneDerives') = getDerivesFor routeOpts cxt
+                    childData = DataD [] childDataName subrouteDecTypeArgs' Nothing cons inlineDerives'
+                    childDataType = foldl' AppT (ConT childDataName) (fst <$> tyargs)
+
+                -- Generate the RenderRouteNested instance for the child
+                let piecesAndNames' =
+                        map (\p -> case p of
+                                Static str -> Left str
+                                Dynamic a -> Right a)
+                            (prePieces <> pieces)
+                    preDyns' = mapMaybe (either (const Nothing) Just) piecesAndNames'
+
+                parentDynT' <-
+                    case preDyns' of
+                        [] -> [t| () |]
+                        [t] -> pure t
+                        ts -> pure $ foldl' AppT (TupleT (length ts)) ts
+
+                parentNames' <- forM piecesAndNames' $ \epiece'name -> do
+                    case epiece'name of
+                        Left piece -> pure (Left piece)
+                        Right t -> do
+                            let tyName = filter isAlphaNum $ show t
+                                lowerFirst xs = case xs of
+                                    (a : as) -> toLower a : as
+                                    [] -> error "empty name????"
+                            Right <$> newName (lowerFirst tyName)
+
+                (childClauses', _) <- mkRenderRouteNestedClauses parentNames' children
+
+                parentSiteT' <- [t| ParentSite _ |]
+                parentDynSig' <- [t| ParentArgs _ |]
+                let childInstances =
+                        InstanceD
+                            Nothing
+                            (cxt <> getRequiredContextFor routeOpts (fst <$> tyargs))
+                            (ConT ''RenderRouteNested `AppT` childDataType)
+                            [ TySynInstD $ TySynEqn Nothing parentSiteT' typ
+                            , TySynInstD $ TySynEqn Nothing parentDynSig' parentDynT'
+                            , FunD 'renderRouteNested childClauses'
+                            ]
+
+                pure $ Just (childData : [childInstances] ++ mkStandaloneDerives' childDataType)
+
+        let con = NormalC (mkName name)
+                $ map (notStrict,)
+                $ singles ++ [foldl' (\b a -> b `AppT` fst a) (ConT childDataName) tyargs]
+
+            singles = concatMap toSingle pieces
+            toSingle Static{} = []
+            toSingle (Dynamic subtyp) = [subtyp]
+
+        return ([con], maybe id (<>) mdec decs)
