@@ -7,7 +7,6 @@ module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
       mkParseRouteInstance
     , mkParseRouteInstanceOpts
-    , mkParseRouteInstanceFor
     ) where
 
 import qualified Data.List as List
@@ -26,32 +25,35 @@ import Yesod.Routes.TH.Internal
 import Control.Arrow (second)
 import Data.Maybe
 
-mkParseRouteInstance :: Cxt -> Type -> [ResourceTree a] -> Q [Dec]
+mkParseRouteInstance :: [(Type, Name)] -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstance =
     mkParseRouteInstanceOpts defaultOpts
 
-mkParseRouteInstanceOpts :: RouteOpts -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
-mkParseRouteInstanceOpts routeOpts cxt typ unfocusedRess = do
+mkParseRouteInstanceOpts :: RouteOpts -> [(Type, Name)] -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
+mkParseRouteInstanceOpts routeOpts (nullifyWhenNoParam routeOpts -> tyargs) cxt typ unfocusedRess = do
     let ress = focusTarget unfocusedRess
     (clauses, childNames) <- flip runStateT mempty $ traverse (generateParseRouteClause routeOpts) ress
 
-    childInstances <- fmap join $ forM (Set.toList childNames) $ \childName ->
-        mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } cxt (ConT (mkName childName)) ress
+    childInstances <- fmap join $ forM (Set.toList childNames) $ \childName -> do
+        let targetType =
+                List.foldl' (\t x -> t `AppT` fst x) (ConT (mkName childName)) tyargs
+        mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } tyargs cxt targetType ress
 
     let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
         allClauses = clauses <> [missingClause]
 
     let thisInstance =
             case roFocusOnNestedRoute routeOpts of
-                Just target ->
-                    instanceD [] (ConT ''ParseRouteNested `AppT` ConT (mkName target))
+                Just target -> do
+                    let targetType =
+                            List.foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
+                    instanceD cxt (ConT ''ParseRouteNested `AppT` targetType)
                         [ FunD 'parseRouteNested allClauses
                         ]
                 Nothing ->
                     instanceD cxt (ConT ''ParseRoute `AppT` typ)
                         [ FunD 'parseRoute allClauses
                         ]
-
 
     pure $ thisInstance : childInstances
   where
@@ -173,13 +175,6 @@ data AccumulatedParams = AccumulatedParams
     { accumulatedParameters :: [Exp]
     , accumulatedConstructors :: [Exp]
     }
-
-mkParseRouteInstanceFor :: String -> [ResourceTree a] -> Q [Dec]
-mkParseRouteInstanceFor target =
-    mkParseRouteInstanceOpts
-        defaultOpts { roFocusOnNestedRoute = Just target }
-        []
-        (ConT (mkName target))
 
 instance Quote (StateT s Q) where
     newName = Trans.lift . newName

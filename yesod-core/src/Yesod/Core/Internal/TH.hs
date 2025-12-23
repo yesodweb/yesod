@@ -256,12 +256,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
 
     dispatchDec <- mkDispatchInstance opts site appCxt boundNames f res
-    parseRoute <-
-        case roFocusOnNestedRoute opts of
-            Nothing ->
-                mkParseRouteInstance appCxt site res
-            Just target ->
-                mkParseRouteInstanceFor target res
+    parseRoute <- mkParseRouteInstanceOpts opts boundNames appCxt site res
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
         if shouldCreateResources opts
