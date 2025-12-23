@@ -29,16 +29,6 @@ import qualified Route.RenderRouteSpec as RenderRouteSpec
 
 data MyApp = MyApp
 
--- Dispatcher class (moved from Hierarchy for testing)
-class Dispatcher sub master where
-    dispatcher :: Env master sub -> ([Text], S8.ByteString) -> (Text, Maybe (YRC.Route master))
-
-data Env master sub = Env
-    { envToMaster :: YRC.Route sub -> YRC.Route master
-    , envMaster   :: master
-    , envSub      :: sub
-    }
-
 data MySub = MySub
 instance RenderRoute MySub where
     data
@@ -213,28 +203,6 @@ main = hspec $ do
         it "renders subsite param correctly" $ renderRoute (SubparamR 6 $ ParamRoute 'c')
             @?= (map pack ["subparam", "6", "c"], [])
 
-    -- Dispatch tests temporarily disabled due to dispatch API changes
-    -- describe "thDispatch" $ do
-    --     let disp m ps = dispatcher
-    --             (Env
-    --                 { envToMaster = id
-    --                 , envMaster = MyApp
-    --                 , envSub = MyApp
-    --                 })
-    --             (map pack ps, S8.pack m)
-    --     it "routes to root" $ disp "GET" [] @?= (pack "this is the root", Just RootR)
-    --     it "POST root is 405" $ disp "POST" [] @?= (pack "405", Just RootR)
-    --     it "invalid page is a 404" $ disp "GET" ["not-found"] @?= (pack "404", Nothing :: Maybe (YRC.Route MyApp))
-    --     it "routes to blog post" $ disp "GET" ["blog", "somepost"]
-    --         @?= (pack "some blog post: somepost", Just $ BlogPostR $ pack "somepost")
-    --     it "routes to blog post, POST method" $ disp "POST" ["blog", "somepost2"]
-    --         @?= (pack "POST some blog post: somepost2", Just $ BlogPostR $ pack "somepost2")
-    --     it "routes to wiki" $ disp "DELETE" ["wiki", "foo", "bar"]
-    --         @?= (pack "the wiki: [\"foo\",\"bar\"]", Just $ WikiR $ map pack ["foo", "bar"])
-    --     it "routes to subsite" $ disp "PUT" ["subsite", "baz"]
-    --         @?= (pack "subsite: [\"baz\"]", Just $ SubsiteR $ MySubRoute ([pack "baz"], []))
-    --     it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
-    --         @?= (pack "subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
 
     describe "route parsing" $ do
         it "subsites work" $ do

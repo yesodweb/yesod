@@ -29,10 +29,15 @@ do
                 }
             ]
         ]
+
+    case names of
+        ["FirstR"] -> pure ()
+        _ -> fail $ "Expected BlahR as name, got: " <> show names
+
     case clauses of
-        [Clause [pat] (NormalB expr) []] ->
+        [Clause [_pat] (NormalB expr) []] ->
             case expr of
-                VarE ((== 'renderRouteNested) -> True) `AppE` (VarE x) `AppE` (VarE c) ->
+                VarE ((== 'renderRouteNested) -> True) `AppE` (VarE _x) `AppE` (VarE _c) ->
                     pure ()
                 _ ->
                     fail $ "Expr wrong shape: " <> show expr
@@ -60,6 +65,11 @@ do
             ]
         ]
 
+    case names of
+        [nm] | nm == "FirstR" ->
+            pure ()
+        _ -> fail $ "Names should have been FirstR, got: " <> show names
+
     case clauses of
         [Clause [parentArgPat, routePat] (NormalB expr) []] -> do
             case parentArgPat of
@@ -69,13 +79,13 @@ do
                     fail $ "Wrong parentArgPat: " <> show parentArgPat
 
             case routePat of
-                ConP ((mkName "FirstR" ==) -> True) [] [VarP n, VarP c] ->
+                ConP ((mkName "FirstR" ==) -> True) [] [VarP _n, VarP _c] ->
                     pure ()
                 _ ->
                     fail $ "Wrong routePat: " <> show routePat
 
             case expr of
-                VarE ((== 'renderRouteNested) -> True) `AppE` (TupE [Just (VarE x), Just (VarE y)]) `AppE` (VarE child) ->
+                VarE ((== 'renderRouteNested) -> True) `AppE` (TupE [Just (VarE _x), Just (VarE _y)]) `AppE` (VarE _child) ->
                     pure ()
                 _ ->
                     fail $ "Expr wrong shape: " <> show expr
@@ -85,8 +95,7 @@ do
     pure []
 
 do
-    let int = ConT ''Int
-        parentName = mkName "parent"
+    let parentName = mkName "parent"
     (clauses, names) <- mkRenderRouteNestedClauses
         [Left "hello", Right parentName]
         [ ResourceLeaf Resource
@@ -102,7 +111,7 @@ do
         ]
 
     case clauses of
-        [Clause [parentArgPat, routePat] (NormalB expr) []] -> do
+        [Clause [parentArgPat, routePat] (NormalB _expr) []] -> do
             case parentArgPat of
                 VarP _ ->
                     pure ()
@@ -118,6 +127,9 @@ do
         _ ->
             fail $ "Got the wrong clauses: " <> show clauses
 
+    case names of
+        [] -> pure ()
+        _ -> fail $ "Expected no names, got: " <> show names
     pure []
 
 data App = App

@@ -6,11 +6,7 @@
 
 module YesodCoreTest.RenderRouteSpec.TH where
 
-import Yesod.Routes.TH.Types
-import Language.Haskell.TH
-import Yesod.Routes.TH.RenderRoute
 import Yesod.Routes.Class
-import Test.Hspec
 import YesodCoreTest.RenderRouteSpec
 
 do

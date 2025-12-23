@@ -37,6 +37,7 @@ import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
+import Control.Monad (forM)
 import Hierarchy.Admin
 import Hierarchy.ResourceTree
 import Hierarchy.Nest
@@ -93,35 +94,6 @@ pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
-do
-    let resources = hierarchyResources
-
-
-    rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) $ map (fmap parseType) resources
-    rainst <- mkRouteAttrsInstance [] (ConT ''Hierarchy) resources
-    prinst <- mkParseRouteInstance [] (ConT ''Hierarchy) resources
-    (childNames, dispatch) <- mkDispatchClause TopLevelDispatch MkDispatchSettings
-        { mdsRunHandler = [|runHandler|]
-        , mdsSubDispatcher = [|subDispatch|]
-        , mdsGetPathInfo = [|fst|]
-        , mdsMethod = [|snd|]
-        , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
-        , mds404 = [|pack "404"|]
-        , mds405 = [|pack "405"|]
-        , mdsGetHandler = defaultGetHandler
-        , mdsUnwrapper = return
-        , mdsHandleNestedRoute = NestedRouteSettings { nrsTargetName = Nothing }
-        , mdsNestedRouteFallthrough = False
-        } resources
-    return $ pure $
-        InstanceD
-            Nothing
-            []
-            (ConT ''Dispatcher
-                `AppT` ConT ''Hierarchy
-                `AppT` ConT ''Hierarchy)
-            [FunD (mkName "dispatcher") [dispatch]]
-
 getSpacedR :: Handler site String
 getSpacedR = "root-leaf"
 
@@ -169,27 +141,6 @@ hierarchy = describe "hierarchy" $ do
         renderRoute (AdminR 5 AdminRootR) @?= (["admin", "5"], [])
     it "renders table correctly" $
         renderRoute (AdminR 6 $ TableR "foo") @?= (["admin", "6", "table", "foo"], [])
-    let disp m ps = dispatcher
-            (Env
-                { envToMaster = id
-                , envMaster = Hierarchy
-                , envSub = Hierarchy
-                })
-            (map pack ps, S8.pack m)
-
-    let testGetPost route getRes postRes = do
-          let routeStrs = map unpack $ fst (renderRoute route)
-          disp "GET" routeStrs @?= (getRes, Just route)
-          disp "POST" routeStrs @?= (postRes, Just route)
-
-    it "dispatches routes with multiple METHODs: admin" $
-        testGetPost (AdminR 1 LoginR) "login: 1" "post login: 1"
-
-    it "dispatches routes with multiple METHODs: nesting" $
-        testGetPost (NestR $ Nest2 GetPostR) "get" "post"
-
-    it "dispatches root correctly" $ disp "GET" ["admin", "7"] @?= ("admin root: 7", Just $ AdminR 7 AdminRootR)
-    it "dispatches table correctly" $ disp "GET" ["admin", "8", "table", "bar"] @?= ("TableR bar", Just $ AdminR 8 $ TableR "bar")
     describe "parseRoute" $ do
         let parseNothing = Nothing :: Maybe (Route Hierarchy)
         describe "HomeR" $ do

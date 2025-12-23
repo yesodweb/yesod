@@ -17,16 +17,9 @@ import Yesod.Core
 import Test.Hspec
 import Data.Foldable (for_)
 import Test.Hspec
-import Network.Wai
-import Network.Wai.Test
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Char8 as S8
-import Data.String (IsString)
-import Data.Text (Text)
 import Data.Maybe (fromJust)
-import Data.Monoid (Endo (..))
-import qualified Control.Monad.Trans.Writer    as Writer
-import qualified Data.Set as Set
 
 mkYesodOpts (setNestedRouteFallthrough True defaultOpts) "App" fallthroughDispatchResources
 
