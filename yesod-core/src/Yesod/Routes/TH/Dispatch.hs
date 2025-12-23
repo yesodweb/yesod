@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -111,8 +112,8 @@ data SDC = SDC
 -- instances for delegation classes. For 'ParseRoute', that's
 -- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: DispatchPhase -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause phase mds@MkDispatchSettings {..} resources = do
+mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -163,15 +164,6 @@ mkDispatchClause phase mds@MkDispatchSettings {..} resources = do
 
     go :: DispatchPhase -> NestedRouteSettings -> SDC -> ResourceTree a -> Q ([String], [Clause])
     go _phase nrs sdc (ResourceParent name _check pieces _children) = do
-        -- ok so basically we want to always delegate to the child class
-        -- + create instances of that nested class, if those don't exist.
-
-        {- Just result <- childCall = result -}
-
-        -- instead of
-
-        {- = childCall -}
-
         let mtargetName = nrsTargetName nrs
         let mtargetMatch =
                 fmap (name ==) mtargetName
@@ -193,7 +185,7 @@ mkDispatchClause phase mds@MkDispatchSettings {..} resources = do
         let helperE = VarE helperName
 
         let constr = foldl' AppE (ConE (mkName name)) dyns
-        expr <- nestedDispatchCall mds restE sdc (extraParams sdc ++ dyns)
+        expr <- nestedDispatchCall mds restE sdc (fmap VarE preDyns <> extraParams sdc ++ dyns)
         let childClause =
                 Clause
                     [restP]
@@ -371,7 +363,7 @@ wrapNestedDispatchCall dispatchPhase mds sdc constrExpr hndlr =
             |]
         NestedDispatch ->
             [e|
-                fmap (fmap $(pure constrExpr)) $(pure hndlr)
+                Just $ fmap (fmap ($(pure constrExpr))) $ $(pure hndlr)
             |]
 
 -- | Given an 'Exp' which should result in a @'Maybe' a@, does:
@@ -436,7 +428,7 @@ mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Nothing) master cxt (nulli
                 }
             }
         phase = determinePhase mds
-    (childNames, clause') <- mkDispatchClause phase mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClause phase [] mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
@@ -512,19 +504,11 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                         mdsGetHandler mds mmethod name
             }
 
-    -- parentDynT <-
-    --     case preDyns of
-    --         [] -> [t| () |]
-    --         [t] -> pure t
-    --         ts ->
-    --             pure $ foldl' AppT (TupleT (length ts)) ts
-
-
     nestHelpN <- newName "nestHelp"
     methodN <- newName "method"
     fragmentsN <- newName "fragments"
 
-    (childNames, clause') <- mkDispatchClause NestedDispatch mdsWithNestedDispatch subres
+    (childNames, clause') <- mkDispatchClause NestedDispatch parentDynNs mdsWithNestedDispatch subres
 
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause
@@ -558,6 +542,7 @@ mkYesodSubDispatch res = do
     (_childNames, clause') <-
         mkDispatchClause
             TopLevelDispatch
+            []
             (mkMDS
                 return
                 [|subHelper|]
