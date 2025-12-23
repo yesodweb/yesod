@@ -768,8 +768,8 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
     (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames ress
 
     -- Create the RenderRouteNested instance
-    parentSiteT <- [t| ParentSite _ |]
-    parentDynSig <- [t| ParentArgs _ |]
+    parentSiteT <- [t| ParentSite $(pure targetDataType) |]
+    parentDynSig <- [t| ParentArgs $(pure targetDataType) |]
     let renderRouteNestedInstance =
             InstanceD
                 Nothing
