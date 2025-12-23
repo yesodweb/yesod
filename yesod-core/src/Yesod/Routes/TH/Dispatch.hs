@@ -371,7 +371,7 @@ wrapNestedDispatchCall dispatchPhase mds sdc constrExpr hndlr =
             |]
         NestedDispatch ->
             [e|
-                fmap $(pure constrExpr) $(pure hndlr)
+                fmap (fmap $(pure constrExpr)) $(pure hndlr)
             |]
 
 -- | Given an 'Exp' which should result in a @'Maybe' a@, does:
