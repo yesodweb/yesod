@@ -25,6 +25,7 @@ import Hierarchy
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
 import qualified Route.FallthroughSpec as FallthroughSpec
+import qualified Route.RenderRouteSpec as RenderRouteSpec
 
 data MyApp = MyApp
 
@@ -189,6 +190,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
 main :: IO ()
 main = hspec $ do
     describe "Route.FallthroughSpec" FallthroughSpec.spec
+    describe "Route.RenderRouteSpec" RenderRouteSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ pack "foo") @?= (map pack ["blog", "foo"], [])

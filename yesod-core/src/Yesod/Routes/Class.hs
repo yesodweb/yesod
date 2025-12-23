@@ -13,6 +13,7 @@ module Yesod.Routes.Class
 
 import Data.Text (Text)
 import Data.Set (Set)
+import Data.Kind (Type)
 
 class Eq (Route a) => RenderRoute a where
     -- | The <http://www.yesodweb.com/book/routing-and-handlers type-safe URLs> associated with a site argument.
@@ -25,12 +26,25 @@ class Eq (Route a) => RenderRoute a where
 --
 -- @since 1.6.28.0
 class Eq a => RenderRouteNested a where
+    -- | The site type for a given route fragment.
+    --
+    -- @since 1.6.28.0
+    type ParentSite a :: Type
+
+    -- | The 'ParentArgs' are the route fragments necessary to call the
+    -- dispatched route that are not part of the route fragments used in
+    -- parsing the route.
+    --
+    -- @since 1.6.28.0
+    type ParentArgs a :: Type
+    type ParentArgs a = ()
+
     -- | Render the fragment of the route. To form a complete route, you'll
     -- need to `mappend` this with the result from the parent `renderRoute`
     -- or `renderRouteNested` call.
     --
     -- @since 1.6.28.0
-    renderRouteNested :: a -> ([Text], [(Text, Text)])
+    renderRouteNested :: ParentArgs a -> a -> ([Text], [(Text, Text)])
 
 class RenderRoute a => ParseRoute a where
     parseRoute :: ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.

@@ -255,7 +255,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             Just target ->
                 mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
 
-    dispatchDec    <- mkDispatchInstance opts site appCxt f res
+    dispatchDec <- mkDispatchInstance opts site appCxt f res
     parseRoute <-
         case roFocusOnNestedRoute opts of
             Nothing ->

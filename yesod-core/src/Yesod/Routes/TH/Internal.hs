@@ -35,3 +35,24 @@ mkTupE =
 #if MIN_VERSION_template_haskell(2,16,0)
         . fmap Just
 #endif
+
+-- | Given a target 'String', find the 'ResourceParent' in the
+-- @['ResourceTree' a]@ corresponding to that target and return it.
+-- Also return the @['Piece' a]@ captures that precede it.
+findNestedRoute :: String -> [ResourceTree a] -> Maybe ([Piece a], [ResourceTree a])
+findNestedRoute _ [] = Nothing
+findNestedRoute target (res : ress) =
+    case res of
+        ResourceLeaf _ ->
+            findNestedRoute target ress
+        ResourceParent name _overlap pieces children -> do
+            if name == target
+                then Just (pieces, children)
+                else
+                    let mresult = findNestedRoute target children
+                    in
+                        case mresult of
+                            Nothing -> do
+                                findNestedRoute target ress
+                            Just (typs, childRoute) -> do
+                                Just (pieces <> typs, childRoute)

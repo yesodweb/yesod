@@ -17,6 +17,7 @@ import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Handler (sendWaiApplication)
 import Yesod.Core.Class.Yesod
 import Network.HTTP.Types.Method (Method)
+import Yesod.Routes.Class
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -30,20 +31,7 @@ class Yesod site => YesodDispatch site where
 -- For details on use, see 'setFocusOnNestedRoute'.
 --
 -- @since 1.6.28.0
-class YesodDispatchNested a where
-    -- | The 'ParentArgs' are the route fragments necessary to call the
-    -- dispatched route that are not part of the route fragments used in
-    -- parsing the route.
-    --
-    -- @since 1.6.28.0
-    type ParentArgs a :: Type
-    type ParentArgs a = ()
-
-    -- | The site type for a given route fragment.
-    --
-    -- @since 1.6.28.0
-    type ParentSite a :: Type
-
+class RenderRouteNested a => YesodDispatchNested a where
     -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
     -- route fragment provided.
     --
