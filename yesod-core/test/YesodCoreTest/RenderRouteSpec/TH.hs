@@ -25,7 +25,7 @@ do
 do
     case renderRouteNested 1 BlahR of
         (["first", "1", "blah"], []) ->
-            pure ()
+            pure []
         wrong ->
             fail $ "Expected renderRouteNested to work, but got: " <> show wrong
 

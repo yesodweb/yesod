@@ -75,7 +75,7 @@ do
                     fail $ "Wrong routePat: " <> show routePat
 
             case expr of
-                VarE ((== 'renderRouteNested) -> True) `AppE` (VarE x) ->
+                VarE ((== 'renderRouteNested) -> True) `AppE` (TupE [Just (VarE x), Just (VarE y)]) `AppE` (VarE child) ->
                     pure ()
                 _ ->
                     fail $ "Expr wrong shape: " <> show expr

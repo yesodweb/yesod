@@ -10,6 +10,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Hierarchy
     ( hierarchy
@@ -36,7 +37,7 @@ import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
--- import Hierarchy.Admin
+import Hierarchy.Admin
 import Hierarchy.ResourceTree
 import Hierarchy.Nest
 import Hierarchy.Nest2

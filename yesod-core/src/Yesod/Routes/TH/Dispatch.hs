@@ -213,7 +213,7 @@ mkDispatchClause phase mds@MkDispatchSettings {..} resources = do
             -- nrsWrapDispatchCall sdc constr (VarE match)
 
         pure
-            ( []
+            ( if isJust instanceExists then mempty else [name]
             , [ Clause
                 [mkPathPat restP pats]
                 body
@@ -400,14 +400,20 @@ mkDispatchClause phase mds@MkDispatchSettings {..} resources = do
                     return (exp, VarP restPath)
 
     mkClause404 envE reqE = do
-        case guard mdsNestedRouteFallthrough of
-            Nothing -> do
+        let actual404 = do
                 handler <- mds404
                 runHandler <- mdsRunHandler
                 let exp = runHandler `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
                 return $ Clause [WildP] (NormalB exp) []
-            Just () -> do
+            fallthrough404 = do
                 return $ Clause [WildP] (NormalB (ConE 'Nothing)) []
+
+        case guard mdsNestedRouteFallthrough of
+            Nothing -> actual404
+            Just () ->
+                case phase of
+                    TopLevelDispatch -> actual404
+                    NestedDispatch -> fallthrough404
 
 -- | This function generates code to call 'yesodDispatchNested'.
 nestedDispatchCall
