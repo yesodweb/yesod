@@ -36,13 +36,14 @@ class RenderRouteNested a => YesodDispatchNested a where
     --
     -- @since 1.6.28.0
     yesodDispatchNested
-        :: ParentArgs a
+        :: YesodRunnerEnv (ParentSite a)
+        -> ParentArgs a
         -- ^ The parts of the parent route
         -> Method
         -- ^ The HTTP Method invoked from the request.
         -> [Text]
         -- ^ The path fragments, after parsing out the parent.
-        -> Maybe (HandlerFor (ParentSite a) TypedContent, Maybe a)
+        -> Maybe (W.Application, Maybe a)
         -- ^ The handler for the route (possibly notFound or badMethod)
         -- along with the parsed route constructor. This returns 'Nothing'
         -- if we are allowing pass-through in nested routes, or @'Just'

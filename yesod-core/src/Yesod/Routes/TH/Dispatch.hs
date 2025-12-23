@@ -101,6 +101,7 @@ data SDC = SDC
     , extraCons :: [Exp]
     , envExp :: Exp
     , reqExp :: Exp
+    , runnerExp :: Exp
     }
 
 
@@ -333,6 +334,7 @@ nestedDispatchCall mds restExpr sdc dyns = do
                 _ -> pure $ mkTupE dyns
     [e|
         yesodDispatchNested
+            $(pure (envExp sdc))
             $(dynsExpr)
             ($(mdsMethod mds) $(pure $ reqExp sdc))
             $(pure restExpr)
@@ -456,7 +458,6 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
             fail "Target was not found in resources."
         Just stuff ->
             pure stuff
-
     let preDyns =
             mapMaybe
                 (\p -> case p of
@@ -507,12 +508,11 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
     nestHelpN <- newName "nestHelp"
     methodN <- newName "method"
     fragmentsN <- newName "fragments"
-
     (childNames, clause') <- mkDispatchClause NestedDispatch parentDynNs mdsWithNestedDispatch subres
 
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause
-                [parentDynsP, VarP methodN, VarP fragmentsN]
+                [VarP, parentDynsP, VarP methodN, VarP fragmentsN]
                 (NormalB $
                     VarE nestHelpN
                     `AppE` ConE '()
@@ -542,6 +542,7 @@ mkYesodSubDispatch res = do
     (_childNames, clause') <-
         mkDispatchClause
             TopLevelDispatch
+            (mkName "_FAKE_RUNNER_ENV")
             []
             (mkMDS
                 return
