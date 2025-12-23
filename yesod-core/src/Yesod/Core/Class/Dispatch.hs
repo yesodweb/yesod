@@ -10,7 +10,6 @@
 module Yesod.Core.Class.Dispatch where
 
 import Data.Text (Text)
-import Data.Kind (Type)
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))

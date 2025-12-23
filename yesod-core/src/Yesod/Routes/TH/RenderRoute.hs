@@ -23,6 +23,7 @@ module Yesod.Routes.TH.RenderRoute
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , nullifyWhenNoParam
     ) where
 
 import Data.Maybe
@@ -332,8 +333,8 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
                                                 (a : as) -> toLower a : as
                                                 [] -> error "empty name????"
                                     Right <$> newName (lowerFirst tyName)
-                        parentSiteT <- [t| ParentSite _ |]
-                        parentDynSig <- [t| ParentArgs _ |]
+                        parentSiteT <- [t| ParentSite $(pure consDataType) |]
+                        parentDynSig <- [t| ParentArgs $(pure consDataType) |]
                         (childClauses, childNames) <- mkRenderRouteNestedClauses parentNames children
                         let childInstances =
                                 InstanceD
