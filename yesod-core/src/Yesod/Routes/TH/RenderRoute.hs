@@ -660,29 +660,79 @@ getDerivesFor opts cxt
 -- >     toParentRoute (a0, a1) = FooR a0 a1
 mkToParentRouteInstances :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree  Type] -> Q [Dec]
 mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) typ ress = do
-    mconcat <$> mapM (go []) ress
+    mconcat <$> mapM (go ([], [])) ress
   where
     go _ (ResourceLeaf _) =
         pure []
-    go acc (ResourceParent name _check pieces children) = do
+    go (accPieces, parentConstructors) (ResourceParent name _check pieces children) = do
+        -- Extract dynamic types from accumulated parent pieces
+        let accDynTypes = [t | Dynamic t <- accPieces]
+        accDynVars <- mapM (\_ -> newName "parent") accDynTypes
+
+        -- Extract dynamic types from this route's pieces
+        let piecesDynTypes = [t | Dynamic t <- pieces]
+        piecesDynVars <- mapM (\_ -> newName "piece") piecesDynTypes
+
+        -- Child route variable
+        child <- newName "child"
+
+        -- ParentArgs includes BOTH acc and pieces dynamic vars
+        let allParentDynVars = accDynVars ++ piecesDynVars
+            parentArgsPat = case map VarP allParentDynVars of
+                [] -> WildP
+                [a] -> a
+                pats -> TupP pats
+
+        -- Build the full route by applying all parent constructors
+        -- We need to partition allParentDynVars according to each constructor's piece count
+        let applyConToParentArgs = buildRouteExpr parentConstructors (mkName name) allParentDynVars (VarE child)
+
         let toParentRouteD =
                 FunD 'toParentRoute
                     [ Clause
-                        [parentArgsPat acc]
-                        (NormalB (applyConToParentArgs acc))
+                        [parentArgsPat, VarP child]
+                        (NormalB applyConToParentArgs)
                         []
                     ]
 
         let thisInstance =
-                instanceD cxt (applyTypeVariables name) [toParentRouteD]
+                instanceD cxt (ConT ''ToParentRoute `AppT` applyTypeVariables name) [toParentRouteD]
 
-        let acc' = error "TODO" acc
+        -- Accumulate pieces and constructor info for children
+        let thisPieceCount = length piecesDynTypes
+            acc' =
+                ( accPieces <> pieces
+                , parentConstructors ++ [(mkName name, thisPieceCount)]
+                )
 
         childrenInstances <- mconcat <$> mapM (go acc') children
         pure $ thisInstance : childrenInstances
 
     applyTypeVariables name =
         foldl' (\t x -> t `AppT` fst x) (ConT (mkName name)) tyargs
+
+    -- Build the route expression by applying constructors from outermost to innermost
+    buildRouteExpr :: [(Name, Int)] -> Name -> [Name] -> Exp -> Exp
+    buildRouteExpr parentCtors thisCtor allDynVars childExpr =
+        let -- All constructors including this one
+            thisPieceCount = length allDynVars - sum (map snd parentCtors)
+            allCtors = parentCtors ++ [(thisCtor, thisPieceCount)]
+
+            -- Partition dynamic vars for each constructor
+            partitionedVars = go allDynVars allCtors
+              where
+                go _ [] = []
+                go vars ((_, count) : rest) =
+                    let (varsForThis, remaining) = splitAt count vars
+                    in varsForThis : go remaining rest
+
+            -- Build expression from inside out using foldr
+            finalExpr = foldr
+                (\(ctorName, varsForThis) innerExpr ->
+                    foldl' AppE (ConE ctorName) (map VarE varsForThis ++ [innerExpr]))
+                childExpr
+                (zip (map fst allCtors) partitionedVars)
+        in finalExpr
 
 getRequiredContextFor :: RouteOpts -> Cxt -> Cxt
 getRequiredContextFor opts cxt

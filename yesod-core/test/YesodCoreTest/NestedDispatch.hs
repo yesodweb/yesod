@@ -35,7 +35,9 @@ import YesodCoreTest.NestedDispatch.Resources
 import YesodCoreTest.NestedDispatch.NestR (NestR(..))
 import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
 import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..))
+import YesodCoreTest.NestedDispatch.Parent0R.Child0R
 import qualified Network.HTTP.Types as H
+import Yesod.Core.Class.Dispatch
 
 mkYesod "App" nestedDispatchResources
 
@@ -283,3 +285,34 @@ specs = do
                     , requestMethod = "GET"
                     }
                 Nothing
+
+    describe "ToParentRoute" $ do
+        describe "Route App" $ do
+            it "works with no args" $ do
+                toParentRoute () HomeR `shouldBe` HomeR
+            it "works with args" $ do
+                toParentRoute () (ParentR 1 (Child1R "hello"))
+                    `shouldBe`
+                        (ParentR 1 (Child1R "hello"))
+        describe "ParentR" $ do
+            it "works" $ do
+                toParentRoute 3 (Child1R "Hello")
+                    `shouldBe`
+                        ParentR 3 (Child1R "Hello")
+
+        describe "Parent0R" $ do
+            it "works" $ do
+                toParentRoute 3 Parent0IndexR
+                    `shouldBe`
+                        Parent0R 3 Parent0IndexR
+
+            describe "Child0R" $ do
+                it "works" $ do
+                    toParentRoute (3, "hello") ParentChildIndexR
+                        `shouldBe`
+                            Parent0R 3 (Child0R "hello" ParentChildIndexR)
+
+                it "works with arg" $ do
+                    toParentRoute (3, "hello") (ParentChildR "asdf")
+                        `shouldBe`
+                            Parent0R 3 (Child0R "hello" (ParentChildR "asdf"))
