@@ -12,8 +12,45 @@ import qualified Data.Text as Text
 import Yesod.Core.Handler
 import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Core
+import qualified Network.Wai as W
+import Yesod.Core.Class.Dispatch
 
-mkYesodOpts (setFocusOnNestedRoute (Just "Child0R") defaultOpts) "App" nestedDispatchResources
+mkYesodDataOpts (setFocusOnNestedRoute (Just "Child0R") defaultOpts) "App" nestedDispatchResources
+
+instance YesodDispatchNested Child0R where
+    yesodDispatchNested _ (i, txt) toParentRoute yre req =
+        case drop 4 (W.pathInfo req) of
+            [] ->
+                Just $
+                    let route =
+                            toParentRoute ParentChildIndexR
+                        handler =
+                            case W.requestMethod req of
+                                "GET" ->
+                                    fmap toTypedContent (getParentChildIndexR i txt)
+                                "POST" ->
+                                    fmap toTypedContent (postParentChildIndexR i txt)
+                                _ ->
+                                    fmap (toTypedContent :: () -> TypedContent) badMethod
+                    in
+                        yesodRunner handler yre (Just route) req
+
+            [fromPathPiece -> Just str] ->
+                Just $ \send ->
+                    let route =
+                            toParentRoute (ParentChildR str)
+                        handler =
+                            case W.requestMethod req of
+                                "GET" ->
+                                    fmap toTypedContent (getParentChildR i txt str)
+                                "POST" ->
+                                    fmap toTypedContent (postParentChildR i txt str)
+                                _ ->
+                                    fmap (toTypedContent :: () -> TypedContent) (badMethod)
+                    in
+                        yesodRunner handler yre (Just route) req send
+            _ ->
+                Nothing
 
 postParentChildIndexR :: Int -> Text -> HandlerFor App Text
 postParentChildIndexR i t = pure $ Text.pack $ show (i, t)

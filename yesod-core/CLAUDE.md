@@ -10,32 +10,22 @@ yesod-core is the core package of the Yesod web framework for Haskell. It provid
 
 ### Building the library
 ```bash
-stack build
+stack build yesod-core
 ```
 
 ### Running tests
 ```bash
 # Run all tests
-stack test
+stack test yesod-core
 
 # Run specific test suite
-stack test test-routes
-stack test tests
-
-# Run a single test file directly with ghc
-ghc -itest:src test/RouteSpec.hs
-```
-
-### Running benchmarks
-```bash
-stack bench
-# Or use the included script:
-./bench.sh
+stack test yesod-core:test:test-routes
+stack test yesod-core:test:tests
 ```
 
 ### Working with GHC interactively
 ```bash
-stack repl
+stack repl yesod-core
 ```
 
 ## Architecture
@@ -170,14 +160,17 @@ The test suite structure:
 - Added `mkParentPieces` helper function to build path expressions from parent piece specifications
 
 ### Remaining Work
-- Fix overlapping pattern warning in `Yesod.Routes.TH.RenderRoute.hs:659`
-- Fix `Hierarchy.hs` dispatch test errors (separate issue - dispatch API changes)
-- Review and potentially refactor the local helper functions in `mkRenderRouteNestedInstanceOpts`
+
+- Redesign the `YesodDispatchNested` class to have the following signature:
+  ```
+  class (RenderRouteNested route) => YesodDispatchNested route where
+      yesodDispatchNested :: ParentArgs route -> YesodRunnerEnv (ParentSite route) -> Maybe W.Application
+  ```
+- Rework the Template Haskell generation code to work like this. Instead of working on the `[Text]` fragments, generate an `Application` that can respond to the entire WAI Request object.
+- This implies that the `YesodDispatchNested` must take a full `Request` path, not a truncated one.
 
 ### Test Status
-- `Route.RenderRouteSpec` and `Route.FallthroughSpec` now compile successfully ✓
-- Hierarchy focused route tests (`Nest3`, `Nest2`, `Admin`, etc.) now compile with TypeFamilies extension added ✓
-- `Hierarchy.hs` integration test fails due to unrelated dispatch API changes (not related to RenderRoute work)
+
 
 ### Recent Implementation (This Session)
 1. **Implemented `mkRenderRouteNestedInstanceOpts`** (lines 707-880):

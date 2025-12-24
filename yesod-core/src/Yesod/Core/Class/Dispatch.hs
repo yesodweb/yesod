@@ -6,10 +6,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Yesod.Core.Class.Dispatch where
 
 import Data.Text (Text)
+import Data.Proxy (Proxy(..))
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
@@ -31,23 +33,33 @@ class Yesod site => YesodDispatch site where
 --
 -- @since 1.6.28.0
 class RenderRouteNested a => YesodDispatchNested a where
-    -- | Returns a @'HandlerFor' site 'TypedContent'@ corresponding to the
-    -- route fragment provided.
+    -- | Dispatches a request to a nested route fragment.
+    --
+    -- The implementation uses the full WAI 'Request' to determine if the
+    -- remaining path (after the parent route) matches any child routes.
+    -- Returns 'Nothing' if no child routes match (for fallthrough to other
+    -- routes), or 'Just' a continuation that handles the request.
+    --
+    -- The parent depth (number of path pieces consumed by the parent route)
+    -- is statically known during Template Haskell generation and baked into
+    -- the generated instance.
     --
     -- @since 1.6.28.0
     yesodDispatchNested
-        :: YesodRunnerEnv (ParentSite a)
+        :: (Yesod (ParentSite a))
+        => Proxy a
+        -- ^ Type proxy to resolve ambiguity from non-injective type families
         -> ParentArgs a
-        -- ^ The parts of the parent route
-        -> Method
-        -- ^ The HTTP Method invoked from the request.
-        -> [Text]
-        -- ^ The path fragments, after parsing out the parent.
-        -> Maybe (W.Application, Maybe a)
-        -- ^ The handler for the route (possibly notFound or badMethod)
-        -- along with the parsed route constructor. This returns 'Nothing'
-        -- if we are allowing pass-through in nested routes, or @'Just'
-        -- 'notFound'@ if we are not.
+        -- ^ The dynamic arguments from the parent route
+        -> (a -> Route (ParentSite a))
+        -- ^ Function to wrap the nested route in the parent constructor
+        -> YesodRunnerEnv (ParentSite a)
+        -- ^ The runner environment
+        -> W.Request
+        -- ^ The full WAI request
+        -> Maybe ((W.Response -> IO W.ResponseReceived) -> IO W.ResponseReceived)
+        -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
+        -- that completes the 'Application' type when given a respond callback
 
 class YesodDispatch' route site where
     yesodDispatch' :: proxy route -> YesodRunnerEnv site -> W.Application

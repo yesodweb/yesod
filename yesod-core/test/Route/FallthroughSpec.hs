@@ -54,7 +54,7 @@ do
     let opts = setNestedRouteFallthrough True defaultOpts
         appType = ConT (mkName "App")
     render <- mkRenderRouteInstanceOpts opts [] [] appType resources
-    parse <- mkParseRouteInstanceOpts opts [] appType resources
+    parse <- mkParseRouteInstanceOpts opts [] [] appType resources
     pure (render <> parse)
 
 spec :: Spec

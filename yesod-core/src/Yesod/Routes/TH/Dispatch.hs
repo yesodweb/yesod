@@ -19,6 +19,7 @@ module Yesod.Routes.TH.Dispatch
     ) where
 
 import Data.Maybe
+import Data.Proxy (Proxy(..))
 import Yesod.Routes.TH.RenderRoute
 import qualified Network.Wai as W
 import Yesod.Core.Content (ToTypedContent (..))
@@ -101,7 +102,6 @@ data SDC = SDC
     , extraCons :: [Exp]
     , envExp :: Exp
     , reqExp :: Exp
-    , runnerExp :: Exp
     }
 
 
@@ -113,8 +113,8 @@ data SDC = SDC
 -- instances for delegation classes. For 'ParseRoute', that's
 -- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
+mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> [Exp] -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClause phase preDyns parentCons mds@MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -130,7 +130,7 @@ mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
     let sdc = SDC
             { clause404 = clause404'
             , extraParams = []
-            , extraCons = []
+            , extraCons = parentCons
             , envExp = envE
             , reqExp = reqE
             }
@@ -186,7 +186,7 @@ mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
         let helperE = VarE helperName
 
         let constr = foldl' AppE (ConE (mkName name)) dyns
-        expr <- nestedDispatchCall mds restE sdc (fmap VarE preDyns <> extraParams sdc ++ dyns)
+        expr <- nestedDispatchCall name mds restE sdc (fmap VarE preDyns <> extraParams sdc ++ dyns)
         let childClause =
                 Clause
                     [restP]
@@ -204,7 +204,7 @@ mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
                 [FunD helperName [childClause]]]
             )
 
-    go _phase nrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
+    go phase nrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         case pure nrs >>= nrsTargetName of
             Just _target -> do
                 -- Don't generate a clause if we're focused on a target.
@@ -217,11 +217,18 @@ mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
 
                 (chooseMethod, finalPat) <- handleDispatch dispatch dyns
 
+                -- For nested dispatch, wrap the result in Just
+                -- chooseMethod already has type (Response -> IO ResponseReceived) -> IO ResponseReceived
+                -- We just wrap it in Just, no need for extra lambda
+                wrappedMethod <- case phase of
+                    NestedDispatch -> return $ ConE 'Just `AppE` chooseMethod
+                    TopLevelDispatch -> return chooseMethod
+
                 pure
                     ( []
                     , pure $ Clause
                         [mkPathPat finalPat pats]
-                        (NormalB chooseMethod)
+                        (NormalB wrappedMethod)
                         []
                     )
       where
@@ -303,7 +310,11 @@ mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
         let actual404 = do
                 handler <- mds404
                 runHandlerE <- mdsRunHandler
-                let exp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
+                let baseExp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
+                    -- In NestedDispatch mode, wrap the result in Just
+                    exp = case phase of
+                        TopLevelDispatch -> baseExp
+                        NestedDispatch -> ConE 'Just `AppE` baseExp
                 return $ Clause [WildP] (NormalB exp) []
             fallthrough404 = do
                 return $ Clause [WildP] (NormalB (ConE 'Nothing)) []
@@ -317,56 +328,70 @@ mkDispatchClause phase preDyns mds@MkDispatchSettings {..} resources = do
 
 -- | This function generates code to call 'yesodDispatchNested'.
 nestedDispatchCall
-    :: MkDispatchSettings w x z
-    -- ^ Used for the 'mdsMethod'
+    :: String
+    -- ^ The name of the nested route (e.g., "FirstFooR")
+    -> MkDispatchSettings w x z
+    -- ^ The dispatch settings (not used in new signature)
     -> Exp
-    -- ^ The @restExpr@ representing the remainder of the path pieces
+    -- ^ The @restExpr@ representing the remainder of the path pieces (not used in new signature)
     -> SDC
     -- ^ The accumulated 'SDC'.
     -> [Exp]
     -- ^ The dynamic bound variables from the route.
     -> Q Exp
-nestedDispatchCall mds restExpr sdc dyns = do
+nestedDispatchCall routeName _mds _restExpr sdc dyns = do
+    childName <- newName "child"
     let dynsExpr =
             case dyns of
                 [] -> [| () |]
                 [a] -> pure a
                 _ -> pure $ mkTupE dyns
+        -- Generate a properly-typed Proxy to help type inference
+        proxyExpr = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) (ConT (mkName routeName)))
+        -- Build the wrapper function from extraCons
+        -- If extraCons = [con1, con2], we want: \child -> con1 (con2 child)
+        -- If extraCons = [], we want: id
+        wrapperExpr = case extraCons sdc of
+            [] -> VarE 'id
+            cons -> LamE [VarP childName] $ foldr AppE (VarE childName) cons
     [e|
         yesodDispatchNested
-            $(pure (envExp sdc))
+            $(pure proxyExpr)
             $(dynsExpr)
-            ($(mdsMethod mds) $(pure $ reqExp sdc))
-            $(pure restExpr)
+            $(pure wrapperExpr)
+            $(pure (envExp sdc))
+            $(pure $ reqExp sdc)
         |]
 
 -- | Wrap the call to 'yesodDispatchNested' in a manner appropriate to the
 -- 'DispatchPhase' in the 'MkDispatchSettings'.
+--
+-- With the new signature, 'yesodDispatchNested' returns:
+--   Maybe ((Response -> IO ResponseReceived) -> IO ResponseReceived)
+--
+-- For TopLevelDispatch, we need to convert this to an Application by
+-- providing it with the respond callback.
+--
+-- For NestedDispatch, we just pass it through (it's already the right type).
 wrapNestedDispatchCall
     :: DispatchPhase
     -> MkDispatchSettings x y z
-    -- ^ Used for 'mdsRunHandler'
+    -- ^ Dispatch settings (unused in new implementation)
     -> SDC
-    -- ^ Accumulated route pieces
+    -- ^ Accumulated route pieces (unused in new implementation)
     -> Exp
-    -- ^ The parent constructor expr for the route datatype
+    -- ^ The parent constructor expr for the route datatype (unused in new implementation)
     -> Exp
     -- ^ The call to 'yesodDispatchNested'
     -> Q Exp
-wrapNestedDispatchCall dispatchPhase mds sdc constrExpr hndlr =
+wrapNestedDispatchCall dispatchPhase _mds _sdc _constrExpr hndlr =
     case dispatchPhase of
         TopLevelDispatch ->
-            [e|
-                $(mdsRunHandler mds)
-                    (fst $(pure hndlr))
-                    $(pure $ envExp sdc)
-                    ($(pure constrExpr) <$> snd $(pure hndlr))
-                    $(pure $ reqExp sdc)
-            |]
+            -- mkGuardedBody already unwrapped the Maybe, so just return the handler
+            pure hndlr
         NestedDispatch ->
-            [e|
-                Just $ fmap (fmap ($(pure constrExpr))) $ $(pure hndlr)
-            |]
+            -- In nested dispatch, return the handler as-is (will be wrapped in Maybe at leaf level)
+            pure hndlr
 
 -- | Given an 'Exp' which should result in a @'Maybe' a@, does:
 --
@@ -430,7 +455,7 @@ mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Nothing) master cxt (nulli
                 }
             }
         phase = determinePhase mds
-    (childNames, clause') <- mkDispatchClause phase [] mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClause phase [] [] mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
@@ -458,7 +483,10 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
             fail "Target was not found in resources."
         Just stuff ->
             pure stuff
-    let preDyns =
+
+    -- NEW: Calculate the static parent depth (number of path pieces consumed by parent)
+    let parentDepth = length prePieces
+        preDyns =
             mapMaybe
                 (\p -> case p of
                     Static _ -> Nothing
@@ -490,37 +518,41 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                 |]
         mdsWithNestedDispatch = mds
             { mdsRunHandler =
-                [| \handler _env mroute _req ->
-                    Just (fmap toTypedContent handler, mroute)
-                 |]
+                -- Use the standard yesodRunner; wrapping in Maybe happens at clause level
+                [| yesodRunner |]
             , mdsGetPathInfo =
-                [| snd |]
+                -- NEW: Drop parent depth pieces from the actual Request pathInfo
+                [| drop $(litE $ integerL $ fromIntegral parentDepth) . W.pathInfo |]
             , mdsMethod =
-                [| fst |]
+                -- NEW: Use the actual Request method
+                [| W.requestMethod |]
             , mdsHandleNestedRoute = NestedRouteSettings
                 { nrsTargetName = Nothing
                 }
             , mdsGetHandler = \mmethod name ->
                     addParentDynsToDispatch <$>
                         mdsGetHandler mds mmethod name
+            , mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
             }
 
+    envN <- newName "env"
+    reqN <- newName "req"
+    wrapN <- newName "wrapRoute"
     nestHelpN <- newName "nestHelp"
-    methodN <- newName "method"
-    fragmentsN <- newName "fragments"
-    (childNames, clause') <- mkDispatchClause NestedDispatch parentDynNs mdsWithNestedDispatch subres
 
+    -- For nested dispatch, we don't use extraCons to build routes
+    -- Instead, we use the wrapper function passed as a parameter
+    (childNames, clause') <- mkDispatchClause NestedDispatch parentDynNs [] mdsWithNestedDispatch subres
+
+    -- NEW: Generate instance with new signature: Proxy -> ParentArgs -> (a -> Route parent) -> Env -> Request -> Maybe (...)
     let thisDispatch = FunD 'yesodDispatchNested
             [Clause
-                [VarP, parentDynsP, VarP methodN, VarP fragmentsN]
+                [WildP, parentDynsP, VarP wrapN, VarP envN, VarP reqN]
                 (NormalB $
                     VarE nestHelpN
-                    `AppE` ConE '()
-                    -- The `mkDispatchClause` expects to take two
-                    -- arguments: env and req. But we can determine what
-                    -- those are and mean through the MDS. We do not need
-                    -- them to be the yesod site or the actual request.
-                    `AppE` mkTupE [VarE methodN, VarE fragmentsN]
+                    `AppE` VarE wrapN
+                    `AppE` VarE envN
+                    `AppE` VarE reqN
                 )
                 [FunD nestHelpN [clause']]
             ]
@@ -542,13 +574,13 @@ mkYesodSubDispatch res = do
     (_childNames, clause') <-
         mkDispatchClause
             TopLevelDispatch
-            (mkName "_FAKE_RUNNER_ENV")
+            []
             []
             (mkMDS
                 return
                 [|subHelper|]
                 [|subTopDispatch|])
-        res
+            res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
     helper <- newName "helper"

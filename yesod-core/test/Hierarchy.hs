@@ -92,7 +92,7 @@ mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResource
 
 pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
-mkParseRouteInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+mkParseRouteInstance [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 getSpacedR :: Handler site String
 getSpacedR = "root-leaf"

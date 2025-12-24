@@ -76,7 +76,7 @@ do
         ress = resParent : resLeaves
     rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
-    prinst <- mkParseRouteInstance [] (ConT ''MyApp) ress
+    prinst <- mkParseRouteInstance [] [] (ConT ''MyApp) ress
     -- Dispatch generation temporarily disabled due to dispatch API changes
     -- (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
     --     { mdsRunHandler = [|runHandler|]
