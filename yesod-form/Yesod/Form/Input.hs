@@ -26,10 +26,10 @@ type DText = [Text] -> [Text]
 
 -- | Type for a form which parses a value of type @a@ with the base monad @m@
 -- (usually your @Handler@). Can compose this using its @Applicative@ instance.
-newtype FormInput m a = FormInput { unFormInput :: HandlerSite m -> [Text] -> Env -> FileEnv -> m (Either DText a) }
-instance Monad m => Functor (FormInput m) where
+newtype FormInput site a = FormInput { unFormInput :: site -> [Text] -> Env -> FileEnv -> HandlerFor site (Either DText a) }
+instance Functor (FormInput site) where
     fmap a (FormInput f) = FormInput $ \c d e e' -> liftM (either Left (Right . a)) $ f c d e e'
-instance Monad m => Applicative (FormInput m) where
+instance Applicative (FormInput site) where
     pure = FormInput . const . const . const . const . return . Right
     (FormInput f) <*> (FormInput x) = FormInput $ \c d e e' -> do
         res1 <- f c d e e'
@@ -42,10 +42,10 @@ instance Monad m => Applicative (FormInput m) where
 
 -- | Promote a @Field@ into a @FormInput@, requiring that the value be present
 -- and valid.
-ireq :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
-     => Field m a
+ireq :: (RenderMessage site FormMessage)
+     => Field site a
      -> Text -- ^ name of the field
-     -> FormInput m a
+     -> FormInput site a
 ireq field name = FormInput $ \m l env fenv -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
           filteredFEnv = fromMaybe [] $ Map.lookup name fenv
@@ -57,7 +57,7 @@ ireq field name = FormInput $ \m l env fenv -> do
 
 -- | Promote a @Field@ into a @FormInput@, with its presence being optional. If
 -- the value is present but does not parse correctly, the form will still fail.
-iopt :: Monad m => Field m a -> Text -> FormInput m (Maybe a)
+iopt :: Field site a -> Text -> FormInput site (Maybe a)
 iopt field name = FormInput $ \m l env fenv -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
           filteredFEnv = fromMaybe [] $ Map.lookup name fenv
@@ -68,17 +68,17 @@ iopt field name = FormInput $ \m l env fenv -> do
 
 -- | Run a @FormInput@ on the GET parameters (i.e., query string). If parsing
 -- fails, calls 'invalidArgs'.
-runInputGet :: MonadHandler m => FormInput m a -> m a
+runInputGet :: FormInput site a -> HandlerFor site a
 runInputGet = either invalidArgs return <=< runInputGetHelper
 
 -- | Run a @FormInput@ on the GET parameters (i.e., query string). Does /not/
 -- throw exceptions on failure.
 --
 -- Since 1.4.1
-runInputGetResult :: MonadHandler m => FormInput m a -> m (FormResult a)
+runInputGetResult :: FormInput site a -> HandlerFor site (FormResult a)
 runInputGetResult = fmap (either FormFailure FormSuccess) . runInputGetHelper
 
-runInputGetHelper :: MonadHandler m => FormInput m a -> m (Either [Text] a)
+runInputGetHelper :: FormInput site a -> HandlerFor site (Either [Text] a)
 runInputGetHelper (FormInput f) = do
     env <- liftM (toMap . reqGetParams) getRequest
     m <- getYesod
@@ -91,15 +91,15 @@ toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
 -- | Run a @FormInput@ on the POST parameters (i.e., request body). If parsing
 -- fails, calls 'invalidArgs'.
-runInputPost :: MonadHandler m => FormInput m a -> m a
+runInputPost :: FormInput site a -> HandlerFor site a
 runInputPost = either invalidArgs return <=< runInputPostHelper
 
 -- | Run a @FormInput@ on the POST parameters (i.e., request body). Does /not/
 -- throw exceptions on failure.
-runInputPostResult :: MonadHandler m => FormInput m a -> m (FormResult a)
+runInputPostResult :: FormInput site a -> HandlerFor site (FormResult a)
 runInputPostResult = fmap (either FormFailure FormSuccess) . runInputPostHelper
 
-runInputPostHelper :: MonadHandler m => FormInput m a -> m (Either [Text] a)
+runInputPostHelper :: FormInput site a -> HandlerFor site (Either [Text] a)
 runInputPostHelper (FormInput f) = do
     (env, fenv) <- liftM (toMap *** toMap) runRequestBody
     m <- getYesod

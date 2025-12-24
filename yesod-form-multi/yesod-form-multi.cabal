@@ -1,5 +1,5 @@
 name:            yesod-form-multi
-version:         1.7.0.2
+version:         2.0.0.0
 license:         MIT
 license-file:    LICENSE
 author:          James Burton <jamesejburton@gmail.com>
@@ -26,7 +26,7 @@ library
                    , text                  >= 0.9
                    , transformers          >= 0.2.2
                    , yesod-core            >= 1.6      && < 1.7
-                   , yesod-form            >= 1.6      && < 1.8
+                   , yesod-form            >= 1.6
 
     if flag(network-uri)
       build-depends: network-uri >= 2.6

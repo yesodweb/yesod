@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-auth-oauth
-version:         1.6.1
+version:         2.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
@@ -20,9 +20,9 @@ library
                    , bytestring              >= 0.9.1.4
                    , text                    >= 0.7
                    , unliftio
-                   , yesod-auth              >= 1.6       && < 1.7
+                   , yesod-auth              >= 1.6
                    , yesod-core              >= 1.6       && < 1.7
-                   , yesod-form              >= 1.6       && < 1.8
+                   , yesod-form              >= 1.6 
     exposed-modules: Yesod.Auth.OAuth
     ghc-options:     -Wall
 
