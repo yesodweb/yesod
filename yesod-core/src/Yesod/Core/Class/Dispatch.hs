@@ -59,6 +59,9 @@ class RenderRouteNested a => YesodDispatchNested a where
         -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
         -- that completes the 'Application' type when given a respond callback
 
+instance YesodDispatch site => YesodDispatchNested (Route site) where
+    yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
+
 class YesodDispatch' route site where
     yesodDispatch' :: proxy route -> YesodRunnerEnv site -> W.Application
 

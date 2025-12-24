@@ -1,4 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Yesod.Routes.Class
@@ -20,6 +23,17 @@ class Eq (Route a) => RenderRoute a where
     data Route a
     renderRoute :: Route a
                 -> ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
+
+data WithParentArgs a = WithParentArgs { theParentArgs :: ParentArgs a, parentArgsFor :: a }
+
+deriving stock instance (Eq (ParentArgs a), Eq a) => Eq (WithParentArgs a)
+
+instance (Eq (ParentArgs a), RenderRouteNested a) => RenderRouteNested (WithParentArgs a) where
+    type ParentSite (WithParentArgs a) = ParentSite a
+    type ParentArgs (WithParentArgs a) = ()
+
+    renderRouteNested () (WithParentArgs parentArgs a) =
+        renderRouteNested parentArgs a
 
 -- | This class acts as a delegation class for 'RenderRoute' on nested
 -- route fragments.
@@ -45,6 +59,12 @@ class Eq a => RenderRouteNested a where
     --
     -- @since 1.6.28.0
     renderRouteNested :: ParentArgs a -> a -> ([Text], [(Text, Text)])
+
+instance (RenderRoute site) => RenderRouteNested (Route site) where
+    type ParentSite (Route site) = site
+    type ParentArgs (Route site) = ()
+
+    renderRouteNested () a = renderRoute a
 
 class RenderRoute a => ParseRoute a where
     parseRoute :: ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
