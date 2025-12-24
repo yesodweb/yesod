@@ -657,7 +657,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                         , FunD (mkName "renderRoute") cls
                         ]
                         : mkStandaloneDerives routeDataName ++ decs
-                Just _ -> do
+                _ -> do
                     -- If we're generating routes for a subtarget, then we won't
                     -- generate the top-level `RenderRoute`. Instead, we'll want to
                     -- only generate the `decs` that are returned, plus the child
