@@ -23,6 +23,12 @@ import Yesod.Routes.Class
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
+class (RenderRoute (ParentSite a)) => ToParentRoute a where
+    toParentRoute :: ParentArgs a -> a -> Route (ParentSite a)
+
+instance (RenderRoute a) => ToParentRoute (Route a) where
+    toParentRoute _ = id
+
 -- | This class enables you to dispatch on a route fragment without needing
 -- to know how to dispatch on the entire route structure. This allows you
 -- to break up route generation into multiple files.
@@ -44,13 +50,11 @@ class RenderRouteNested a => YesodDispatchNested a where
     --
     -- @since 1.6.28.0
     yesodDispatchNested
-        :: (Yesod (ParentSite a))
+        :: (Yesod (ParentSite a), ToParentRoute a)
         => Proxy a
         -- ^ Type proxy to resolve ambiguity from non-injective type families
         -> ParentArgs a
         -- ^ The dynamic arguments from the parent route
-        -> (a -> Route (ParentSite a))
-        -- ^ Function to wrap the nested route in the parent constructor
         -> YesodRunnerEnv (ParentSite a)
         -- ^ The runner environment
         -> W.Request
@@ -60,7 +64,7 @@ class RenderRouteNested a => YesodDispatchNested a where
         -- that completes the 'Application' type when given a respond callback
 
 instance YesodDispatch site => YesodDispatchNested (Route site) where
-    yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
+    yesodDispatchNested _ _ yre req = Just $ yesodDispatch yre req
 
 class YesodDispatch' route site where
     yesodDispatch' :: proxy route -> YesodRunnerEnv site -> W.Application
