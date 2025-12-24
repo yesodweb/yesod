@@ -185,7 +185,7 @@ authHardcoded =
 postLoginR :: YesodAuthHardcoded site
            => AuthHandler site TypedContent
 postLoginR =
-  do (username, password) <- runInputPost
+  do (username, password) <- liftHandler $ runInputPost
        ((,) <$> ireq textField "username"
             <*> ireq textField "password")
      isValid <- validatePassword username password

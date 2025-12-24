@@ -72,12 +72,12 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
       reqTok <-
         if oauthVersion oauth == OAuth10
           then do
-            oaTok  <- runInputGet $ ireq textField "oauth_token"
+            oaTok  <- liftHandler $ runInputGet $ ireq textField "oauth_token"
             return $ Credential [ ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)
                                 ]
           else do
-            (verifier, oaTok) <-
+            (verifier, oaTok) <- liftHandler $
                 runInputGet $ (,) <$> ireq textField "oauth_verifier"
                                   <*> ireq textField "oauth_token"
             return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)

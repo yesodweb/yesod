@@ -470,7 +470,7 @@ defaultEmailLoginHandler
   => (Route Auth -> Route master)
   -> WidgetFor master ()
 defaultEmailLoginHandler toParent = do
-        (widget, enctype) <- generateFormPost loginForm
+        (widget, enctype) <- liftHandler $ generateFormPost loginForm
 
         [whamlet|
             <form method="post" action="@{toParent loginR}" enctype=#{enctype}>
@@ -529,7 +529,7 @@ defaultEmailLoginHandler toParent = do
 -- @since 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
-    (widget, enctype) <- generateFormPost registrationForm
+    (widget, enctype) <- liftHandler $ generateFormPost registrationForm
     toParentRoute <- getRouteToParent
     authLayout $ do
         setTitleI Msg.RegisterLong
@@ -576,7 +576,7 @@ defaultRegisterHelper :: YesodAuthEmail master
 defaultRegisterHelper allowUsername forgotPassword dest = do
     y <- getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
-    result <- runInputPostResult $ (,)
+    result <- liftHandler $ runInputPostResult $ (,)
         <$> ireq textField "email"
         <*> iopt textField "password"
 
@@ -651,7 +651,7 @@ getForgotPasswordR = forgotPasswordHandler
 -- @since 1.2.6
 defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
-    (widget, enctype) <- generateFormPost forgotPasswordForm
+    (widget, enctype) <- liftHandler $ generateFormPost forgotPasswordForm
     toParent <- getRouteToParent
     authLayout $ do
         setTitleI Msg.PasswordResetTitle
@@ -739,7 +739,7 @@ parseCreds = withObject "creds" (\obj -> do
 
 postLoginR :: YesodAuthEmail master => AuthHandler master TypedContent
 postLoginR = do
-    result <- runInputPostResult $ (,)
+    result <- liftHandler $ runInputPostResult $ (,)
         <$> ireq textField "email"
         <*> ireq textField "password"
 
@@ -802,7 +802,7 @@ defaultSetPasswordHandler needOld = do
     selectRep $ do
         provideJsonMessage $ messageRender Msg.SetPass
         provideRep $ authLayout $ do
-            (widget, enctype) <- generateFormPost setPasswordForm
+            (widget, enctype) <- liftHandler $ generateFormPost setPasswordForm
             setTitleI Msg.SetPassTitle
             [whamlet|
                 <h3>_{Msg.SetPass}
@@ -888,7 +888,7 @@ postPasswordR = do
             tm <- getRouteToParent
             needOld <- needOldPassword aid
             if not needOld then confirmPassword aid tm jcreds else do
-                res <- runInputPostResult $ ireq textField "current"
+                res <- liftHandler $ runInputPostResult $ ireq textField "current"
                 let fcurrent = case res of
                                  FormSuccess currentPass -> Just currentPass
                                  _                       -> Nothing
@@ -914,7 +914,7 @@ postPasswordR = do
     getNewConfirm (Just (a,b,_)) = Just (a,b)
     getNewConfirm _              = Nothing
     confirmPassword aid tm jcreds = do
-        res <- runInputPostResult $ (,)
+        res <- liftHandler $ runInputPostResult $ (,)
             <$> ireq textField "new"
             <*> ireq textField "confirm"
         let creds = if (isJust jcreds)

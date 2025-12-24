@@ -30,7 +30,7 @@ class Yesod a => YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField :: YesodNic site => Field (HandlerFor site) Html
+nicHtmlField :: YesodNic site => Field site Html
 nicHtmlField = Field
     { fieldParse = \e _ -> return . Right . fmap (preEscapedToMarkup . sanitizeBalance) . listToMaybe $ e
     , fieldView = \theId name attrs val _isReq -> do

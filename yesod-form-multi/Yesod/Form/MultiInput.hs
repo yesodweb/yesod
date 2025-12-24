@@ -172,13 +172,13 @@ bs4FASettings = MultiSettings
 -- tooltip is displayed once at the top of the multi-field set.
 --
 -- @since 1.6.0
-amulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
-    => Field m a
+amulti :: (RenderMessage site FormMessage)
+    => Field site a
     -> FieldSettings site
     -> [a]
     -> Int
     -> MultiSettings site
-    -> AForm m [a]
+    -> AForm site [a]
 amulti field fs defs minVals ms = formToAForm $
     liftM (second return) mform
     where
@@ -218,27 +218,27 @@ amulti field fs defs minVals ms = formToAForm $
 -- requested values.
 --
 -- @since 1.6.0
-mmulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
-    => Field m a
+mmulti :: (RenderMessage site FormMessage)
+    => Field site a
     -> FieldSettings site
     -> [a]
     -> Int
     -> MultiSettings site
-    -> MForm m (FormResult [a], MultiView site)
+    -> MForm site (FormResult [a], MultiView site)
 mmulti field fs defs minVals' ms = do
     wrapperClass <- lift newIdent
     let minVals = if minVals' < 0 then 0 else minVals'
     mhelperMulti field fs wrapperClass defs minVals ms
 
 -- Helper function, does most of the work for mmulti.
-mhelperMulti :: (site ~ HandlerSite m, MonadHandler m, RenderMessage site FormMessage)
-    => Field m a
+mhelperMulti :: (RenderMessage site FormMessage)
+    => Field site a
     -> FieldSettings site
     -> Text
     -> [a]
     -> Int
     -> MultiSettings site
-    -> MForm m (FormResult [a], MultiView site)
+    -> MForm site (FormResult [a], MultiView site)
 mhelperMulti field fs@FieldSettings{..} wrapperClass defs minVals MultiSettings{..} = do
     mp <- askParams
     (_, site, langs) <- ask
@@ -453,15 +453,14 @@ mhelperMulti field fs@FieldSettings{..} wrapperClass defs minVals MultiSettings{
 
 -- Search for the given field's name in the environment,
 -- parse any values found and construct a FormResult.
-mkRes :: (site ~ HandlerSite m, MonadHandler m)
-    => Field m a
+mkRes :: Field site a
     -> FieldSettings site
     -> Env
     -> Maybe FileEnv
     -> Text
     -> (site -> [Text] -> FormResult b)
     -> (a -> FormResult b)
-    -> MForm m (FormResult b, Either Text a)
+    -> MForm site (FormResult b, Either Text a)
 mkRes Field{..} _ p mfs name onMissing onFound = do
     tell fieldEnctype
     (_, site, langs) <- ask
@@ -476,8 +475,7 @@ mkRes Field{..} _ p mfs name onMissing onFound = do
                 Just x -> (onFound x, Right x)
 
 -- Generate a FieldView for the given field with the given result.
-mkView :: (site ~ HandlerSite m, MonadHandler m)
-    => Field m a
+mkView :: Field site a
     -> FieldSettings site
     -> (FormResult b, Either Text a)
     -- Delete button widget, class for div wrapping each field with it's delete button and counter value for that field.
@@ -488,7 +486,7 @@ mkView :: (site ~ HandlerSite m, MonadHandler m)
     -> Text
     -> Text
     -> Bool
-    -> MForm m (FieldView site)
+    -> MForm site (FieldView site)
 mkView Field{..} FieldSettings{..} (res, val) mdel merrW errClass theId name isReq = do
     (_, site, langs) <- ask
     let mr2 = renderMessage site langs

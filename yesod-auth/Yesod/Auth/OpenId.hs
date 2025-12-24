@@ -64,7 +64,7 @@ $newline never
 
     dispatch :: Text -> [Text] -> AuthHandler master TypedContent
     dispatch "GET" ["forward"] = do
-        roid <- runInputGet $ iopt textField name
+        roid <- liftHandler $ runInputGet $ iopt textField name
         case roid of
             Just oid -> do
                 tm <- getRouteToParent

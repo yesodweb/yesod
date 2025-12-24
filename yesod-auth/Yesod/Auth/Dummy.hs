@@ -61,7 +61,7 @@ authDummy =
             Right ident ->
                 setCredsRedirect $ Creds "dummy" ident []
             Left  _     -> do
-                ident <- runInputPost $ ireq textField "ident"
+                ident <- liftHandler $ runInputPost $ ireq textField "ident"
                 setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
