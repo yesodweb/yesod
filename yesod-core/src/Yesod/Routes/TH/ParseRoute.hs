@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
       mkParseRouteInstance
@@ -16,9 +18,7 @@ import qualified Data.Set as Set
 import Control.Monad
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
-import Data.Text (Text)
 import Yesod.Routes.Class
-import Yesod.Routes.TH.Dispatch
 import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
 import Web.PathPieces
@@ -141,8 +141,8 @@ generateParseRouteClause routeOpts resourceTree =
                         then do
                             resultName <- newName "result"
                             let stmt = BindS (AsP resultName (conPCompat 'Just [WildP])) parseRouteOnRest
-                                route = List.foldl' AppE (ConE (mkName name)) dyns
-                            expr <- [e| fmap $(pure route) ( $(pure (VarE resultName)) ) |]
+                                route' = List.foldl' AppE (ConE (mkName name)) dyns
+                            expr <- [e| fmap $(pure route') ( $(pure (VarE resultName)) ) |]
                             pure $ GuardedB [(PatG [stmt], expr)]
                         else do
                             expr <- [e| fmap $(pure route) ( $(pure parseRouteOnRest) ) |]
@@ -181,11 +181,6 @@ generateParseRouteClause routeOpts resourceTree =
 
     handlePieces :: Quote m => [Piece a] -> m ([Pat], [Exp])
     handlePieces = fmap (second catMaybes . unzip) . mapM handlePiece
-
-data AccumulatedParams = AccumulatedParams
-    { accumulatedParameters :: [Exp]
-    , accumulatedConstructors :: [Exp]
-    }
 
 instance Quote (StateT s Q) where
     newName = Trans.lift . newName

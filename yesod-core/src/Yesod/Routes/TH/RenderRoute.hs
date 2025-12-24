@@ -12,7 +12,7 @@ module Yesod.Routes.TH.RenderRoute
     , mkRenderRouteNestedClauses
     , shouldCreateResources
 
-    , RouteOpts
+    , RouteOpts(MkRouteOpts)
     , defaultOpts
     , setEqDerived
     , setShowDerived
@@ -29,7 +29,6 @@ module Yesod.Routes.TH.RenderRoute
 import Data.Maybe
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
-import Data.Maybe (maybeToList)
 import Control.Monad
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
@@ -271,14 +270,6 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
                 _ -> []
 
     mkRouteCon prePieces (ResourceParent name _check pieces children) = do
-        let newOpts =
-                case roFocusOnNestedRoute opts of
-                    Nothing ->
-                        opts
-                    Just target ->
-                        if target == name
-                            then setFocusOnNestedRoute Nothing opts
-                            else opts
         -- Accumulate pieces for children: combine parent pieces with this route's pieces
         let accumulatedPieces = prePieces <> pieces
         (cons, decs) <- mkRouteConsOpts' accumulatedPieces children
@@ -335,7 +326,7 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
                                     Right <$> newName (lowerFirst tyName)
                         parentSiteT <- [t| ParentSite $(pure consDataType) |]
                         parentDynSig <- [t| ParentArgs $(pure consDataType) |]
-                        (childClauses, childNames) <- mkRenderRouteNestedClauses parentNames children
+                        (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
                         let childInstances =
                                 InstanceD
                                     Nothing
@@ -374,15 +365,11 @@ mkRenderRouteClauses =
     isDynamic Dynamic{} = True
     isDynamic _ = False
 
-    go (ResourceParent name _check pieces children) = do
+    go (ResourceParent name _check pieces _children) = do
         let cnt = length $ filter isDynamic pieces
         dyns <- replicateM cnt $ newName "dyn"
         child <- newName "child"
         let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
-
-        pack' <- [|pack|]
-        tsp <- [|toPathPiece|]
-        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
 
         typeExists <- lookupTypeName name
         hasNestInstance <- case typeExists of
@@ -395,31 +382,12 @@ mkRenderRouteClauses =
                 case dyns of
                     [a] -> VarE a
                     _ -> mkTupE (map VarE dyns)
-        childRender <- newName "childRender"
-        let rr = VarE childRender
         let renderRouteNestedCall =
                 VarE 'renderRouteNested `AppE` parentArgs `AppE` VarE child
-            childClauses =
-                [Clause [] (NormalB renderRouteNestedCall) []
-                ]
             childNames =
                 if hasNestInstance
                 then []
                 else [name]
-
-        a <- newName "a"
-        b <- newName "b"
-
-        colon <- [|(:)|]
-        let cons y ys = InfixE (Just y) colon (Just ys)
-        let pieces' = foldr cons (VarE a) piecesSingle
-
-        let body = LamE [TupP [VarP a, VarP b]] (TupE
-#if MIN_VERSION_template_haskell(2,16,0)
-                                                  $ map Just
-#endif
-                                                  [pieces', VarE b]
-                                                ) `AppE` (rr `AppE` VarE child)
 
         pure
             ( [Clause [pat] (NormalB renderRouteNestedCall) []]
@@ -494,7 +462,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
     isDynamic Dynamic{} = True
     isDynamic _ = False
 
-    go (ResourceParent name _check pieces children) = do
+    go (ResourceParent name _check pieces _children) = do
         let cnt = length $ filter isDynamic pieces
         dyns <- replicateM cnt $ newName "dyn"
         child <- newName "child"
@@ -611,14 +579,14 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
     -- Build path pieces from parentArgsNames (which contains both static and dynamic pieces)
     mkParentPieces :: Exp -> Exp -> [Either String Name] -> [Name] -> [Exp]
-    mkParentPieces pack' tsp parentArgsNames parentDyns = go parentArgsNames parentDyns
+    mkParentPieces pack' tsp parentArgsNames' parentDyns = goParentPieces parentArgsNames' parentDyns
       where
-        go [] _ = []
-        go (Left staticStr : rest) dyns =
-            (pack' `AppE` LitE (StringL staticStr)) : go rest dyns
-        go (Right _ : rest) (dyn : dyns) =
-            (tsp `AppE` VarE dyn) : go rest dyns
-        go (Right _ : _) [] = error "mkParentPieces: dynamic piece without corresponding variable"
+        goParentPieces [] _ = []
+        goParentPieces (Left staticStr : rest) dyns =
+            (pack' `AppE` LitE (StringL staticStr)) : goParentPieces rest dyns
+        goParentPieces (Right _ : rest) (dyn : dyns) =
+            (tsp `AppE` VarE dyn) : goParentPieces rest dyns
+        goParentPieces (Right _ : _) [] = error "mkParentPieces: dynamic piece without corresponding variable"
 
 -- | Generate the 'RenderRoute' instance.
 --
@@ -641,7 +609,7 @@ mkRenderRouteInstanceOpts
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     case roFocusOnNestedRoute opts of
         Nothing -> do
-            (cls, names) <- mkRenderRouteClauses ress
+            (cls, _names) <- mkRenderRouteClauses ress
             (cons, decs) <- mkRouteConsOpts opts cxt tyargs typ ress
             let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)
@@ -650,19 +618,11 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     ''Route [typ]
 #endif
                     Nothing cons inlineDerives
-            case roFocusOnNestedRoute opts of
-                Nothing -> do
-                    return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
-                        [ did
-                        , FunD (mkName "renderRoute") cls
-                        ]
-                        : mkStandaloneDerives routeDataName ++ decs
-                _ -> do
-                    -- If we're generating routes for a subtarget, then we won't
-                    -- generate the top-level `RenderRoute`. Instead, we'll want to
-                    -- only generate the `decs` that are returned, plus the child
-                    -- class declaration, eventually.
-                    pure decs
+            pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
+                [ did
+                , FunD (mkName "renderRoute") cls
+                ]
+                : mkStandaloneDerives routeDataName ++ decs
         Just target ->
             case findNestedRoute target ress of
                 Nothing ->
@@ -796,7 +756,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
             $ concat [singles, multi, sub]
         singles = concatMap toSingle $ resourcePieces res
         toSingle Static{} = []
-        toSingle (Dynamic typ) = [typ]
+        toSingle (Dynamic typ') = [typ']
 
         multi = maybeToList $ resourceMulti res
 

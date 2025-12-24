@@ -28,10 +28,8 @@ import Yesod.Core.Types hiding (Body)
 import Yesod.Core.Class.Dispatch
 import Prelude hiding (exp)
 import Yesod.Routes.TH.Internal
-import Language.Haskell.TH.Syntax
 import Web.PathPieces
 import Control.Monad
-import Data.Functor (void)
 import Data.List (foldl')
 import Control.Arrow (second)
 import Yesod.Routes.TH.Types
@@ -40,7 +38,6 @@ import Control.Monad.Trans.Maybe
 import qualified Control.Monad.Trans as Trans
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
-import Yesod.Routes.TH.RenderRoute (nullifyWhenNoParam)
 
 -- | This datatype describes how to create the dispatch clause for a route
 -- path.
@@ -155,9 +152,6 @@ mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} res
     handlePieces :: [Piece a] -> Q ([Pat], [Exp])
     handlePieces = fmap (second catMaybes . unzip) . mapM handlePiece
 
-    mkCon :: String -> [Exp] -> Exp
-    mkCon name = foldl' AppE (ConE $ mkName name)
-
     mkPathPat :: Pat -> [Pat] -> Pat
     mkPathPat final =
         foldr addPat final
@@ -179,7 +173,7 @@ mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} res
             guard t
 
         (pats, dyns) <- handlePieces pieces
-        restName <- newName "rest"
+        restName <- newName "_rest"
         let restE = VarE restName
             restP = VarP restName
 
@@ -191,7 +185,7 @@ mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} res
             -- ParentArgs for the nested route are the dynamics from THIS route's pieces
             -- plus any accumulated parent dynamics from outer scopes
             thisRouteParentArgs = fmap VarE preDyns <> extraParams sdc ++ dyns
-        expr <- nestedDispatchCall name routeDyns tyargs mds restE sdc thisRouteParentArgs
+        expr <- nestedDispatchCall name routeDyns tyargs sdc thisRouteParentArgs
         let childClause =
                 Clause
                     [restP]
@@ -221,7 +215,7 @@ mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} res
                 [FunD helperName [childClause]]]
             )
 
-    go phase nrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
+    go phase' nrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         case pure nrs >>= nrsTargetName of
             Just _target -> do
                 -- Don't generate a clause if we're focused on a target.
@@ -237,7 +231,7 @@ mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} res
                 -- For nested dispatch, wrap the result in Just
                 -- chooseMethod already has type (Response -> IO ResponseReceived) -> IO ResponseReceived
                 -- We just wrap it in Just, no need for extra lambda
-                wrappedMethod <- case phase of
+                wrappedMethod <- case phase' of
                     NestedDispatch -> return $ ConE 'Just `AppE` chooseMethod
                     TopLevelDispatch -> return chooseMethod
 
@@ -351,16 +345,12 @@ nestedDispatchCall
     -- ^ The dynamic arguments for this route constructor
     -> [(Type, Name)]
     -- ^ Type arguments for parameterized routes
-    -> MkDispatchSettings w x z
-    -- ^ The dispatch settings (not used in new signature)
-    -> Exp
-    -- ^ The @restExpr@ representing the remainder of the path pieces (not used in new signature)
     -> SDC
     -- ^ The accumulated 'SDC'.
     -> [Exp]
     -- ^ The parent dynamic bound variables (for passing as ParentArgs).
     -> Q Exp
-nestedDispatchCall routeName routeDyns tyargs _mds _restExpr sdc parentDyns = do
+nestedDispatchCall routeName routeDyns tyargs sdc parentDyns = do
     childName <- newName "child"
     let parentDynsExpr =
             case parentDyns of
@@ -370,7 +360,6 @@ nestedDispatchCall routeName routeDyns tyargs _mds _restExpr sdc parentDyns = do
         -- Generate a properly-typed Proxy to help type inference
         -- Apply type arguments for parameterized routes
         routeType = foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName routeName)) tyargs
-        proxyExpr = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
         -- Build the wrapper function
         -- The wrapper should apply the route constructor with its dynamics, then any accumulated parent constructors
         -- If routeDyns = [d1, d2] and extraCons = [ParentCon], we want:
@@ -382,7 +371,7 @@ nestedDispatchCall routeName routeDyns tyargs _mds _restExpr sdc parentDyns = do
         wrapperExpr = LamE [VarP childName] wrapperBody
     [e|
         yesodDispatchNested
-            $(pure proxyExpr)
+            (Proxy :: Proxy $(pure routeType))
             $(parentDynsExpr)
             $(pure wrapperExpr)
             $(pure (envExp sdc))
@@ -461,7 +450,7 @@ mkDispatchInstance
     -> [ResourceTree Type]
     -- ^ The resource
     -> DecsQ
-mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Nothing) master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
+mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
     let mds =
             mkMDS
                 unwrapper
@@ -490,7 +479,7 @@ mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Nothing) master cxt (nulli
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
-mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Just target) master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
+mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Just target}) master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
     mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res
 
 mkNestedDispatchInstance
@@ -523,7 +512,7 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
     parentDynsP <-
         case preDyns of
             [] -> [p| () |]
-            [x] -> do
+            [_] -> do
                 n <- newName "parentDyn"
                 pure $ VarP n
             xs -> do
