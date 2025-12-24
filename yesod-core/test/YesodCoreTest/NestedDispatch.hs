@@ -7,6 +7,8 @@
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+
 
 module YesodCoreTest.NestedDispatch
     ( specs
@@ -17,6 +19,7 @@ module YesodCoreTest.NestedDispatch
 import Data.Foldable (for_)
 import Yesod.Core
 import Test.Hspec
+import Test.Hspec.Expectations.Contrib (annotate)
 import Network.Wai
 import Network.Wai.Test
 import Data.ByteString.Lazy (ByteString)
@@ -32,6 +35,7 @@ import YesodCoreTest.NestedDispatch.Resources
 import YesodCoreTest.NestedDispatch.NestR (NestR(..))
 import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
 import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..))
+import qualified Network.HTTP.Types as H
 
 mkYesod "App" nestedDispatchResources
 
@@ -69,17 +73,18 @@ testRequest :: Int -- ^ http status code
 testRequest status req expected = it (S8.unpack $ fromJust $ lookup "Accept" $ requestHeaders req) $ do
     testRequestIO status req (Just expected)
 
-testRequestIO :: Int -- ^ http status code
+testRequestIO :: HasCallStack => Int -- ^ http status code
             -> Request
             -> Maybe ByteString -- ^ expected body
             -> IO ()
 testRequestIO status req mexpected = do
     app <- toWaiApp App
-    flip runSession app $ do
-        sres <- request req
-        assertStatus status sres
+    sres <- flip runSession app $ do
+        request req
+    annotate ("Request body: " <> show (simpleBody sres )) $ do
+        H.statusCode (simpleStatus sres) `shouldBe` status
         for_ mexpected $ \expected -> do
-            assertBody expected sres
+            simpleBody sres `shouldBe` expected
 
 test :: String -- ^ accept header
      -> ByteString -- ^ expected body

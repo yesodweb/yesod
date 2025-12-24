@@ -31,6 +31,7 @@ import Yesod.Routes.TH.Internal
 import Language.Haskell.TH.Syntax
 import Web.PathPieces
 import Control.Monad
+import Data.Functor (void)
 import Data.List (foldl')
 import Control.Arrow (second)
 import Yesod.Routes.TH.Types
@@ -113,8 +114,8 @@ data SDC = SDC
 -- instances for delegation classes. For 'ParseRoute', that's
 -- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> [Exp] -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause phase preDyns parentCons mds@MkDispatchSettings {..} resources = do
+mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> [Exp] -> [(Type, Name)] -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -186,15 +187,31 @@ mkDispatchClause phase preDyns parentCons mds@MkDispatchSettings {..} resources 
         let helperE = VarE helperName
 
         let constr = foldl' AppE (ConE (mkName name)) dyns
-        expr <- nestedDispatchCall name mds restE sdc (fmap VarE preDyns <> extraParams sdc ++ dyns)
+            routeDyns = dyns
+            -- ParentArgs for the nested route are the dynamics from THIS route's pieces
+            -- plus any accumulated parent dynamics from outer scopes
+            thisRouteParentArgs = fmap VarE preDyns <> extraParams sdc ++ dyns
+        expr <- nestedDispatchCall name routeDyns tyargs mds restE sdc thisRouteParentArgs
         let childClause =
                 Clause
                     [restP]
                     (NormalB expr)
                     []
 
-        body <- mkGuardedBody (helperE `AppE` restE) $ \match' -> do
-            wrapNestedDispatchCall phase mds sdc constr (VarE match')
+        body <- if mdsNestedRouteFallthrough
+            then mkGuardedBody (helperE `AppE` restE) $ \match' -> do
+                wrapNestedDispatchCall phase mds sdc constr (VarE match')
+            else do
+                -- When fallthrough is disabled, explicitly handle Nothing with 404
+                matchName <- newName "match"
+                wrapped <- wrapNestedDispatchCall phase mds sdc constr (VarE matchName)
+                handler <- mds404
+                runHandlerE <- mdsRunHandler
+                let notFoundExp = runHandlerE `AppE` handler `AppE` envExp sdc `AppE` ConE 'Nothing `AppE` reqExp sdc
+                return $ NormalB $ CaseE (helperE `AppE` restE)
+                    [ Match (conPCompat 'Just [VarP matchName]) (NormalB wrapped) []
+                    , Match (conPCompat 'Nothing []) (NormalB notFoundExp) []
+                    ]
 
         pure
             ( if isJust instanceExists then mempty else [name]
@@ -330,6 +347,10 @@ mkDispatchClause phase preDyns parentCons mds@MkDispatchSettings {..} resources 
 nestedDispatchCall
     :: String
     -- ^ The name of the nested route (e.g., "FirstFooR")
+    -> [Exp]
+    -- ^ The dynamic arguments for this route constructor
+    -> [(Type, Name)]
+    -- ^ Type arguments for parameterized routes
     -> MkDispatchSettings w x z
     -- ^ The dispatch settings (not used in new signature)
     -> Exp
@@ -337,27 +358,32 @@ nestedDispatchCall
     -> SDC
     -- ^ The accumulated 'SDC'.
     -> [Exp]
-    -- ^ The dynamic bound variables from the route.
+    -- ^ The parent dynamic bound variables (for passing as ParentArgs).
     -> Q Exp
-nestedDispatchCall routeName _mds _restExpr sdc dyns = do
+nestedDispatchCall routeName routeDyns tyargs _mds _restExpr sdc parentDyns = do
     childName <- newName "child"
-    let dynsExpr =
-            case dyns of
+    let parentDynsExpr =
+            case parentDyns of
                 [] -> [| () |]
                 [a] -> pure a
-                _ -> pure $ mkTupE dyns
+                _ -> pure $ mkTupE parentDyns
         -- Generate a properly-typed Proxy to help type inference
-        proxyExpr = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) (ConT (mkName routeName)))
-        -- Build the wrapper function from extraCons
-        -- If extraCons = [con1, con2], we want: \child -> con1 (con2 child)
-        -- If extraCons = [], we want: id
-        wrapperExpr = case extraCons sdc of
-            [] -> VarE 'id
-            cons -> LamE [VarP childName] $ foldr AppE (VarE childName) cons
+        -- Apply type arguments for parameterized routes
+        routeType = foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName routeName)) tyargs
+        proxyExpr = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
+        -- Build the wrapper function
+        -- The wrapper should apply the route constructor with its dynamics, then any accumulated parent constructors
+        -- If routeDyns = [d1, d2] and extraCons = [ParentCon], we want:
+        --   \child -> ParentCon (RouteCon d1 d2 child)
+        -- If extraCons = [], we want:
+        --   \child -> RouteCon d1 d2 child
+        routeConApp = foldl' AppE (ConE (mkName routeName)) routeDyns `AppE` VarE childName
+        wrapperBody = foldr AppE routeConApp (extraCons sdc)
+        wrapperExpr = LamE [VarP childName] wrapperBody
     [e|
         yesodDispatchNested
             $(pure proxyExpr)
-            $(dynsExpr)
+            $(parentDynsExpr)
             $(pure wrapperExpr)
             $(pure (envExp sdc))
             $(pure $ reqExp sdc)
@@ -455,7 +481,7 @@ mkDispatchInstance routeOpts@(roFocusOnNestedRoute -> Nothing) master cxt (nulli
                 }
             }
         phase = determinePhase mds
-    (childNames, clause') <- mkDispatchClause phase [] [] mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClause phase [] [] tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
     childInstances <-
         fmap mconcat $ forM childNames $ \name -> do
@@ -484,7 +510,7 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
         Just stuff ->
             pure stuff
 
-    -- NEW: Calculate the static parent depth (number of path pieces consumed by parent)
+    -- Calculate the static parent depth (number of path pieces consumed by parent)
     let parentDepth = length prePieces
         preDyns =
             mapMaybe
@@ -493,75 +519,60 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                     Dynamic a -> Just a)
                 prePieces
 
-    parentDynNs <- forM preDyns $ \_ -> newName "parentDyn"
-
+    -- Generate parent dynamic argument pattern
     parentDynsP <-
-        case parentDynNs of
+        case preDyns of
             [] -> [p| () |]
-            [x] -> varP x
-            xs -> pure $ TupP $ map VarP xs
+            [x] -> do
+                n <- newName "parentDyn"
+                pure $ VarP n
+            xs -> do
+                ns <- forM xs $ \_ -> newName "parentDyn"
+                pure $ TupP $ map VarP ns
 
-    let addParentDynsToDispatch exp = do
-            foldl' AppE exp (map VarE parentDynNs)
-
-    let mds =
-            mkMDS
-                unwrapper
-                [|yesodRunner|]
-                [|\parentRunner getSub toParent env -> yesodSubDispatch
-                    YesodSubRunnerEnv
-                    { ysreParentRunner = parentRunner
-                    , ysreGetSub = getSub
-                    , ysreToParentRoute = toParent
-                    , ysreParentEnv = env
-                    }
-                |]
-        mdsWithNestedDispatch = mds
-            { mdsRunHandler =
-                -- Use the standard yesodRunner; wrapping in Maybe happens at clause level
-                [| yesodRunner |]
-            , mdsGetPathInfo =
-                -- NEW: Drop parent depth pieces from the actual Request pathInfo
-                [| drop $(litE $ integerL $ fromIntegral parentDepth) . W.pathInfo |]
-            , mdsMethod =
-                -- NEW: Use the actual Request method
-                [| W.requestMethod |]
-            , mdsHandleNestedRoute = NestedRouteSettings
-                { nrsTargetName = Nothing
-                }
-            , mdsGetHandler = \mmethod name ->
-                    addParentDynsToDispatch <$>
-                        mdsGetHandler mds mmethod name
-            , mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
-            }
-
-    envN <- newName "env"
+    -- Generate names for the instance parameters
+    toParentN <- newName "toParentRoute"
+    yreN <- newName "yre"
     reqN <- newName "req"
-    wrapN <- newName "wrapRoute"
-    nestHelpN <- newName "nestHelp"
 
-    -- For nested dispatch, we don't use extraCons to build routes
-    -- Instead, we use the wrapper function passed as a parameter
-    (childNames, clause') <- mkDispatchClause NestedDispatch parentDynNs [] mdsWithNestedDispatch subres
+    -- Generate dispatch clauses for each child resource
+    clauses <- genNestedDispatchClauses
+        routeOpts
+        parentDepth
+        parentDynsP
+        (VarE toParentN)
+        (VarE yreN)
+        (VarE reqN)
+        unwrapper
+        tyargs
+        subres
 
-    -- NEW: Generate instance with new signature: Proxy -> ParentArgs -> (a -> Route parent) -> Env -> Request -> Maybe (...)
-    let thisDispatch = FunD 'yesodDispatchNested
-            [Clause
-                [WildP, parentDynsP, VarP wrapN, VarP envN, VarP reqN]
-                (NormalB $
-                    VarE nestHelpN
-                    `AppE` VarE wrapN
-                    `AppE` VarE envN
-                    `AppE` VarE reqN
-                )
-                [FunD nestHelpN [clause']]
-            ]
     let targetT = foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
     yDispatchNested <- [t| YesodDispatchNested $(pure targetT) |]
 
+    let pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
+        dropExp = VarE 'drop `AppE` LitE (IntegerL $ fromIntegral parentDepth) `AppE` pathInfoExp
+        thisDispatch = FunD 'yesodDispatchNested
+            [Clause
+                [WildP, parentDynsP, VarP toParentN, VarP yreN, VarP reqN]
+                (NormalB $ CaseE dropExp clauses)
+                []
+            ]
+
     childInstances <-
-        fmap mconcat $ forM childNames $ \name -> do
-            mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
+        fmap mconcat $ forM subres $ \childRes -> do
+            case childRes of
+                ResourceParent name _ _ _ -> do
+                    instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
+                        tyname <- MaybeT $ lookupTypeName name
+                        let nameAppliedT =
+                                 foldl' (\t x -> t `AppT` fst x) (ConT tyname) tyargs
+                        Trans.lift $ isInstance ''YesodDispatchNested [nameAppliedT]
+                    if instanceExists
+                        then pure []
+                        else mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
+                _ -> pure []
+
     return
         ( instanceD cxt yDispatchNested
             [ thisDispatch
@@ -569,11 +580,164 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
         : childInstances
         )
 
+-- | Generate dispatch clauses for YesodDispatchNested instances
+genNestedDispatchClauses
+    :: RouteOpts
+    -> Int -- ^ parent piece count (for error messages/debugging)
+    -> Pat -- ^ parent dynamic args pattern
+    -> Exp -- ^ toParentRoute expression
+    -> Exp -- ^ yre expression
+    -> Exp -- ^ req expression
+    -> (Exp -> Q Exp) -- ^ unwrapper
+    -> [(Type, Name)] -- ^ type arguments for parameterized routes
+    -> [ResourceTree Type]
+    -> Q [Match]
+genNestedDispatchClauses routeOpts _parentDepth parentDynsP toParentE yreE reqE unwrapper tyargs resources = do
+    resourceClauses <- forM resources $ \res -> genClauseForResource res
+
+    -- Add fallback clause
+    fallbackClause <- if roNestedRouteFallthrough routeOpts
+        then return $ Match WildP (NormalB $ ConE 'Nothing) []
+        else do
+            let notFoundExp = ConE 'Just `AppE`
+                    (VarE 'yesodRunner
+                        `AppE` (AppE (VarE 'void) (VarE 'notFound))
+                        `AppE` yreE
+                        `AppE` ConE 'Nothing
+                        `AppE` reqE)
+            return $ Match WildP (NormalB notFoundExp) []
+
+    return $ concat resourceClauses ++ [fallbackClause]
+  where
+    -- Extract parent dynamic variables from the pattern
+    getParentDynVars :: Pat -> [Name]
+    getParentDynVars (VarP n) = [n]
+    getParentDynVars (TupP ps) = concatMap getParentDynVars ps
+    getParentDynVars _ = []
+
+    parentDynVars = getParentDynVars parentDynsP
+
+    genClauseForResource :: ResourceTree Type -> Q [Match]
+    genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
+        (pats, dynVars) <- genPiecePats pieces
+        let routeCon = foldl' AppE (ConE (mkName name)) (map VarE dynVars)
+            routeExp = toParentE `AppE` routeCon
+            allDynVars = parentDynVars ++ dynVars
+
+        case dispatch of
+            Methods mmulti methods -> do
+                handlerExp <- genHandlerCase name methods mmulti allDynVars
+                let body = ConE 'Just `AppE`
+                        (VarE 'yesodRunner
+                            `AppE` handlerExp
+                            `AppE` yreE
+                            `AppE` (ConE 'Just `AppE` routeExp)
+                            `AppE` reqE)
+                return [Match (foldr consPat (conPCompat '[] []) pats) (NormalB body) []]
+
+            Subsite _ getSub -> do
+                restPath <- newName "restPath"
+                sub <- newName "sub"
+                let sub2 = LamE [VarP sub]
+                        (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars))
+                    routeLam = LamE [VarP (mkName "sroute")] $ toParentE `AppE` (routeCon `AppE` VarE (mkName "sroute"))
+                    reqExp' = (LamE [VarP (mkName "p"), VarP (mkName "r")]
+                                (RecUpdE (VarE (mkName "r")) [(mkName "pathInfo", VarE (mkName "p"))]))
+                            `AppE` VarE restPath
+                            `AppE` reqE
+                    subsiteExp = VarE 'yesodSubDispatch
+                        `AppE` (RecConE 'YesodSubRunnerEnv
+                            [ ('ysreParentRunner, VarE 'yesodRunner)
+                            , ('ysreGetSub, sub2)
+                            , ('ysreToParentRoute, routeLam)
+                            , ('ysreParentEnv, yreE)
+                            ])
+                        `AppE` reqExp'
+                return [Match (foldr consPat (VarP restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
+
+    genClauseForResource (ResourceParent name _check pieces _children) = do
+        (pats, dynVars) <- genPiecePats pieces
+
+        -- Build the parent args tuple for the nested call
+        let allDynVars = parentDynVars ++ dynVars
+            parentArgsExp = case allDynVars of
+                [] -> ConE '()
+                [v] -> VarE v
+                vs -> mkTupE (map VarE vs)
+
+            routeConWrapper = foldl' (\acc dv -> acc `AppE` VarE dv) (ConE (mkName name)) dynVars
+            toParentComposed = InfixE (Just toParentE) (VarE '(.)) (Just routeConWrapper)
+
+            -- Apply type arguments to the route type for parameterized routes
+            routeType = foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName name)) tyargs
+            proxyExp = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
+
+        resultName <- newName "k"
+
+        let nestedCall = VarE 'yesodDispatchNested
+                `AppE` proxyExp
+                `AppE` parentArgsExp
+                `AppE` toParentComposed
+                `AppE` yreE
+                `AppE` reqE
+
+        if roNestedRouteFallthrough routeOpts
+            then do
+                -- Generate pattern guard version
+                let patGuard = BindS (conPCompat 'Just [VarP resultName]) nestedCall
+                    guardedBody = GuardedB [(PatG [patGuard], ConE 'Just `AppE` VarE resultName)]
+                return [Match (foldr consPat WildP pats) guardedBody []]
+            else do
+                -- Direct call version
+                return [Match (foldr consPat WildP pats) (NormalB nestedCall) []]
+
+    genPiecePats :: [Piece Type] -> Q ([Pat], [Name])
+    genPiecePats pieces = do
+        results <- forM pieces $ \piece -> case piece of
+            Static str -> return (LitP (StringL str), Nothing)
+            Dynamic _ -> do
+                n <- newName "dyn"
+                let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP n])
+                return (pat, Just n)
+        return (map fst results, catMaybes $ map snd results)
+
+    consPat :: Pat -> Pat -> Pat
+    consPat x y = conPCompat '(:) [x, y]
+
+    genHandlerCase :: String -> [String] -> Maybe Type -> [Name] -> Q Exp
+    genHandlerCase name methods _mmulti allDynVars = do
+        let getHandlerName mmethod =
+                let prefix = case mmethod of
+                        Nothing -> "handle"
+                        Just m -> map toLower m
+                in mkName (prefix ++ name)
+
+        if null methods
+            then do
+                -- No specific methods, just call handler
+                let handlerName = getHandlerName Nothing
+                handlerE <- unwrapper $ foldl' AppE (VarE handlerName) (map VarE allDynVars)
+                return handlerE
+            else do
+                -- Generate method case
+                methodMatches <- forM methods $ \method -> do
+                    let handlerName = getHandlerName (Just method)
+                    handlerE <- unwrapper $ foldl' AppE (VarE handlerName) (map VarE allDynVars)
+                    return $ Match (LitP $ StringL method) (NormalB handlerE) []
+
+                -- Add badMethod case
+                badMethodHandler <- unwrapper (VarE 'badMethod)
+                let badMethodMatch = Match WildP (NormalB badMethodHandler) []
+                    methodCase = CaseE (VarE 'W.requestMethod `AppE` reqE) (methodMatches ++ [badMethodMatch])
+
+                return methodCase
+
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
     (_childNames, clause') <-
         mkDispatchClause
             TopLevelDispatch
+            []
             []
             []
             (mkMDS

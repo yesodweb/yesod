@@ -41,7 +41,7 @@ handleFooWithIntR :: Int -> HandlerFor app String
 handleFooWithIntR i = pure $ "FooWithIntR " <> show i
 
 handleFooWithTextR :: String -> HandlerFor app String
-handleFooWithTextR str = pure $ "FooWithStringR " <> str
+handleFooWithTextR str = pure $ "FooWithTextR " <> str
 
 testRequest :: Int -- ^ http status code
             -> Request
