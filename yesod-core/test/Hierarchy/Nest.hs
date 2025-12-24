@@ -8,7 +8,7 @@ module Hierarchy.Nest where
 import Yesod.Routes.Parse
 import Yesod.Routes.TH
 import Hierarchy.ResourceTree
-import Hierarchy.Nest3
+import Hierarchy.Nest3 ()
 import Hierarchy.Nest2
 import Language.Haskell.TH
 import Hierarchy.Nest2.NestInner

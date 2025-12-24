@@ -7,7 +7,7 @@ import Yesod.Routes.Class
 import Yesod.Routes.TH
 import Hierarchy.ResourceTree
 import Language.Haskell.TH
-import Hierarchy.Nest3
+import Hierarchy.Nest3 ()
 import Hierarchy.Nest2.NestInner
 
 do

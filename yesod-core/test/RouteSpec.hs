@@ -14,18 +14,17 @@
 
 import Test.Hspec
 import Test.HUnit ((@?=))
-import Data.Text (Text, pack, unpack, singleton)
+import Data.Text (Text)
 import Yesod.Routes.Class hiding (Route)
-import qualified Yesod.Routes.Class as YRC
-import Yesod.Routes.Parse (parseRoutesFile, parseRoutesNoCheck, parseTypeTree, TypeTree (..))
+import Yesod.Routes.Parse (parseTypeTree, TypeTree (..))
+import Yesod.Core
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
-import Language.Haskell.TH.Syntax
 import Hierarchy
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
 import qualified Route.FallthroughSpec as FallthroughSpec
 import qualified Route.RenderRouteSpec as RenderRouteSpec
+import qualified Data.Text as Text
 
 data MyApp = MyApp
 
@@ -48,147 +47,42 @@ instance RenderRoute MySubParam where
         Route
         MySubParam = ParamRoute Char
         deriving (Show, Eq, Read)
-    renderRoute (ParamRoute x) = ([singleton x], [])
+    renderRoute (ParamRoute x) = ([Text.singleton x], [])
 instance ParseRoute MySubParam where
-    parseRoute ([unpack -> [x]], _) = Just $ ParamRoute x
+    parseRoute ([Text.unpack -> [x]], _) = Just $ ParamRoute x
     parseRoute _ = Nothing
 
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
 
 do
-    texts <- [t|[Text]|]
+    texts <- pure "[Text]"
     let resLeaves = map ResourceLeaf
             [ Resource "RootR" [] (Methods Nothing ["GET"]) ["foo", "bar"] True
-            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] (Methods Nothing ["GET", "POST"]) [] True
+            , Resource "BlogPostR" [Static "blog", Dynamic "Text"] (Methods Nothing ["GET", "POST"]) [] True
             , Resource "WikiR" [Static "wiki"] (Methods (Just texts) []) [] True
-            , Resource "SubsiteR" [Static "subsite"] (Subsite (ConT ''MySub) "getMySub") [] True
-            , Resource "SubparamR" [Static "subparam", Dynamic $ ConT ''Int] (Subsite (ConT ''MySubParam) "getMySubParam") [] True
+            , Resource "SubsiteR" [Static "subsite"] (Subsite "MySub" "getMySub") [] True
+            , Resource "SubparamR" [Static "subparam", Dynamic "Int"] (Subsite "MySubParam" "getMySubParam") [] True
             ]
         resParent = ResourceParent
             "ParentR"
             True
             [ Static "foo"
-            , Dynamic $ ConT ''Text
+            , Dynamic "Text"
             ]
             [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"] True
             ]
         ress = resParent : resLeaves
-    rrinst <- mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''MyApp) ress
-    rainst <- mkRouteAttrsInstance [] (ConT ''MyApp) ress
-    prinst <- mkParseRouteInstance [] [] (ConT ''MyApp) ress
-    -- Dispatch generation temporarily disabled due to dispatch API changes
-    -- (childNames, dispatch) <- mkDispatchClause MkDispatchSettings
-    --     { mdsRunHandler = [|runHandler|]
-    --     , mdsSubDispatcher = [|subDispatch dispatcher|]
-    --     , mdsGetPathInfo = [|fst|]
-    --     , mdsMethod = [|snd|]
-    --     , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
-    --     , mds404 = [|pack "404"|]
-    --     , mds405 = [|pack "405"|]
-    --     , mdsGetHandler = defaultGetHandler
-    --     , mdsUnwrapper = return
-    --     , mdsHandleNestedRoute = Nothing
-    --     , mdsNestedRouteFallthrough = False
-    --     } ress
-    return $ rainst : (rrinst <> prinst)
-    -- Dispatcher instance generation disabled:
-    -- return $
-    --     InstanceD
-    --         Nothing
-    --         []
-    --         (ConT ''Dispatcher
-    --             `AppT` ConT ''MyApp
-    --             `AppT` ConT ''MyApp)
-    --         [FunD (mkName "dispatcher") [dispatch]]
-    --     : rainst
-    --     : (rrinst <> prinst)
+    mkYesod "MyApp" ress
 
+instance YesodSubDispatch MySub MyApp where
+    yesodSubDispatch _yre = undefined
 
-instance Dispatcher MySub master where
-    dispatcher env (pieces, _method) =
-        ( pack $ "subsite: " ++ show pieces
-        , Just $ envToMaster env route
-        )
-      where
-        route = MySubRoute (pieces, [])
+instance YesodSubDispatch MySubParam MyApp where
+    yesodSubDispatch _yre = undefined
 
-instance Dispatcher MySubParam master where
-    dispatcher env (pieces, _method) =
-        case map unpack pieces of
-            [[c]] ->
-                let route = ParamRoute c
-                    toMaster = envToMaster env
-                    MySubParam i = envSub env
-                 in ( pack $ "subparam " ++ show i ++ ' ' : [c]
-                    , Just $ toMaster route
-                    )
-            _ -> (pack "404", Nothing)
-
-{-
-thDispatchAlias
-    :: (master ~ MyApp, sub ~ MyApp, handler ~ String, app ~ (String, Maybe (YRC.Route MyApp)))
-    => master
-    -> sub
-    -> (YRC.Route sub -> YRC.Route master)
-    -> app -- ^ 404 page
-    -> handler -- ^ 405 page
-    -> Text -- ^ method
-    -> [Text]
-    -> app
---thDispatchAlias = thDispatch
-thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
-    case dispatch pieces0 of
-        Just f -> f master sub toMaster app404 handler405 method0
-        Nothing -> app404
-  where
-    dispatch = toDispatch
-        [ Route [] False $ \pieces ->
-            case pieces of
-                [] -> do
-                    Just $ \master' sub' toMaster' _app404' handler405' method ->
-                        let handler =
-                                case Map.lookup method methodsRootR of
-                                    Just f -> f
-                                    Nothing -> handler405'
-                         in runHandler handler master' sub' RootR toMaster'
-                _ -> error "Invariant violated"
-        , Route [D.Static "blog", D.Dynamic] False $ \pieces ->
-            case pieces of
-                [_, x2] -> do
-                    y2 <- fromPathPiece x2
-                    Just $ \master' sub' toMaster' _app404' handler405' method ->
-                        let handler =
-                                case Map.lookup method methodsBlogPostR of
-                                    Just f -> f y2
-                                    Nothing -> handler405'
-                         in runHandler handler master' sub' (BlogPostR y2) toMaster'
-                _ -> error "Invariant violated"
-        , Route [D.Static "wiki"] True $ \pieces ->
-            case pieces of
-                _:x2 -> do
-                    y2 <- fromPathMultiPiece x2
-                    Just $ \master' sub' toMaster' _app404' _handler405' _method ->
-                        let handler = handleWikiR y2
-                         in runHandler handler master' sub' (WikiR y2) toMaster'
-                _ -> error "Invariant violated"
-        , Route [D.Static "subsite"] True $ \pieces ->
-            case pieces of
-                _:x2 -> do
-                    Just $ \master' sub' toMaster' app404' handler405' method ->
-                        dispatcher master' (getMySub sub') (toMaster' . SubsiteR) app404' handler405' method x2
-                _ -> error "Invariant violated"
-        , Route [D.Static "subparam", D.Dynamic] True $ \pieces ->
-            case pieces of
-                _:x2:x3 -> do
-                    y2 <- fromPathPiece x2
-                    Just $ \master' sub' toMaster' app404' handler405' method ->
-                        dispatcher master' (getMySubParam sub' y2) (toMaster' . SubparamR y2) app404' handler405' method x3
-                _ -> error "Invariant violated"
-        ]
-    methodsRootR = Map.fromList [("GET", getRootR)]
-    methodsBlogPostR = Map.fromList [("GET", getBlogPostR), ("POST", postBlogPostR)]
--}
+instance Yesod MyApp where
+    messageLoggerSource = mempty
 
 main :: IO ()
 main = hspec $ do
@@ -196,18 +90,18 @@ main = hspec $ do
     describe "Route.RenderRouteSpec" RenderRouteSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
-        it "renders blog post correctly" $ renderRoute (BlogPostR $ pack "foo") @?= (map pack ["blog", "foo"], [])
-        it "renders wiki correctly" $ renderRoute (WikiR $ map pack ["foo", "bar"]) @?= (map pack ["wiki", "foo", "bar"], [])
-        it "renders subsite correctly" $ renderRoute (SubsiteR $ MySubRoute (map pack ["foo", "bar"], [(pack "baz", pack "bin")]))
-            @?= (map pack ["subsite", "foo", "bar"], [(pack "baz", pack "bin")])
+        it "renders blog post correctly" $ renderRoute (BlogPostR $ Text.pack "foo") @?= (map Text.pack ["blog", "foo"], [])
+        it "renders wiki correctly" $ renderRoute (WikiR $ map Text.pack ["foo", "bar"]) @?= (map Text.pack ["wiki", "foo", "bar"], [])
+        it "renders subsite correctly" $ renderRoute (SubsiteR $ MySubRoute (map Text.pack ["foo", "bar"], [(Text.pack "baz", Text.pack "bin")]))
+            @?= (map Text.pack ["subsite", "foo", "bar"], [(Text.pack "baz", Text.pack "bin")])
         it "renders subsite param correctly" $ renderRoute (SubparamR 6 $ ParamRoute 'c')
-            @?= (map pack ["subparam", "6", "c"], [])
+            @?= (map Text.pack ["subparam", "6", "c"], [])
 
 
     describe "route parsing" $ do
         it "subsites work" $ do
-            parseRoute ([pack "subsite", pack "foo"], [(pack "bar", pack "baz")]) @?=
-                Just (SubsiteR $ MySubRoute ([pack "foo"], [(pack "bar", pack "baz")]))
+            parseRoute ([Text.pack "subsite", Text.pack "foo"], [(Text.pack "bar", Text.pack "baz")]) @?=
+                Just (SubsiteR $ MySubRoute ([Text.pack "foo"], [(Text.pack "bar", Text.pack "baz")]))
 
     describe "routing table parsing" $ do
         it "recognizes trailing backslashes as line continuation directives" $ do
@@ -301,9 +195,9 @@ main = hspec $ do
             findOverlapNames routes @?= []
     describe "routeAttrs" $ do
         it "works" $ do
-            routeAttrs RootR @?= Set.fromList [pack "foo", pack "bar"]
+            routeAttrs RootR @?= Set.fromList [Text.pack "foo", Text.pack "bar"]
         it "hierarchy" $ do
-            routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
+            routeAttrs (ParentR (Text.pack "ignored") ChildR) @?= Set.singleton (Text.pack "child")
     hierarchy
     describe "parseRouteType" $ do
         let success s t = it s $ parseTypeTree s @?= Just t
@@ -320,27 +214,17 @@ main = hspec $ do
         success "Foo Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
         success "Foo Bar Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
 
-getRootR :: Text
-getRootR = pack "this is the root"
+getRootR :: HandlerFor site Text
+getRootR = pure $ Text.pack "this is the root"
 
-getBlogPostR :: Text -> String
-getBlogPostR t = "some blog post: " ++ unpack t
+getBlogPostR :: Text -> HandlerFor site String
+getBlogPostR t = pure $ "some blog post: " ++ Text.unpack t
 
-postBlogPostR :: Text -> Text
-postBlogPostR t = pack $ "POST some blog post: " ++ unpack t
+postBlogPostR :: Text -> HandlerFor site Text
+postBlogPostR t = pure $ Text.pack $ "POST some blog post: " ++ Text.unpack t
 
-handleWikiR :: [Text] -> String
-handleWikiR ts = "the wiki: " ++ show ts
+handleWikiR :: [Text] -> HandlerFor site String
+handleWikiR ts = pure $ "the wiki: " ++ show ts
 
-getChildR :: Text -> Text
-getChildR = id
-
--- Dispatcher helper functions (temporarily disabled due to dispatch API changes)
--- runHandler :: handler -> master -> sub -> route -> (route -> masterRoute) -> String
--- runHandler h _ _ _ _ = h
---
--- subDispatch :: Dispatcher sub master => (master -> sub) -> Env master master -> sub -> String
--- subDispatch _ _ _ = "subdispatch"
---
--- defaultGetHandler :: Maybe a
--- defaultGetHandler = Nothing
+getChildR :: Text -> HandlerFor site Text
+getChildR = pure

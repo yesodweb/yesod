@@ -14,8 +14,6 @@
 
 module Hierarchy
     ( hierarchy
-    , Dispatcher (..)
-    , runHandler
     , Handler2
     , App
     , toText
@@ -29,15 +27,13 @@ module Hierarchy
 
 import Test.Hspec
 import Test.HUnit
-import Yesod.Routes.Parse
 import Yesod.Routes.TH
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
-import Data.Text (Text, pack, unpack, append)
+import Data.Text (Text)
+import qualified Data.Text as Text
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
-import Control.Monad (forM)
 import Hierarchy.Admin
 import Hierarchy.ResourceTree
 import Hierarchy.Nest
@@ -49,7 +45,7 @@ class ToText a where
     toText :: a -> Text
 
 instance ToText Text where toText = id
-instance ToText String where toText = pack
+instance ToText String where toText = Text.pack
 
 type Handler2 sub master a = a
 type Handler site a = Handler2 site site a
@@ -77,61 +73,15 @@ subDispatch handler _runHandler getSub toMaster env req =
         , envSub = getSub $ envMaster env
         }
 
-class Dispatcher sub master where
-    dispatcher :: Env sub master -> App sub master
-
-runHandler
-    :: ToText a
-    => Handler2 sub master a
-    -> Env sub master
-    -> Maybe (Route sub)
-    -> App sub master
-runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
-
 mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
 mkParseRouteInstance [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
-getSpacedR :: Handler site String
-getSpacedR = "root-leaf"
 
-getGet2   :: Handler site String; getGet2 = "get"
-postPost2 :: Handler site String; postPost2 = "post"
 deleteDelete2 :: Int -> Handler site String; deleteDelete2 = const "delete"
-getGet3   :: Handler site String; getGet3 = "get"
-postPost3 :: Handler site String; postPost3 = "post"
 deleteDelete3   :: Int -> Handler site String; deleteDelete3 = const "delete"
-
-getAfter   :: Handler site String; getAfter = "after"
-
-getHomeR :: Handler site String
-getHomeR = "home"
-
-getNestInnerIndexR :: Handler site String
-getNestInnerIndexR = "inner"
-
-getBackwardsR :: Int -> Handler site Text
-getBackwardsR _ = pack "backwards"
-
-getAdminRootR :: Int -> Handler site Text
-getAdminRootR i = pack $ "admin root: " ++ show i
-
-getLoginR :: Int -> Handler site Text
-getLoginR i = pack $ "login: " ++ show i
-
-postLoginR :: Int -> Handler site Text
-postLoginR i = pack $ "post login: " ++ show i
-
-getTableR :: Int -> Text -> Handler site Text
-getTableR _ = append "TableR "
-
-getGetPostR :: Handler site Text
-getGetPostR = pack "get"
-
-postGetPostR :: Handler site Text
-postGetPostR = pack "post"
 
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do

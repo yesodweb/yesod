@@ -9,15 +9,12 @@
 
 module YesodCoreTest.NestedDispatch.Parent0R where
 
-import Data.Proxy
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Yesod.Core.Handler
 import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Core
 import YesodCoreTest.NestedDispatch.Parent0R.Child0R
-import qualified Network.Wai as W
-import Yesod.Core.Class.Dispatch
 
 mkYesodOpts (setFocusOnNestedRoute (Just "Parent0R") defaultOpts) "App" nestedDispatchResources
 
