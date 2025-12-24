@@ -10,14 +10,12 @@
 
 module Yesod.Core.Class.Dispatch where
 
-import Data.Text (Text)
 import Data.Proxy (Proxy(..))
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Handler (sendWaiApplication)
 import Yesod.Core.Class.Yesod
-import Network.HTTP.Types.Method (Method)
 import Yesod.Routes.Class
 
 -- | This class is automatically instantiated when you use the template haskell

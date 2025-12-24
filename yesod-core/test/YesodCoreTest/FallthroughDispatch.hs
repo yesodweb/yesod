@@ -16,7 +16,6 @@ import YesodCoreTest.FallthroughDispatch.Resources
 import Yesod.Core
 import Test.Hspec
 import Data.Foldable (for_)
-import Test.Hspec
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.Maybe (fromJust)

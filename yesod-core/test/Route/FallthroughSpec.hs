@@ -13,6 +13,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
 
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+
 module Route.FallthroughSpec where
 
 import Network.Wai
@@ -33,6 +35,8 @@ import qualified Control.Monad.Trans.Writer    as Writer
 import qualified Data.Set as Set
 import Yesod.Routes.TH
 import Language.Haskell.TH
+import Test.Hspec.Expectations.Contrib (annotate)
+import qualified Network.HTTP.Types as H
 
 data App = App
 
@@ -52,10 +56,25 @@ do
     |]
 
     let opts = setNestedRouteFallthrough True defaultOpts
-        appType = ConT (mkName "App")
-    render <- mkRenderRouteInstanceOpts opts [] [] appType resources
-    parse <- mkParseRouteInstanceOpts opts [] [] appType resources
-    pure (render <> parse)
+    mkYesodOpts opts "App" resources
+
+instance Yesod App where
+    messageLoggerSource = mempty
+
+handleFooBlahR :: HandlerFor site String
+handleFooBlahR = pure "FooBlahR"
+
+handleHomeR :: HandlerFor site String
+handleHomeR = pure "HomeR"
+
+handleFooBaz2FooR :: HandlerFor site String
+handleFooBaz2FooR = pure "FooBaz2FooR"
+
+handleFooBazIndexR :: HandlerFor site String
+handleFooBazIndexR = pure "FooBazIndexR"
+
+handleFooIndexR :: HandlerFor site String
+handleFooIndexR = pure "FooIndexR"
 
 spec :: Spec
 spec = do
@@ -70,3 +89,25 @@ spec = do
             routeShouldParse ["foo", "baz", "foo"] (SecondFooR (FooBaz2R FooBaz2FooR))
         it "can fail" $ do
             routeShouldNotParse ["asdf"]
+
+    describe "Dispatch" $ do
+        it "/" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = []
+                    }
+                (Just "HomeR")
+
+testRequestIO :: HasCallStack => Int -- ^ http status code
+            -> Request
+            -> Maybe ByteString -- ^ expected body
+            -> IO ()
+testRequestIO status req mexpected = do
+    app <- toWaiApp App
+    sres <- flip runSession app $ do
+        request req
+    annotate ("Request body: " <> show (simpleBody sres )) $ do
+        H.statusCode (simpleStatus sres) `shouldBe` status
+        for_ mexpected $ \expected -> do
+            simpleBody sres `shouldBe` expected
