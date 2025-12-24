@@ -35,6 +35,7 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 import Data.Foldable
 import Yesod.Routes.TH.Internal
+import Yesod.Core.Class.Dispatch
 import Data.Char
 
 -- | General opts data type for generating yesod.
@@ -618,11 +619,12 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     ''Route [typ]
 #endif
                     Nothing cons inlineDerives
+            parentRouteInstancesDecs <- mkToParentRouteInstances opts cxt tyargs typ ress
             pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
                 [ did
                 , FunD (mkName "renderRoute") cls
                 ]
-                : mkStandaloneDerives routeDataName ++ decs
+                : mkStandaloneDerives routeDataName ++ decs <> parentRouteInstancesDecs
         Just target ->
             case findNestedRoute target ress of
                 Nothing ->
@@ -650,6 +652,37 @@ getDerivesFor opts cxt
         )
   where
     clazzes' = ConT <$> instanceNamesFromOpts opts
+
+-- | For each datatype, generate an instance of 'ToParentRoute' for the
+-- datatype. Instances should mostly look like this:
+--
+-- > instance ToParentRoute FooR where
+-- >     toParentRoute (a0, a1) = FooR a0 a1
+mkToParentRouteInstances :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree  Type] -> Q [Dec]
+mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) typ ress = do
+    mconcat <$> mapM (go []) ress
+  where
+    go _ (ResourceLeaf _) =
+        pure []
+    go acc (ResourceParent name _check pieces children) = do
+        let toParentRouteD =
+                FunD 'toParentRoute
+                    [ Clause
+                        [parentArgsPat acc]
+                        (NormalB (applyConToParentArgs acc))
+                        []
+                    ]
+
+        let thisInstance =
+                instanceD cxt (applyTypeVariables name) [toParentRouteD]
+
+        let acc' = error "TODO" acc
+
+        childrenInstances <- mconcat <$> mapM (go acc') children
+        pure $ thisInstance : childrenInstances
+
+    applyTypeVariables name =
+        foldl' (\t x -> t `AppT` fst x) (ConT (mkName name)) tyargs
 
 getRequiredContextFor :: RouteOpts -> Cxt -> Cxt
 getRequiredContextFor opts cxt
