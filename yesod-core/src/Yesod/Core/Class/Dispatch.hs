@@ -50,11 +50,13 @@ class RenderRouteNested a => YesodDispatchNested a where
     --
     -- @since 1.6.28.0
     yesodDispatchNested
-        :: (Yesod (ParentSite a), ToParentRoute a)
+        :: (Yesod (ParentSite a))
         => Proxy a
         -- ^ Type proxy to resolve ambiguity from non-injective type families
         -> ParentArgs a
         -- ^ The dynamic arguments from the parent route
+        -> (a -> Route (ParentSite a))
+        -- ^ Function to wrap the nested route in the parent constructor
         -> YesodRunnerEnv (ParentSite a)
         -- ^ The runner environment
         -> W.Request
@@ -64,7 +66,7 @@ class RenderRouteNested a => YesodDispatchNested a where
         -- that completes the 'Application' type when given a respond callback
 
 instance YesodDispatch site => YesodDispatchNested (Route site) where
-    yesodDispatchNested _ _ yre req = Just $ yesodDispatch yre req
+    yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
 
 class YesodDispatch' route site where
     yesodDispatch' :: proxy route -> YesodRunnerEnv site -> W.Application
