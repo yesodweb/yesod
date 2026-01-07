@@ -12,6 +12,7 @@ module Yesod.Routes.Class
       RenderRouteNested (..)
     , ParseRouteNested (..)
     , RouteAttrsNested (..)
+    , WithParentArgs (..)
     ) where
 
 import Data.Text (Text)

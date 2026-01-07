@@ -619,7 +619,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     ''Route [typ]
 #endif
                     Nothing cons inlineDerives
-            parentRouteInstancesDecs <- mkToParentRouteInstances opts cxt tyargs typ ress
+            parentRouteInstancesDecs <- mkToParentRouteInstances opts cxt tyargs ress
             pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
                 [ did
                 , FunD (mkName "renderRoute") cls
@@ -658,8 +658,8 @@ getDerivesFor opts cxt
 --
 -- > instance ToParentRoute FooR where
 -- >     toParentRoute (a0, a1) = FooR a0 a1
-mkToParentRouteInstances :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree  Type] -> Q [Dec]
-mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) typ ress = do
+mkToParentRouteInstances :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree  Type] -> Q [Dec]
+mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) ress = do
     mconcat <$> mapM (go ([], [])) ress
   where
     go _ (ResourceLeaf _) =
@@ -719,12 +719,12 @@ mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) 
             allCtors = parentCtors ++ [(thisCtor, thisPieceCount)]
 
             -- Partition dynamic vars for each constructor
-            partitionedVars = go allDynVars allCtors
+            partitionedVars = go' allDynVars allCtors
               where
-                go _ [] = []
-                go vars ((_, count) : rest) =
+                go' _ [] = []
+                go' vars ((_, count) : rest) =
                     let (varsForThis, remaining) = splitAt count vars
-                    in varsForThis : go remaining rest
+                    in varsForThis : go' remaining rest
 
             -- Build expression from inside out using foldr
             finalExpr = foldr

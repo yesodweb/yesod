@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -56,6 +57,9 @@ module Yesod.Core.Dispatch
 import Prelude hiding (exp)
 import Yesod.Core.Internal.TH
 import Language.Haskell.TH.Syntax (qLocation)
+import Data.Proxy
+import Yesod.Routes.Class
+import Yesod.Core.Handler (notFound)
 
 import Web.PathPieces
 
@@ -133,6 +137,47 @@ defaultGen = bsToInt <$> getEntropy bytes
     bits = finiteBitSize (undefined :: Int)
     bytes = div (bits + 7) 8
     bsToInt = S.foldl' (\v i -> shiftL v 8 .|. fromIntegral i) 0
+
+toWaiAppYre'
+    :: (Yesod (ParentSite a), YesodDispatchNested a, ToParentRoute a)
+    => Proxy a
+    -> ParentArgs a
+    -> YesodRunnerEnv (ParentSite a)
+    -> W.Application
+toWaiAppYre' proxy parentArgs yre req =
+    case cleanPath site $ W.pathInfo req of
+        Left pieces -> sendRedirect site pieces req
+        Right pieces -> do
+            let mapplication =
+                    yesodDispatchNested proxy parentArgs (toParentRoute parentArgs) yre req
+                        { W.pathInfo = pieces
+                        }
+            case mapplication of
+                Nothing ->
+                    yesodRunner (notFound :: HandlerFor site ()) yre Nothing req
+                Just k ->
+                    k
+  where
+    site = yreSite yre
+    sendRedirect :: Yesod master => master -> [Text] -> W.Application
+    sendRedirect y segments' env sendResponse =
+         sendResponse $ W.responseLBS status
+                [ ("Content-Type", "text/plain")
+                , ("Location", BL.toStrict $ toLazyByteString dest')
+                ] "Redirecting"
+      where
+        -- Ensure that non-GET requests get redirected correctly. See:
+        -- https://github.com/yesodweb/yesod/issues/951
+        status
+            | W.requestMethod env == "GET" = status301
+            | otherwise                    = status307
+
+        dest = joinPath y (resolveApproot y env) segments' []
+        dest' =
+            if S.null (W.rawQueryString env)
+                then dest
+                else dest `mappend`
+                     byteString (W.rawQueryString env)
 
 -- | Pure low level function to construct WAI application. Usefull
 -- when you need not standard way to run your app, or want to embed it
