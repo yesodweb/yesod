@@ -185,33 +185,7 @@ toWaiAppYre' proxy parentArgs yre req =
 --
 -- @since 1.4.29
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
-toWaiAppYre yre req =
-    case cleanPath site $ W.pathInfo req of
-        Left pieces -> sendRedirect site pieces req
-        Right pieces -> yesodDispatch yre req
-            { W.pathInfo = pieces
-            }
-  where
-    site = yreSite yre
-    sendRedirect :: Yesod master => master -> [Text] -> W.Application
-    sendRedirect y segments' env sendResponse =
-         sendResponse $ W.responseLBS status
-                [ ("Content-Type", "text/plain")
-                , ("Location", BL.toStrict $ toLazyByteString dest')
-                ] "Redirecting"
-      where
-        -- Ensure that non-GET requests get redirected correctly. See:
-        -- https://github.com/yesodweb/yesod/issues/951
-        status
-            | W.requestMethod env == "GET" = status301
-            | otherwise                    = status307
-
-        dest = joinPath y (resolveApproot y env) segments' []
-        dest' =
-            if S.null (W.rawQueryString env)
-                then dest
-                else dest `mappend`
-                     byteString (W.rawQueryString env)
+toWaiAppYre = toWaiAppYre' (Proxy :: Proxy (Route site)) ()
 
 -- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
 -- set may change with future releases, but currently covers:
