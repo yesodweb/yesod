@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -43,7 +44,9 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , toWaiAppPlain' -- TODO: rename me
     , toWaiAppYre
+    , toWaiAppYre' -- TODO: rename me
     , warp
     , warpDebug
     , warpEnv
@@ -115,6 +118,36 @@ toWaiAppPlain site = do
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
     return $ toWaiAppYre YesodRunnerEnv
+            { yreLogger = logger
+            , yreSite = site
+            , yreSessionBackend = sb
+            , yreGen = defaultGen
+            , yreGetMaxExpires = getMaxExpires
+            }
+
+-- | Convert the given argument into a WAI application, executable with any WAI
+-- handler. This function will provide no middlewares; if you want commonly
+-- used middlewares, please use 'toWaiApp'.
+--
+-- This function allows you to create an 'Application' that only responds
+-- to a subset of the 'site' routes. This is really only useful for writing
+-- tests, but it does allow you to write tests that only depend on a subset
+-- of the handlers instead of all handlers.
+toWaiAppPlain'
+    :: ( site ~ ParentSite route
+        , Yesod site
+        , YesodDispatchNested route
+        , ToParentRoute route
+        )
+    => Proxy route
+    -> ParentArgs route
+    -> site
+    -> IO W.Application
+toWaiAppPlain' proxy parentArgs site = do
+    logger <- makeLogger site
+    sb <- makeSessionBackend site
+    getMaxExpires <- getGetMaxExpires
+    return $ toWaiAppYre' proxy parentArgs YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
