@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE KindSignatures #-}
@@ -10,13 +13,19 @@
 
 module Yesod.Core.Class.Dispatch where
 
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as S
 import Data.Proxy (Proxy(..))
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content (ToTypedContent (..))
-import Yesod.Core.Handler (sendWaiApplication)
+import Yesod.Core.Handler (sendWaiApplication, RedirectUrl, notFound)
+import           Data.ByteString.Builder      (toLazyByteString, byteString)
 import Yesod.Core.Class.Yesod
 import Yesod.Routes.Class
+import Data.Text (Text)
+import Yesod.Core.Internal.Run
+import Network.HTTP.Types
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -68,11 +77,37 @@ class RenderRouteNested a => YesodDispatchNested a where
 instance YesodDispatch site => YesodDispatchNested (Route site) where
     yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
 
-class YesodDispatch' route site where
-    yesodDispatch' :: proxy route -> YesodRunnerEnv site -> W.Application
+class RedirectUrl site url => UrlToDispatch url site where
+    urlToDispatch :: url -> YesodRunnerEnv site -> W.Application
 
-instance YesodDispatch site => YesodDispatch' (Route site) site where
-    yesodDispatch' _ = yesodDispatch
+instance YesodDispatch site => UrlToDispatch (Route site) site where
+    urlToDispatch _ = yesodDispatch
+
+instance YesodDispatch site => UrlToDispatch Text site where
+    urlToDispatch _ = yesodDispatch
+
+instance YesodDispatch site => UrlToDispatch String site where
+    urlToDispatch _ = yesodDispatch
+
+instance
+    ( ParentSite route ~ site
+    , YesodDispatchNested route
+    , RedirectUrl site (WithParentArgs route)
+    , Yesod site
+    , ToParentRoute route
+    )
+  =>
+    UrlToDispatch (WithParentArgs route) site
+  where
+    urlToDispatch (WithParentArgs args _) = toWaiAppYre' (Proxy :: Proxy route) args
+
+-- TODO: ensure that RedirectUrl for fragments are generated
+-- TODO: ensure that we generate instances of UrlToDispatch like so:
+
+-- > instance (YesodDispatchNested ROUTE, ParentSite ROUTE ~ site) => UrlToDispatch (WithParentArgs ROUTE) site where
+-- >     urlToDispatch (WithParentArgs parentArgs _) =
+-- >         toWaiAppYre' (Proxy @ROUTE) parentArgs
+--
 
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application
@@ -107,3 +142,44 @@ subHelper (SubHandlerFor f) YesodSubRunnerEnv {..} mroute =
             , rheRouteToMaster = ysreToParentRoute
             }
        in f hd { handlerEnv = rhe' }
+
+toWaiAppYre'
+    :: (Yesod (ParentSite a), YesodDispatchNested a, ToParentRoute a)
+    => Proxy a
+    -> ParentArgs a
+    -> YesodRunnerEnv (ParentSite a)
+    -> W.Application
+toWaiAppYre' proxy parentArgs yre req =
+    case cleanPath site $ W.pathInfo req of
+        Left pieces -> sendRedirect site pieces req
+        Right pieces -> do
+            let mapplication =
+                    yesodDispatchNested proxy parentArgs (toParentRoute parentArgs) yre req
+                        { W.pathInfo = pieces
+                        }
+            case mapplication of
+                Nothing ->
+                    yesodRunner (notFound :: HandlerFor site ()) yre Nothing req
+                Just k ->
+                    k
+  where
+    site = yreSite yre
+    sendRedirect :: Yesod master => master -> [Text] -> W.Application
+    sendRedirect y segments' env sendResponse =
+         sendResponse $ W.responseLBS status
+                [ ("Content-Type", "text/plain")
+                , ("Location", BL.toStrict $ toLazyByteString dest')
+                ] "Redirecting"
+      where
+        -- Ensure that non-GET requests get redirected correctly. See:
+        -- https://github.com/yesodweb/yesod/issues/951
+        status
+            | W.requestMethod env == "GET" = status301
+            | otherwise                    = status307
+
+        dest = joinPath y (resolveApproot y env) segments' []
+        dest' =
+            if S.null (W.rawQueryString env)
+                then dest
+                else dest `mappend`
+                     byteString (W.rawQueryString env)

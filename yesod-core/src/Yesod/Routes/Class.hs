@@ -25,7 +25,13 @@ class Eq (Route a) => RenderRoute a where
     renderRoute :: Route a
                 -> ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
 
-data WithParentArgs a = WithParentArgs { theParentArgs :: ParentArgs a, parentArgsFor :: a }
+-- | This datatype wraps up the 'ParentArgs' for a route fragment with the
+-- route fragment itself. A route fragment with it's parent arguments can
+-- be rendered and dispatched on.
+data WithParentArgs a = WithParentArgs
+    { theParentArgs :: ParentArgs a
+    , parentArgsFor :: a
+    }
 
 deriving stock instance (Eq (ParentArgs a), Eq a) => Eq (WithParentArgs a)
 
