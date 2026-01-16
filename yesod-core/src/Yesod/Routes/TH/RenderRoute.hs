@@ -620,11 +620,15 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
 #endif
                     Nothing cons inlineDerives
             parentRouteInstancesDecs <- mkToParentRouteInstances opts cxt tyargs ress
-            pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
-                [ did
-                , FunD (mkName "renderRoute") cls
+            pure $ mconcat
+                [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
+                    [ did
+                    , FunD (mkName "renderRoute") cls
+                    ]
+                , mkStandaloneDerives routeDataName
+                , decs
+                , parentRouteInstancesDecs
                 ]
-                : mkStandaloneDerives routeDataName ++ decs <> parentRouteInstancesDecs
         Just target ->
             case findNestedRoute target ress of
                 Nothing ->

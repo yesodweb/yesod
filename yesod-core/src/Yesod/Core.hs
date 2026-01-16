@@ -8,8 +8,11 @@ module Yesod.Core
     ( -- * Type classes
       Yesod (..)
     , YesodDispatch (..)
+    , YesodDispatchNested (..)
     , YesodSubDispatch (..)
     , RenderRoute (..)
+    , ToParentRoute (..)
+    , RenderRouteNested (..)
     , ParseRoute (..)
     , RouteAttrs (..)
       -- ** Breadcrumbs
@@ -19,6 +22,7 @@ module Yesod.Core
     , Approot (..)
     , FileUpload (..)
     , ErrorResponse (..)
+    , WithParentArgs (..)
       -- * Utilities
     , maybeAuthorized
     , widgetToPageContent

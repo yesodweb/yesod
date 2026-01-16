@@ -18,7 +18,6 @@ module Route.RenderRouteSpec where
 
 import Yesod.Core
 import Test.Hspec
-import Yesod.Routes.Class
 
 data App = App
 

@@ -13,17 +13,16 @@ import Yesod.Core.Handler
 import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Core
 import qualified Network.Wai as W
-import Yesod.Core.Class.Dispatch
 
 mkYesodDataOpts (setFocusOnNestedRoute (Just "Child0R") defaultOpts) "App" nestedDispatchResources
 
 instance YesodDispatchNested Child0R where
-    yesodDispatchNested _ (i, txt) toParentRoute yre req =
+    yesodDispatchNested _ (i, txt) mkParentRoute yre req =
         case drop 4 (W.pathInfo req) of
             [] ->
                 Just $
                     let route =
-                            toParentRoute ParentChildIndexR
+                            mkParentRoute ParentChildIndexR
                         handler =
                             case W.requestMethod req of
                                 "GET" ->
@@ -38,7 +37,7 @@ instance YesodDispatchNested Child0R where
             [fromPathPiece -> Just str] ->
                 Just $ \send ->
                     let route =
-                            toParentRoute (ParentChildR str)
+                            mkParentRoute (ParentChildR str)
                         handler =
                             case W.requestMethod req of
                                 "GET" ->

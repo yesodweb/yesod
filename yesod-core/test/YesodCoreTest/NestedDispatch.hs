@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -37,7 +38,6 @@ import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
 import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..))
 import YesodCoreTest.NestedDispatch.Parent0R.Child0R
 import qualified Network.HTTP.Types as H
-import Yesod.Core.Class.Dispatch
 
 mkYesod "App" nestedDispatchResources
 
