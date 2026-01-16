@@ -101,14 +101,6 @@ instance
   where
     urlToDispatch (WithParentArgs args _) = toWaiAppYre' (Proxy :: Proxy route) args
 
--- TODO: ensure that RedirectUrl for fragments are generated
--- TODO: ensure that we generate instances of UrlToDispatch like so:
-
--- > instance (YesodDispatchNested ROUTE, ParentSite ROUTE ~ site) => UrlToDispatch (WithParentArgs ROUTE) site where
--- >     urlToDispatch (WithParentArgs parentArgs _) =
--- >         toWaiAppYre' (Proxy @ROUTE) parentArgs
---
-
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application
 

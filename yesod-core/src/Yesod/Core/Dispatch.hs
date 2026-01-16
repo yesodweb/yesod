@@ -44,6 +44,7 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , mkYesodRunnerEnv
     , toWaiAppPlain' -- TODO: rename me
     , toWaiAppYre
     , toWaiAppYre' -- TODO: rename me
@@ -109,16 +110,21 @@ import Data.Version (showVersion)
 -- used middlewares, please use 'toWaiApp'.
 toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain site = do
+    yre <- mkYesodRunnerEnv site
+    return $ toWaiAppYre yre
+
+mkYesodRunnerEnv :: Yesod site => site -> IO (YesodRunnerEnv site)
+mkYesodRunnerEnv site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
-    return $ toWaiAppYre YesodRunnerEnv
-            { yreLogger = logger
-            , yreSite = site
-            , yreSessionBackend = sb
-            , yreGen = defaultGen
-            , yreGetMaxExpires = getMaxExpires
-            }
+    pure YesodRunnerEnv
+        { yreLogger = logger
+        , yreSite = site
+        , yreSessionBackend = sb
+        , yreGen = defaultGen
+        , yreGetMaxExpires = getMaxExpires
+        }
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This function will provide no middlewares; if you want commonly
@@ -139,16 +145,8 @@ toWaiAppPlain'
     -> site
     -> IO W.Application
 toWaiAppPlain' proxy parentArgs site = do
-    logger <- makeLogger site
-    sb <- makeSessionBackend site
-    getMaxExpires <- getGetMaxExpires
-    return $ toWaiAppYre' proxy parentArgs YesodRunnerEnv
-            { yreLogger = logger
-            , yreSite = site
-            , yreSessionBackend = sb
-            , yreGen = defaultGen
-            , yreGetMaxExpires = getMaxExpires
-            }
+    yre <- mkYesodRunnerEnv site
+    return $ toWaiAppYre' proxy parentArgs yre
 
 -- | Generate a random number uniformly distributed in the full range
 -- of 'Int'.
