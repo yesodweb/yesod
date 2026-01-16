@@ -87,6 +87,7 @@ library
                      Yesod.Core.Internal.LiteApp
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
+                     Yesod.Core.Class.Dispatch.ToParentRoute
                      Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.TypeCache
                      Paths_yesod_core
