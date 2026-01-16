@@ -44,6 +44,7 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , UrlToDispatch(..)
     , mkYesodRunnerEnv
     , toWaiAppPlain' -- TODO: rename me
     , toWaiAppYre
