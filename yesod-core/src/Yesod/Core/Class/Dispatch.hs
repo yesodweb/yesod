@@ -83,6 +83,9 @@ class RedirectUrl site url => UrlToDispatch url site where
 instance YesodDispatch site => UrlToDispatch (Route site) site where
     urlToDispatch _ = yesodDispatch
 
+instance (YesodDispatch site, RedirectUrl site (Route site, a)) => UrlToDispatch (Route site, a) site where
+    urlToDispatch _ = yesodDispatch
+
 instance YesodDispatch site => UrlToDispatch Text site where
     urlToDispatch _ = yesodDispatch
 
