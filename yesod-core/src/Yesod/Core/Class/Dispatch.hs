@@ -26,17 +26,12 @@ import Yesod.Routes.Class
 import Data.Text (Text)
 import Yesod.Core.Internal.Run
 import Network.HTTP.Types
+import Yesod.Core.Class.Dispatch.ToParentRoute
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
-
-class (RenderRoute (ParentSite a)) => ToParentRoute a where
-    toParentRoute :: ParentArgs a -> a -> Route (ParentSite a)
-
-instance (RenderRoute a) => ToParentRoute (Route a) where
-    toParentRoute _ = id
 
 -- | This class enables you to dispatch on a route fragment without needing
 -- to know how to dispatch on the entire route structure. This allows you

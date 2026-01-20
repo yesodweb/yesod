@@ -87,6 +87,7 @@ import System.Environment (getEnvironment)
 import System.Entropy (getEntropy)
 import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
+import Yesod.Core.Class.Dispatch.ToParentRoute
 
 import Network.Wai.Middleware.Autohead
 import Network.Wai.Middleware.AcceptOverride

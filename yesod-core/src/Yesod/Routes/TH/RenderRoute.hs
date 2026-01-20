@@ -37,6 +37,7 @@ import Data.Foldable
 import Yesod.Routes.TH.Internal
 import Yesod.Core.Class.Dispatch
 import Data.Char
+import Yesod.Core.Class.Dispatch.ToParentRoute
 
 -- | General opts data type for generating yesod.
 --
