@@ -1,12 +1,10 @@
 # ChangeLog for yesod-static
 
-## 1.6.1.2
-
-* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
-
 ## 1.6.1.1
 
 * Use crypton instead of cryptonite [#1838](https://github.com/yesodweb/yesod/pull/1838)
+* Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
+
 
 ## 1.6.1.0
 
