@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.6.1.2
+version:         1.6.1.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -86,7 +86,7 @@ test-suite tests
                      Yesod.EmbeddedStatic.Types
                      Yesod.Static
                      YesodStaticTest
-    build-depends:   base
+    build-depends:   base < 5
                    , hspec >= 1.3
                    , yesod-test >= 1.6
                    , wai-extra
