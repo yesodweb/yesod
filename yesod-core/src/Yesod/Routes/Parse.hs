@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
 
 module Yesod.Routes.Parse
@@ -35,7 +36,7 @@ parseRoutes = QuasiQuoter { quoteExp = x }
         let res = resourcesFromString s
         case findOverlapNames res of
             [] -> lift res
-            z -> error $ unlines $ "Overlapping routes: " : map show z
+            z -> fail $ unlines $ "Overlapping routes: " : map show z
 
 -- | Same as 'parseRoutes', but uses an external file instead of quasiquotation.
 --
@@ -265,14 +266,15 @@ toTypeTree orig = do
             gos' (front . (t:)) xs'
 
 ttToType :: TypeTree -> Type
-ttToType (TTTerm s) = nameToType s
+ttToType (TTTerm s) = fst $ nameToType s
 ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
-nameToType :: String -> Type
-nameToType t = if isTvar t
-               then VarT $ mkName t
-               else ConT $ mkName t
+nameToType :: String -> (Type, Name)
+nameToType t = (, nm) $ if isTvar t
+               then VarT nm
+               else ConT nm
+    where nm = mkName t
 
 isTvar :: String -> Bool
 isTvar (h:_) = isLower h

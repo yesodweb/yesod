@@ -246,7 +246,9 @@ uncapitalize "" = ""
 
 getSrcDir :: FilePath -> IO FilePath
 getSrcDir cabal = do
-#if MIN_VERSION_Cabal(2, 0, 0)
+#if MIN_VERSION_Cabal(3, 14, 0)
+    pd <- flattenPackageDescription <$> readGenericPackageDescription normal Nothing (relativeSymbolicPath $ makeRelativePathEx cabal)
+#elif MIN_VERSION_Cabal(2, 0, 0)
     pd <- flattenPackageDescription <$> readGenericPackageDescription normal cabal
 #else
     pd <- flattenPackageDescription <$> readPackageDescription normal cabal

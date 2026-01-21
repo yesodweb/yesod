@@ -8,8 +8,11 @@ module Yesod.Core
     ( -- * Type classes
       Yesod (..)
     , YesodDispatch (..)
+    , YesodDispatchNested (..)
     , YesodSubDispatch (..)
     , RenderRoute (..)
+    , ToParentRoute (..)
+    , RenderRouteNested (..)
     , ParseRoute (..)
     , RouteAttrs (..)
       -- ** Breadcrumbs
@@ -19,6 +22,7 @@ module Yesod.Core
     , Approot (..)
     , FileUpload (..)
     , ErrorResponse (..)
+    , WithParentArgs (..)
       -- * Utilities
     , maybeAuthorized
     , widgetToPageContent
@@ -141,6 +145,7 @@ import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class
 import UnliftIO (MonadIO (..), MonadUnliftIO (..))
+import Yesod.Core.Class.Dispatch.ToParentRoute
 
 import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp

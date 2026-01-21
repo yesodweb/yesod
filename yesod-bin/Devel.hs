@@ -37,6 +37,9 @@ import qualified Distribution.PackageDescription.Parsec as D (readGenericPackage
 import qualified Distribution.PackageDescription.Parse as D (readGenericPackageDescription)
 #endif
 import qualified Distribution.Simple.Utils             as D (tryFindPackageDesc)
+#if MIN_VERSION_Cabal(3,14,0)
+import qualified Distribution.Utils.Path               as D (relativeSymbolicPath)
+#endif
 import qualified Distribution.Verbosity                as D
 import           Network.HTTP.Client                   (newManager)
 import           Network.HTTP.Client                   (managerSetProxy,
@@ -292,7 +295,9 @@ devel opts passThroughArgs = do
 
     -- Find out the name of our package, needed for the upcoming Stack
     -- commands
-#if MIN_VERSION_Cabal(3, 0, 0)
+#if MIN_VERSION_Cabal(3, 14, 0)
+    cabal  <- D.tryFindPackageDesc D.silent Nothing
+#elif MIN_VERSION_Cabal(3, 0, 0)
     cabal  <- D.tryFindPackageDesc D.silent "."
 #elif MIN_VERSION_Cabal(1, 20, 0)
     cabal  <- D.tryFindPackageDesc "."
@@ -300,7 +305,9 @@ devel opts passThroughArgs = do
     cabal  <- D.findPackageDesc "."
 #endif
 
-#if MIN_VERSION_Cabal(2, 0, 0)
+#if MIN_VERSION_Cabal(3, 14, 0)
+    gpd    <- D.readGenericPackageDescription D.normal Nothing (D.relativeSymbolicPath cabal)
+#elif MIN_VERSION_Cabal(2, 0, 0)
     gpd    <- D.readGenericPackageDescription D.normal cabal
 #else
     gpd    <- D.readPackageDescription D.normal cabal

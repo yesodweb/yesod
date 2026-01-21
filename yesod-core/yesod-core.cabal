@@ -54,7 +54,7 @@ library
                    , random                >= 1.0.0.2  && < 1.4
                    , resourcet             >= 1.2
                    , shakespeare           >= 2.0
-                   , template-haskell      >= 2.11
+                   , template-haskell      >= 2.13
                    , text                  >= 0.7
                    , time                  >= 1.5
                    , transformers          >= 0.4
@@ -88,6 +88,7 @@ library
                      Yesod.Core.Internal.LiteApp
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
+                     Yesod.Core.Class.Dispatch.ToParentRoute
                      Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.TypeCache
                      Yesod.Core.Types.Content
@@ -104,6 +105,7 @@ library
                      Yesod.Routes.TH.RenderRoute
                      Yesod.Routes.TH.ParseRoute
                      Yesod.Routes.TH.RouteAttrs
+                     Yesod.Routes.TH.Internal
 
     ghc-options:     -Wall
 
@@ -117,6 +119,12 @@ test-suite test-routes
     hs-source-dirs: test, src
 
     other-modules: Hierarchy
+                   Hierarchy.Admin
+                   Hierarchy.ResourceTree
+                   Hierarchy.Nest2.NestInner
+                   Hierarchy.Nest2
+                   Hierarchy.Nest3
+                   Hierarchy.Nest
                    Yesod.Routes.Class
                    Yesod.Routes.Overlap
                    Yesod.Routes.Parse
@@ -126,27 +134,69 @@ test-suite test-routes
                    Yesod.Routes.TH.RenderRoute
                    Yesod.Routes.TH.RouteAttrs
                    Yesod.Routes.TH.Types
+                   Yesod.Routes.TH.Internal
+                   Route.FallthroughSpec
+                   Route.RenderRouteSpec
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
 
     build-depends: base < 5
-                 , hspec
-                 , containers
+                 , HUnit
+                 , aeson
+                 , attoparsec-aeson
+                 , auto-update
+                 , blaze-html
+                 , blaze-markup
                  , bytestring
+                 , hspec-expectations
+                 , case-insensitive
+                 , cereal
+                 , clientsession
+                 , conduit
+                 , conduit-extra
+                 , containers
+                 , cookie
+                 , data-default
+                 , deepseq
+                 , encoding
+                 , entropy
+                 , fast-logger
+                 , hspec
+                 , http-types
+                 , memory
+                 , monad-logger
+                 , mtl
+                 , parsec
+                 , path-pieces
+                 , primitive
+                 , random
+                 , resourcet
+                 , shakespeare
                  , template-haskell
                  , text
-                 , random
-                 , path-pieces
-                 , HUnit
+                 , th-abstraction
+                 , time
+                 , transformers
+                 , unix-compat
+                 , unliftio
+                 , unordered-containers
+                 , vector
+                 , wai
+                 , wai-extra
+                 , wai-logger
+                 , warp
+                 , word8
 
 test-suite tests
     default-language: Haskell2010
     type: exitcode-stdio-1.0
     main-is: test.hs
-    hs-source-dirs: test
+    hs-source-dirs: test, src
 
     other-modules: YesodCoreTest
+                   Yesod.Routes.Class
+                   Yesod.Routes.TH.RenderRoute
                    YesodCoreTest.Auth
                    YesodCoreTest.Breadcrumb
                    YesodCoreTest.Cache
@@ -157,6 +207,8 @@ test-suite tests
                    YesodCoreTest.ErrorHandling
                    YesodCoreTest.ErrorHandling.CustomApp
                    YesodCoreTest.Exceptions
+                   YesodCoreTest.FallthroughDispatch
+                   YesodCoreTest.FallthroughDispatch.Resources
                    YesodCoreTest.InternalRequest
                    YesodCoreTest.JsAttributes
                    YesodCoreTest.JsLoader
@@ -167,12 +219,19 @@ test-suite tests
                    YesodCoreTest.Media
                    YesodCoreTest.MediaData
                    YesodCoreTest.Meta
+                   YesodCoreTest.NestedDispatch
+                   YesodCoreTest.NestedDispatch.NestR
+                   YesodCoreTest.NestedDispatch.ParentR
+                   YesodCoreTest.NestedDispatch.Parent0R
+                   YesodCoreTest.NestedDispatch.Parent0R.Child0R
+                   YesodCoreTest.NestedDispatch.Resources
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
                    YesodCoreTest.ParameterizedSite
                    YesodCoreTest.ParameterizedSite.Compat
                    YesodCoreTest.ParameterizedSite.PolyAny
                    YesodCoreTest.ParameterizedSite.PolyShow
+                   YesodCoreTest.ParameterizedSite.SubRoute
                    YesodCoreTest.RawResponse
                    YesodCoreTest.Redirect
                    YesodCoreTest.Reps
@@ -184,6 +243,8 @@ test-suite tests
                    YesodCoreTest.StubStrictSameSite
                    YesodCoreTest.StubUnsecured
                    YesodCoreTest.SubSub
+                   YesodCoreTest.RenderRouteSpec
+                   YesodCoreTest.RenderRouteSpec.TH
                    YesodCoreTest.SubSubData
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
@@ -209,10 +270,33 @@ test-suite tests
                   , resourcet
                   , shakespeare
                   , streaming-commons
+                  , template-haskell
                   , text
                   , transformers
                   , unliftio
+                  , unordered-containers
+                  , path-pieces
+                  , mtl
+                  , time
+                  , cereal
+                  , monad-logger
+                  , deepseq
+                  , blaze-html
+                  , aeson
+                  , primitive
+                  , case-insensitive
+                  , wai-logger
+                  , memory
+                  , unix-compat
+                  , auto-update
+                  , vector
+                  , word8
+                  , blaze-markup
+                  , fast-logger
+                  , parsec
                   , wai >= 3.0
+                  , entropy
+                  , attoparsec-aeson
                   , wai-extra
                   , warp
                   , yesod-core

@@ -3,6 +3,16 @@
 ## 1.6.28.0
 
 * When showing HandlerContent, include a content snippet [#1864](https://github.com/yesodweb/yesod/pull/1864)
+## 1.6.29.0
+
+* Add the ability to focus on a nested route structure during code generation, allowing datatypes and dispatches to be generated in separate modules. [#1887](https://github.com/yesodweb/yesod/pull/1887)
+
+## 1.6.28.1
+
+* Add type arguments to the sub routes [#1866](https://github.com/yesodweb/yesod/pull/1866)
+
+## 1.6.28.0 
+
 * Allow users to control generation of the `resourcesSite :: [ResourceTree String]` value. [#1881](https://github.com/yesodweb/yesod/pull/1881)
 
 ## 1.6.27.1

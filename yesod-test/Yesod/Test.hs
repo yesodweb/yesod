@@ -275,6 +275,7 @@ import Control.Monad (unless)
 
 import Yesod.Test.Internal (getBodyTextPreview, contentTypeHeaderIsUtf8)
 import Yesod.Test.Internal.SIO
+import qualified Data.Maybe as Maybe
 
 import System.Directory (getTemporaryDirectory)
 import System.Info (os)
@@ -1647,23 +1648,22 @@ request reqBuilder = do
       SRequest simpleRequest' (simpleRequestBody' rbdPostData)
       where
         simpleRequest' = (mkRequest
-                          ([ ("Cookie", cookieValue) ] ++ headersForPostData rbdPostData)
+                          (headersForPostData rbdPostData [ ("Cookie", cookieValue) ])
                           method extraHeaders urlPath urlQuery)
         simpleRequestBody' (MultipleItemsPostData x) =
           BSL8.fromChunks $ return $ H.renderSimpleQuery False
-          $ concatMap singlepartPart x
+          $ reverse $ Maybe.mapMaybe singlepartPart x
         simpleRequestBody' (BinaryPostData x) = x
         cookieValue = Builder.toByteString $ Cookie.renderCookies cookiePairs
         cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
                       | c <- map snd $ M.toList cookies ]
-        singlepartPart (ReqFilePart _ _ _ _) = []
-        singlepartPart (ReqKvPart k v) = [(TE.encodeUtf8 k, TE.encodeUtf8 v)]
+        singlepartPart (ReqFilePart _ _ _ _) = Nothing
+        singlepartPart (ReqKvPart k v) = Just (TE.encodeUtf8 k, TE.encodeUtf8 v)
 
         -- If the request appears to be submitting a form (has key-value pairs) give it the form-urlencoded Content-Type.
         -- The previous behavior was to always use the form-urlencoded Content-Type https://github.com/yesodweb/yesod/issues/1063
-        headersForPostData (MultipleItemsPostData []) = []
-        headersForPostData (MultipleItemsPostData _ ) = [("Content-Type", "application/x-www-form-urlencoded")]
-        headersForPostData (BinaryPostData _ ) = []
+        headersForPostData (MultipleItemsPostData (_:_)) = (("Content-Type", "application/x-www-form-urlencoded"):)
+        headersForPostData _ = id
 
 
     -- General request making
