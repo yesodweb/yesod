@@ -18,5 +18,5 @@ mkYesodOpts (setFocusOnNestedRoute (Just "NestR") defaultOpts) "App" nestedDispa
 getNestIndexR :: HandlerFor App Text
 getNestIndexR = pure "getNestIndexR"
 
-postNestIndexR :: HandlerFor App Text
+postNestIndexR :: HandlerFor App String
 postNestIndexR = pure "hello"

@@ -706,15 +706,17 @@ genNestedDispatchClauses routeOpts _parentDepth parentDynsP toParentE yreE reqE 
                 -- No specific methods, just call handler
                 let handlerName = getHandlerName Nothing
                 handlerE <- unwrapper $ foldl' AppE (VarE handlerName) (map VarE allDynVars)
-                return handlerE
+                let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
+                return wrappedHandler
             else do
                 -- Generate method case
+                -- Wrap each handler with fmap toTypedContent so all branches have the same type
                 methodMatches <- forM methods $ \method -> do
                     let handlerName = getHandlerName (Just method)
                     handlerE <- unwrapper $ foldl' AppE (VarE handlerName) (map VarE allDynVars)
-                    return $ Match (LitP $ StringL method) (NormalB handlerE) []
+                    let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
+                    return $ Match (LitP $ StringL method) (NormalB wrappedHandler) []
 
-                -- Add badMethod case
                 badMethodHandler <- unwrapper (VarE 'badMethod)
                 let badMethodMatch = Match WildP (NormalB badMethodHandler) []
                     methodCase = CaseE (VarE 'W.requestMethod `AppE` reqE) (methodMatches ++ [badMethodMatch])
