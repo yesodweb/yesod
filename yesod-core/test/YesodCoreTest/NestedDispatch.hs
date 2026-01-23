@@ -60,6 +60,9 @@ getHomeR = selectRep $ do
 getNestFooR :: Handler ()
 getNestFooR = pure ()
 
+getBlahIndexR :: Handler Text
+getBlahIndexR = pure "getBlahIndexR"
+
 rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
 
@@ -285,6 +288,27 @@ specs = do
                     , requestMethod = "GET"
                     }
                 Nothing
+
+    describe "BlahR" $ do
+        -- This test is to verify that you can promote a singleton route-
+        -- ie, that
+        --
+        -- > /blah BlahR GET
+        --
+        -- and
+        --
+        -- > /blah BlahR:
+        -- >     / BlahIndexR GET
+        --
+        -- are equivalent
+        it "can access with just the prefix" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = ["blah"]
+                    , requestMethod = "GET"
+                    }
+                (Just "getBlahIndexR")
 
     describe "ToParentRoute" $ do
         describe "Route App" $ do

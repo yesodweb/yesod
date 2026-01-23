@@ -32,4 +32,7 @@ nestedDispatchResources = [parseRoutes|
 
 /nest OtherNestR:
     /foo NestFooR GET
+
+/blah BlahR:
+    /   BlahIndexR GET
 |]
