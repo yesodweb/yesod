@@ -674,9 +674,18 @@ bodyEquals text = withResponse $ \ res -> do
 -- > get HomeR
 -- > bodyContains "<h1>Foo</h1>"
 bodyContains :: HasCallStack => String -> YesodExample site ()
-bodyContains text = withResponse $ \ res ->
-  liftIO $ HUnit.assertBool ("Expected body to contain " ++ text) $
-    (simpleBody res) `contains` text
+bodyContains text = withResponse $ \(SResponse status headers body) -> do
+  let mContentType = lookup hContentType headers
+      isUTF8ContentType = maybe False contentTypeHeaderIsUtf8 mContentType
+
+  liftIO $ flip HUnit.assertBool (body `contains` text) $ concat
+    [ "Expected body to contain `"
+    , text
+    , "`"
+    , if isUTF8ContentType
+         then ". For debugging, the body was: " <> (T.unpack $ getBodyTextPreview body)
+         else ""
+    ]
 
 -- | Assert the last response doesn't have the given text. The check is performed using the response
 -- body in full text form.
@@ -688,9 +697,18 @@ bodyContains text = withResponse $ \ res ->
 --
 -- @since 1.5.3
 bodyNotContains :: HasCallStack => String -> YesodExample site ()
-bodyNotContains text = withResponse $ \ res ->
-  liftIO $ HUnit.assertBool ("Expected body not to contain " ++ text) $
-    not $ contains (simpleBody res) text
+bodyNotContains text = withResponse $ \(SResponse status headers body) -> do
+  let mContentType = lookup hContentType headers
+      isUTF8ContentType = maybe False contentTypeHeaderIsUtf8 mContentType
+
+  liftIO $ flip HUnit.assertBool (not $ body `contains` text) $ concat
+    [ "Expected body to not contain `"
+    , text
+    , "`"
+    , if isUTF8ContentType
+         then ". For debugging, the body was: " <> (T.unpack $ getBodyTextPreview body)
+         else ""
+    ]
 
 contains :: BSL8.ByteString -> String -> Bool
 contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
