@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.7.0.1
+
+* When `bodyContains` or `bodyNotContains` fail and the content is UTF-8, a partial body is printed to aid debugging. This matches the behavior of `statusIs`. [#1900](https://github.com/yesodweb/yesod/pull/1900)
+
 ## 1.7.0
 
 * Make post params be added in addition order like normal forms. [#1867](https://github.com/yesodweb/yesod/pull/1867)
