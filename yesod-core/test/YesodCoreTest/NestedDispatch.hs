@@ -40,6 +40,9 @@ import qualified Network.HTTP.Types as H
 
 mkYesod "App" nestedDispatchResources
 
+getBlahIndexR :: HandlerFor App Text
+getBlahIndexR = pure "getBlahIndexR"
+
 instance Yesod App where
     messageLoggerSource = mempty
 
@@ -302,8 +305,6 @@ specs = do
                     }
                 Nothing
 
-<<<<<<< Updated upstream
-=======
     describe "BlahR" $ do
         -- This test is to verify that you can promote a singleton route-
         -- ie, that
@@ -334,7 +335,6 @@ specs = do
                     }
                 (Just "robots.txt")
 
->>>>>>> Stashed changes
     describe "ToParentRoute" $ do
         describe "Route App" $ do
             it "works with no args" $ do

@@ -35,7 +35,6 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 import Data.Foldable
 import Yesod.Routes.TH.Internal
-import Yesod.Core.Class.Dispatch
 import Data.Char
 import Yesod.Core.Class.Dispatch.ToParentRoute
 

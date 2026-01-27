@@ -7,8 +7,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{-# OPTIONS_GHC -ddump-splices #-}
-
 module YesodCoreTest.NestedDispatch.NestR where
 
 import Yesod.Core
