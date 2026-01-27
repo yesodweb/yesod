@@ -25,6 +25,7 @@ module Hierarchy
     , testRouteDatatype
     ) where
 
+import Yesod.Core
 import Test.Hspec
 import Test.HUnit
 import Yesod.Routes.TH
@@ -73,12 +74,60 @@ subDispatch handler _runHandler getSub toMaster env req =
         , envSub = getSub $ envMaster env
         }
 
-mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
+do
+    mconcat
+        [ mkRenderRouteInstanceOpts defaultOpts [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
+        , pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+        , mkParseRouteInstance [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
+        , mkYesodDispatchOpts defaultOpts "Hierarchy" hierarchyResources
+        ]
 
-pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
+instance Yesod Hierarchy
 
-mkParseRouteInstance [] [] (ConT ''Hierarchy) hierarchyResourcesWithType
 
+getAfter :: HandlerFor site Text
+getAfter = pure "after"
+getHomeR :: HandlerFor site Text
+getHomeR = pure "homer"
+
+getBackwardsR :: Int -> HandlerFor site Text
+getBackwardsR _i = pure "backwards"
+
+getGet3 :: HandlerFor site Text
+getGet3 = pure "getget3"
+
+postPost3 :: HandlerFor site Text
+postPost3 = pure "postPost3"
+
+getNestInnerIndexR :: HandlerFor site Text
+getNestInnerIndexR = pure "getNestInnerIndexR"
+
+getGetPostR :: HandlerFor site Text
+getGetPostR = pure "getGetPostR"
+
+postGetPostR :: HandlerFor site Text
+postGetPostR = pure "postGetPostR"
+
+getGet2 :: HandlerFor site Text
+getGet2 = pure "getGet2"
+
+postPost2 :: HandlerFor site Text
+postPost2 = pure "postPost2"
+
+getSpacedR :: HandlerFor site Text
+getSpacedR = pure "getSpacedR"
+
+getAdminRootR :: Int -> HandlerFor site Text
+getAdminRootR _ = pure "getAdminRootR"
+
+getLoginR :: Int -> HandlerFor site Text
+getLoginR _ = pure "getLoginR"
+
+postLoginR :: Int -> HandlerFor site Text
+postLoginR _ = pure "postLoginR"
+
+getTableR :: Int -> Text -> HandlerFor site Text
+getTableR _ _ = pure "getTableR"
 
 deleteDelete2 :: Int -> Handler site String; deleteDelete2 = const "delete"
 deleteDelete3   :: Int -> Handler site String; deleteDelete3 = const "delete"

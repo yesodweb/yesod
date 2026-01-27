@@ -11,6 +11,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS_GHC -Wredundant-constraints #-}
+
 module Yesod.Core.Class.Dispatch where
 
 import qualified Data.ByteString.Lazy as BL

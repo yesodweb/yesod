@@ -564,48 +564,11 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                         else mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
                 _ -> pure []
 
-    urlToDispatchInstance <-
-        case preDyns of
-            [] -> do
-                -- In this case, we have ParentArgs ~ (), so we can just
-                -- pass in () for the args
-                urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
-                urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
-                redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
-                redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
-                extraYesodContext <- fmap (fromMaybe []) $ runMaybeT $ do
-                    yesodInstanceExists <- Trans.lift $ isInstance ''Yesod [master]
-                    guard (not yesodInstanceExists)
-                    pure <$> Trans.lift [t| Yesod $(pure master) |]
-                toParentRouteOrphan <- [t| ToParentRoute $(pure targetT) |]
-                extraToParentRouteContext <- fmap (fromMaybe [toParentRouteOrphan]) $ runMaybeT $ do
-                    _ <- MaybeT $ lookupTypeName target
-                    parentRouteInstanceExists <- Trans.lift $ isInstance ''ToParentRoute [targetT]
-                    guard (not parentRouteInstanceExists)
-                    pure <$> Trans.lift [t| ToParentRoute $(pure targetT) |]
-
-                let orphanCxt =
-                        extraYesodContext <> extraToParentRouteContext
-
-                let fullCxt = cxt <> orphanCxt
-                pure
-                    [ instanceD fullCxt urlToDispatchT
-                        [ FunD 'urlToDispatch
-                            [ Clause [ WildP ] (NormalB urlToDispatchFn) []
-                            ]
-                        ]
-                    , instanceD fullCxt redirectT
-                        [ FunD 'toTextUrl
-                            [ Clause [ ] (NormalB redirectUrlFn) [] ]
-                        ]
-                    ]
-            _ ->
-                pure []
     return
         ( instanceD cxt yDispatchNested
             [ thisDispatch
             ]
-        : childInstances <> urlToDispatchInstance
+        : childInstances
         )
 
 -- | Generate dispatch clauses for YesodDispatchNested instances
