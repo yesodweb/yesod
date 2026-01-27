@@ -573,10 +573,21 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                 urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
                 redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
                 redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
-                orphanToParentRoute <- [t| ToParentRoute $(pure targetT) |]
-                orphanYesod <- [t| Yesod $(pure master) |]
-                let orphanCxt = [orphanToParentRoute, orphanYesod]
-                    fullCxt = cxt <> orphanCxt
+                extraYesodContext <- fmap (fromMaybe []) $ runMaybeT $ do
+                    yesodInstanceExists <- Trans.lift $ isInstance ''Yesod [master]
+                    guard (not yesodInstanceExists)
+                    pure <$> Trans.lift [t| Yesod $(pure master) |]
+                toParentRouteOrphan <- [t| ToParentRoute $(pure targetT) |]
+                extraToParentRouteContext <- fmap (fromMaybe [toParentRouteOrphan]) $ runMaybeT $ do
+                    _ <- MaybeT $ lookupTypeName target
+                    parentRouteInstanceExists <- Trans.lift $ isInstance ''ToParentRoute [targetT]
+                    guard (not parentRouteInstanceExists)
+                    pure <$> Trans.lift [t| ToParentRoute $(pure targetT) |]
+
+                let orphanCxt =
+                        extraYesodContext <> extraToParentRouteContext
+
+                let fullCxt = cxt <> orphanCxt
                 pure
                     [ instanceD fullCxt urlToDispatchT
                         [ FunD 'urlToDispatch
