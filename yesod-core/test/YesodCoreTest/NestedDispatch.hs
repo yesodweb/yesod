@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -8,8 +9,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
-
 
 module YesodCoreTest.NestedDispatch
     ( specs
@@ -41,6 +40,9 @@ import qualified Network.HTTP.Types as H
 
 mkYesod "App" nestedDispatchResources
 
+getBlahIndexR :: HandlerFor App Text
+getBlahIndexR = pure "getBlahIndexR"
+
 instance Yesod App where
     messageLoggerSource = mempty
 
@@ -49,6 +51,9 @@ specialHtml = "text/html; charset=special"
 
 tshow :: Show a => a -> Text
 tshow = Text.pack . show
+
+handleRobotsIndexR :: HandlerFor site Text
+handleRobotsIndexR = pure "robots.txt"
 
 getHomeR :: Handler TypedContent
 getHomeR = selectRep $ do
@@ -59,9 +64,6 @@ getHomeR = selectRep $ do
 
 getNestFooR :: Handler ()
 getNestFooR = pure ()
-
-getBlahIndexR :: Handler Text
-getBlahIndexR = pure "getBlahIndexR"
 
 rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
@@ -261,6 +263,20 @@ specs = do
                                     }
                                 Nothing
 
+    describe "UrlToDispatch NestIndexR" $ do
+        it "works" $ do
+            yre <- mkYesodRunnerEnv App
+            let app = urlToDispatch NestIndexR yre
+                req = defaultRequest
+                    { pathInfo = ["nest"]
+                    , requestMethod = "GET"
+                    }
+            sres <- flip runSession app $ do
+                request req
+            H.statusCode (simpleStatus sres) `shouldBe` 200
+            simpleBody sres `shouldBe` "getNestIndexR"
+
+
     describe "selectRep" $ do
         test "application/json" "JSON"
         test (S8.unpack typeJson) "JSON"
@@ -309,6 +325,15 @@ specs = do
                     , requestMethod = "GET"
                     }
                 (Just "getBlahIndexR")
+
+        it "can access a filename route" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = ["robots.txt"]
+                    , requestMethod = "GET"
+                    }
+                (Just "robots.txt")
 
     describe "ToParentRoute" $ do
         describe "Route App" $ do

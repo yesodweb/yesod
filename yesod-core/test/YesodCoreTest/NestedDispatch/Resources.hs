@@ -35,4 +35,7 @@ nestedDispatchResources = [parseRoutes|
 
 /blah BlahR:
     /   BlahIndexR GET
+
+/robots.txt RobotsR:
+    /   RobotsIndexR
 |]
