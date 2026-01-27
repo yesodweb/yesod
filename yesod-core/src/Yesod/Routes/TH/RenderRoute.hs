@@ -624,7 +624,6 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
 #endif
                     Nothing cons inlineDerives
             parentRouteInstancesDecs <- mkToParentRouteInstances opts cxt tyargs ress
-            urlToDispatchInstancesDecs <- mkUrlToDispatchInstances cxt tyargs typ ress
             pure $ mconcat
                 [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
                     [ did
@@ -633,7 +632,6 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                 , mkStandaloneDerives routeDataName
                 , decs
                 , parentRouteInstancesDecs
-                , urlToDispatchInstancesDecs
                 ]
         Just target ->
             case findNestedRoute target ress of
@@ -662,71 +660,6 @@ getDerivesFor opts cxt
         )
   where
     clazzes' = ConT <$> instanceNamesFromOpts opts
-
--- | Create UrlToDispatch instance for routes which don't have parent args.
--- This allows these constructors to be used in setUrl in @hspec-yesod@.
-mkUrlToDispatchInstances
-    :: Cxt
-    -> [(Type, Name)]
-    -> Type
-    -> [ResourceTree Type]
-    -> Q [Dec]
-mkUrlToDispatchInstances cxt tyargs master ress =
-    mconcat <$> mapM go ress
-  where
-    go (ResourceLeaf _) =
-        pure []
-    go (ResourceParent name _check pieces children) = do
-        -- Extract dynamic types from accumulated parent pieces
-        let dyns = [t | Dynamic t <- pieces]
-        case dyns of
-            [] -> do
-                -- In this case, we won't have any ParentArgs - so the regular
-                -- @UrlToDispatch (WithParentArgs url) site@ is an annoyance. We
-                -- can instance generate @UrlToDispatch url site@.
-                let targetT = applyTypeVariables name
-                urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
-                urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
-
-                -- This is a bit of a nasty hack. But *technically* you can
-                -- define `instance Yesod App` in a separate module from the
-                -- call to `mkYesodData`, so we add this weird bit of
-                -- context to let the instance dec compile if the instance
-                -- isn't present
-                urlToDispatchCxt <- do
-                    hasYesodInstance <- isInstance ''Yesod [master]
-                    if hasYesodInstance
-                        then pure cxt
-                        else do
-                            yesodContext <- [t| Yesod $(pure master) |]
-                            pure $ yesodContext : cxt
-
-
-                redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
-                redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
-
-                childInstances <- mapM go children
-
-                pure $
-                    [ instanceD urlToDispatchCxt urlToDispatchT
-                        [ FunD 'urlToDispatch
-                            [ Clause [ WildP ] (NormalB urlToDispatchFn) []
-                            ]
-                        ]
-                    , instanceD cxt redirectT
-                        [ FunD 'toTextUrl
-                            [ Clause [ ] (NormalB redirectUrlFn) [] ]
-                        ]
-                    ]
-                    <> concat childInstances
-            (_:_) -> do
-                -- In this case, we have ParentArgs, so we can't make
-                -- a good UrlToDispatch instance for this route or any
-                -- children.
-                pure []
-
-    applyTypeVariables name =
-        foldl' (\t x -> t `AppT` fst x) (ConT (mkName name)) tyargs
 
 -- | For each datatype, generate an instance of 'ToParentRoute' for the
 -- datatype. Instances should mostly look like this:

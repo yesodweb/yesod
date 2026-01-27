@@ -63,6 +63,7 @@ import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
 import Yesod.Core.Types
+import Yesod.Routes.TH.Dispatch (parseYesodName)
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
@@ -139,40 +140,11 @@ mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> [ResourceTree String]
                       -> Q([Dec],[Dec])
 mkYesodWithParserOpts opts name isSub f resS = do
-    (name', rest, cxt) <- case parse parseName "" name of
+    (name', rest, cxt) <- case parseYesodName name of
             Left err -> fail $ show err
             Right a -> pure a
+
     mkYesodGeneralOpts opts cxt name' rest isSub f resS
-
-    where
-        parseName = do
-            cxt <- option [] parseContext
-            name' <- parseWord
-            args <- many parseWord
-            spaces
-            eof
-            return ( name', args, cxt)
-
-        parseWord = do
-            spaces
-            many1 alphaNum
-
-        parseContext = try $ do
-            cxts <- parseParen parseContexts
-            spaces
-            _ <- string "=>"
-            return cxts
-
-        parseParen p = do
-            spaces
-            _ <- char '('
-            r <- p
-            spaces
-            _ <- char ')'
-            return r
-
-        parseContexts =
-            sepBy1 (many1 parseWord) (spaces >> char ',' >> return ())
 
 
 -- | See 'mkYesodData'.
