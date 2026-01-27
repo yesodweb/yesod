@@ -38,6 +38,8 @@ import Control.Monad.Trans.Maybe
 import qualified Control.Monad.Trans as Trans
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
+import Yesod.Core.Class.Dispatch.ToParentRoute (ToParentRoute(..))
+import Yesod.Core.Class.Yesod (Yesod)
 
 -- | This datatype describes how to create the dispatch clause for a route
 -- path.
@@ -562,11 +564,37 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                         else mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
                 _ -> pure []
 
+    urlToDispatchInstance <-
+        case preDyns of
+            [] -> do
+                -- In this case, we have ParentArgs ~ (), so we can just
+                -- pass in () for the args
+                urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
+                urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
+                redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
+                redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
+                orphanToParentRoute <- [t| ToParentRoute $(pure targetT) |]
+                orphanYesod <- [t| Yesod $(pure master) |]
+                let orphanCxt = [orphanToParentRoute, orphanYesod]
+                    fullCxt = cxt <> orphanCxt
+                pure
+                    [ instanceD fullCxt urlToDispatchT
+                        [ FunD 'urlToDispatch
+                            [ Clause [ WildP ] (NormalB urlToDispatchFn) []
+                            ]
+                        ]
+                    , instanceD fullCxt redirectT
+                        [ FunD 'toTextUrl
+                            [ Clause [ ] (NormalB redirectUrlFn) [] ]
+                        ]
+                    ]
+            _ ->
+                pure []
     return
         ( instanceD cxt yDispatchNested
             [ thisDispatch
             ]
-        : childInstances
+        : childInstances <> urlToDispatchInstance
         )
 
 -- | Generate dispatch clauses for YesodDispatchNested instances

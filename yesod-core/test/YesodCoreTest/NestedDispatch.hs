@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -8,8 +9,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
-
 
 module YesodCoreTest.NestedDispatch
     ( specs
@@ -49,6 +48,9 @@ specialHtml = "text/html; charset=special"
 
 tshow :: Show a => a -> Text
 tshow = Text.pack . show
+
+handleRobotsIndexR :: HandlerFor site Text
+handleRobotsIndexR = pure "robots.txt"
 
 getHomeR :: Handler TypedContent
 getHomeR = selectRep $ do
@@ -258,6 +260,20 @@ specs = do
                                     }
                                 Nothing
 
+    describe "UrlToDispatch NestIndexR" $ do
+        it "works" $ do
+            yre <- mkYesodRunnerEnv App
+            let app = urlToDispatch NestIndexR yre
+                req = defaultRequest
+                    { pathInfo = ["nest"]
+                    , requestMethod = "GET"
+                    }
+            sres <- flip runSession app $ do
+                request req
+            H.statusCode (simpleStatus sres) `shouldBe` 200
+            simpleBody sres `shouldBe` "getNestIndexR"
+
+
     describe "selectRep" $ do
         test "application/json" "JSON"
         test (S8.unpack typeJson) "JSON"
@@ -286,6 +302,39 @@ specs = do
                     }
                 Nothing
 
+<<<<<<< Updated upstream
+=======
+    describe "BlahR" $ do
+        -- This test is to verify that you can promote a singleton route-
+        -- ie, that
+        --
+        -- > /blah BlahR GET
+        --
+        -- and
+        --
+        -- > /blah BlahR:
+        -- >     / BlahIndexR GET
+        --
+        -- are equivalent
+        it "can access with just the prefix" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = ["blah"]
+                    , requestMethod = "GET"
+                    }
+                (Just "getBlahIndexR")
+
+        it "can access a filename route" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = ["robots.txt"]
+                    , requestMethod = "GET"
+                    }
+                (Just "robots.txt")
+
+>>>>>>> Stashed changes
     describe "ToParentRoute" $ do
         describe "Route App" $ do
             it "works with no args" $ do
