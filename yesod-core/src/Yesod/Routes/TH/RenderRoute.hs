@@ -40,6 +40,7 @@ import Yesod.Core.Class.Dispatch.ToParentRoute
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Handler
 import Data.Proxy
+import Yesod.Core.Class.Yesod
 
 -- | General opts data type for generating yesod.
 --
@@ -687,13 +688,27 @@ mkUrlToDispatchInstances cxt tyargs master ress =
                 urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
                 urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
 
+                -- This is a bit of a nasty hack. But *technically* you can
+                -- define `instance Yesod App` in a separate module from the
+                -- call to `mkYesodData`, so we add this weird bit of
+                -- context to let the instance dec compile if the instance
+                -- isn't present
+                urlToDispatchCxt <- do
+                    hasYesodInstance <- isInstance ''Yesod [master]
+                    if hasYesodInstance
+                        then pure cxt
+                        else do
+                            yesodContext <- [t| Yesod $(pure master) |]
+                            pure $ yesodContext : cxt
+
+
                 redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
                 redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
 
                 childInstances <- mapM go children
 
                 pure $
-                    [ instanceD cxt urlToDispatchT
+                    [ instanceD urlToDispatchCxt urlToDispatchT
                         [ FunD 'urlToDispatch
                             [ Clause [ WildP ] (NormalB urlToDispatchFn) []
                             ]
