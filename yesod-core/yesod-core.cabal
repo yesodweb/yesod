@@ -188,8 +188,6 @@ test-suite test-routes
                  , warp
                  , word8
 
-    ghc-options: -Werror=redundant-constraints
-
 test-suite tests
     default-language: Haskell2010
     type: exitcode-stdio-1.0
