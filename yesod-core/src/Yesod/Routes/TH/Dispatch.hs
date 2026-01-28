@@ -521,14 +521,14 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                     foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
             urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
             urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
-            urlToDispatchCxt <- do
+            mYesodConstraint <- do
                 hasYesodInstance <- isInstance ''Yesod [master]
                 if hasYesodInstance
                     then pure []
                     else do
                         yesodContext <- [t| Yesod $(pure master) |]
                         pure [yesodContext]
-            redirectUrlCxt <- do
+            mToParentRouteConstraint <- do
                 mtypeName <- lookupTypeName target
                 parentRouteCxt <- [t| ToParentRoute $(pure targetT) |]
                 case mtypeName of
@@ -546,14 +546,13 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                                 pure [parentRouteCxt]
             redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
             redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
-            let fullContext = cxt <> urlToDispatchCxt <> redirectUrlCxt
             pure $
-                [ instanceD fullContext urlToDispatchT
+                [ instanceD (cxt <> mYesodConstraint <> mToParentRouteConstraint) urlToDispatchT
                     [ FunD 'urlToDispatch
                         [ Clause [ WildP ] (NormalB urlToDispatchFn) []
                         ]
                     ]
-                , instanceD fullContext redirectT
+                , instanceD (cxt <> mToParentRouteConstraint) redirectT
                     [ FunD 'toTextUrl
                         [ Clause [ ] (NormalB redirectUrlFn) [] ]
                     ]
