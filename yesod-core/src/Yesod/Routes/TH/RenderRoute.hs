@@ -767,7 +767,7 @@ mkRenderRouteNestedInstanceOpts
     -> Q [Dec]
 mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress = do
     -- Generate constructors for all children
-    (cons, _childDecs) <- mkRouteConsOpts' prepieces ress
+    (cons, childDecs) <- mkRouteConsOpts' prepieces ress
 
     -- Create the datatype name
     let targetName = mkName target
@@ -833,7 +833,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
                 ]
 
     -- Return the datatype declaration, instance, and any standalone derives
-    return $ dataDecl : renderRouteNestedInstance : mkStandaloneDerives targetDataType
+    return $ dataDecl : renderRouteNestedInstance : mkStandaloneDerives targetDataType <> childDecs
   where
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
     mkRouteConsOpts' prePieces = foldMap (mkRouteCon' prePieces)

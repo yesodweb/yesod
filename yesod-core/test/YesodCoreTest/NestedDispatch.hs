@@ -34,7 +34,7 @@ import qualified Data.Set as Set
 import YesodCoreTest.NestedDispatch.Resources
 import YesodCoreTest.NestedDispatch.NestR (NestR(..))
 import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
-import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..))
+import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..), Child0R(..))
 import YesodCoreTest.NestedDispatch.Parent0R.Child0R
 import qualified Network.HTTP.Types as H
 
