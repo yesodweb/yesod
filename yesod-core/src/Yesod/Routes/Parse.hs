@@ -36,7 +36,7 @@ parseRoutes = QuasiQuoter { quoteExp = x }
         let res = resourcesFromString s
         case findOverlapNames res of
             [] -> lift res
-            z -> error $ unlines $ "Overlapping routes: " : map show z
+            z -> fail $ unlines $ "Overlapping routes: " : map show z
 
 -- | Same as 'parseRoutes', but uses an external file instead of quasiquotation.
 --

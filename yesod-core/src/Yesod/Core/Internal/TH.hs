@@ -1,9 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Yesod.Core.Internal.TH
@@ -35,38 +36,32 @@ module Yesod.Core.Internal.TH
     , mkYesodSubDispatch
 
     , subTopDispatch
-    , instanceD
 
     , RouteOpts
     , defaultOpts
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setFocusOnNestedRoute
     , setCreateResources
     , setParameterizedSubroute
+    , setNestedRouteFallthrough
     )
  where
 
 import Prelude hiding (exp)
 import Yesod.Core.Handler
-
 import Language.Haskell.TH hiding (cxt, instanceD)
 import Language.Haskell.TH.Syntax
-
-import qualified Network.Wai as W
-
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
-import Control.Monad (replicateM, void)
+import Data.Maybe
+import Control.Monad
 import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
-
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
-import Yesod.Core.Content (ToTypedContent (..))
 import Yesod.Core.Types
-import Yesod.Core.Class.Dispatch
-import Yesod.Core.Internal.Run
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
@@ -143,9 +138,9 @@ mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> [ResourceTree String]
                       -> Q([Dec],[Dec])
 mkYesodWithParserOpts opts name isSub f resS = do
-    let (name', rest, cxt) = case parse parseName "" name of
-            Left err -> error $ show err
-            Right a -> a
+    (name', rest, cxt) <- case parse parseName "" name of
+            Left err -> fail $ show err
+            Right a -> pure a
     mkYesodGeneralOpts opts cxt name' rest isSub f resS
 
     where
@@ -213,7 +208,7 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
-                   -> [[String]]                -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
+                   -> [[String]]                -- ^ Application context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                    -> String                    -- ^ foundation type
                    -> [String]                  -- ^ arguments for the type
                    -> Bool                      -- ^ is this a subsite
@@ -253,9 +248,15 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt boundNames site res
-    routeAttrsDec  <- mkRouteAttrsInstance appCxt site res
-    dispatchDec    <- mkDispatchInstance site appCxt f res
-    parseRoute <- mkParseRouteInstance appCxt site res
+    routeAttrsDec  <-
+        case roFocusOnNestedRoute opts of
+            Nothing ->
+                pure <$> mkRouteAttrsInstance appCxt site res
+            Just target ->
+                mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
+
+    dispatchDec <- mkDispatchInstance opts site appCxt boundNames f res
+    parseRoute <- mkParseRouteInstanceOpts opts boundNames appCxt site res
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
         if shouldCreateResources opts
@@ -268,99 +269,10 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             else do
                 pure []
     let dataDec = concat
-            [ [parseRoute]
+            [ parseRoute
             , renderRouteDec
-            , [routeAttrsDec]
-            , resourcesDec
-            , if isSub then [] else masterTypeSyns argvars site
+            , routeAttrsDec
+            , if isJust (roFocusOnNestedRoute opts) then [] else resourcesDec
+            , if isSub || isJust (roFocusOnNestedRoute opts) then [] else masterTypeSyns argvars site
             ]
     return (dataDec, dispatchDec)
-
-
-mkMDS :: (Exp -> Q Exp) -> Q Exp -> Q Exp -> MkDispatchSettings a site b
-mkMDS f rh sd = MkDispatchSettings
-    { mdsRunHandler = rh
-    , mdsSubDispatcher = sd
-    , mdsGetPathInfo = [|W.pathInfo|]
-    , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
-    , mdsMethod = [|W.requestMethod|]
-    , mds404 = [|void notFound|]
-    , mds405 = [|void badMethod|]
-    , mdsGetHandler = defaultGetHandler
-    , mdsUnwrapper = f
-    }
-
--- | If the generation of @'YesodDispatch'@ instance require finer
--- control of the types, contexts etc. using this combinator. You will
--- hardly need this generality. However, in certain situations, like
--- when writing library/plugin for yesod, this combinator becomes
--- handy.
-mkDispatchInstance :: Type                      -- ^ The master site type
-                   -> Cxt                       -- ^ Context of the instance
-                   -> (Exp -> Q Exp)            -- ^ Unwrap handler
-                   -> [ResourceTree c]          -- ^ The resource
-                   -> DecsQ
-mkDispatchInstance master cxt f res = do
-    clause' <-
-        mkDispatchClause
-            (mkMDS
-                f
-                [|yesodRunner|]
-                [|\parentRunner getSub toParent env -> yesodSubDispatch
-                    YesodSubRunnerEnv
-                    { ysreParentRunner = parentRunner
-                    , ysreGetSub = getSub
-                    , ysreToParentRoute = toParent
-                    , ysreParentEnv = env
-                    }
-                |])
-            res
-    let thisDispatch = FunD 'yesodDispatch [clause']
-    return [instanceD cxt yDispatch [thisDispatch]]
-  where
-    yDispatch = ConT ''YesodDispatch `AppT` master
-
-
-mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
-mkYesodSubDispatch res = do
-    clause' <-
-        mkDispatchClause
-            (mkMDS
-                return
-                [|subHelper|]
-                [|subTopDispatch|])
-        res
-    inner <- newName "inner"
-    let innerFun = FunD inner [clause']
-    helper <- newName "helper"
-    let fun = FunD helper
-                [ Clause
-                    []
-                    (NormalB $ VarE inner)
-                    [innerFun]
-                ]
-    return $ LetE [fun] (VarE helper)
-
-
-subTopDispatch ::
-    (YesodSubDispatch sub master) =>
-        (forall content. ToTypedContent content =>
-            SubHandlerFor child master content ->
-            YesodSubRunnerEnv child master ->
-            Maybe (Route child) ->
-            W.Application
-        ) ->
-        (mid -> sub) ->
-        (Route sub -> Route mid) ->
-        YesodSubRunnerEnv mid master ->
-        W.Application
-subTopDispatch _ getSub toParent env = yesodSubDispatch
-            (YesodSubRunnerEnv
-            { ysreParentRunner = ysreParentRunner env
-            , ysreGetSub = getSub . ysreGetSub env
-            , ysreToParentRoute = ysreToParentRoute env . toParent
-            , ysreParentEnv = ysreParentEnv env
-            })
-
-instanceD :: Cxt -> Type -> [Dec] -> Dec
-instanceD = InstanceD Nothing

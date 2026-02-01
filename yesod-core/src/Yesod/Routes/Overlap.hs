@@ -58,10 +58,12 @@ overlaps (pieceX:xs) (pieceY:ys) suffixX suffixY =
 
 piecesOverlap :: Piece t -> Piece t -> Bool
 -- Statics only match if they equal. Dynamics match with anything
+-- Hmmm. this is actually not true. A Text/String/etc will match anything,
+-- but an Int will not - only valid ints will register correctly.
 piecesOverlap (Static x) (Static y) = x == y
 piecesOverlap _ _ = True
 
-findOverlapNames :: [ResourceTree t] -> [(String, String)]
+findOverlapNames :: [ResourceTree String] -> [(String, String)]
 findOverlapNames =
     map go . findOverlapsF . filter fCheck . concatMap Yesod.Routes.Overlap.flatten
   where
