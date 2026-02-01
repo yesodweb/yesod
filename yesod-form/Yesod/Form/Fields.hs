@@ -124,8 +124,8 @@ import Data.String (IsString)
 
 import Data.Char (isHexDigit)
 
-{-# DEPRECATED radioField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}
-{-# DEPRECATED checkboxesField "This function seems to have a bug (label could not be found with byLabel algorithm)" #-}
+{-# DEPRECATED radioField "This function seems to have a bug (label could not be found with byLabel algorithm). Use radioField' instead." #-}
+{-# DEPRECATED checkboxesField "This function seems to have a bug (label could not be found with byLabel algorithm). Use checkboxesField' instead." #-}
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage

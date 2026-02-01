@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## Unreleased
+
+* Improve deprecation messages for `radioField` and `checkboxesField` [#1902](https://github.com/yesodweb/yesod/pull/1902)
+
 ## 1.7.9.1
 
 * Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)
