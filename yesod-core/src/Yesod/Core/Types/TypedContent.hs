@@ -46,9 +46,9 @@ decoderForCharset (Just encodingSymbol)
       LE.decodeUtf8With EE.lenientDecode
   | encodingSymbol == "US-ASCII" =
 #if MIN_VERSION_text(2,1,0)
-      TL.fromStrict . fst . TE.decodeASCIIPrefix . B.toStrict
+      TL.fromStrict . fst . TE.decodeASCIIPrefix . L.toStrict
 #else
-      TL.fromStrict . TE.decodeLatin1 . B.toStrict
+      TL.fromStrict . TE.decodeLatin1 . L.toStrict
 #endif
   | encodingSymbol == "latin1" =
       LE.decodeLatin1
