@@ -30,8 +30,6 @@ import qualified Data.Encoding.CP932 as Enc
 
 import qualified Network.Wai.Parse as NWP
 
-import qualified Data.ByteString.Lazy.Char8 as LC
-
 import Yesod.Core.Types.Content (Content (..))
 
 type ContentType = B.ByteString -- FIXME Text?
