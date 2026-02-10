@@ -19,3 +19,4 @@ extra-deps:
   - attoparsec-aeson-2.1.0.0
   - crypton-1.0.0
   - crypton-conduit-0.2.3
+  - encoding-0.10.2

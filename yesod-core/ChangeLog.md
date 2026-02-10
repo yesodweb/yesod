@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.29.0
+
+* When showing HandlerContent, include a content snippet [#1864](https://github.com/yesodweb/yesod/pull/1864)
+
 ## 1.6.28.1
 
 * Add type arguments to the sub routes [#1866](https://github.com/yesodweb/yesod/pull/1866)
