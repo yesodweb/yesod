@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.6.29.1
+
+* Fix compilation error for text >= 2.1.2 [#1905](https://github.com/yesodweb/yesod/pull/1905)
+
 ## 1.6.29.0
 
 * When showing HandlerContent, include a content snippet [#1864](https://github.com/yesodweb/yesod/pull/1864)
