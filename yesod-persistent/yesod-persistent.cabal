@@ -13,12 +13,13 @@ homepage:        http://www.yesodweb.com/
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-persistent>
 extra-source-files: README.md ChangeLog.md
 
+flag persistent_has_persistent_template
+  default: True
+
 library
     default-language: Haskell2010
     build-depends:   base                      >= 4.10     && < 5
                    , yesod-core                >= 1.6      && < 1.7
-                   , persistent                >= 2.8
-                   , persistent-template       >= 2.1
                    , transformers              >= 0.2.2
                    , blaze-builder
                    , conduit
@@ -27,6 +28,12 @@ library
     exposed-modules: Yesod.Persist
                      Yesod.Persist.Core
     ghc-options:     -Wall
+
+    if flag(persistent_has_persistent_template)
+        build-depends:     persistent          >= 2.12.0.1
+    else
+        build-depends:     persistent          >= 2.8 && < 2.12.0.1
+                         , persistent-template >= 2.1 && < 2.12.0.0
 
 test-suite test
     default-language: Haskell2010
