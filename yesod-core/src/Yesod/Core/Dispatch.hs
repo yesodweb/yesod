@@ -24,6 +24,7 @@ module Yesod.Core.Dispatch
     , mkYesodDispatch
     , mkYesodDispatchOpts
     , mkYesodSubDispatch
+    , mkYesodSubDispatchInstance
       -- *** Route generation options
     , RouteOpts
     , defaultOpts
@@ -54,6 +55,8 @@ module Yesod.Core.Dispatch
     , warpEnv
     , mkDefaultMiddlewares
     , defaultMiddlewaresNoLogging
+      -- * Subsite nested dispatch
+    , YesodSubDispatchNested (..)
       -- * WAI subsites
     , WaiSubsite (..)
     , WaiSubsiteWithAuth (..)

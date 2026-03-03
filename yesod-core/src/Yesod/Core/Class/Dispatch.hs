@@ -102,6 +102,39 @@ instance
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application
 
+-- | Like 'YesodDispatchNested', but for subsites. This class enables
+-- class-based delegation for nested routes within subsites, allowing
+-- module separation and symmetry with 'YesodDispatchNested'.
+--
+-- When a 'YesodSubDispatchNested' instance exists for a nested route type,
+-- 'mkYesodSubDispatch' will delegate to it instead of inlining the dispatch.
+-- Use 'mkYesodSubDispatchInstance' to generate both 'YesodSubDispatch' and
+-- 'YesodSubDispatchNested' instances in one splice.
+--
+-- @since 1.6.30.0
+class RenderRouteNested a => YesodSubDispatchNested a where
+    -- | Dispatches a request for a nested route fragment within a subsite.
+    --
+    -- Similar to 'yesodDispatchNested', but works with 'YesodSubRunnerEnv'
+    -- instead of 'YesodRunnerEnv', making it suitable for subsites.
+    -- The @master@ type is universally quantified since it's not determined
+    -- by the nested route type.
+    --
+    -- @since 1.6.30.0
+    yesodSubDispatchNested
+        :: Proxy a
+        -- ^ Type proxy to resolve ambiguity from non-injective type families
+        -> ParentArgs a
+        -- ^ The dynamic arguments from the parent route
+        -> (a -> Route (ParentSite a))
+        -- ^ Function to wrap the nested route in the parent constructor
+        -> YesodSubRunnerEnv (ParentSite a) master
+        -- ^ The subsite runner environment
+        -> W.Request
+        -- ^ The full WAI request
+        -> Maybe ((W.Response -> IO W.ResponseReceived) -> IO W.ResponseReceived)
+        -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
+
 instance YesodSubDispatch WaiSubsite master where
     yesodSubDispatch YesodSubRunnerEnv {..} = app
       where

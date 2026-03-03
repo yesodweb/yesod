@@ -34,6 +34,7 @@ module Yesod.Core.Internal.TH
     , mkDispatchInstance
 
     , mkYesodSubDispatch
+    , mkYesodSubDispatchInstance
 
     , subTopDispatch
 
@@ -60,8 +61,13 @@ import Control.Monad
 import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
+import Yesod.Routes.TH.Dispatch (mkNestedSubDispatchInstance)
+import Yesod.Routes.TH.Internal (fullyApplyType, instanceD)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
+import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
+import Control.Monad.Trans.Maybe
+import qualified Control.Monad.Trans as Trans
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
@@ -276,3 +282,117 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             , if isSub || isJust (roFocusOnNestedRoute opts) then [] else masterTypeSyns argvars site
             ]
     return (dataDec, dispatchDec)
+
+-- | Generate both 'YesodSubDispatch' and 'YesodSubDispatchNested' instances
+-- for a parameterized subsite. This is the subsite equivalent of using
+-- @mkYesod@ for top-level sites.
+--
+-- Usage:
+--
+-- @
+-- mkYesodSubDispatchInstance "(MyClass a) => MySub a" resourcesMySub
+-- @
+--
+-- This generates:
+--
+-- 1. A 'YesodSubDispatch' instance using 'mkYesodSubDispatch'
+-- 2. 'YesodSubDispatchNested' instances for any nested route fragments
+--
+-- @since 1.6.30.0
+mkYesodSubDispatchInstance
+    :: String                -- ^ Foundation type with optional context, e.g. @"(MyClass a) => MySub a"@
+    -> [ResourceTree String] -- ^ Resources (e.g. @resourcesMySub@)
+    -> Q [Dec]
+mkYesodSubDispatchInstance nameStr resS = do
+    -- Parse the name string to extract context, type name, and type args
+    (namestr, mtys, appCxt') <- case parse parseName "" nameStr of
+        Left err -> fail $ show err
+        Right a -> pure a
+
+    let appCxt = fmap (\ctxs ->
+            case ctxs of
+                c:rest ->
+                    foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
+                [] -> error $ "Bad context: " ++ show ctxs
+          ) appCxt'
+
+    -- Look up the type to determine arity
+    mname <- lookupTypeName namestr
+    arity <- case mname of
+        Just n -> do
+            info <- reify n
+            return $ case info of
+                TyConI (DataD _ _ vs _ _ _) -> length vs
+                TyConI (NewtypeD _ _ vs _ _ _) -> length vs
+                TyConI (TySynD _ vs _) -> length vs
+                _ -> 0
+        _ -> return 0
+
+    let name = mkName namestr
+    vns <- replicateM (arity - length mtys) $ newName "t"
+    let boundNames = fmap nameToType mtys
+        argtypes = fmap fst boundNames ++ fmap VarT vns
+    let site = foldl' AppT (ConT name) argtypes
+        res = map (fmap (parseType . dropBracket)) resS
+
+    -- Generate the YesodSubDispatch instance
+    masterN <- newName "master"
+    let masterT = VarT masterN
+        subDispatchExp = mkYesodSubDispatch res
+    subDispatchBody <- subDispatchExp
+    let yesodSubDispatchInst = instanceD
+            appCxt
+            (ConT ''YesodSubDispatch `AppT` site `AppT` masterT)
+            [ FunD 'yesodSubDispatch
+                [ Clause [] (NormalB subDispatchBody) [] ]
+            ]
+
+    -- Find nested routes and generate YesodSubDispatchNested instances
+    let findNested :: [ResourceTree a] -> [String]
+        findNested [] = []
+        findNested (ResourceParent n _ _ _ : rest) = n : findNested rest
+        findNested (_ : rest) = findNested rest
+        nestedNames = findNested res
+
+    nestedInstances <- fmap mconcat $ forM nestedNames $ \nestedName -> do
+        -- Check if instance already exists
+        instanceExists <- fmap (fromMaybe False) $ runMaybeT $ do
+            tyname <- MaybeT $ lookupTypeName nestedName
+            nameAppliedT <- Trans.lift $ case boundNames of
+                (_:_) -> pure $ foldl' (\t (ty, _) -> t `AppT` ty) (ConT tyname) boundNames
+                [] -> fullyApplyType tyname
+            Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
+        if instanceExists
+            then pure []
+            else mkNestedSubDispatchInstance defaultOpts nestedName appCxt boundNames return res
+
+    return $ yesodSubDispatchInst : nestedInstances
+  where
+    parseName = do
+        cxt <- option [] parseContext
+        name' <- parseWord
+        args <- many parseWord
+        spaces
+        eof
+        return (name', args, cxt)
+
+    parseWord = do
+        spaces
+        many1 alphaNum
+
+    parseContext = try $ do
+        cxts <- parseParen parseContexts
+        spaces
+        _ <- string "=>"
+        return cxts
+
+    parseParen p = do
+        spaces
+        _ <- char '('
+        r <- p
+        spaces
+        _ <- char ')'
+        return r
+
+    parseContexts =
+        sepBy1 (many1 parseWord) (spaces >> char ',' >> return ())

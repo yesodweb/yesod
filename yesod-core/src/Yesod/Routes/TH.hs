@@ -28,6 +28,11 @@ module Yesod.Routes.TH
     , SDC(..)
     , mkDispatchInstance
     , mkNestedDispatchInstance
+    , mkNestedSubDispatchInstance
+    , NestedDispatchConfig (..)
+    , SubsiteEnvMode (..)
+    , topLevelNestedConfig
+    , subsiteNestedConfig
     , mkMDS
     , mkYesodSubDispatch
     , subTopDispatch

@@ -10,6 +10,7 @@ module Yesod.Core
     , YesodDispatch (..)
     , YesodDispatchNested (..)
     , YesodSubDispatch (..)
+    , YesodSubDispatchNested (..)
     , RenderRoute (..)
     , ToParentRoute (..)
     , RenderRouteNested (..)
