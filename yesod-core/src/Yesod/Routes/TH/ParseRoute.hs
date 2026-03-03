@@ -1,9 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
@@ -100,7 +97,7 @@ generateParseRouteClause routeOpts resourceTree =
                             Nothing -> do
                                 pure (conPCompat '[] [], dyns)
                             Just _ -> do
-                                multiName <- newName "multi"
+                                multiName <- liftQ $ newName "multi"
                                 let pat = ViewP (VarE 'fromPathMultiPiece)
                                                 (conPCompat 'Just [VarP multiName])
                                 pure (pat, dyns ++ [VarE multiName])
@@ -108,20 +105,20 @@ generateParseRouteClause routeOpts resourceTree =
                     let route = List.foldl' AppE (ConE (mkName name)) dyns'
                         jroute = ConE 'Just `AppE` route
                         pathPat = mkPathPat finalPat pats
-                    queryParamsName <- newName "_queryParams"
-                    pat <- [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
+                    queryParamsName <- liftQ $ newName "_queryParams"
+                    pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
                     pure $ Clause [pat] (NormalB jroute) []
 
                 Subsite _ _ -> do
-                    restName <- newName "rest"
-                    queryParamsName <- newName "_queryParams"
+                    restName <- liftQ $ newName "rest"
+                    queryParamsName <- liftQ $ newName "_queryParams"
 
                     let route = List.foldl' AppE (ConE (mkName name)) dyns
                         pathPat = mkPathPat (VarP restName) pats
 
-                    pat <- [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
-                    tupExp <- [e| ( $(pure $ VarE restName), $(pure $ VarE queryParamsName) ) |]
-                    expr <- [e| fmap $(pure route) ( parseRoute $(pure tupExp) ) |]
+                    pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
+                    tupExp <- liftQ [e| ( $(pure $ VarE restName), $(pure $ VarE queryParamsName) ) |]
+                    expr <- liftQ [e| fmap $(pure route) ( parseRoute $(pure tupExp) ) |]
                     pure $ Clause [pat] (NormalB expr) []
 
         ResourceParent name _check pieces _children -> do
@@ -131,39 +128,42 @@ generateParseRouteClause routeOpts resourceTree =
 
             let route = List.foldl' AppE (ConE (mkName name)) dyns
 
-            restName <- newName "rest"
-            queryParamsName <- newName "_queryParams"
+            restName <- liftQ $ newName "rest"
+            queryParamsName <- liftQ $ newName "_queryParams"
 
-            parseRouteOnRest <- [e| parseRouteNested ( $(pure $ VarE restName), $(pure $ VarE queryParamsName)) |]
+            parseRouteOnRest <- liftQ [e| parseRouteNested ( $(pure $ VarE restName), $(pure $ VarE queryParamsName)) |]
 
             body <-
                     if roNestedRouteFallthrough routeOpts
                         then do
-                            resultName <- newName "result"
+                            resultName <- liftQ $ newName "result"
                             let stmt = BindS (AsP resultName (conPCompat 'Just [WildP])) parseRouteOnRest
                                 route' = List.foldl' AppE (ConE (mkName name)) dyns
-                            expr <- [e| fmap $(pure route') ( $(pure (VarE resultName)) ) |]
+                            expr <- liftQ [e| fmap $(pure route') ( $(pure (VarE resultName)) ) |]
                             pure $ GuardedB [(PatG [stmt], expr)]
                         else do
-                            expr <- [e| fmap $(pure route) ( $(pure parseRouteOnRest) ) |]
+                            expr <- liftQ [e| fmap $(pure route) ( $(pure parseRouteOnRest) ) |]
                             pure $ NormalB expr
 
-            pat <- [p| ($(pure (mkPathPat (VarP restName) pats)), $(pure (VarP queryParamsName)) ) |]
+            pat <- liftQ [p| ($(pure (mkPathPat (VarP restName) pats)), $(pure (VarP queryParamsName)) ) |]
             pure $ Clause [pat] body []
 
   where
+    liftQ :: Q a -> StateT s Q a
+    liftQ = Trans.lift
+
     recordName :: MonadState (Set.Set String) m => String -> m ()
     recordName name =
         modify (Set.insert name)
 
     recordNameIfNotInstance name = do
-        mtypeName <- Trans.lift $ lookupTypeName name
+        mtypeName <- liftQ $ lookupTypeName name
         case mtypeName of
             Nothing ->
                 recordName name
             Just typeName -> do
-                appliedT <- Trans.lift $ fullyApplyType typeName
-                hasNestedInstance <- Trans.lift $ isInstance ''ParseRouteNested [appliedT]
+                appliedT <- liftQ $ fullyApplyType typeName
+                hasNestedInstance <- liftQ $ isInstance ''ParseRouteNested [appliedT]
                 when (not hasNestedInstance) $ do
                     recordName name
 
@@ -173,15 +173,12 @@ generateParseRouteClause routeOpts resourceTree =
       where
         addPat x y = conPCompat '(:) [x, y]
 
-    handlePiece :: Quote m => Piece a -> m (Pat, Maybe Exp)
+    handlePiece :: Piece a -> StateT s Q (Pat, Maybe Exp)
     handlePiece (Static str) = return (LitP $ StringL str, Nothing)
     handlePiece (Dynamic _) = do
-        x <- newName "dyn"
+        x <- liftQ $ newName "dyn"
         let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x])
         return (pat, Just $ VarE x)
 
-    handlePieces :: Quote m => [Piece a] -> m ([Pat], [Exp])
+    handlePieces :: [Piece a] -> StateT s Q ([Pat], [Exp])
     handlePieces = fmap (second catMaybes . unzip) . mapM handlePiece
-
-instance Quote (StateT s Q) where
-    newName = Trans.lift . newName

@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language TemplateHaskell #-}
 {-# language TypeApplications #-}
 {-# language OverloadedStrings #-}
@@ -79,13 +80,21 @@ do
                     fail $ "Wrong parentArgPat: " <> show parentArgPat
 
             case routePat of
+#if MIN_VERSION_template_haskell(2,18,0)
                 ConP ((mkName "FirstR" ==) -> True) [] [VarP _n, VarP _c] ->
+#else
+                ConP ((mkName "FirstR" ==) -> True) [VarP _n, VarP _c] ->
+#endif
                     pure ()
                 _ ->
                     fail $ "Wrong routePat: " <> show routePat
 
             case expr of
+#if MIN_VERSION_template_haskell(2,16,0)
                 VarE ((== 'renderRouteNested) -> True) `AppE` (TupE [Just (VarE _x), Just (VarE _y)]) `AppE` (VarE _child) ->
+#else
+                VarE ((== 'renderRouteNested) -> True) `AppE` (TupE [VarE _x, VarE _y]) `AppE` (VarE _child) ->
+#endif
                     pure ()
                 _ ->
                     fail $ "Expr wrong shape: " <> show expr
@@ -119,7 +128,11 @@ do
                     fail $ "Wrong parentArgPat: " <> show parentArgPat
 
             case routePat of
+#if MIN_VERSION_template_haskell(2,18,0)
                 ConP ((mkName "BlahR" ==) -> True) [] [] ->
+#else
+                ConP ((mkName "BlahR" ==) -> True) [] ->
+#endif
                     pure ()
                 _ ->
                     fail $ "Wrong routePat: " <> show routePat
