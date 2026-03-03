@@ -330,8 +330,8 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
                                                 (a : as) -> toLower a : as
                                                 [] -> error "empty name????"
                                     Right <$> newName (lowerFirst tyName)
-                        parentSiteT <- [t| ParentSite $(pure consDataType) |]
-                        parentDynSig <- [t| ParentArgs $(pure consDataType) |]
+                        let parentSiteT = ConT ''ParentSite `AppT` consDataType
+                            parentDynSig = ConT ''ParentArgs `AppT` consDataType
                         (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
                         let childInstances =
                                 InstanceD
@@ -823,8 +823,8 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
     (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames ress
 
     -- Create the RenderRouteNested instance
-    parentSiteT <- [t| ParentSite $(pure targetDataType) |]
-    parentDynSig <- [t| ParentArgs $(pure targetDataType) |]
+    let parentSiteT = ConT ''ParentSite `AppT` targetDataType
+        parentDynSig = ConT ''ParentArgs `AppT` targetDataType
     let renderRouteNestedInstance =
             InstanceD
                 Nothing
