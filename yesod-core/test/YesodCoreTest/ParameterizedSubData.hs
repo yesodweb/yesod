@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -23,20 +23,23 @@ module YesodCoreTest.ParameterizedSubData where
 
 import Yesod.Core
 
+type RouteConstraints t = (Eq t, Read t, Show t, PathPiece t)
+
 -- | A multi-param type class where 'master' is NOT a parameter of the
 -- subsite type, mimicking the pattern:
 --   @mkYesodSubData "(SubsiteClass subsite master) => SubsiteData subsite"@
 -- The fundep ensures 'master' is determined by 'subsite', which is
 -- typical for real-world subsite classes.
-class ParamSubsiteClass subsite master | subsite -> master where
+class (RouteConstraints (AssocType subsite)) => ParamSubsiteClass subsite master | subsite -> master where
+  type AssocType subsite
   getSubsiteValue :: subsite -> master -> String
 
-data ParamSubsite subsite = ParamSubsite subsite
+newtype ParamSubsite subsite = ParamSubsite subsite
 
 mkYesodSubData "(ParamSubsiteClass subsite master) => ParamSubsite subsite" [parseRoutes|
 / ParamSubHomeR GET
 /item/#Int ParamSubItemR GET
-/nested NestedR:
+!/#{AssocType subsite}/nested NestedR:
     / NestedHomeR GET
     /detail/#Int NestedDetailR GET
 |]
