@@ -32,13 +32,10 @@ nestedDispatchResources = [parseRoutes|
 
 /nest OtherNestR:
     /foo NestFooR GET
-<<<<<<< Updated upstream
-=======
 
 /blah BlahR:
     /   BlahIndexR GET
 
 /robots.txt RobotsR:
     /   RobotsIndexR
->>>>>>> Stashed changes
 |]

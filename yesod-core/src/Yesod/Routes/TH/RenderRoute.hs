@@ -35,7 +35,6 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 import Data.Foldable
 import Yesod.Routes.TH.Internal
-import Yesod.Core.Class.Dispatch
 import Data.Char
 import Yesod.Core.Class.Dispatch.ToParentRoute
 
@@ -215,7 +214,7 @@ nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 --
 -- @since 1.6.25.0
 mkRouteConsOpts :: RouteOpts -> Cxt -> [(Type, Name)] -> Type -> [ResourceTree Type] -> Q ([Con], [Dec])
-mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTrees = do
+mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
     (prePieces, focusedTrees) <-
         case roFocusOnNestedRoute opts of
             Nothing ->
@@ -240,9 +239,14 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
         PlainTV :: Name -> TyVarBndr
 #endif
 
-    subrouteDecTypeArgs = fmap (tyvarbndr . snd) tyargs
+    -- Nested route child datatypes always need the parent's type
+    -- variables, because RenderRouteNested has associated type families
+    -- (ParentSite, ParentArgs) that reference the parent type. Without
+    -- the type variables on the child datatype, they'd be out of scope
+    -- on the RHS of the type family instance.
+    subrouteDecTypeArgs = fmap (tyvarbndr . snd) origTyargs
 
-    (inlineDerives, mkStandaloneDerives) = getDerivesFor opts (nullifyWhenNoParam opts cxt)
+    (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
 
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
     mkRouteConsOpts' prePieces = foldMap (mkRouteCon prePieces)
@@ -297,7 +301,7 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
                         -- or `Nothing` (aka we are either not doing
                         -- a target, or we have already found our target)
                         let childData = mkChildDataGen childDataName cons inlineDerives
-                        let childDataType = foldl' AppT (ConT childDataName) (fst <$> tyargs)
+                        let childDataType = foldl' AppT (ConT childDataName) (fst <$> origTyargs)
                         let piecesAndNames =
                                 map
                                     (\p -> case p of
@@ -354,7 +358,7 @@ mkRouteConsOpts opts cxt (nullifyWhenNoParam opts -> tyargs) master resourceTree
         mkChildDataGen childDataName cons conts =
             DataD [] childDataName subrouteDecTypeArgs Nothing cons conts
         dataName = mkName name
-        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
+        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) origTyargs
 
 -- | Clauses for the 'renderRoute' method. This should be called from the
 -- instance derivation for 'RenderRoute'. Also returns a list of 'String'
@@ -664,7 +668,7 @@ getDerivesFor opts cxt
 -- > instance ToParentRoute FooR where
 -- >     toParentRoute (a0, a1) = FooR a0 a1
 mkToParentRouteInstances :: RouteOpts -> Cxt -> [(Type, Name)] -> [ResourceTree  Type] -> Q [Dec]
-mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) ress = do
+mkToParentRouteInstances routeOpts cxt origTyargs ress = do
     mconcat <$> mapM (go ([], [])) ress
   where
     go _ (ResourceLeaf _) =
@@ -714,7 +718,7 @@ mkToParentRouteInstances routeOpts cxt (nullifyWhenNoParam routeOpts -> tyargs) 
         pure $ thisInstance : childrenInstances
 
     applyTypeVariables name =
-        foldl' (\t x -> t `AppT` fst x) (ConT (mkName name)) tyargs
+        foldl' (\t x -> t `AppT` fst x) (ConT (mkName name)) origTyargs
 
     -- Build the route expression by applying constructors from outermost to innermost
     buildRouteExpr :: [(Name, Int)] -> Name -> [Name] -> Exp -> Exp

@@ -11,6 +11,7 @@ import YesodCoreTest.Links
 import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.SubSub
+import YesodCoreTest.ParameterizedSubData ()
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache

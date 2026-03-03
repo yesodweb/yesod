@@ -41,14 +41,14 @@ mkParseRouteInstanceFor target ress = do
     mkParseRouteInstanceOpts opts [] [] targetType ress
 
 mkParseRouteInstanceOpts :: RouteOpts -> [(Type, Name)] -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
-mkParseRouteInstanceOpts routeOpts (nullifyWhenNoParam routeOpts -> tyargs) cxt typ unfocusedRess = do
+mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess = do
     let ress = focusTarget unfocusedRess
     (clauses, childNames) <- flip runStateT mempty $ traverse (generateParseRouteClause routeOpts) ress
 
     childInstances <- fmap join $ forM (Set.toList childNames) $ \childName -> do
         let targetType =
-                List.foldl' (\t x -> t `AppT` fst x) (ConT (mkName childName)) tyargs
-        mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } tyargs cxt targetType ress
+                List.foldl' (\t x -> t `AppT` fst x) (ConT (mkName childName)) origTyargs
+        mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } origTyargs cxt targetType ress
 
     let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
         allClauses = clauses <> [missingClause]
@@ -57,7 +57,7 @@ mkParseRouteInstanceOpts routeOpts (nullifyWhenNoParam routeOpts -> tyargs) cxt 
             case roFocusOnNestedRoute routeOpts of
                 Just target -> do
                     let targetType =
-                            List.foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
+                            List.foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) origTyargs
                     instanceD cxt (ConT ''ParseRouteNested `AppT` targetType)
                         [ FunD 'parseRouteNested allClauses
                         ]
