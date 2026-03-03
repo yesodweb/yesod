@@ -379,8 +379,9 @@ mkRenderRouteClauses =
 
         typeExists <- lookupTypeName name
         hasNestInstance <- case typeExists of
-            Just _ ->
-                isInstance ''RenderRouteNested [ConT (mkName name)]
+            Just typeName ->
+                fullyApplyType typeName >>= \appliedT ->
+                    isInstance ''RenderRouteNested [appliedT]
             Nothing ->
                 pure False
 
@@ -476,8 +477,9 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
         typeExists <- lookupTypeName name
         hasNestInstance <- case typeExists of
-            Just _ ->
-                isInstance ''RenderRouteNested [ConT (mkName name)]
+            Just typeName ->
+                fullyApplyType typeName >>= \appliedT ->
+                    isInstance ''RenderRouteNested [appliedT]
             Nothing ->
                 pure False
 

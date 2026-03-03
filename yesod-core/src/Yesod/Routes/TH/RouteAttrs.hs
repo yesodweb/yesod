@@ -8,6 +8,7 @@ module Yesod.Routes.TH.RouteAttrs
     ) where
 
 import Yesod.Routes.TH.Types
+import Yesod.Routes.TH.Internal (fullyApplyType)
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import Data.Foldable (toList)
@@ -53,7 +54,8 @@ goTree mtarget front (ResourceParent name _check pieces trees) = do
             Nothing ->
                 pure False
             Just typeName -> do
-                isInstance ''RouteAttrsNested [ConT typeName]
+                fullyApplyType typeName >>= \appliedT ->
+                    isInstance ''RouteAttrsNested [appliedT]
 
     if doesNestedInstanceExist
         then do

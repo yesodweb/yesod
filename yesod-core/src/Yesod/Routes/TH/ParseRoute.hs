@@ -162,7 +162,8 @@ generateParseRouteClause routeOpts resourceTree =
             Nothing ->
                 recordName name
             Just typeName -> do
-                hasNestedInstance <- Trans.lift $ isInstance ''ParseRouteNested [ConT typeName]
+                appliedT <- Trans.lift $ fullyApplyType typeName
+                hasNestedInstance <- Trans.lift $ isInstance ''ParseRouteNested [appliedT]
                 when (not hasNestedInstance) $ do
                     recordName name
 

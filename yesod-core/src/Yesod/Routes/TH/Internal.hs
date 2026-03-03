@@ -7,6 +7,7 @@
 module Yesod.Routes.TH.Internal where
 
 import Prelude hiding (exp)
+import Data.List (foldl')
 import Language.Haskell.TH.Syntax
 import Yesod.Routes.TH.Types
 
@@ -26,6 +27,21 @@ mkTupE =
 #if MIN_VERSION_template_haskell(2,16,0)
         . fmap Just
 #endif
+
+-- | Look up a type by 'Name' and return it fully applied with fresh
+-- type variables. This is needed because nested route datatypes may
+-- have type parameters (e.g., @NestedR subsite@), and TH functions
+-- like 'isInstance' require fully-applied types.
+fullyApplyType :: Name -> Q Type
+fullyApplyType typeName = do
+    info <- reify typeName
+    let arity = case info of
+            TyConI (DataD _ _ vs _ _ _) -> length vs
+            TyConI (NewtypeD _ _ vs _ _ _) -> length vs
+            TyConI (TySynD _ vs _) -> length vs
+            _ -> 0
+    vars <- mapM (\i -> VarT <$> newName ("a" ++ show i)) [1..arity]
+    pure $ foldl' AppT (ConT typeName) vars
 
 -- | Given a target 'String', find the 'ResourceParent' in the
 -- @['ResourceTree' a]@ corresponding to that target and return it.

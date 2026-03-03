@@ -171,7 +171,8 @@ mkDispatchClause phase preDyns parentCons tyargs mds@MkDispatchSettings {..} res
             -- already exist.
             typeName <- MaybeT $ lookupTypeName name
             guard $ fromMaybe True mtargetMatch
-            t <- Trans.lift $ isInstance ''YesodDispatchNested [ConT typeName]
+            appliedT <- Trans.lift $ fullyApplyType typeName
+            t <- Trans.lift $ isInstance ''YesodDispatchNested [appliedT]
             guard t
 
         (pats, dyns) <- handlePieces pieces
@@ -354,14 +355,22 @@ nestedDispatchCall
     -> Q Exp
 nestedDispatchCall routeName routeDyns tyargs sdc parentDyns = do
     childName <- newName "child"
+    -- Look up the type to get its full applied form. When tyargs is
+    -- provided, use it; otherwise look up the type's arity and apply
+    -- fresh variables (needed for mkYesodSubDispatch which doesn't
+    -- know the parent's type args).
+    routeType <- case tyargs of
+        (_:_) -> pure $ foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName routeName)) tyargs
+        [] -> do
+            mname <- lookupTypeName routeName
+            case mname of
+                Just typeName -> fullyApplyType typeName
+                Nothing -> pure $ ConT (mkName routeName)
     let parentDynsExpr =
             case parentDyns of
                 [] -> [| () |]
                 [a] -> pure a
                 _ -> pure $ mkTupE parentDyns
-        -- Generate a properly-typed Proxy to help type inference
-        -- Apply type arguments for parameterized routes
-        routeType = foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName routeName)) tyargs
         -- Build the wrapper function
         -- The wrapper should apply the route constructor with its dynamics, then any accumulated parent constructors
         -- If routeDyns = [d1, d2] and extraCons = [ParentCon], we want:
@@ -452,7 +461,7 @@ mkDispatchInstance
     -> [ResourceTree Type]
     -- ^ The resource
     -> DecsQ
-mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
+mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) master cxt tyargs unwrapper res = do
     let mds =
             mkMDS
                 unwrapper
@@ -481,7 +490,7 @@ mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) ma
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
-mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Just target}) master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
+mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Just target}) master cxt tyargs unwrapper res = do
     mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res
 
 mkNestedDispatchInstance
@@ -493,7 +502,7 @@ mkNestedDispatchInstance
     -> (Exp -> Q Exp)
     -> [ResourceTree Type]
     -> Q [Dec]
-mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOpts -> tyargs) unwrapper res = do
+mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
     let mstuff = findNestedRoute target res
     (prePieces, subres) <- case mstuff of
         Nothing ->
@@ -556,8 +565,9 @@ mkNestedDispatchInstance routeOpts target master cxt (nullifyWhenNoParam routeOp
                 ResourceParent name _ _ _ -> do
                     instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
                         tyname <- MaybeT $ lookupTypeName name
-                        let nameAppliedT =
-                                 foldl' (\t x -> t `AppT` fst x) (ConT tyname) tyargs
+                        nameAppliedT <- Trans.lift $ case tyargs of
+                            (_:_) -> pure $ foldl' (\t x -> t `AppT` fst x) (ConT tyname) tyargs
+                            [] -> fullyApplyType tyname
                         Trans.lift $ isInstance ''YesodDispatchNested [nameAppliedT]
                     if instanceExists
                         then pure []
@@ -685,9 +695,16 @@ genNestedDispatchClauses routeOpts _parentDepth parentDynsP toParentE yreE reqE 
             routeConWrapper = foldl' (\acc dv -> acc `AppE` VarE dv) (ConE (mkName name)) dynVars
             toParentComposed = InfixE (Just toParentE) (VarE '(.)) (Just routeConWrapper)
 
-            -- Apply type arguments to the route type for parameterized routes
-            routeType = foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName name)) tyargs
-            proxyExp = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
+        -- Apply type arguments to the route type for parameterized routes
+        -- When tyargs is empty (e.g. from mkYesodSubDispatch), look up the type's arity
+        routeType <- case tyargs of
+            (_:_) -> pure $ foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName name)) tyargs
+            [] -> do
+                mname <- lookupTypeName name
+                case mname of
+                    Just typeName -> fullyApplyType typeName
+                    Nothing -> pure $ ConT (mkName name)
+        let proxyExp = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
 
         resultName <- newName "k"
 
