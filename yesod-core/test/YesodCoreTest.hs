@@ -26,6 +26,7 @@ import qualified YesodCoreTest.Json as Json
 import qualified YesodCoreTest.NestedDispatch as NestedDispatch
 import qualified YesodCoreTest.FallthroughDispatch as FallthroughDispatch
 import qualified YesodCoreTest.RenderRouteSpec as RenderRouteSpec
+import qualified YesodCoreTest.Content as Content
 
 -- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
 #ifndef WINDOWS
@@ -80,3 +81,4 @@ specs = do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do
           RenderRouteSpec.spec
+      Content.specs

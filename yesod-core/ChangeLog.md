@@ -1,8 +1,16 @@
 # ChangeLog for yesod-core
 
-## 1.6.29.0
+## UNRELEASED (major version bump)
 
 * Add the ability to focus on a nested route structure during code generation, allowing datatypes and dispatches to be generated in separate modules. [#1887](https://github.com/yesodweb/yesod/pull/1887)
+
+## 1.6.29.1
+
+* Fix compilation error for text >= 2.1.2 [#1905](https://github.com/yesodweb/yesod/pull/1905)
+
+## 1.6.29.0
+
+* When showing HandlerContent, include a content snippet [#1864](https://github.com/yesodweb/yesod/pull/1864)
 
 ## 1.6.28.1
 

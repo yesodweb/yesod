@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.29.0
+version:         1.6.29.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -41,6 +41,7 @@ library
                    , cookie                >= 0.4.3    && < 0.6
                    , data-default
                    , deepseq               >= 1.3
+                   , encoding
                    , entropy
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
@@ -90,6 +91,10 @@ library
                      Yesod.Core.Class.Dispatch.ToParentRoute
                      Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.TypeCache
+                     Yesod.Core.Types.Content
+                     Yesod.Core.Types.ErrorResponse
+                     Yesod.Core.Types.HandlerContents
+                     Yesod.Core.Types.TypedContent
                      Paths_yesod_core
 
                      Yesod.Routes.TH
@@ -144,7 +149,6 @@ test-suite test-routes
                  , blaze-html
                  , blaze-markup
                  , bytestring
-                 , hspec-expectations
                  , case-insensitive
                  , cereal
                  , clientsession
@@ -154,9 +158,11 @@ test-suite test-routes
                  , cookie
                  , data-default
                  , deepseq
+                 , encoding
                  , entropy
                  , fast-logger
                  , hspec
+                 , hspec-expectations
                  , http-types
                  , memory
                  , monad-logger
@@ -195,6 +201,7 @@ test-suite tests
                    YesodCoreTest.Breadcrumb
                    YesodCoreTest.Cache
                    YesodCoreTest.CleanPath
+                   YesodCoreTest.Content
                    YesodCoreTest.Header
                    YesodCoreTest.Csrf
                    YesodCoreTest.ErrorHandling
@@ -255,6 +262,7 @@ test-suite tests
                   , conduit-extra
                   , containers
                   , cookie >= 0.4.1    && < 0.6
+                  , encoding
                   , hspec >= 1.3
                   , hspec-expectations
                   , http-types

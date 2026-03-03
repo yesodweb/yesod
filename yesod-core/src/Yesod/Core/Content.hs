@@ -32,6 +32,7 @@ module Yesod.Core.Content
       -- * Utilities
     , simpleContentType
     , contentTypeTypes
+    , typedContentToSnippet
       -- * Evaluation strategy
     , DontFullyEvaluate (..)
       -- * Representations
@@ -51,10 +52,12 @@ module Yesod.Core.Content
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Builder as BB
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8Builder)
 import qualified Data.Text.Lazy as TL
+
 import Data.ByteString.Builder (Builder, byteString, lazyByteString, stringUtf8)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
@@ -69,8 +72,12 @@ import Data.Void (Void, absurd)
 import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
 import Text.Julius (Javascript, unJavascript)
+import qualified Network.Wai.Parse as NWP
+import qualified Data.Int as I
 import Data.Word8 (_semicolon, _slash)
 import Control.Arrow (second)
+import Control.Exception (Exception)
+import Data.Maybe
 
 -- | Zero-length enumerator.
 emptyContent :: Content
