@@ -247,6 +247,8 @@ test-suite tests
                    YesodCoreTest.RenderRouteSpec.TH
                    YesodCoreTest.SubSubData
                    YesodCoreTest.ParameterizedSubData
+                   YesodCoreTest.ParameterizedSubDispatch
+                   YesodCoreTest.ParameterizedSubDispatch.Data
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest
