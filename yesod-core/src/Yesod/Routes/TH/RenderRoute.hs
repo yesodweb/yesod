@@ -249,7 +249,9 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
     (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
 
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
-    mkRouteConsOpts' prePieces = foldMap (mkRouteCon prePieces)
+    mkRouteConsOpts' prePieces trees = do
+        results <- mapM (mkRouteCon prePieces) trees
+        pure (mconcat results)
 
     mkRouteCon :: [Piece Type] -> ResourceTree Type -> Q ([Con], [Dec])
     mkRouteCon _ (ResourceLeaf res) =
@@ -839,7 +841,9 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
     return $ dataDecl : renderRouteNestedInstance : mkStandaloneDerives targetDataType
   where
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
-    mkRouteConsOpts' prePieces = foldMap (mkRouteCon' prePieces)
+    mkRouteConsOpts' prePieces trees = do
+        results <- mapM (mkRouteCon' prePieces) trees
+        pure (mconcat results)
 
     mkRouteCon' :: [Piece Type] -> ResourceTree Type -> Q ([Con], [Dec])
     mkRouteCon' _ (ResourceLeaf res) = do
