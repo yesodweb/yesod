@@ -23,8 +23,17 @@ import Yesod.Core
 import Test.Hspec
 import Data.Foldable (for_)
 import Data.ByteString.Lazy (ByteString)
-import Test.Hspec.Expectations.Contrib (annotate)
+import Control.Exception (try, SomeException)
 import qualified Network.HTTP.Types as H
+
+-- | Attach an annotation to an expectation. If the expectation fails,
+-- the annotation is included in the failure message.
+annotate_ :: String -> IO () -> IO ()
+annotate_ msg action = do
+    result <- try action
+    case result of
+        Left e -> expectationFailure (msg <> "\n" <> show (e :: SomeException))
+        Right () -> pure ()
 
 data App = App
 
@@ -95,7 +104,7 @@ testRequestIO status req mexpected = do
     app <- toWaiApp App
     sres <- flip runSession app $ do
         request req
-    annotate ("Request body: " <> show (simpleBody sres )) $ do
+    annotate_ ("Request body: " <> show (simpleBody sres )) $ do
         H.statusCode (simpleStatus sres) `shouldBe` status
         for_ mexpected $ \expected -> do
             simpleBody sres `shouldBe` expected
