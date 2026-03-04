@@ -820,7 +820,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                         (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars))
                     routeLam = LamE [VarP (mkName "sroute")] $ toParentE `AppE` (routeCon `AppE` VarE (mkName "sroute"))
                     reqExp' = (LamE [VarP (mkName "p"), VarP (mkName "r")]
-                                (RecUpdE (VarE (mkName "r")) [(mkName "pathInfo", VarE (mkName "p"))]))
+                                (RecUpdE (VarE (mkName "r")) [('W.pathInfo, VarE (mkName "p"))]))
                             `AppE` VarE restPath
                             `AppE` reqE
                     subsiteExp = case ndcSubsiteEnv config of
