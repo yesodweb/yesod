@@ -389,14 +389,13 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                     setPathInfoE <- mdsSetPathInfo
                     subDispatcherE <- mdsSubDispatcher
                     runHandlerE <- mdsRunHandler
-                    sub <- newName "sub"
                     let allDyns = extraParams ++ dyns
-                    sroute <- newName "sroute"
-                    let sub2 = LamE [VarP sub]
-                            (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) allDyns)
+                    sub2 <- mkLambda "sub" $ \sub ->
+                        pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) allDyns
+                    route <- mkLambda "sroute" $ \sroute ->
+                        pure $ let route' = foldl' AppE (ConE (mkName name)) dyns
+                               in foldr AppE (AppE route' $ VarE sroute) extraCons
                     let reqExp' = setPathInfoE `AppE` VarE restPath `AppE` reqExp
-                        route' = foldl' AppE (ConE (mkName name)) dyns
-                        route = LamE [VarP sroute] $ foldr AppE (AppE route' $ VarE sroute) extraCons
                         exp = subDispatcherE
                             `AppE` runHandlerE
                             `AppE` sub2
@@ -442,7 +441,6 @@ nestedDispatchCall
     -- ^ The parent dynamic bound variables (for passing as ParentArgs).
     -> Q Exp
 nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
-    childName <- newName "child"
     -- Look up the type to get its full applied form. When tyargs is
     -- provided, use it; otherwise look up the type's arity and apply
     -- fresh variables (needed for mkYesodSubDispatch which doesn't
@@ -459,16 +457,11 @@ nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
                 [] -> ConE '()
                 [a] -> a
                 _ -> mkTupE parentDyns
-        -- Build the wrapper function
-        -- The wrapper should apply the route constructor with its dynamics, then any accumulated parent constructors
-        -- If routeDyns = [d1, d2] and extraCons = [ParentCon], we want:
-        --   \child -> ParentCon (RouteCon d1 d2 child)
-        -- If extraCons = [], we want:
-        --   \child -> RouteCon d1 d2 child
-        routeConApp = foldl' AppE (ConE (mkName routeName)) routeDyns `AppE` VarE childName
-        wrapperBody = foldr AppE routeConApp (extraCons sdc)
-        wrapperExpr = LamE [VarP childName] wrapperBody
         proxyType = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
+    -- Build the wrapper: \child -> ParentCon (RouteCon d1 d2 child)
+    wrapperExpr <- mkLambda "child" $ \childN ->
+        pure $ let routeConApp = foldl' AppE (ConE (mkName routeName)) routeDyns `AppE` VarE childN
+               in foldr AppE routeConApp (extraCons sdc)
     pure $ VarE dispatchFn
         `AppE` proxyType
         `AppE` parentDynsExpr
@@ -815,18 +808,15 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
             Subsite _ getSub -> do
                 restPath <- newName "restPath"
-                sub <- newName "sub"
-                srouteN <- newName "sroute"
-                pN <- newName "p"
-                rN <- newName "r"
-                let sub2 = LamE [VarP sub]
-                        (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars))
-                    routeLam = LamE [VarP srouteN] $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
-                    reqExp' = (LamE [VarP pN, VarP rN]
-                                (RecUpdE (VarE rN) [('W.pathInfo, VarE pN)]))
-                            `AppE` VarE restPath
-                            `AppE` reqE
-                    subsiteExp = case ndcSubsiteEnv config of
+                sub2 <- mkLambda "sub" $ \sub ->
+                    pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars)
+                routeLam <- mkLambda "sroute" $ \srouteN ->
+                    pure $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
+                reqExp' <- do
+                    setPath <- mkLambda "p" $ \pN -> mkLambda "r" $ \rN ->
+                        pure $ RecUpdE (VarE rN) [('W.pathInfo, VarE pN)]
+                    pure $ setPath `AppE` VarE restPath `AppE` reqE
+                let subsiteExp = case ndcSubsiteEnv config of
                         DirectEnv ->
                             -- Top-level: construct YesodSubRunnerEnv directly
                             VarE 'yesodSubDispatch

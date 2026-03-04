@@ -43,6 +43,19 @@ fullyApplyType typeName = do
     vars <- mapM (\i -> VarT <$> newName ("a" ++ show i)) [1..arity]
     pure $ foldl' AppT (ConT typeName) vars
 
+-- | Generate a single-argument lambda expression with a fresh name.
+-- Takes a base name hint, generates a unique 'Name', and passes it
+-- to a callback that produces the lambda body. Returns the complete
+-- 'LamE' expression.
+--
+-- For multi-argument lambdas, nest calls — @\\x y -> body@ is
+-- equivalent to @\\x -> \\y -> body@.
+mkLambda :: String -> (Name -> Q Exp) -> Q Exp
+mkLambda hint mkBody = do
+    n <- newName hint
+    bdy <- mkBody n
+    pure $ LamE [VarP n] bdy
+
 -- | Given a target 'String', find the 'ResourceParent' in the
 -- @['ResourceTree' a]@ corresponding to that target and return it.
 -- Also return the @['Piece' a]@ captures that precede it.
