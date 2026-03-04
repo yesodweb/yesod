@@ -632,7 +632,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
             pure $ mconcat
                 [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
                     [ did
-                    , FunD (mkName "renderRoute") cls
+                    , FunD 'renderRoute cls
                     ]
                 , mkStandaloneDerives routeDataName
                 , decs

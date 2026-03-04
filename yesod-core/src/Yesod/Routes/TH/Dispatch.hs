@@ -816,11 +816,14 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
             Subsite _ getSub -> do
                 restPath <- newName "restPath"
                 sub <- newName "sub"
+                srouteN <- newName "sroute"
+                pN <- newName "p"
+                rN <- newName "r"
                 let sub2 = LamE [VarP sub]
                         (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars))
-                    routeLam = LamE [VarP (mkName "sroute")] $ toParentE `AppE` (routeCon `AppE` VarE (mkName "sroute"))
-                    reqExp' = (LamE [VarP (mkName "p"), VarP (mkName "r")]
-                                (RecUpdE (VarE (mkName "r")) [('W.pathInfo, VarE (mkName "p"))]))
+                    routeLam = LamE [VarP srouteN] $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
+                    reqExp' = (LamE [VarP pN, VarP rN]
+                                (RecUpdE (VarE rN) [('W.pathInfo, VarE pN)]))
                             `AppE` VarE restPath
                             `AppE` reqE
                     subsiteExp = case ndcSubsiteEnv config of
