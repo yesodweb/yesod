@@ -73,6 +73,7 @@ resourceMulti _ = Nothing
 data FlatResource a = FlatResource
     { frParentPieces :: [(String, [Piece a])]
     , frParentAttrs :: [(String, Set String)]
+    -- ^ @since TODO
     , frName :: String
     , frPieces :: [Piece a]
     , frDispatch :: Dispatch a
