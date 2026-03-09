@@ -18,19 +18,20 @@ module Yesod.Routes.TH.Types
     ) where
 
 import Language.Haskell.TH.Syntax
+import Data.Set (Set)
 
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
-    | ResourceParent String CheckOverlap [Piece typ] [ResourceTree typ]
+    | ResourceParent String CheckOverlap (Set String) [Piece typ] [ResourceTree typ]
     deriving (Lift, Show, Functor)
 
 resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
-resourceTreePieces (ResourceParent _ _ x _) = x
+resourceTreePieces (ResourceParent _ _ _ x _) = x
 
 resourceTreeName :: ResourceTree typ -> String
 resourceTreeName (ResourceLeaf r) = resourceName r
-resourceTreeName (ResourceParent x _ _ _) = x
+resourceTreeName (ResourceParent x _ _ _ _) = x
 
 data Resource typ = Resource
     { resourceName :: String
@@ -82,5 +83,5 @@ flatten =
     concatMap (go id True)
   where
     go front check' (ResourceLeaf (Resource a b c _ check)) = [FlatResource (front []) a b c (check' && check)]
-    go front check' (ResourceParent name check pieces children) =
+    go front check' (ResourceParent name check _attrs pieces children) =
         concatMap (go (front . ((name, pieces):)) (check && check')) children

@@ -24,7 +24,7 @@ flatten =
         , fHasSuffix = hasSuffix $ ResourceLeaf r
         , fCheck = check && resourceCheck r
         }
-    go names pieces check (ResourceParent newname check' newpieces children) =
+    go names pieces check (ResourceParent newname check' _attrs newpieces children) =
         concatMap (go names' pieces' (check && check')) children
       where
         names' = names . (newname:)

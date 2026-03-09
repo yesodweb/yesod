@@ -227,7 +227,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
         addPat x y = conPCompat '(:) [x, y]
 
     go :: DispatchPhase -> NestedRouteSettings -> SDC -> ResourceTree a -> Q ([String], [Clause])
-    go goPhase nrs sdc (ResourceParent name _check pieces children) = do
+    go goPhase nrs sdc (ResourceParent name _check _attrs pieces children) = do
         let mtargetName = nrsTargetName nrs
         let mtargetMatch =
                 fmap (name ==) mtargetName
@@ -613,7 +613,7 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
     childInstances <-
         fmap mconcat $ forM subres $ \childRes -> do
             case childRes of
-                ResourceParent name _ _ _ -> do
+                ResourceParent name _ _ _ _ -> do
                     instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
                         tyname <- MaybeT $ lookupTypeName name
                         nameAppliedT <- Trans.lift $ case tyargs of
@@ -729,7 +729,7 @@ mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res = do
     childInstances <-
         fmap mconcat $ forM subres $ \childRes -> do
             case childRes of
-                ResourceParent name _ _ _ -> do
+                ResourceParent name _ _ _ _ -> do
                     instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
                         tyname <- MaybeT $ lookupTypeName name
                         nameAppliedT <- Trans.lift $ case tyargs of
@@ -840,7 +840,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                                 `AppE` reqExp'
                 return [Match (foldr consPat (VarP restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
 
-    genClauseForResource (ResourceParent name _check pieces _children) = do
+    genClauseForResource (ResourceParent name _check _attrs pieces _children) = do
         (pats, dynVars) <- genPiecePats pieces
 
         -- Build the parent args tuple for the nested call

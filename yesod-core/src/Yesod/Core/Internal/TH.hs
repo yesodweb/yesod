@@ -350,7 +350,7 @@ mkYesodSubDispatchInstance nameStr resS = do
     -- Find nested routes and generate YesodSubDispatchNested instances
     let findNested :: [ResourceTree a] -> [String]
         findNested [] = []
-        findNested (ResourceParent n _ _ _ : rest) = n : findNested rest
+        findNested (ResourceParent n _ _ _ _ : rest) = n : findNested rest
         findNested (_ : rest) = findNested rest
         nestedNames = findNested res
 

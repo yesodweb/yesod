@@ -277,7 +277,7 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
                 Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
                 _ -> []
 
-    mkRouteCon prePieces (ResourceParent name _check pieces children) = do
+    mkRouteCon prePieces (ResourceParent name _check _attrs pieces children) = do
         -- Accumulate pieces for children: combine parent pieces with this route's pieces
         let accumulatedPieces = prePieces <> pieces
         (cons, decs) <- mkRouteConsOpts' accumulatedPieces children
@@ -373,7 +373,7 @@ mkRenderRouteClauses =
     isDynamic Dynamic{} = True
     isDynamic _ = False
 
-    go (ResourceParent name _check pieces _children) = do
+    go (ResourceParent name _check _attrs pieces _children) = do
         let cnt = length $ filter isDynamic pieces
         dyns <- replicateM cnt $ newName "dyn"
         child <- newName "child"
@@ -471,7 +471,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
     isDynamic Dynamic{} = True
     isDynamic _ = False
 
-    go (ResourceParent name _check pieces _children) = do
+    go (ResourceParent name _check _attrs pieces _children) = do
         let cnt = length $ filter isDynamic pieces
         dyns <- replicateM cnt $ newName "dyn"
         child <- newName "child"
@@ -677,7 +677,7 @@ mkToParentRouteInstances routeOpts cxt origTyargs ress = do
   where
     go _ (ResourceLeaf _) =
         pure []
-    go (accPieces, parentConstructors) (ResourceParent name _check pieces children) = do
+    go (accPieces, parentConstructors) (ResourceParent name _check _attrs pieces children) = do
         -- Extract dynamic types from accumulated parent pieces
         let accDynTypes = [t | Dynamic t <- accPieces]
         accDynVars <- mapM (\_ -> newName "parent") accDynTypes
@@ -863,7 +863,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
                 Subsite { subsiteType = subtyp } -> [ConT ''Route `AppT` subtyp]
                 _ -> []
 
-    mkRouteCon' prePieces (ResourceParent name _check pieces children) = do
+    mkRouteCon' prePieces (ResourceParent name _check _attrs pieces children) = do
         -- For nested parents within the focused route, recursively generate
         let accumulatedPieces = prePieces <> pieces
         (cons, decs) <- mkRouteConsOpts' accumulatedPieces children
