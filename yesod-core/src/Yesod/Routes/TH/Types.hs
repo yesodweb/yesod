@@ -72,6 +72,7 @@ resourceMulti _ = Nothing
 
 data FlatResource a = FlatResource
     { frParentPieces :: [(String, [Piece a])]
+    , frParentAttrs :: [(String, Set String)]
     , frName :: String
     , frPieces :: [Piece a]
     , frDispatch :: Dispatch a
@@ -80,8 +81,9 @@ data FlatResource a = FlatResource
 
 flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
-    concatMap (go id True)
+    concatMap (go id id True)
   where
-    go front check' (ResourceLeaf (Resource a b c _ check)) = [FlatResource (front []) a b c (check' && check)]
-    go front check' (ResourceParent name check _attrs pieces children) =
-        concatMap (go (front . ((name, pieces):)) (check && check')) children
+    go pp pa check' (ResourceLeaf (Resource a b c _ check)) =
+        [FlatResource (pp []) (pa []) a b c (check' && check)]
+    go pp pa check' (ResourceParent name check attrs pieces children) =
+        concatMap (go (pp . ((name, pieces):)) (pa . ((name, attrs):)) (check && check')) children

@@ -17,7 +17,7 @@ import Test.Hspec
 do
     let int = ConT ''Int
     (clauses, names) <- mkRenderRouteClauses
-        [ ResourceParent "FirstR" False [Static "first", Dynamic int]
+        [ ResourceParent "FirstR" False mempty [Static "first", Dynamic int]
             [ ResourceLeaf Resource
                 { resourceName = "BlahR"
                 , resourcePieces = [Static "blah"]
@@ -52,7 +52,7 @@ do
         parentName = mkName "parent"
     (clauses, names) <- mkRenderRouteNestedClauses
         [Left "hello", Right parentName]
-        [ ResourceParent "FirstR" False [Static "first", Dynamic int]
+        [ ResourceParent "FirstR" False mempty [Static "first", Dynamic int]
             [ ResourceLeaf Resource
                 { resourceName = "BlahR"
                 , resourcePieces = [Static "blah"]
@@ -150,7 +150,7 @@ data App = App
 do
     let int = ConT ''Int
     mkRenderRouteInstanceOpts defaultOpts [] [] (ConT (mkName "App"))
-            [ ResourceParent "FirstR" False [Static "first", Dynamic int]
+            [ ResourceParent "FirstR" False mempty [Static "first", Dynamic int]
                 [ ResourceLeaf Resource
                     { resourceName = "BlahR"
                     , resourcePieces = [Static "blah"]

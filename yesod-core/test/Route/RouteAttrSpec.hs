@@ -1,0 +1,65 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ViewPatterns#-}
+
+module Route.RouteAttrSpec where
+
+import Yesod.Core
+import Test.Hspec
+import Yesod.Routes.TH.Types
+import Data.Set (Set)
+import qualified Data.Set as Set
+
+routeNoAttributes :: [ResourceTree String]
+routeNoAttributes = [parseRoutes|
+/one OneR:
+  /two TwoR:
+    /three ThreeR:
+      /four FourR POST
+  |]
+
+routeWithAttributes :: [ResourceTree String]
+routeWithAttributes = [parseRoutes|
+/one OneR:
+  /two TwoR !x !z:
+    /three ThreeR !y:
+      /four FourR POST
+  |]
+
+spec :: Spec
+spec = do
+    describe "route attrs present" $ do
+        it "has no route attrs on parent" $ do
+            let parentAttrs = frParentAttrs <$> flatten routeNoAttributes
+            let attrs :: Set (String, Set String)
+                attrs = Set.fromList $ concat parentAttrs
+            attrs
+                `shouldBe`
+                    Set.fromList 
+                        [ ("OneR", Set.empty)
+                        , ("TwoR", Set.empty)
+                        , ("ThreeR", Set.empty)
+                        ]
+        it "has route attrs on parent" $ do
+            let parentAttrs = frParentAttrs <$> flatten routeWithAttributes
+            let attrs :: Set (String, Set String)
+                attrs = Set.fromList $ concat parentAttrs
+            attrs
+                `shouldBe`
+                    Set.fromList 
+                        [ ("OneR", Set.empty)
+                        , ("TwoR", Set.fromList ["x", "z"])
+                        , ("ThreeR", Set.singleton "y")
+                        ]

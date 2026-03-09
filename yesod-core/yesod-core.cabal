@@ -137,6 +137,7 @@ test-suite test-routes
                    Yesod.Routes.TH.Internal
                    Route.FallthroughSpec
                    Route.RenderRouteSpec
+                   Route.RouteAttrSpec
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
