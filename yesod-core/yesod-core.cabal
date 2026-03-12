@@ -178,6 +178,7 @@ test-suite test-routes
                  , template-haskell
                  , text
                  , th-abstraction
+                 , th-lift-instances
                  , time
                  , transformers
                  , unix-compat
@@ -306,6 +307,7 @@ test-suite tests
                   , wai-extra
                   , warp
                   , yesod-core
+                  , th-lift-instances
     ghc-options:     -Wall -threaded
     other-extensions: TemplateHaskell
 
