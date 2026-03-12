@@ -19,6 +19,8 @@ module Yesod.Routes.TH.Types
 
 import Language.Haskell.TH.Syntax
 import Data.Set (Set)
+-- Provides Lift instance for Set in older versions of GHC
+import Instances.TH.Lift ()
 
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
