@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 
-module Route.RouteAttrSpec where
+module Route.RouteAttrSpec (spec) where
 
 import Yesod.Core
 import Test.Hspec
@@ -28,10 +28,9 @@ spec :: Spec
 spec = do
     describe "route attrs present" $ do
         it "has no route attrs on parent" $ do
-            let parentAttrs = frParentAttrs <$> flatten routeNoAttributes
-            let attrs :: Set (String, Set String)
-                attrs = Set.fromList $ concat parentAttrs
-            attrs
+            let parentDetails = concat $ frParentDetails <$> flatten routeNoAttributes
+            let attrs = (\detail -> (pdName detail, pdAttrs detail)) <$> parentDetails
+            Set.fromList attrs
                 `shouldBe`
                     Set.fromList 
                         [ ("OneR", Set.empty)
@@ -39,10 +38,9 @@ spec = do
                         , ("ThreeR", Set.empty)
                         ]
         it "has route attrs on parent" $ do
-            let parentAttrs = frParentAttrs <$> flatten routeWithAttributes
-            let attrs :: Set (String, Set String)
-                attrs = Set.fromList $ concat parentAttrs
-            attrs
+            let parentDetails = concat $ frParentDetails <$> flatten routeWithAttributes
+            let attrs = (\detail -> (pdName detail, pdAttrs detail)) <$> parentDetails
+            Set.fromList attrs
                 `shouldBe`
                     Set.fromList 
                         [ ("OneR", Set.empty)

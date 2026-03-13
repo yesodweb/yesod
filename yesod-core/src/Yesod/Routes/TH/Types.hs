@@ -10,6 +10,7 @@ module Yesod.Routes.TH.Types
     , Dispatch (..)
     , CheckOverlap
     , FlatResource (..)
+    , ParentDetails (..)
       -- ** Helper functions
     , resourceMulti
     , resourceTreePieces
@@ -72,10 +73,14 @@ resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
 
+data ParentDetails a = ParentDetails
+    { pdName :: String
+    , pdPieces :: [Piece a]
+    , pdAttrs :: Set String
+    } deriving (Show)
+
 data FlatResource a = FlatResource
-    { frParentPieces :: [(String, [Piece a])]
-    , frParentAttrs :: [(String, Set String)]
-    -- ^ @since TODO
+    { frParentDetails :: [ParentDetails a]
     , frName :: String
     , frPieces :: [Piece a]
     , frDispatch :: Dispatch a
@@ -84,9 +89,9 @@ data FlatResource a = FlatResource
 
 flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
-    concatMap (go id id True)
+    concatMap (go id True)
   where
-    go pp pa check' (ResourceLeaf (Resource a b c _ check)) =
-        [FlatResource (pp []) (pa []) a b c (check' && check)]
-    go pp pa check' (ResourceParent name check attrs pieces children) =
-        concatMap (go (pp . ((name, pieces):)) (pa . ((name, attrs):)) (check && check')) children
+    go front check' (ResourceLeaf (Resource a b c _ check)) =
+        [FlatResource (front []) a b c (check' && check)]
+    go front check' (ResourceParent name check attrs pieces children) =
+        concatMap (go (front . ((ParentDetails name pieces attrs):)) (check && check')) children
