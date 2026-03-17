@@ -15,7 +15,6 @@ module Yesod.Core.Types (
   , module Yesod.Core.Types.TypedContent
   , module Yesod.Core.Types.HandlerContents
 
-  , module Yesod.Core.Internal.Util
   , module Yesod.Routes.Class
   , module Yesod.Core.TypeCache
   ) where
