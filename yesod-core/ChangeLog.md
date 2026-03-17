@@ -3,6 +3,7 @@
 ## UNRELEASED (major version bump)
 
 * Add the ability to focus on a nested route structure during code generation, allowing datatypes and dispatches to be generated in separate modules. [#1887](https://github.com/yesodweb/yesod/pull/1887)
+* Extend `ResourceParent` to include route attributes. Replace `frParentPieces` with `frParentDetails` to refer to a parent's attributes. [1911](https://github.com/yesodweb/yesod/pull/1911)
 
 ## 1.6.29.1
 
