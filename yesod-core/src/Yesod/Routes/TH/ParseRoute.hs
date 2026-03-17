@@ -74,7 +74,7 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess = do
                     case res of
                         ResourceLeaf _ ->
                             acc
-                        ResourceParent name _ _ children ->
+                        ResourceParent name _ _ _ children ->
                             if name == target
                             then children
                             else focusTarget children <> acc
@@ -121,7 +121,7 @@ generateParseRouteClause routeOpts resourceTree =
                     expr <- liftQ [e| fmap $(pure route) ( parseRoute $(pure tupExp) ) |]
                     pure $ Clause [pat] (NormalB expr) []
 
-        ResourceParent name _check pieces _children -> do
+        ResourceParent name _check _attrs pieces _children -> do
             recordNameIfNotInstance name
 
             (pats, dyns) <- handlePieces pieces

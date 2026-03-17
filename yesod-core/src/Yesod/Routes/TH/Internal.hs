@@ -65,7 +65,7 @@ findNestedRoute target (res : ress) =
     case res of
         ResourceLeaf _ ->
             findNestedRoute target ress
-        ResourceParent name _overlap pieces children -> do
+        ResourceParent name _overlap _attrs pieces children -> do
             if name == target
                 then Just (pieces, children)
                 else

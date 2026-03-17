@@ -56,6 +56,7 @@ library
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.13
                    , text                  >= 0.7
+                   , th-lift-instances     >= 0.1
                    , time                  >= 1.5
                    , transformers          >= 0.4
                    , unix-compat
@@ -137,6 +138,7 @@ test-suite test-routes
                    Yesod.Routes.TH.Internal
                    Route.FallthroughSpec
                    Route.RenderRouteSpec
+                   Route.RouteAttrSpec
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
@@ -176,6 +178,7 @@ test-suite test-routes
                  , template-haskell
                  , text
                  , th-abstraction
+                 , th-lift-instances
                  , time
                  , transformers
                  , unix-compat
@@ -304,6 +307,7 @@ test-suite tests
                   , wai-extra
                   , warp
                   , yesod-core
+                  , th-lift-instances
     ghc-options:     -Wall -threaded
     other-extensions: TemplateHaskell
 

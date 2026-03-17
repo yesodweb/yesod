@@ -24,6 +24,7 @@ import Hierarchy
 import qualified Data.Set as Set
 import qualified Route.FallthroughSpec as FallthroughSpec
 import qualified Route.RenderRouteSpec as RenderRouteSpec
+import qualified Route.RouteAttrSpec as RouteAttrSpec
 import qualified Data.Text as Text
 
 data MyApp = MyApp
@@ -67,6 +68,7 @@ do
         resParent = ResourceParent
             "ParentR"
             True
+            mempty
             [ Static "foo"
             , Dynamic "Text"
             ]
@@ -88,6 +90,7 @@ main :: IO ()
 main = hspec $ do
     describe "Route.FallthroughSpec" FallthroughSpec.spec
     describe "Route.RenderRouteSpec" RenderRouteSpec.spec
+    describe "Route.RouteAttrSpec" RouteAttrSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ Text.pack "foo") @?= (map Text.pack ["blog", "foo"], [])
