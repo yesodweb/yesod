@@ -31,14 +31,18 @@ jobs:
       - name: Clone project
         uses: actions/checkout@v4
 
-# Getting weird OS X errors...
-#      - name: Cache dependencies
-#        uses: actions/cache@v1
-#        with:
-#          path: ~/.stack
-#          key: ${{ runner.os }}-${{ matrix.resolver }}-${{ hashFiles('stack.yaml') }}
-#          restore-keys: |
-#            ${{ runner.os }}-${{ matrix.resolver }}-
+      - name: Cache Stack dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.stack
+          key: stack-${{ runner.os }}-${{ matrix.args }}-${{ hashFiles('**/*.cabal', 'stack.yaml', 'stack-lts-22.yaml') }}
+          restore-keys: |
+            stack-${{ runner.os }}-${{ matrix.args }}-
+            stack-${{ runner.os }}-
+
+      - name: Remove Stack lock files
+        shell: bash
+        run: rm -rf ~/.stack/setup-exe-cache ~/.stack/pantry/pantry.sqlite3.pantry-write-lock
 
       - name: Install stack if needed
         shell: bash
