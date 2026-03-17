@@ -5,7 +5,7 @@ module Yesod.Core.Types.HandlerContents
 
 import Control.Exception (Exception)
 import Data.Maybe
-import Data.Text
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Network.HTTP.Types as H
 import qualified Network.Wai as W
@@ -16,8 +16,8 @@ data HandlerContents =
       HCContent !H.Status !TypedContent
     | HCError !ErrorResponse
     | HCSendFile !ContentType !FilePath !(Maybe W.FilePart)
-    | HCRedirect !H.Status !Text
-    | HCCreated !Text
+    | HCRedirect !H.Status !T.Text
+    | HCCreated !T.Text
     | HCWai !W.Response
     | HCWaiApp !W.Application
 

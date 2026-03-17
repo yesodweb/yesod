@@ -121,5 +121,10 @@ embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
             get $ TL.toStrict $ TL.decodeUtf8 src
             statusIs 200
             hasCacheControl
-            assertHeader "Content-Type" "application/javascript"
+            withResponse $ \resp -> liftIO $
+              assertBool "Content-Type header is application/javascript or text/javascript" $
+                lookup "Content-Type" (simpleHeaders resp) `elem`
+                  [ Just "text/javascript"         -- mime-types >= 0.1.2.1
+                  , Just "application/javascript"  -- mime-types <= 0.1.2.0
+                  ]
             bodyEquals "console.log(\"Hello World\");"

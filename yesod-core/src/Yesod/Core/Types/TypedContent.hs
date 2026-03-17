@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Yesod.Core.Types.TypedContent
@@ -17,7 +18,11 @@ import qualified Data.ByteString.Builder as BB
 
 import qualified Data.Int as I
 
+#if MIN_VERSION_text(2,1,0)
 import qualified Data.Text.Encoding as TE (decodeASCIIPrefix)
+#else
+import qualified Data.Text.Encoding as TE (decodeLatin1)
+#endif
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as LE (decodeUtf8With, decodeLatin1)
 import qualified Data.Text.Encoding.Error as EE (lenientDecode)
@@ -30,8 +35,6 @@ import qualified Data.Encoding.CP932 as Enc
 
 import qualified Network.Wai.Parse as NWP
 
-import qualified Data.ByteString.Lazy.Char8 as LC
-
 import Yesod.Core.Types.Content (Content (..))
 
 type ContentType = B.ByteString -- FIXME Text?
@@ -42,7 +45,11 @@ decoderForCharset (Just encodingSymbol)
   | encodingSymbol == "utf-8" =
       LE.decodeUtf8With EE.lenientDecode
   | encodingSymbol == "US-ASCII" =
-      TL.fromStrict . fst . TE.decodeASCIIPrefix . B.toStrict
+#if MIN_VERSION_text(2,1,0)
+      TL.fromStrict . fst . TE.decodeASCIIPrefix . L.toStrict
+#else
+      TL.fromStrict . TE.decodeLatin1 . L.toStrict
+#endif
   | encodingSymbol == "latin1" =
       LE.decodeLatin1
   | encodingSymbol == "GB18030" =
