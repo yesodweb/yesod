@@ -31,6 +31,7 @@ module Yesod.Core.Dispatch
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setCreateResources
     , setFocusOnNestedRoute
     , setCreateResources
     , setParameterizedSubroute

@@ -151,6 +151,7 @@ test-suite test-routes
                  , blaze-html
                  , blaze-markup
                  , bytestring
+                 , hspec-expectations
                  , case-insensitive
                  , cereal
                  , clientsession
@@ -164,7 +165,6 @@ test-suite test-routes
                  , entropy
                  , fast-logger
                  , hspec
-                 , hspec-expectations
                  , http-types
                  , memory
                  , monad-logger

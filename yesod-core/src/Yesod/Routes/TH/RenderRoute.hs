@@ -17,10 +17,10 @@ module Yesod.Routes.TH.RenderRoute
     , setEqDerived
     , setShowDerived
     , setReadDerived
+    , setCreateResources
     , setFocusOnNestedRoute
     , roFocusOnNestedRoute
     , roNestedRouteFallthrough
-    , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
     , nullifyWhenNoParam
@@ -37,6 +37,10 @@ import Data.Foldable
 import Yesod.Routes.TH.Internal
 import Data.Char
 import Yesod.Core.Class.Dispatch.ToParentRoute
+import Yesod.Core.Class.Dispatch
+import Yesod.Core.Handler
+import Data.Proxy
+import Yesod.Core.Class.Yesod
 
 -- | General opts data type for generating yesod.
 --
@@ -51,12 +55,12 @@ data RouteOpts = MkRouteOpts
     { roDerivedEq   :: Bool
     , roDerivedShow :: Bool
     , roDerivedRead :: Bool
+    , roCreateResources :: Bool
     , roFocusOnNestedRoute :: Maybe String
     -- ^ If this option is set, then we will only generate datatypes for
     -- the nested subroute that matches this string.
     --
     -- @since 1.6.28.0
-    , roCreateResources :: Bool
     , roParameterizedSubroute :: Bool
     , roNestedRouteFallthrough :: Bool
     -- ^ If 'True', then a nested route will fall through if it fails to
@@ -772,7 +776,7 @@ mkRenderRouteNestedInstanceOpts
     -> Q [Dec]
 mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress = do
     -- Generate constructors for all children
-    (cons, _childDecs) <- mkRouteConsOpts' prepieces ress
+    (cons, childDecs) <- mkRouteConsOpts' prepieces ress
 
     -- Create the datatype name
     let targetName = mkName target
@@ -838,7 +842,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
                 ]
 
     -- Return the datatype declaration, instance, and any standalone derives
-    return $ dataDecl : renderRouteNestedInstance : mkStandaloneDerives targetDataType
+    return $ dataDecl : renderRouteNestedInstance : mkStandaloneDerives targetDataType <> childDecs
   where
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
     mkRouteConsOpts' prePieces trees = do
