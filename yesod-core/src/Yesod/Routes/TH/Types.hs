@@ -10,6 +10,7 @@ module Yesod.Routes.TH.Types
     , Dispatch (..)
     , CheckOverlap
     , FlatResource (..)
+    , ParentDetails (..)
       -- ** Helper functions
     , resourceMulti
     , resourceTreePieces
@@ -18,19 +19,22 @@ module Yesod.Routes.TH.Types
     ) where
 
 import Language.Haskell.TH.Syntax
+import Data.Set (Set)
+-- Provides Lift instance for Set in older versions of GHC
+import Instances.TH.Lift ()
 
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
-    | ResourceParent String CheckOverlap [Piece typ] [ResourceTree typ]
+    | ResourceParent String CheckOverlap (Set String) [Piece typ] [ResourceTree typ]
     deriving (Lift, Show, Functor)
 
 resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
-resourceTreePieces (ResourceParent _ _ x _) = x
+resourceTreePieces (ResourceParent _ _ _ x _) = x
 
 resourceTreeName :: ResourceTree typ -> String
 resourceTreeName (ResourceLeaf r) = resourceName r
-resourceTreeName (ResourceParent x _ _ _) = x
+resourceTreeName (ResourceParent x _ _ _ _) = x
 
 data Resource typ = Resource
     { resourceName :: String
@@ -69,8 +73,14 @@ resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
 
+data ParentDetails a = ParentDetails
+    { pdName :: String
+    , pdPieces :: [Piece a]
+    , pdAttrs :: Set String
+    } deriving (Show)
+
 data FlatResource a = FlatResource
-    { frParentPieces :: [(String, [Piece a])]
+    { frParentDetails :: [ParentDetails a]
     , frName :: String
     , frPieces :: [Piece a]
     , frDispatch :: Dispatch a
@@ -81,6 +91,7 @@ flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
     concatMap (go id True)
   where
-    go front check' (ResourceLeaf (Resource a b c _ check)) = [FlatResource (front []) a b c (check' && check)]
-    go front check' (ResourceParent name check pieces children) =
-        concatMap (go (front . ((name, pieces):)) (check && check')) children
+    go front check' (ResourceLeaf (Resource a b c _ check)) =
+        [FlatResource (front []) a b c (check' && check)]
+    go front check' (ResourceParent name check attrs pieces children) =
+        concatMap (go (front . ((ParentDetails name pieces attrs):)) (check && check')) children

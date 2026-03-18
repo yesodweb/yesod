@@ -36,7 +36,7 @@ parseRoutes = QuasiQuoter { quoteExp = x }
         let res = resourcesFromString s
         case findOverlapNames res of
             [] -> lift res
-            z -> error $ unlines $ "Overlapping routes: " : map show z
+            z -> fail $ unlines $ "Overlapping routes: " : map show z
 
 -- | Same as 'parseRoutes', but uses an external file instead of quasiquotation.
 --
@@ -107,7 +107,7 @@ resourcesFromString =
                                 (p, Nothing, c) -> (p, c)
                                 -- FIXME: Give better error message
                                 _ -> error "Invalid resource line: bad overlap"
-                     in ((ResourceParent constr check pieces children' :), otherLines'')
+                     in ((ResourceParent constr check (Set.fromList attrs) pieces children' :), otherLines'')
                 (pattern:constr:rest) ->
                     let (pieces, mmulti, check) = piecesFromStringCheck pattern
                         (attrs, rest') = takeAttrs rest
@@ -154,7 +154,7 @@ addAttrs attrs =
     map goTree
   where
     goTree (ResourceLeaf res) = ResourceLeaf (goRes res)
-    goTree (ResourceParent w x y z) = ResourceParent w x y (map goTree z)
+    goTree (ResourceParent v w x y z) = ResourceParent v w x y (map goTree z)
 
     goRes res =
         res { resourceAttrs = noDupes ++ resourceAttrs res }

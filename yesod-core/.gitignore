@@ -1,4 +1,6 @@
+.claude/
 /dist/
+*.dump-splices
 *.swp
 client_session_key.aes
 *.hi
