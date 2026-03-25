@@ -889,8 +889,8 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
     , ", public"
     ]
 
--- | Set the Expires header to some date in 2037. In other words, this content
--- is never (realistically) expired.
+-- | Set the Expires header to a date one year from now. In other words, this
+-- content is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
 neverExpires = do
     setHeader "Expires" . rheMaxExpires =<< askHandlerEnv

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## Unreleased
+
+* Fix documentation around `Expires` header [#1909](https://github.com/yesodweb/yesod/pull/1909)
+
 ## 1.6.29.1
 
 * Fix compilation error for text >= 2.1.2 [#1905](https://github.com/yesodweb/yesod/pull/1905)
