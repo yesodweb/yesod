@@ -46,6 +46,7 @@ library
                    , hjsmin
                    , http-types            >= 0.7
                    , memory
+                   , ram                   >= 0.21 && < 0.22
                    , mime-types            >= 0.1
                    , process
                    , template-haskell
