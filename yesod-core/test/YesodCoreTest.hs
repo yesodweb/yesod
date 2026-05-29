@@ -26,6 +26,7 @@ import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
 import qualified YesodCoreTest.Content as Content
 import qualified YesodCoreTest.NestedDispatch as NestedDispatch
+import qualified YesodCoreTest.DispatchSiteHook as DispatchSiteHook
 import qualified YesodCoreTest.FallthroughDispatch as FallthroughDispatch
 import qualified YesodCoreTest.RenderRouteSpec as RenderRouteSpec
 
@@ -79,6 +80,7 @@ specs = do
       Content.specs
       describe "NestedDispatch" $ do
           NestedDispatch.specs
+      DispatchSiteHook.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do

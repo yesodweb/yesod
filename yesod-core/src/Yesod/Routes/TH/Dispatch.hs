@@ -29,6 +29,7 @@ import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Data.Maybe
 import Data.Proxy (Proxy(..))
+import Yesod.Routes.Class (WithParentArgs(..))
 import Yesod.Routes.TH.RenderRoute
 import qualified Network.Wai as W
 import Yesod.Core.Content (ToTypedContent (..))
@@ -920,6 +921,36 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
     parentDynVars = getParentDynVars parentDynsP
 
+    -- The focused target's parent args, reconstructed from the bound parent
+    -- dynamic variables. Matches @ParentArgs target@: @()@ when the target has
+    -- no parent dynamics, the lone variable for one, otherwise a tuple.
+    parentArgsTuple :: Exp
+    parentArgsTuple = case parentDynVars of
+        [] -> ConE '()
+        [v] -> VarE v
+        vs -> mkTupE (map VarE vs)
+
+    -- Wrap the runner env's site with the configured @url -> site -> site@
+    -- hook, when one is set via 'setUrlToDispatchSiteHook'. Applied only for
+    -- top-level ('DirectEnv') dispatch, whose 'yreE' is a 'YesodRunnerEnv'
+    -- carrying a 'yreSite' field; subsite ('ComposedEnv') dispatch has no such
+    -- field and is left untouched. The hook is applied to the fragment route
+    -- bundled with its parent args (@WithParentArgs parentArgs route@), so it
+    -- can dispatch on the focused route type while retaining the parent args.
+    hookedYre :: Exp -> Exp
+    hookedYre routeValue =
+        case (ndcSubsiteEnv config, roUrlToDispatchSiteHook routeOpts) of
+            (DirectEnv, Just hookName) ->
+                RecUpdE yreE
+                    [ ( 'yreSite
+                      , VarE hookName
+                          `AppE` routeValue
+                          `AppE` (VarE 'yreSite `AppE` yreE)
+                      )
+                    ]
+            _ ->
+                yreE
+
     genClauseForResource :: ResourceTree Type -> Q [Match]
     genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dynVars) <- genPiecePats pieces
@@ -930,10 +961,12 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
         case dispatch of
             Methods mmulti methods -> do
                 handlerExp <- genHandlerCase name methods mmulti allDynVars
-                let body = ConE 'Just `AppE`
+                let routeValue =
+                        ConE 'WithParentArgs `AppE` parentArgsTuple `AppE` routeCon
+                    body = ConE 'Just `AppE`
                         (VarE (ndcRunnerFn config)
                             `AppE` handlerExp
-                            `AppE` yreE
+                            `AppE` hookedYre routeValue
                             `AppE` (ConE 'Just `AppE` routeExp)
                             `AppE` reqE)
                 return [Match (foldr consPat (conPCompat '[] []) pats) (NormalB body) []]

@@ -36,6 +36,7 @@ module Yesod.Core.Dispatch
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setUrlToDispatchSiteHook
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires

@@ -17,6 +17,7 @@ module Yesod.Routes.TH
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setUrlToDispatchSiteHook
     , module Yesod.Routes.TH.ParseRoute
     , module Yesod.Routes.TH.RouteAttrs
       -- ** Dispatch

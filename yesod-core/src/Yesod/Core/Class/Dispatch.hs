@@ -77,16 +77,23 @@ instance YesodDispatch site => YesodDispatchNested (Route site) where
 class RedirectUrl site url => UrlToDispatch url site where
     urlToDispatch :: url -> YesodRunnerEnv site -> W.Application
 
-instance YesodDispatch site => UrlToDispatch (Route site) site where
+-- | Generic full-route dispatch. Marked 'OVERLAPPABLE' so a foundation can
+-- supply a more specific @UrlToDispatch (Route MySite) MySite@ instance (for
+-- example, to install behavior into the site before dispatch).
+instance {-# OVERLAPPABLE #-} YesodDispatch site => UrlToDispatch (Route site) site where
     urlToDispatch _ = yesodDispatch
 
-instance (YesodDispatch site, RedirectUrl site (Route site, a)) => UrlToDispatch (Route site, a) site where
+-- | Tuple URLs are query-param wrappers: dispatch is decided entirely by the
+-- first component, so delegate to it. The 'RedirectUrl site (url, params)'
+-- superclass only has instances pinning @url ~ Route master@, so this can
+-- only ever dispatch a full route, never a bare route fragment.
+instance (UrlToDispatch url site, RedirectUrl site (url, params)) => UrlToDispatch (url, params) site where
+    urlToDispatch (url, _) = urlToDispatch url
+
+instance {-# OVERLAPPABLE #-} YesodDispatch site => UrlToDispatch Text site where
     urlToDispatch _ = yesodDispatch
 
-instance YesodDispatch site => UrlToDispatch Text site where
-    urlToDispatch _ = yesodDispatch
-
-instance YesodDispatch site => UrlToDispatch String site where
+instance {-# OVERLAPPABLE #-} YesodDispatch site => UrlToDispatch String site where
     urlToDispatch _ = yesodDispatch
 
 instance

@@ -228,6 +228,10 @@ test-suite tests
                    YesodCoreTest.NestedDispatch.Parent0R
                    YesodCoreTest.NestedDispatch.Parent0R.Child0R
                    YesodCoreTest.NestedDispatch.Resources
+                   YesodCoreTest.DispatchSiteHook
+                   YesodCoreTest.DispatchSiteHook.Common
+                   YesodCoreTest.DispatchSiteHook.WidgetsR
+                   YesodCoreTest.DispatchSiteHook.OrgR
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
                    YesodCoreTest.ParameterizedSite

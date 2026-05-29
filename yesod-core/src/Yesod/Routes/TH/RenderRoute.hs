@@ -21,8 +21,10 @@ module Yesod.Routes.TH.RenderRoute
     , setFocusOnNestedRoute
     , roFocusOnNestedRoute
     , roNestedRouteFallthrough
+    , roUrlToDispatchSiteHook
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setUrlToDispatchSiteHook
     , nullifyWhenNoParam
     ) where
 
@@ -70,6 +72,20 @@ data RouteOpts = MkRouteOpts
     -- Default: 'False'.
     --
     -- @since 1.6.28.0
+    , roUrlToDispatchSiteHook :: Maybe Name
+    -- ^ An optional named function that generated nested-dispatch clauses
+    -- apply to the site value just before running the matched handler.
+    --
+    -- The 'Name' must resolve to a function of shape @url -> site -> site@,
+    -- where @url@ is the dispatched route /fragment/ value (the bare nested
+    -- route type, or @'WithParentArgs' fragment@ when the route has parent
+    -- dynamic pieces) and @site@ is the foundation type. It lets a focused
+    -- route module install route-specific behavior into the foundation
+    -- without the top-level route type having to reference it.
+    --
+    -- Default: 'Nothing'.
+    --
+    -- @since 1.6.30.0
     }
 
 -- | Default options for generating routes.
@@ -87,6 +103,7 @@ defaultOpts = MkRouteOpts
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
+    , roUrlToDispatchSiteHook = Nothing
     }
 
 -- | If you set this with @Just routeName@, then the code generation will
@@ -154,6 +171,19 @@ setFocusOnNestedRoute mstr rdo = rdo { roFocusOnNestedRoute = mstr }
 -- @since 1.6.28.0
 setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
 setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
+
+-- | Install a named function applied by generated nested-dispatch clauses to
+-- the site value before the matched handler runs. The function must have
+-- shape @url -> site -> site@, keyed on the dispatched route /fragment/.
+--
+-- This is intended for installing route-specific behavior (for example,
+-- authorization) into the foundation value at dispatch time, so the
+-- top-level route type need not statically reference every route's logic.
+-- Set it on the focused (per-route) options only.
+--
+-- @since 1.6.30.0
+setUrlToDispatchSiteHook :: Name -> RouteOpts -> RouteOpts
+setUrlToDispatchSiteHook name rdo = rdo { roUrlToDispatchSiteHook = Just name }
 
 -- |
 --

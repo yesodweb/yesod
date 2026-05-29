@@ -48,6 +48,7 @@ module Yesod.Core.Internal.TH
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setUrlToDispatchSiteHook
     )
  where
 
