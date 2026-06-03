@@ -16,7 +16,9 @@ import Test.Hspec
 -- This test is mostly done at compile-time.
 do
     let int = ConT ''Int
-    (clauses, names) <- mkRenderRouteClauses
+    -- This block exercises the nested-discovery delegation path, so it opts
+    -- in via 'setParameterizedSubroute'.
+    (clauses, names) <- mkRenderRouteClauses (setParameterizedSubroute True defaultOpts) []
         [ ResourceParent "FirstR" False mempty [Static "first", Dynamic int]
             [ ResourceLeaf Resource
                 { resourceName = "BlahR"

@@ -236,16 +236,19 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
         let mtargetMatch =
                 fmap (name ==) mtargetName
 
-        instanceExists <- runMaybeT $ do
-            -- Generate delegated clauses if the datatype and instance
-            -- already exist. Check the configured nested dispatch class
-            -- (YesodDispatchNested for top-level, YesodSubDispatchNested
-            -- for subsites).
-            typeName <- MaybeT $ lookupTypeName name
-            guard $ fromMaybe True mtargetMatch
-            appliedT <- Trans.lift $ fullyApplyType typeName
-            t <- Trans.lift $ isInstance mdsNestedDispatchClass [appliedT]
-            guard t
+        -- Delegate to the child's nested-dispatch instance when one already
+        -- exists (the configured class: YesodDispatchNested for top-level,
+        -- YesodSubDispatchNested for subsites). This is what makes splitting
+        -- a parent's nested routes across modules work. When no such instance
+        -- exists — the ordinary single-module case — the check fails and we
+        -- inline the children below, so this stays backwards compatible.
+        instanceExists <-
+            runMaybeT $ do
+                typeName <- MaybeT $ lookupTypeName name
+                guard $ fromMaybe True mtargetMatch
+                appliedT <- Trans.lift $ fullyApplyType typeName
+                t <- Trans.lift $ isInstance mdsNestedDispatchClass [appliedT]
+                guard t
 
         (pats, dyns) <- handlePieces pieces
         restName <- newName "_rest"
@@ -300,7 +303,13 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                     ]
 
         pure
-            ( if isJust instanceExists then mempty else [name]
+            -- Report this parent as needing a nested-dispatch instance only
+            -- when we did NOT already delegate to an existing one. Whether the
+            -- caller acts on this (i.e. actually generates the instance) is the
+            -- caller's decision — see 'mkDispatchInstance'.
+            ( if isJust instanceExists
+                then mempty
+                else [name]
             , [ Clause
                 [mkPathPat restP pats]
                 body
@@ -537,8 +546,17 @@ mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) ma
         phase = determinePhase mds
     (childNames, clause') <- mkDispatchClause phase [] [] tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
+        -- Only generate 'YesodDispatchNested' instances for children when this
+        -- site uses nested discovery. A parameterized site that has not opted
+        -- in keeps unparameterized subroute datatypes (see 'useNestedDiscovery'
+        -- in RenderRoute), so generating nested instances — which would
+        -- reference the parameterized form — must be suppressed to stay
+        -- consistent.
+        childNamesToGenerate
+            | useNestedDiscovery routeOpts tyargs = childNames
+            | otherwise                           = []
     childInstances <-
-        fmap mconcat $ forM childNames $ \name -> do
+        fmap mconcat $ forM childNamesToGenerate $ \name -> do
             mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
     return (instanceD cxt yDispatch [thisDispatch] : childInstances)
   where

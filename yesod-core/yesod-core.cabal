@@ -249,7 +249,11 @@ test-suite tests
                    YesodCoreTest.RenderRouteSpec
                    YesodCoreTest.RenderRouteSpec.TH
                    YesodCoreTest.SubSubData
+                   YesodCoreTest.SplitSubsite
+                   YesodCoreTest.SplitSubsite.Data
+                   YesodCoreTest.SplitSubsite.NestedR
                    YesodCoreTest.ParameterizedSubData
+                   YesodCoreTest.ParamSubsiteParameterized
                    YesodCoreTest.ParameterizedSubDispatch
                    YesodCoreTest.ParameterizedSubDispatch.Data
                    YesodCoreTest.WaiSubsite

@@ -11,7 +11,9 @@ import YesodCoreTest.Links
 import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.SubSub
+import YesodCoreTest.SplitSubsite (splitSubsiteSpec)
 import YesodCoreTest.ParameterizedSubData ()
+import YesodCoreTest.ParamSubsiteParameterized ()
 import YesodCoreTest.ParameterizedSubDispatch ()
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
@@ -53,6 +55,7 @@ specs = do
       linksTest
       noOverloadedTest
       subSubTest
+      splitSubsiteSpec
       internalRequestTest
       errorHandlingTest
       cacheTest

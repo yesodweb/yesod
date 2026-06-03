@@ -50,3 +50,19 @@ instance
   ( ParamSubsiteClass subsite master
   ) => YesodSubDispatch (ParamSubsite subsite) master where
   yesodSubDispatch = $(mkYesodSubDispatch resourcesParamSubsite)
+
+-- | Backwards-compatibility guard for the reported regression.
+--
+-- By default ('defaultOpts', as used by 'mkYesodSubData'), nested subroute
+-- datatypes must remain *unparameterized* — kind 'Type' — exactly as
+-- pre-nested-discovery Yesod generated them. The reported breakage was that
+-- the branch silently gave them the parent's type parameter (kind
+-- @Type -> Type@), which broke any downstream type signature mentioning the
+-- subroute.
+--
+-- This signature only compiles if 'NestedR' has kind 'Type'. If the default
+-- ever regresses to parameterizing subroutes, 'NestedR' would have kind
+-- @Type -> Type@ and this would fail with a kind error — turning the
+-- downstream breakage into a local, in-repo test failure.
+_nestedRArityGuard :: NestedR -> NestedR
+_nestedRArityGuard = id

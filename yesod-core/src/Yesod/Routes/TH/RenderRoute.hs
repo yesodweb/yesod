@@ -24,6 +24,7 @@ module Yesod.Routes.TH.RenderRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
     , nullifyWhenNoParam
+    , useNestedDiscovery
     ) where
 
 import Data.Maybe
@@ -208,6 +209,44 @@ instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf 
 nullifyWhenNoParam :: RouteOpts -> [a] -> [a]
 nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 
+-- | Whether to generate the "nested route discovery" machinery for a route
+-- datatype: parameterized subroute datatypes plus the @RenderRouteNested@ \/
+-- @ParseRouteNested@ \/ @YesodDispatchNested@ \/ @ToParentRoute@ \/
+-- @UrlToDispatch@ \/ @RedirectUrl@ instances and the delegating method bodies
+-- that go with them.
+--
+-- The second argument is the route datatype's type arguments (empty for a
+-- monomorphic site like @App@).
+--
+-- The machinery is generated when any of the following hold:
+--
+--   * The site has /no/ type parameters (@'null' tyargs@). Subroute
+--     datatypes then need no type variables, so the machinery is always
+--     safe, and this preserves the historical behaviour of monomorphic
+--     sites (including splitting nested routes across modules).
+--
+--   * Parameterized subroutes were explicitly requested
+--     ('setParameterizedSubroute'). The subroute datatypes then carry the
+--     parent's type variables so the @ParentSite@ \/ @ParentArgs@ associated
+--     types are well-scoped.
+--
+--   * We are focusing on a nested route for module-splitting
+--     ('setFocusOnNestedRoute').
+--
+-- Crucially, for a /parameterized/ site that has /not/ opted in, this is
+-- 'False': generating the machinery would put the parent's type variables
+-- out of scope on the (then unparameterized) child datatype. Such sites get
+-- the historical inlined output instead. This is what keeps parameterized
+-- subsites backwards compatible — their subroute datatypes do not silently
+-- gain a type parameter.
+--
+-- @since 1.6.30.0
+useNestedDiscovery :: RouteOpts -> [a] -> Bool
+useNestedDiscovery opts tyargs =
+    null tyargs
+        || roParameterizedSubroute opts
+        || isJust (roFocusOnNestedRoute opts)
+
 -- | Generate the constructors of a route data type, with custom
 -- 'RouteOpts'.
 --
@@ -243,14 +282,29 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
         PlainTV :: Name -> TyVarBndr
 #endif
 
-    -- Nested route child datatypes always need the parent's type
-    -- variables, because RenderRouteNested has associated type families
-    -- (ParentSite, ParentArgs) that reference the parent type. Without
-    -- the type variables on the child datatype, they'd be out of scope
-    -- on the RHS of the type family instance.
-    subrouteDecTypeArgs = fmap (tyvarbndr . snd) origTyargs
+    -- When nested route discovery is enabled, child datatypes carry the
+    -- parent's type variables, because RenderRouteNested has associated type
+    -- families (ParentSite, ParentArgs) that reference the parent type;
+    -- without the type variables on the child datatype, they'd be out of
+    -- scope on the RHS of the type family instance.
+    --
+    -- When it is disabled (the backwards-compatible default), child
+    -- datatypes are unparameterized (kind 'Type'), matching the historical
+    -- output. See 'useNestedDiscovery'.
+    tyargs
+        | useNestedDiscovery opts origTyargs = origTyargs
+        | otherwise                          = []
+    subrouteDecTypeArgs = fmap (tyvarbndr . snd) tyargs
 
-    (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
+    -- Derives for the child (subroute) datatypes. When the child datatype is
+    -- unparameterized (the backwards-compatible default), it cannot carry the
+    -- instance context's type variables, so deriving with that context would
+    -- make them ambiguous. Mirror master and nullify the context in that case;
+    -- keep it only when the child actually carries the type arguments.
+    childCxt
+        | null tyargs = []
+        | otherwise   = cxt
+    (inlineDerives, mkStandaloneDerives) = getDerivesFor opts childCxt
 
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
     mkRouteConsOpts' prePieces trees = do
@@ -307,48 +361,56 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
                         -- or `Nothing` (aka we are either not doing
                         -- a target, or we have already found our target)
                         let childData = mkChildDataGen childDataName cons inlineDerives
-                        let childDataType = foldl' AppT (ConT childDataName) (fst <$> origTyargs)
-                        let piecesAndNames =
-                                map
-                                    (\p -> case p of
-                                        Static str -> Left str
-                                        Dynamic a -> Right a)
-                                    (prePieces <> pieces)
-                            preDyns =
-                                mapMaybe (either (const Nothing) Just) piecesAndNames
+                        let childDataType = foldl' AppT (ConT childDataName) (fst <$> tyargs)
+                        if not (useNestedDiscovery opts origTyargs)
+                            then
+                                -- Backwards-compatible default: emit just the
+                                -- (unparameterized) child datatype and its
+                                -- standalone derives. No RenderRouteNested
+                                -- instance; renderRoute inlines the children.
+                                pure $ Just (childData : mkStandaloneDerives childDataType)
+                            else do
+                                let piecesAndNames =
+                                        map
+                                            (\p -> case p of
+                                                Static str -> Left str
+                                                Dynamic a -> Right a)
+                                            (prePieces <> pieces)
+                                    preDyns =
+                                        mapMaybe (either (const Nothing) Just) piecesAndNames
 
-                        parentDynT <-
-                            case preDyns of
-                                [] -> [t| () |]
-                                [t] -> pure t
-                                ts ->
-                                    pure $ foldl' AppT (TupleT (length ts)) ts
-                        parentNames <- forM piecesAndNames $ \epiece'name -> do
-                            case epiece'name of
-                                Left piece ->
-                                    pure (Left piece)
-                                Right t -> do
-                                    let tyName =
-                                            filter isAlphaNum
-                                            $ show t
-                                        lowerFirst xs =
-                                            case xs of
-                                                (a : as) -> toLower a : as
-                                                [] -> error "empty name????"
-                                    Right <$> newName (lowerFirst tyName)
-                        let parentSiteT = ConT ''ParentSite `AppT` consDataType
-                            parentDynSig = ConT ''ParentArgs `AppT` consDataType
-                        (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
-                        let childInstances =
-                                InstanceD
-                                    Nothing
-                                    cxt
-                                    (ConT ''RenderRouteNested `AppT` consDataType)
-                                    [ TySynInstD $ TySynEqn Nothing parentSiteT master
-                                    , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
-                                    , FunD 'renderRouteNested childClauses
-                                    ]
-                        pure $ Just (childData : [childInstances] ++ mkStandaloneDerives childDataType)
+                                parentDynT <-
+                                    case preDyns of
+                                        [] -> [t| () |]
+                                        [t] -> pure t
+                                        ts ->
+                                            pure $ foldl' AppT (TupleT (length ts)) ts
+                                parentNames <- forM piecesAndNames $ \epiece'name -> do
+                                    case epiece'name of
+                                        Left piece ->
+                                            pure (Left piece)
+                                        Right t -> do
+                                            let tyName =
+                                                    filter isAlphaNum
+                                                    $ show t
+                                                lowerFirst xs =
+                                                    case xs of
+                                                        (a : as) -> toLower a : as
+                                                        [] -> error "empty name????"
+                                            Right <$> newName (lowerFirst tyName)
+                                let parentSiteT = ConT ''ParentSite `AppT` consDataType
+                                    parentDynSig = ConT ''ParentArgs `AppT` consDataType
+                                (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
+                                let childInstances =
+                                        InstanceD
+                                            Nothing
+                                            cxt
+                                            (ConT ''RenderRouteNested `AppT` consDataType)
+                                            [ TySynInstD $ TySynEqn Nothing parentSiteT master
+                                            , TySynInstD $ TySynEqn Nothing parentDynSig parentDynT
+                                            , FunD 'renderRouteNested childClauses
+                                            ]
+                                pure $ Just (childData : [childInstances] ++ mkStandaloneDerives childDataType)
 
         return ([con], maybe id (<>) mdec decs)
       where
@@ -364,20 +426,25 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
         mkChildDataGen childDataName cons conts =
             DataD [] childDataName subrouteDecTypeArgs Nothing cons conts
         dataName = mkName name
-        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) origTyargs
+        consDataType = foldl' (\b a -> b `AppT` fst a) (ConT dataName) tyargs
 
 -- | Clauses for the 'renderRoute' method. This should be called from the
 -- instance derivation for 'RenderRoute'. Also returns a list of 'String'
 -- corresponding to types that don't yet have 'RenderRouteNested'
 -- instances.
-mkRenderRouteClauses :: [ResourceTree Type] -> Q ([Clause], [String])
-mkRenderRouteClauses =
-    fmap mconcat . mapM go
+mkRenderRouteClauses :: RouteOpts -> [(Type, Name)] -> [ResourceTree Type] -> Q ([Clause], [String])
+mkRenderRouteClauses opts origTyargs =
+    goList
   where
+    goList = fmap mconcat . mapM go
+
     isDynamic Dynamic{} = True
     isDynamic _ = False
 
-    go (ResourceParent name _check _attrs pieces _children) = do
+    -- Opted in to nested discovery: the parent's renderRoute delegates to the
+    -- child's RenderRouteNested instance.
+    go (ResourceParent name _check _attrs pieces _children)
+        | useNestedDiscovery opts origTyargs = do
         let cnt = length $ filter isDynamic pieces
         dyns <- replicateM cnt $ newName "dyn"
         child <- newName "child"
@@ -405,6 +472,42 @@ mkRenderRouteClauses =
         pure
             ( [Clause [pat] (NormalB renderRouteNestedCall) []]
             , childNames
+            )
+
+    -- Backwards-compatible default: inline the child clauses, prepending this
+    -- parent's path pieces, exactly as historical Yesod did.
+    go (ResourceParent name _check _attrs pieces children) = do
+        let cnt = length $ filter isDynamic pieces
+        dyns <- replicateM cnt $ newName "dyn"
+        child <- newName "child"
+        let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
+
+        pack' <- [|pack|]
+        tsp <- [|toPathPiece|]
+        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
+
+        childRender <- newName "childRender"
+        let rr = VarE childRender
+        (childClauses, _childNames) <- goList children
+
+        a <- newName "a"
+        b <- newName "b"
+
+        colon <- [|(:)|]
+        let cons y ys = InfixE (Just y) colon (Just ys)
+        let pieces' = foldr cons (VarE a) piecesSingle
+
+        let body =
+                LamE [TupP [VarP a, VarP b]] (TupE
+#if MIN_VERSION_template_haskell(2,16,0)
+                                              $ map Just
+#endif
+                                              [pieces', VarE b]
+                                             ) `AppE` (rr `AppE` VarE child)
+
+        pure
+            ( [Clause [pat] (NormalB body) [FunD childRender childClauses]]
+            , []
             )
 
     go (ResourceLeaf res) = do
@@ -623,7 +726,7 @@ mkRenderRouteInstanceOpts
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     case roFocusOnNestedRoute opts of
         Nothing -> do
-            (cls, _names) <- mkRenderRouteClauses ress
+            (cls, _names) <- mkRenderRouteClauses opts tyargs ress
             (cons, decs) <- mkRouteConsOpts opts cxt tyargs typ ress
             let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)
@@ -632,7 +735,12 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     ''Route [typ]
 #endif
                     Nothing cons inlineDerives
-            parentRouteInstancesDecs <- mkToParentRouteInstances opts cxt tyargs ress
+            -- ToParentRoute instances are only needed by the nested-discovery
+            -- machinery; the backwards-compatible default emits none.
+            parentRouteInstancesDecs <-
+                if useNestedDiscovery opts tyargs
+                    then mkToParentRouteInstances opts cxt tyargs ress
+                    else pure []
             pure $ mconcat
                 [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
                     [ did

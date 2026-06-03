@@ -337,7 +337,16 @@ mkYesodSubDispatchInstance nameStr resS = do
             Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
         if instanceExists
             then pure []
-            else mkNestedSubDispatchInstance defaultOpts nestedName appCxt boundNames return res
+            else
+                -- This is the opt-in, module-splitting subsite API: the nested
+                -- subroute datatypes it targets carry the parent's type
+                -- arguments, so it must use the nested-discovery machinery.
+                -- Opt in explicitly via 'setParameterizedSubroute' so the gate
+                -- ('useNestedDiscovery') agrees regardless of the parent's
+                -- arity.
+                mkNestedSubDispatchInstance
+                    (setParameterizedSubroute True defaultOpts)
+                    nestedName appCxt boundNames return res
 
     return $ yesodSubDispatchInst : nestedInstances
   where

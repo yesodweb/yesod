@@ -38,7 +38,20 @@ mkParseRouteInstanceFor target ress = do
     mkParseRouteInstanceOpts opts [] [] targetType ress
 
 mkParseRouteInstanceOpts :: RouteOpts -> [(Type, Name)] -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
-mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess = do
+mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess
+    | not (useNestedDiscovery routeOpts origTyargs) = do
+        -- Backwards-compatible default: generate a single 'ParseRoute'
+        -- instance with all nested routes inlined, and no 'ParseRouteNested'
+        -- instances.
+        clausess <- mapM (generateParseRouteClausesInline [] id) unfocusedRess
+        let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
+            allClauses = concat clausess <> [missingClause]
+        pure
+            [ instanceD cxt (ConT ''ParseRoute `AppT` typ)
+                [ FunD 'parseRoute allClauses
+                ]
+            ]
+    | otherwise = do
     let ress = focusTarget unfocusedRess
     (clauses, childNames) <- flip runStateT mempty $ traverse (generateParseRouteClause routeOpts) ress
 
@@ -182,3 +195,71 @@ generateParseRouteClause routeOpts resourceTree =
 
     handlePieces :: [Piece a] -> StateT s Q ([Pat], [Exp])
     handlePieces = fmap (second catMaybes . unzip) . mapM handlePiece
+
+-- | Backwards-compatible inline 'parseRoute' clause generation. Instead of
+-- delegating nested routes to 'parseRouteNested', this recursively inlines
+-- every descendant leaf into a single flat list of clauses, prepending the
+-- accumulated parent path pieces and wrapping the parsed route in the
+-- accumulated parent constructors. This matches the historical (pre nested
+-- route discovery) output and emits no 'ParseRouteNested' instances.
+generateParseRouteClausesInline
+    :: [Pat]
+    -- ^ Accumulated parent path-piece patterns (binding the parent dynamics).
+    -> (Exp -> Exp)
+    -- ^ Wrap a child-route expression in the accumulated parent constructors.
+    -> ResourceTree a
+    -> Q [Clause]
+generateParseRouteClausesInline accPats wrap resourceTree =
+    case resourceTree of
+        ResourceLeaf (Resource name pieces dispatch _ _check) -> do
+            (pats, dyns) <- handlePiecesQ pieces
+            case dispatch of
+                Methods multi _ -> do
+                    (finalPat, dyns') <-
+                        case multi of
+                            Nothing ->
+                                pure (conPCompat '[] [], dyns)
+                            Just _ -> do
+                                multiName <- newName "multi"
+                                let pat = ViewP (VarE 'fromPathMultiPiece)
+                                                (conPCompat 'Just [VarP multiName])
+                                pure (pat, dyns ++ [VarE multiName])
+                    let route = List.foldl' AppE (ConE (mkName name)) dyns'
+                        jroute = ConE 'Just `AppE` wrap route
+                        pathPat = mkPathPatQ finalPat (accPats ++ pats)
+                    queryParamsName <- newName "_queryParams"
+                    pat <- [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
+                    pure [Clause [pat] (NormalB jroute) []]
+
+                Subsite _ _ -> do
+                    restName <- newName "rest"
+                    queryParamsName <- newName "_queryParams"
+                    subName <- newName "sub"
+                    let route = List.foldl' AppE (ConE (mkName name)) dyns
+                        wrapSub = wrap (route `AppE` VarE subName)
+                        pathPat = mkPathPatQ (VarP restName) (accPats ++ pats)
+                    pat <- [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
+                    tupExp <- [e| ( $(pure $ VarE restName), $(pure $ VarE queryParamsName) ) |]
+                    expr <- [e| fmap (\ $(pure (VarP subName)) -> $(pure wrapSub)) ( parseRoute $(pure tupExp) ) |]
+                    pure [Clause [pat] (NormalB expr) []]
+
+        ResourceParent name _check _attrs pieces children -> do
+            (pats, dyns) <- handlePiecesQ pieces
+            let accPats' = accPats ++ pats
+                parentCon childRoute =
+                    List.foldl' AppE (ConE (mkName name)) dyns `AppE` childRoute
+                wrap' = wrap . parentCon
+            concat <$> mapM (generateParseRouteClausesInline accPats' wrap') children
+  where
+    handlePieceQ :: Piece a -> Q (Pat, Maybe Exp)
+    handlePieceQ (Static str) = pure (LitP $ StringL str, Nothing)
+    handlePieceQ (Dynamic _) = do
+        x <- newName "dyn"
+        let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x])
+        pure (pat, Just $ VarE x)
+
+    handlePiecesQ :: [Piece a] -> Q ([Pat], [Exp])
+    handlePiecesQ = fmap (second catMaybes . unzip) . mapM handlePieceQ
+
+    mkPathPatQ :: Pat -> [Pat] -> Pat
+    mkPathPatQ final = foldr (\x y -> conPCompat '(:) [x, y]) final
