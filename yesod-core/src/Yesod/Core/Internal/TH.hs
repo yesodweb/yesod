@@ -271,7 +271,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
 -- 1. A 'YesodSubDispatch' instance using 'mkYesodSubDispatch'
 -- 2. 'YesodSubDispatchNested' instances for any nested route fragments
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 mkYesodSubDispatchInstance
     :: String                -- ^ Foundation type with optional context, e.g. @"(MyClass a) => MySub a"@
     -> [ResourceTree String] -- ^ Resources (e.g. @resourcesMySub@)

@@ -43,7 +43,7 @@ import Instances.TH.Lift ()
 -- separate @null@ check — keeps \"are there type args?\" and \"what are they?\"
 -- a single fact, so the populated branch hands you the 'NonEmpty' directly.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 data TyArgs
     = NoTyArgs
     | SomeTyArgs (NonEmpty (Type, Name))

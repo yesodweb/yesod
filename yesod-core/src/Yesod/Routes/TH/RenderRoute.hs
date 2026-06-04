@@ -212,7 +212,7 @@ nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 
 -- | How a route datatype's children are generated.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 data DiscoveryMode
     = -- | The backwards-compatible default for a /parameterized/ site that has
       -- not opted in: subroute datatypes stay unparameterized (kind 'Type')
@@ -252,7 +252,7 @@ data DiscoveryMode
 --   * We are focusing on a nested route for module-splitting
 --     ('setFocusOnNestedRoute').
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 discoveryMode :: RouteOpts -> Bool -> DiscoveryMode
 discoveryMode opts hasArgs
     | not hasArgs                        = NestedDiscovery

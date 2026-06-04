@@ -1,9 +1,12 @@
 # ChangeLog for yesod-core
 
-## UNRELEASED (major version bump)
+## 1.7.0.0
 
 * Add the ability to focus on a nested route structure during code generation, allowing datatypes and dispatches to be generated in separate modules. [#1887](https://github.com/yesodweb/yesod/pull/1887)
 * Extend `ResourceParent` to include route attributes. Replace `frParentPieces` with `frParentDetails` to gather a parent's pieces and attributes. [1911](https://github.com/yesodweb/yesod/pull/1911)
+* Nested-route discovery for subsites: a subsite's nested routes can now be split across modules, mirroring the top-level nested-dispatch support. Subsites generate `YesodSubDispatchNested` instances (via the new `mkNestedSubDispatchInstance`), and `mkYesodSubDispatch` delegates to a separately-compiled instance when one exists, falling back to inlining the children for the ordinary single-module case (backwards compatible).
+* Replace the internal `useNestedDiscovery` predicate with a `DiscoveryMode` (`InlineCompat` | `NestedDiscovery`) sum and the `discoveryMode` classifier in `Yesod.Routes.TH`. Monomorphic sites always use nested discovery; parameterized sites stay backwards-compatible (inline) unless they opt in via `setParameterizedSubroute` or focus on a nested route via `setFocusOnNestedRoute`.
+* Add a `TyArgs` type (`NoTyArgs` | `SomeTyArgs (NonEmpty (Type, Name))`) and its accessors to `Yesod.Routes.TH.Types`, threaded through the route TH codegen to carry a parameterized site's type arguments. The route-generation entry points that previously took a `[(Type, Name)]` / `[Name]` list now take `TyArgs`.
 
 ## 1.6.29.1
 

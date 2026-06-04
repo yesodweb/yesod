@@ -113,7 +113,7 @@ class YesodSubDispatch sub master where
 -- Use 'mkYesodSubDispatchInstance' to generate both 'YesodSubDispatch' and
 -- 'YesodSubDispatchNested' instances in one splice.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 class RenderRouteNested a => YesodSubDispatchNested a where
     -- | Dispatches a request for a nested route fragment within a subsite.
     --
@@ -122,7 +122,7 @@ class RenderRouteNested a => YesodSubDispatchNested a where
     -- The @master@ type is universally quantified since it's not determined
     -- by the nested route type.
     --
-    -- @since 1.6.30.0
+    -- @since 1.7.0.0
     yesodSubDispatchNested
         :: Proxy a
         -- ^ Type proxy to resolve ambiguity from non-injective type families

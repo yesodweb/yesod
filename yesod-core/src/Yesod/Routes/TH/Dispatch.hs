@@ -76,13 +76,13 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- @''YesodDispatchNested@ for top-level dispatch,
     -- @''YesodSubDispatchNested@ for subsite dispatch.
     --
-    -- @since 1.6.30.0
+    -- @since 1.7.0.0
     , mdsNestedDispatchFn :: Name
     -- ^ The function to call for nested dispatch delegation.
     -- @'yesodDispatchNested@ for top-level dispatch,
     -- @'yesodSubDispatchNested@ for subsite dispatch.
     --
-    -- @since 1.6.30.0
+    -- @since 1.7.0.0
     }
 
 data DispatchPhase = TopLevelDispatch | NestedDispatch
@@ -128,7 +128,7 @@ data SDC = SDC
 -- Parameterizes the runner function, dispatch function/class, and
 -- how subsite environments are constructed.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 data NestedDispatchConfig = NestedDispatchConfig
     { ndcRunnerFn      :: Name
     -- ^ Runner function: @'yesodRunner@ for top-level, @'subHelper@ for subsites
@@ -143,7 +143,7 @@ data NestedDispatchConfig = NestedDispatchConfig
 -- | How to construct 'YesodSubRunnerEnv' when dispatching to a child subsite
 -- within a nested route.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 data SubsiteEnvMode
     = DirectEnv
     -- ^ Top-level: construct 'YesodSubRunnerEnv' with @yesodRunner@ as parent
@@ -154,7 +154,7 @@ data SubsiteEnvMode
 
 -- | Configuration for generating 'YesodDispatchNested' instances.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 topLevelNestedConfig :: NestedDispatchConfig
 topLevelNestedConfig = NestedDispatchConfig
     { ndcRunnerFn      = 'yesodRunner
@@ -165,7 +165,7 @@ topLevelNestedConfig = NestedDispatchConfig
 
 -- | Configuration for generating 'YesodSubDispatchNested' instances.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 subsiteNestedConfig :: NestedDispatchConfig
 subsiteNestedConfig = NestedDispatchConfig
     { ndcRunnerFn      = 'subHelper
@@ -796,7 +796,7 @@ mkUrlToDispatchInstances cxt tyargs master ress =
 -- | Generate a 'YesodSubDispatchNested' instance for a nested route within
 -- a subsite. Parallel to 'mkNestedDispatchInstance' but for the subsite case.
 --
--- @since 1.6.30.0
+-- @since 1.7.0.0
 mkNestedSubDispatchInstance
     :: RouteOpts
     -> String       -- ^ target nested route name
