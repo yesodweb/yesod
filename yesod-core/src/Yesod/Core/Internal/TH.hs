@@ -63,13 +63,11 @@ import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
 import Yesod.Routes.TH.Dispatch (mkNestedSubDispatchInstance)
-import Yesod.Routes.TH.Internal (appliedRouteType, instanceD, typeArity, checkNestedSubArity)
+import Yesod.Routes.TH.Internal (instanceD, typeArity, checkNestedSubArity, resolveRouteCon, nestedInstanceExists, rcResolved)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
 import Yesod.Routes.TH.Dispatch (parseYesodName)
-import Control.Monad.Trans.Maybe
-import qualified Control.Monad.Trans as Trans
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
@@ -323,11 +321,13 @@ mkYesodSubDispatchInstance nameStr resS = do
     nestedInstances <- fmap mconcat $ forM nestedNames $ \nestedName -> do
         -- Resolve the nested datatype once and reuse it for both the
         -- "instance already exists?" probe and the arity check below.
-        mtyname <- lookupTypeName nestedName
-        instanceExists <- fmap (fromMaybe False) $ runMaybeT $ do
-            tyname <- MaybeT $ pure mtyname
-            nameAppliedT <- Trans.lift $ appliedRouteType tyname tyArgs
-            Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
+        -- 'nestedInstanceExists' saturates by the datatype's own reified arity,
+        -- so it can't throw a kind error on an arity-mismatched in-scope
+        -- datatype — which is exactly the misuse the 'checkNestedSubArity'
+        -- below diagnoses. That keeps the friendly arity check reachable
+        -- instead of being preempted by a cryptic kind error from the probe.
+        rc <- resolveRouteCon nestedName
+        instanceExists <- nestedInstanceExists ''YesodSubDispatchNested rc
         if instanceExists
             then pure []
             else do
@@ -342,7 +342,7 @@ mkYesodSubDispatchInstance nameStr resS = do
                 -- unresolved name has no knowable arity (defaulting it to 0
                 -- would wrongly report "0 type parameter(s)"), and downstream
                 -- codegen reports the not-in-scope case on its own.
-                case mtyname of
+                case rcResolved rc of
                     Just tyname -> do
                         nestedArity <- typeArity tyname
                         either fail pure $

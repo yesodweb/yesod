@@ -473,13 +473,7 @@ mkRenderRouteClauses opts origTyargs =
             child <- newName "child"
             let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
 
-            typeExists <- lookupTypeName name
-            hasNestInstance <- case typeExists of
-                Just typeName ->
-                    fullyApplyType typeName >>= \appliedT ->
-                        isInstance ''RenderRouteNested [appliedT]
-                Nothing ->
-                    pure False
+            hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
 
             let parentArgs =
                     case dyns of
@@ -603,13 +597,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
         child <- newName "child"
         let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
 
-        typeExists <- lookupTypeName name
-        hasNestInstance <- case typeExists of
-            Just typeName ->
-                fullyApplyType typeName >>= \appliedT ->
-                    isInstance ''RenderRouteNested [appliedT]
-            Nothing ->
-                pure False
+        hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
 
         -- Extract parent dynamic variables from parentArgsNames
         let parentDyns = mapMaybe (either (const Nothing) Just) parentArgsNames

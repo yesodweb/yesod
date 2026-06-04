@@ -51,30 +51,97 @@ fullyApplyType typeName = do
     vars <- mapM (\i -> VarT <$> newName ("a" ++ show i)) [1..arity]
     pure $ foldl' AppT (ConT typeName) vars
 
--- | The fully-applied route 'Type' for a (resolved) route datatype 'Name',
--- as used for an instance head or an 'isInstance' probe. With explicit
--- 'TyArgs' (a parameterized site) the supplied type arguments are applied to
--- the constructor; otherwise the datatype is reified and saturated with fresh
--- type variables (needed for e.g. @mkYesodSubDispatch@, which doesn't know the
--- parent's type args).
-appliedRouteType :: Name -> TyArgs -> Q Type
-appliedRouteType tyname tyargs =
-    case tyargs of
-        SomeTyArgs{} -> pure $ applyTyArgs (ConT tyname) tyargs
-        NoTyArgs     -> fullyApplyType tyname
+-- | A route datatype name paired with the result of resolving it in the
+-- current splice environment. 'rcResolved' is 'Just' when the datatype is
+-- already in scope (defined in an earlier splice or a separately compiled
+-- module) and 'Nothing' when it is not yet — typically because it is being
+-- generated in the same splice group.
+--
+-- The point is to resolve a route name /once/, at the boundary, and carry the
+-- answer in a value rather than re-running 'lookupTypeName' at each use site
+-- and independently re-deciding what an unresolved name means. The two
+-- consumers that matter — \"does its nested instance already exist?\"
+-- ('nestedInstanceExists') and \"what type head do I splice?\"
+-- ('appliedRouteTypeCon') — then share a single resolution.
+--
+-- @since 1.7.0.0
+data RouteCon = RouteCon
+    { rcName     :: String       -- ^ the route datatype name as written
+    , rcResolved :: Maybe Name   -- ^ the resolved 'Name', if in scope
+    }
 
--- | 'appliedRouteType' starting from the route datatype's name as a 'String':
--- resolve it with 'lookupTypeName' and apply the type arguments, falling back
--- to the bare (unresolved) constructor — still applied to any explicit
--- 'TyArgs' — when the name isn't in scope (e.g. it is defined in the same
--- splice group). The fallback is why this can't be a plain @'lookupTypeName' >>=
--- 'appliedRouteType'@.
+-- | Resolve a route datatype name with 'lookupTypeName'. This is the single
+-- boundary at which a route name is looked up; downstream code branches on the
+-- resulting 'RouteCon' instead of resolving again.
+--
+-- @since 1.7.0.0
+resolveRouteCon :: String -> Q RouteCon
+resolveRouteCon name = RouteCon name <$> lookupTypeName name
+
+-- | The declared type-parameter arity of a 'RouteCon', or 0 when it isn't in
+-- scope (an unresolved name has no knowable arity).
+--
+-- @since 1.7.0.0
+routeConArity :: RouteCon -> Q Int
+routeConArity = maybe (pure 0) typeArity . rcResolved
+
+-- | Does an instance of the given (nested-discovery) class — e.g.
+-- @''YesodDispatchNested@, @''RenderRouteNested@, @''ParseRouteNested@,
+-- @''RouteAttrsNested@ — already exist for this route datatype? This is the
+-- single delegation probe shared by all the generators: when it answers 'True'
+-- the parent delegates to the existing instance, and when 'False' it inlines
+-- (or generates) the child itself.
+--
+-- Two rules, applied uniformly so the probe can never abort a splice:
+--
+--   * An unresolved 'RouteCon' (the datatype is being generated in the same
+--     splice) trivially has no instance yet, so the answer is 'False'.
+--   * A resolved one is saturated by its /own/ reified arity via
+--     'fullyApplyType' — never by the site's 'TyArgs'. Applying the site's
+--     type args to a child that was generated at a different arity (e.g. a
+--     kind-'Type' child of a parameterized site) builds an ill-kinded head,
+--     and 'isInstance' /throws/ a kind error rather than returning 'False',
+--     aborting the splice. Saturating by the datatype's own arity keeps the
+--     probed head well-kinded in every case.
+--
+-- @since 1.7.0.0
+nestedInstanceExists :: Name -> RouteCon -> Q Bool
+nestedInstanceExists klass rc =
+    case rcResolved rc of
+        Nothing       -> pure False
+        Just typeName -> do
+            appliedT <- fullyApplyType typeName
+            isInstance klass [appliedT]
+
+-- | The fully-applied route 'Type' for a 'RouteCon', as used for an instance
+-- head. This is the single place the \"saturate by site 'TyArgs' vs. by the
+-- datatype's own reified arity\" choice is made:
+--
+--   * With explicit 'TyArgs' (a parameterized site) the supplied type
+--     arguments are applied to the constructor — the resolved 'Name' if in
+--     scope, otherwise the bare 'mkName' (so a datatype being generated in the
+--     same splice still gets a head to reference).
+--   * With 'NoTyArgs' a resolved datatype is reified and saturated with fresh
+--     type variables (needed for e.g. @mkYesodSubDispatch@, which doesn't know
+--     the parent's type args); an unresolved one falls back to the bare
+--     constructor.
+--
+-- @since 1.7.0.0
+appliedRouteTypeCon :: RouteCon -> TyArgs -> Q Type
+appliedRouteTypeCon rc tyargs =
+    case (rcResolved rc, tyargs) of
+        (Just typeName, NoTyArgs)     -> fullyApplyType typeName
+        (Just typeName, SomeTyArgs{}) -> pure $ applyTyArgs (ConT typeName) tyargs
+        (Nothing,       _)            -> pure $ applyTyArgs (ConT (mkName (rcName rc))) tyargs
+
+-- | 'appliedRouteTypeCon' starting from the route datatype's name as a
+-- 'String': resolve it ('resolveRouteCon') and apply the type arguments. The
+-- fallback for an unresolved name (the bare constructor) is why this can't be
+-- a plain @'lookupTypeName' >>=@ that requires the name to be in scope.
 appliedRouteTypeNamed :: String -> TyArgs -> Q Type
 appliedRouteTypeNamed routeName tyargs = do
-    mname <- lookupTypeName routeName
-    case mname of
-        Just typeName -> appliedRouteType typeName tyargs
-        Nothing       -> pure $ applyTyArgs (ConT (mkName routeName)) tyargs
+    rc <- resolveRouteCon routeName
+    appliedRouteTypeCon rc tyargs
 
 -- | Validate that a parameterized subsite's nested route datatype carries
 -- exactly as many type parameters as the subsite has type arguments.

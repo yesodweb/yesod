@@ -42,8 +42,6 @@ import Control.Monad
 import Data.List (foldl')
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
-import Control.Monad.Trans.Maybe
-import qualified Control.Monad.Trans as Trans
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
 import Yesod.Core.Class.Dispatch.ToParentRoute (ToParentRoute(..))
@@ -225,23 +223,15 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
         -- a parent's nested routes across modules work. When no such instance
         -- exists — the ordinary single-module case — the check fails and we
         -- inline the children below, so this stays backwards compatible.
+        -- Delegate only when we're not focused on a different target, and an
+        -- instance of the configured nested-dispatch class already exists for
+        -- this child. 'nestedInstanceExists' is the shared probe: it resolves
+        -- the name once and saturates by the child's own reified arity, so it
+        -- never aborts the splice (see its haddock).
         instanceExists <-
-            runMaybeT $ do
-                typeName <- MaybeT $ lookupTypeName name
-                guard $ fromMaybe True mtargetMatch
-                -- Saturate the child datatype by its *own* reified arity, not
-                -- the site's 'tyargs'. In the InlineCompat path the child was
-                -- generated at kind 'Type' regardless of how many type args the
-                -- site has, so applying the site's 'tyargs' here would build an
-                -- ill-kinded head (e.g. @SubParentR a@ over a kind-'Type'
-                -- @SubParentR@) and 'isInstance' would *throw* a kind error and
-                -- abort the splice rather than return 'False'. 'fullyApplyType'
-                -- is safe here because 'lookupTypeName' already succeeded. Other
-                -- delegation probes (see 'mkNestedDispatchInstance' and
-                -- 'mkNestedSubDispatchInstance') saturate the same way.
-                appliedT <- Trans.lift $ fullyApplyType typeName
-                t <- Trans.lift $ isInstance mdsNestedDispatchClass [appliedT]
-                guard t
+            if fromMaybe True mtargetMatch
+                then nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name
+                else pure False
 
         (pats, dyns) <- handlePiecesM newName pieces
         restName <- newName "_rest"
@@ -258,11 +248,11 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             thisRouteParentArgs = fmap VarE preDyns <> extraParams sdc ++ dyns
 
         -- Build helper clauses: delegate to instance if it exists, otherwise inline
-        helperClauses <- case instanceExists of
-            Just () -> do
+        helperClauses <- if instanceExists
+            then do
                 expr <- nestedDispatchCall mdsNestedDispatchFn name routeDyns tyargs sdc thisRouteParentArgs
                 pure [Clause [restP] (NormalB expr) []]
-            Nothing -> do
+            else do
                 -- Inline dispatch: recursively generate clauses for children
                 let childSdc = sdc
                         { extraParams = extraParams sdc ++ dyns
@@ -300,7 +290,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             -- when we did NOT already delegate to an existing one. Whether the
             -- caller acts on this (i.e. actually generates the instance) is the
             -- caller's decision — see 'mkDispatchInstance'.
-            ( if isJust instanceExists
+            ( if instanceExists
                 then mempty
                 else [name]
             , [ Clause
@@ -670,10 +660,7 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
         fmap mconcat $ forM subres $ \childRes -> do
             case childRes of
                 ResourceParent name _ _ _ _ -> do
-                    instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
-                        tyname <- MaybeT $ lookupTypeName name
-                        nameAppliedT <- Trans.lift $ appliedRouteType tyname tyargs
-                        Trans.lift $ isInstance ''YesodDispatchNested [nameAppliedT]
+                    instanceExists <- nestedInstanceExists ''YesodDispatchNested =<< resolveRouteCon name
                     if instanceExists
                         then pure []
                         else mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
@@ -865,10 +852,7 @@ mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res = do
         fmap mconcat $ forM subres $ \childRes -> do
             case childRes of
                 ResourceParent name _ _ _ _ -> do
-                    instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
-                        tyname <- MaybeT $ lookupTypeName name
-                        nameAppliedT <- Trans.lift $ appliedRouteType tyname tyargs
-                        Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
+                    instanceExists <- nestedInstanceExists ''YesodSubDispatchNested =<< resolveRouteCon name
                     if instanceExists
                         then pure []
                         else mkNestedSubDispatchInstance routeOpts name cxt tyargs unwrapper res

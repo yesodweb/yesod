@@ -171,15 +171,10 @@ generateParseRouteClause routeOpts resourceTree =
         modify (Set.insert name)
 
     recordNameIfNotInstance name = do
-        mtypeName <- liftQ $ lookupTypeName name
-        case mtypeName of
-            Nothing ->
-                recordName name
-            Just typeName -> do
-                appliedT <- liftQ $ fullyApplyType typeName
-                hasNestedInstance <- liftQ $ isInstance ''ParseRouteNested [appliedT]
-                when (not hasNestedInstance) $ do
-                    recordName name
+        hasNestedInstance <-
+            liftQ $ nestedInstanceExists ''ParseRouteNested =<< resolveRouteCon name
+        when (not hasNestedInstance) $
+            recordName name
 
 -- | Backwards-compatible inline 'parseRoute' clause generation. Instead of
 -- delegating nested routes to 'parseRouteNested', this recursively inlines
