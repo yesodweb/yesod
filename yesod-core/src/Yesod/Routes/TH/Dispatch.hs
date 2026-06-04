@@ -542,6 +542,10 @@ mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) ma
 mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Just target}) master cxt tyargs unwrapper res = do
     mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res
 
+-- | Generate the top-level @YesodDispatchNested@ instance (and the
+-- @UrlToDispatch@\/@RedirectUrl@ instances for fragments with no dynamic parent
+-- pieces) for a nested route target. A thin wrapper over
+-- 'mkNestedDispatchInstanceWith' with the top-level config and the master site.
 mkNestedDispatchInstance
     :: RouteOpts
     -> String
@@ -551,69 +555,51 @@ mkNestedDispatchInstance
     -> (Exp -> Q Exp)
     -> [ResourceTree Type]
     -> Q [Dec]
-mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
-    let mstuff = findNestedRoute target res
-    (prePieces, subres) <- case mstuff of
+mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res =
+    mkNestedDispatchInstanceWith topLevelNestedConfig (Just master)
+        routeOpts target cxt tyargs unwrapper res
+
+-- | The shared body of the top-level ('mkNestedDispatchInstance') and subsite
+-- ('mkNestedSubDispatchInstance') nested-dispatch instance generators. Both
+-- find the target, build the parent-dynamics pattern, generate the dispatch
+-- clauses via 'genNestedDispatchClauses', emit one
+-- @ndcDispatchClass@\/@ndcDispatchFn@ instance, and recurse into nested
+-- children. They differ only in the 'NestedDispatchConfig' (which carries the
+-- dispatch function\/class and subsite-env mode) and whether a master site is
+-- in play: a @'Just' master@ marks the top-level case and additionally emits
+-- the @UrlToDispatch@\/@RedirectUrl@ instances, which the subsite case
+-- ('Nothing') never produces.
+mkNestedDispatchInstanceWith
+    :: NestedDispatchConfig
+    -> Maybe Type            -- ^ @Just master@ ⇒ top-level (also emit UrlToDispatch\/RedirectUrl); @Nothing@ ⇒ subsite
+    -> RouteOpts
+    -> String
+    -> Cxt
+    -> TyArgs
+    -> (Exp -> Q Exp)
+    -> [ResourceTree Type]
+    -> Q [Dec]
+mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrapper res = do
+    (prePieces, subres) <- case findNestedRoute target res of
         Nothing ->
-            fail "Target was not found in resources."
+            fail $ "Target '" ++ target ++ "' was not found in resources."
         Just stuff ->
             pure stuff
 
-    -- Calculate the static parent depth (number of path pieces consumed by parent)
+    -- The parent's static depth and how many dynamic pieces it consumes (only
+    -- the count matters below, for the parent-dynamics pattern and the
+    -- no-dynamics UrlToDispatch case).
     let parentDepth = length prePieces
-        preDyns =
-            mapMaybe
-                (\p -> case p of
-                    Static _ -> Nothing
-                    Dynamic a -> Just a)
-                prePieces
+        preDyns = [() | Dynamic _ <- prePieces]
+        targetT = applyTyArgs (ConT (mkName target)) tyargs
 
-    urlToDispatchInstances <- case preDyns of
-        [] -> do
-            -- In this case, we can generate UrlToDispatch.
-            let targetT =
-                    applyTyArgs (ConT (mkName target)) tyargs
-            urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
-            urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
-            mYesodConstraint <- do
-                hasYesodInstance <- isInstance ''Yesod [master]
-                if hasYesodInstance
-                    then pure []
-                    else do
-                        yesodContext <- [t| Yesod $(pure master) |]
-                        pure [yesodContext]
-            mToParentRouteConstraint <- do
-                mtypeName <- lookupTypeName target
-                parentRouteCxt <- [t| ToParentRoute $(pure targetT) |]
-                case mtypeName of
-                    Nothing -> do
-                        -- must be generating it still. assume we don't
-                        -- have the instance in scope.
-                        pure [parentRouteCxt]
-                    Just _ -> do
-                        -- type is around, let's make sure it's not
-                        -- redundant?
-                        hasToParentRouteInstance <- isInstance ''ToParentRoute [targetT]
-                        if hasToParentRouteInstance
-                            then pure []
-                            else do
-                                pure [parentRouteCxt]
-            redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
-            redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
-            pure $
-                [ instanceD (cxt <> mYesodConstraint <> mToParentRouteConstraint) urlToDispatchT
-                    [ FunD 'urlToDispatch
-                        [ Clause [ WildP ] (NormalB urlToDispatchFn) []
-                        ]
-                    ]
-                , instanceD (cxt <> mToParentRouteConstraint) redirectT
-                    [ FunD 'toTextUrl
-                        [ Clause [ ] (NormalB redirectUrlFn) [] ]
-                    ]
-                ]
+    -- UrlToDispatch/RedirectUrl is a top-level-only convenience and only
+    -- possible when ParentArgs ~ () (no dynamic parent pieces).
+    urlToDispatchInstances <- case (mmaster, preDyns) of
+        (Just master, []) ->
+            mkUrlToDispatchRedirectInstances cxt target targetT master
         _ ->
             pure []
-
 
     -- Generate parent dynamic argument pattern
     parentDynsP <-
@@ -628,30 +614,28 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
 
     -- Generate names for the instance parameters
     toParentN <- newName "toParentRoute"
-    yreN <- newName "yre"
+    envN <- newName "env"
     reqN <- newName "req"
 
     -- Generate dispatch clauses for each child resource
     clauses <- genNestedDispatchClauses
-        topLevelNestedConfig
+        config
         routeOpts
         parentDepth
         parentDynsP
         (VarE toParentN)
-        (VarE yreN)
+        (VarE envN)
         (VarE reqN)
         unwrapper
         tyargs
         subres
 
-    let targetT = applyTyArgs (ConT (mkName target)) tyargs
-    yDispatchNested <- [t| YesodDispatchNested $(pure targetT) |]
-
-    let pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
+    let dispatchNestedT = ConT (ndcDispatchClass config) `AppT` targetT
+        pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
         dropExp = VarE 'drop `AppE` LitE (IntegerL $ fromIntegral parentDepth) `AppE` pathInfoExp
-        thisDispatch = FunD 'yesodDispatchNested
+        thisDispatch = FunD (ndcDispatchFn config)
             [Clause
-                [WildP, parentDynsP, VarP toParentN, VarP yreN, VarP reqN]
+                [WildP, parentDynsP, VarP toParentN, VarP envN, VarP reqN]
                 (NormalB $ CaseE dropExp clauses)
                 []
             ]
@@ -660,18 +644,68 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
         fmap mconcat $ forM subres $ \childRes -> do
             case childRes of
                 ResourceParent name _ _ _ _ -> do
-                    instanceExists <- nestedInstanceExists ''YesodDispatchNested =<< resolveRouteCon name
+                    instanceExists <- nestedInstanceExists (ndcDispatchClass config) =<< resolveRouteCon name
                     if instanceExists
                         then pure []
-                        else mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
+                        else mkNestedDispatchInstanceWith config mmaster routeOpts name cxt tyargs unwrapper res
                 _ -> pure []
 
     return
-        ( instanceD cxt yDispatchNested
+        ( instanceD cxt dispatchNestedT
             [ thisDispatch
             ]
         : childInstances <> urlToDispatchInstances
         )
+
+-- | The top-level-only @UrlToDispatch@ + @RedirectUrl@ instances for a nested
+-- route fragment whose @ParentArgs ~ ()@ (no dynamic parent pieces), letting
+-- the fragment's constructor be used directly in @setUrl@\/@redirect@ without
+-- the @WithParentArgs@ wrapper. Subsite nested dispatch emits none of these.
+mkUrlToDispatchRedirectInstances
+    :: Cxt
+    -> String  -- ^ target route name (for the in-scope ToParentRoute check)
+    -> Type    -- ^ the applied target route type
+    -> Type    -- ^ the master site type
+    -> Q [Dec]
+mkUrlToDispatchRedirectInstances cxt target targetT master = do
+    urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
+    urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
+    mYesodConstraint <- do
+        hasYesodInstance <- isInstance ''Yesod [master]
+        if hasYesodInstance
+            then pure []
+            else do
+                yesodContext <- [t| Yesod $(pure master) |]
+                pure [yesodContext]
+    mToParentRouteConstraint <- do
+        mtypeName <- lookupTypeName target
+        parentRouteCxt <- [t| ToParentRoute $(pure targetT) |]
+        case mtypeName of
+            Nothing -> do
+                -- must be generating it still. assume we don't
+                -- have the instance in scope.
+                pure [parentRouteCxt]
+            Just _ -> do
+                -- type is around, let's make sure it's not
+                -- redundant?
+                hasToParentRouteInstance <- isInstance ''ToParentRoute [targetT]
+                if hasToParentRouteInstance
+                    then pure []
+                    else do
+                        pure [parentRouteCxt]
+    redirectT <- [t| RedirectUrl $(pure master) $(pure targetT) |]
+    redirectUrlFn <- [e| toTextUrl . WithParentArgs () |]
+    pure
+        [ instanceD (cxt <> mYesodConstraint <> mToParentRouteConstraint) urlToDispatchT
+            [ FunD 'urlToDispatch
+                [ Clause [ WildP ] (NormalB urlToDispatchFn) []
+                ]
+            ]
+        , instanceD (cxt <> mToParentRouteConstraint) redirectT
+            [ FunD 'toTextUrl
+                [ Clause [ ] (NormalB redirectUrlFn) [] ]
+            ]
+        ]
 
 -- | This function generates 'UrlToDispatch' and 'RedirectUrl' instances
 -- for the route fragment datatypes that have @ParentArgs url ~ ()@. This
@@ -792,78 +826,9 @@ mkNestedSubDispatchInstance
     -> (Exp -> Q Exp) -- ^ unwrapper
     -> [ResourceTree Type] -- ^ all resources
     -> Q [Dec]
-mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res = do
-    let mstuff = findNestedRoute target res
-    (prePieces, subres) <- case mstuff of
-        Nothing ->
-            fail $ "Target '" ++ target ++ "' was not found in resources."
-        Just stuff ->
-            pure stuff
-
-    let parentDepth = length prePieces
-        preDyns =
-            mapMaybe
-                (\p -> case p of
-                    Static _ -> Nothing
-                    Dynamic _ -> Just ())
-                prePieces
-
-    -- Generate parent dynamic argument pattern
-    parentDynsP <-
-        case preDyns of
-            [] -> [p| () |]
-            [_] -> do
-                n <- newName "parentDyn"
-                pure $ VarP n
-            xs -> do
-                ns <- forM xs $ \_ -> newName "parentDyn"
-                pure $ TupP $ map VarP ns
-
-    toParentN <- newName "toParentRoute"
-    subEnvN <- newName "subEnv"
-    reqN <- newName "req"
-
-    clauses <- genNestedDispatchClauses
-        subsiteNestedConfig
-        routeOpts
-        parentDepth
-        parentDynsP
-        (VarE toParentN)
-        (VarE subEnvN)
-        (VarE reqN)
-        unwrapper
-        tyargs
-        subres
-
-    let targetT = applyTyArgs (ConT (mkName target)) tyargs
-    ySubDispatchNested <- [t| YesodSubDispatchNested $(pure targetT) |]
-
-    let pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
-        dropExp = VarE 'drop `AppE` LitE (IntegerL $ fromIntegral parentDepth) `AppE` pathInfoExp
-        thisDispatch = FunD 'yesodSubDispatchNested
-            [Clause
-                [WildP, parentDynsP, VarP toParentN, VarP subEnvN, VarP reqN]
-                (NormalB $ CaseE dropExp clauses)
-                []
-            ]
-
-    -- Recursively generate instances for nested children
-    childInstances <-
-        fmap mconcat $ forM subres $ \childRes -> do
-            case childRes of
-                ResourceParent name _ _ _ _ -> do
-                    instanceExists <- nestedInstanceExists ''YesodSubDispatchNested =<< resolveRouteCon name
-                    if instanceExists
-                        then pure []
-                        else mkNestedSubDispatchInstance routeOpts name cxt tyargs unwrapper res
-                _ -> pure []
-
-    return
-        ( instanceD cxt ySubDispatchNested
-            [ thisDispatch
-            ]
-        : childInstances
-        )
+mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res =
+    mkNestedDispatchInstanceWith subsiteNestedConfig Nothing
+        routeOpts target cxt tyargs unwrapper res
 
 -- | Generate dispatch clauses for nested dispatch instances.
 -- Parameterized by 'NestedDispatchConfig' to support both
