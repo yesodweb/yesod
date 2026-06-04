@@ -471,7 +471,7 @@ mkRenderRouteClauses opts origTyargs =
 
             pack' <- [|pack|]
             tsp <- [|toPathPiece|]
-            let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
+            piecesSingle <- mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
 
             childRender <- newName "childRender"
             (childClauses, _childNames) <- goList children
@@ -494,7 +494,7 @@ mkRenderRouteClauses opts origTyargs =
 
         pack' <- [|pack|]
         tsp <- [|toPathPiece|]
-        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
+        piecesSingle <- mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
 
         piecesMulti <-
             case resourceMulti res of
@@ -519,10 +519,11 @@ mkRenderRouteClauses opts origTyargs =
 
         return ( [Clause [pat] (NormalB body) []], [])
 
-    mkPieces _ _ [] _ = []
-    mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
-    mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
-    mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
+    mkPieces _ _ [] _ = pure []
+    mkPieces toText tsp (Static s:ps) dyns = (toText s :) <$> mkPieces toText tsp ps dyns
+    mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = (tsp `AppE` VarE d :) <$> mkPieces toText tsp ps dyns
+    mkPieces _ _ (Dynamic _ : _) [] =
+        fail "RenderRoute.mkPieces: a dynamic path piece has no corresponding bound variable (route definition and piece-binder list are out of sync)"
 
 -- | Build a renderRoute body that delegates its tail to another render
 -- function — either a nested child's @renderRouteNested@ (the inline
@@ -625,9 +626,9 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
                     pats -> TupP pats
 
         -- Build parent path pieces from parentArgsNames
-        let parentPieces = mkParentPieces pack' tsp parentArgsNames parentDyns
-            -- Build this resource's own pieces
-            thisResourcePieces = mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
+        parentPieces <- mkParentPieces pack' tsp parentArgsNames parentDyns
+        -- Build this resource's own pieces
+        thisResourcePieces <- mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
 
         piecesMulti <-
             case resourceMulti res of
@@ -655,21 +656,23 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
         return ( [Clause [parentArgsPat, pat] (NormalB body) []], [])
 
-    mkPieces _ _ [] _ = []
-    mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
-    mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
-    mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
+    mkPieces _ _ [] _ = pure []
+    mkPieces toText tsp (Static s:ps) dyns = (toText s :) <$> mkPieces toText tsp ps dyns
+    mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = (tsp `AppE` VarE d :) <$> mkPieces toText tsp ps dyns
+    mkPieces _ _ (Dynamic _ : _) [] =
+        fail "RenderRoute.mkPieces: a dynamic path piece has no corresponding bound variable (route definition and piece-binder list are out of sync)"
 
     -- Build path pieces from parentArgsNames (which contains both static and dynamic pieces)
-    mkParentPieces :: Exp -> Exp -> [Either String Name] -> [Name] -> [Exp]
+    mkParentPieces :: Exp -> Exp -> [Either String Name] -> [Name] -> Q [Exp]
     mkParentPieces pack' tsp parentArgsNames' parentDyns = goParentPieces parentArgsNames' parentDyns
       where
-        goParentPieces [] _ = []
+        goParentPieces [] _ = pure []
         goParentPieces (Left staticStr : rest) dyns =
-            (pack' `AppE` LitE (StringL staticStr)) : goParentPieces rest dyns
+            ((pack' `AppE` LitE (StringL staticStr)) :) <$> goParentPieces rest dyns
         goParentPieces (Right _ : rest) (dyn : dyns) =
-            (tsp `AppE` VarE dyn) : goParentPieces rest dyns
-        goParentPieces (Right _ : _) [] = error "mkParentPieces: dynamic piece without corresponding variable"
+            ((tsp `AppE` VarE dyn) :) <$> goParentPieces rest dyns
+        goParentPieces (Right _ : _) [] =
+            fail "RenderRoute.mkParentPieces: a dynamic parent path piece has no corresponding bound variable"
 
 -- | The shared core of every 'RenderRouteNested' instance body. From a parent
 -- route's accumulated path pieces and its child resources it computes the

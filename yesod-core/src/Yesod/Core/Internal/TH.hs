@@ -193,11 +193,11 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
-    let appCxt = fmap (\ctxs ->
+    appCxt <- traverse (\ctxs ->
             case ctxs of
                 c:rest ->
-                    foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
-                [] -> error $ "Bad context: " ++ show ctxs
+                    pure $ foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
+                [] -> fail $ "mkYesod: empty type-class context in route definition: " ++ show ctxs
           ) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of
@@ -280,11 +280,11 @@ mkYesodSubDispatchInstance nameStr resS = do
         Left err -> fail $ show err
         Right a -> pure a
 
-    let appCxt = fmap (\ctxs ->
+    appCxt <- traverse (\ctxs ->
             case ctxs of
                 c:rest ->
-                    foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
-                [] -> error $ "Bad context: " ++ show ctxs
+                    pure $ foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
+                [] -> fail $ "mkYesod: empty type-class context in route definition: " ++ show ctxs
           ) appCxt'
 
     -- Look up the type to determine arity
