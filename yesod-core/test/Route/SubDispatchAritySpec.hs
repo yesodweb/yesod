@@ -16,8 +16,10 @@ spec = describe "checkNestedSubArity" $ do
     it "accepts a parameterized subsite whose nested datatype carries the param" $
         checkNestedSubArity "MySub" "NestedR" 1 1 `shouldBe` Right ()
 
-    it "accepts when the nested datatype carries more params than needed" $
-        checkNestedSubArity "MySub" "NestedR" 1 2 `shouldBe` Right ()
+    it "rejects when the nested datatype carries more params than the subsite" $
+        -- Over-arity leaves the instance head partially applied (kind
+        -- @Type -> ...@), so this must be rejected, not silently accepted.
+        checkNestedSubArity "MySub" "NestedR" 1 2 `shouldSatisfy` isLeft
 
     it "rejects a parameterized subsite with an unparameterized nested datatype" $
         checkNestedSubArity "MySub" "NestedR" 1 0 `shouldSatisfy` isLeft

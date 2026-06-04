@@ -63,7 +63,7 @@ import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
 import Yesod.Routes.TH.Dispatch (mkNestedSubDispatchInstance)
-import Yesod.Routes.TH.Internal (fullyApplyType, instanceD, typeArity, checkNestedSubArity)
+import Yesod.Routes.TH.Internal (appliedRouteType, instanceD, typeArity, checkNestedSubArity)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
@@ -291,15 +291,7 @@ mkYesodSubDispatchInstance nameStr resS = do
 
     -- Look up the type to determine arity
     mname <- lookupTypeName namestr
-    arity <- case mname of
-        Just n -> do
-            info <- reify n
-            return $ case info of
-                TyConI (DataD _ _ vs _ _ _) -> length vs
-                TyConI (NewtypeD _ _ vs _ _ _) -> length vs
-                TyConI (TySynD _ vs _) -> length vs
-                _ -> 0
-        _ -> return 0
+    arity <- maybe (pure 0) typeArity mname
 
     let name = mkName namestr
     vns <- replicateM (arity - length mtys) $ newName "t"
@@ -329,12 +321,12 @@ mkYesodSubDispatchInstance nameStr resS = do
         nestedNames = findNested res
 
     nestedInstances <- fmap mconcat $ forM nestedNames $ \nestedName -> do
-        -- Check if instance already exists
+        -- Resolve the nested datatype once and reuse it for both the
+        -- "instance already exists?" probe and the arity check below.
+        mtyname <- lookupTypeName nestedName
         instanceExists <- fmap (fromMaybe False) $ runMaybeT $ do
-            tyname <- MaybeT $ lookupTypeName nestedName
-            nameAppliedT <- Trans.lift $ case tyArgs of
-                SomeTyArgs{} -> pure $ applyTyArgs (ConT tyname) tyArgs
-                NoTyArgs -> fullyApplyType tyname
+            tyname <- MaybeT $ pure mtyname
+            nameAppliedT <- Trans.lift $ appliedRouteType tyname tyArgs
             Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
         if instanceExists
             then pure []
@@ -346,9 +338,16 @@ mkYesodSubDispatchInstance nameStr resS = do
                 -- subsite is parameterized but the nested datatype is not:
                 -- otherwise applying the subsite's type args to a kind-'Type'
                 -- datatype produces a cryptic kind error from generated code.
-                nestedArity <- maybe (pure 0) typeArity =<< lookupTypeName nestedName
-                either fail pure $
-                    checkNestedSubArity namestr nestedName (tyArgsArity tyArgs) nestedArity
+                -- Only check when the datatype actually resolved — an
+                -- unresolved name has no knowable arity (defaulting it to 0
+                -- would wrongly report "0 type parameter(s)"), and downstream
+                -- codegen reports the not-in-scope case on its own.
+                case mtyname of
+                    Just tyname -> do
+                        nestedArity <- typeArity tyname
+                        either fail pure $
+                            checkNestedSubArity namestr nestedName (tyArgsArity tyArgs) nestedArity
+                    Nothing -> pure ()
                 mkNestedSubDispatchInstance
                     (setParameterizedSubroute True defaultOpts)
                     nestedName appCxt tyArgs return res

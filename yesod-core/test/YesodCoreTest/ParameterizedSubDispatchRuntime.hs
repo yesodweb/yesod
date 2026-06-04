@@ -166,6 +166,10 @@ specs = describe "opt-out (backwards-compat) parameterized nested routes" $ do
             testRequestIO 404 ["sub", "abc", "nested", "oops"] "GET" Nothing
         it "405 on wrong method for nested leaf" $
             testRequestIO 405 ["sub", "abc", "nested"] "POST" Nothing
+        it "404 on malformed dynamic leaf piece (#Int given non-integer)" $
+            testRequestIO 404 ["sub", "item", "notanint"] "GET" Nothing
+        it "404 on malformed dynamic nested-leaf piece (NestedDetailR #Int)" $
+            testRequestIO 404 ["sub", "abc", "nested", "detail", "notanint"] "GET" Nothing
 
     describe "WAI dispatch (BigSub mounted at /big)" $ do
         it "dynamic leaf (BigItemR)" $
@@ -182,3 +186,5 @@ specs = describe "opt-out (backwards-compat) parameterized nested routes" $ do
             testRequestIO 200 ["big", "embed", "sub"] "GET" (Just "childHome")
         it "subsite leaf nested under parent, dynamic (EmbedParentR (ChildR (ChildXR _)))" $
             testRequestIO 200 ["big", "embed", "sub", "x", "9"] "GET" (Just "childX")
+        it "404 on malformed dynamic parent key (WrapR #Int given non-integer)" $
+            testRequestIO 404 ["big", "wrap", "notanint"] "GET" Nothing

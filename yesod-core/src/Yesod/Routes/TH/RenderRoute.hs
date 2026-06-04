@@ -231,11 +231,11 @@ data DiscoveryMode
 
 -- | Classify how a route datatype's children should be generated.
 --
--- The 'Bool' argument is whether the route datatype has type arguments
--- (@'not' . 'null'@ of them — 'False' for a monomorphic site like @App@). Mode
--- and tyargs are kept as separate facts: a monomorphic site is
--- 'NestedDiscovery' even though its tyargs is @[]@, so the path must not be
--- inferred from emptiness of the tyargs list.
+-- The 'Bool' argument is whether the route datatype has type arguments (i.e.
+-- 'hasTyArgs' of its 'TyArgs' — 'False' for a monomorphic site like @App@).
+-- Mode and tyargs are kept as separate facts: a monomorphic site is
+-- 'NestedDiscovery' even though its 'TyArgs' is 'NoTyArgs', so the path must
+-- not be inferred from the absence of type arguments alone.
 --
 -- 'NestedDiscovery' is chosen when any of the following hold:
 --
@@ -558,28 +558,29 @@ mkRenderRouteClauses opts origTyargs =
     mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
     mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
 
-    -- Build a renderRoute body that delegates its tail to another render
-    -- function — either a nested child's @renderRouteNested@ (the inline
-    -- 'ResourceParent' arm) or an embedded subsite's @renderRoute@ (the
-    -- 'ResourceLeaf' subsite arm). Prepends this route's own path pieces to the
-    -- delegate's path list and threads the query string through unchanged.
-    delegatingBody
-        :: [Exp]    -- ^ this route's own path pieces
-        -> Exp      -- ^ the delegate render function
-        -> Exp      -- ^ the child/subsite route argument to render
-        -> Q Exp
-    delegatingBody piecesSingle rr childArg = do
-        a <- newName "a"
-        b <- newName "b"
-        colon <- [|(:)|]
-        let cons y ys = InfixE (Just y) colon (Just ys)
-            pieces' = foldr cons (VarE a) piecesSingle
-        pure $ LamE [TupP [VarP a, VarP b]] (TupE
+-- | Build a renderRoute body that delegates its tail to another render
+-- function — either a nested child's @renderRouteNested@ (the inline
+-- 'ResourceParent' arm) or an embedded subsite's @renderRoute@ (the
+-- 'ResourceLeaf' subsite arm). The path-piece list passed in is prepended to
+-- the delegate's path list (callers include any parent pieces themselves) and
+-- the query string is threaded through unchanged.
+delegatingBody
+    :: [Exp]    -- ^ this route's own path pieces (already including any parent pieces)
+    -> Exp      -- ^ the delegate render function
+    -> Exp      -- ^ the child/subsite route argument to render
+    -> Q Exp
+delegatingBody piecesSingle rr childArg = do
+    a <- newName "a"
+    b <- newName "b"
+    colon <- [|(:)|]
+    let cons y ys = InfixE (Just y) colon (Just ys)
+        pieces' = foldr cons (VarE a) piecesSingle
+    pure $ LamE [TupP [VarP a, VarP b]] (TupE
 #if MIN_VERSION_template_haskell(2,16,0)
-                                             $ map Just
+                                         $ map Just
 #endif
-                                             [pieces', VarE b]
-                                            ) `AppE` (rr `AppE` childArg)
+                                         [pieces', VarE b]
+                                        ) `AppE` (rr `AppE` childArg)
 
 -- | Like 'mkRenderRouteClauses', but instead generates clauses for the
 -- definition of 'renderRouteNested'.
@@ -679,21 +680,8 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
             case sub of
                 [x] -> do
                     rr <- [|renderRoute|]
-                    a <- newName "a"
-                    b <- newName "b"
-
-                    colon <- [|(:)|]
-                    let cons y ys = InfixE (Just y) colon (Just ys)
                     -- Combine parent pieces with this resource's pieces
-                    let allPieces = parentPieces ++ thisResourcePieces
-                    let pieces = foldr cons (VarE a) allPieces
-
-                    return $ LamE [TupP [VarP a, VarP b]] (TupE
-#if MIN_VERSION_template_haskell(2,16,0)
-                                                            $ map Just
-#endif
-                                                            [pieces, VarE b]
-                                                          ) `AppE` (rr `AppE` VarE x)
+                    delegatingBody (parentPieces ++ thisResourcePieces) rr (VarE x)
                 _ -> do
                     colon <- [|(:)|]
                     let cons a b = InfixE (Just a) colon (Just b)

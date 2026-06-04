@@ -22,7 +22,6 @@ import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
 import Web.PathPieces
 import Yesod.Routes.TH.Internal
-import Control.Arrow (second)
 import Data.Maybe
 
 mkParseRouteInstance :: TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
@@ -102,18 +101,6 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
 mkPathPat :: Pat -> [Pat] -> Pat
 mkPathPat = foldr (\x y -> conPCompat '(:) [x, y])
 
--- | Turn a single route piece into a match pattern, returning a binder
--- expression for dynamic pieces (and 'Nothing' for static ones).
-handlePiece :: Piece a -> Q (Pat, Maybe Exp)
-handlePiece (Static str) = pure (LitP $ StringL str, Nothing)
-handlePiece (Dynamic _) = do
-    x <- newName "dyn"
-    let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x])
-    pure (pat, Just $ VarE x)
-
-handlePieces :: [Piece a] -> Q ([Pat], [Exp])
-handlePieces = fmap (second catMaybes . unzip) . mapM handlePiece
-
 generateParseRouteClause
     :: RouteOpts
     -> ResourceTree a
@@ -121,7 +108,7 @@ generateParseRouteClause
 generateParseRouteClause routeOpts resourceTree =
     case resourceTree of
         ResourceLeaf (Resource name pieces dispatch _ _check) -> do
-            (pats, dyns) <- liftQ $ handlePieces pieces
+            (pats, dyns) <- liftQ $ handlePiecesM newName pieces
 
             case dispatch of
                 Methods multi _ -> do
@@ -157,7 +144,7 @@ generateParseRouteClause routeOpts resourceTree =
         ResourceParent name _check _attrs pieces _children -> do
             recordNameIfNotInstance name
 
-            (pats, dyns) <- liftQ $ handlePieces pieces
+            (pats, dyns) <- liftQ $ handlePiecesM newName pieces
 
             let route = List.foldl' AppE (ConE (mkName name)) dyns
 
@@ -227,19 +214,6 @@ generateParseRouteClausesInline accPats wrap resourceTree =
 freshName :: String -> State Int Name
 freshName base = state $ \n -> (mkName (base ++ show n), n + 1)
 
--- | The pure variant of 'handlePieces': turn a list of route pieces into match
--- patterns plus the binder expressions for the dynamic pieces, drawing fresh
--- names from the deterministic supply.
-handlePiecesPure :: [Piece a] -> State Int ([Pat], [Exp])
-handlePiecesPure = fmap (second catMaybes . unzip) . mapM handlePiecePure
-  where
-    handlePiecePure :: Piece a -> State Int (Pat, Maybe Exp)
-    handlePiecePure (Static str) = pure (LitP $ StringL str, Nothing)
-    handlePiecePure (Dynamic _) = do
-        x <- freshName "dyn"
-        let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x])
-        pure (pat, Just $ VarE x)
-
 -- | The effect-free core of 'generateParseRouteClausesInline'. It assembles the
 -- @parseRoute@ clauses for the backwards-compatible inline path directly as
 -- AST, taking a deterministic fresh-name supply (a 'State' 'Int' counter)
@@ -262,7 +236,7 @@ buildInlineParseClauses
 buildInlineParseClauses accPats wrap resourceTree =
     case resourceTree of
         ResourceLeaf (Resource name pieces dispatch _ _check) -> do
-            (pats, dyns) <- handlePiecesPure pieces
+            (pats, dyns) <- handlePiecesM freshName pieces
             case dispatch of
                 Methods multi _ -> do
                     (finalPat, dyns') <-
@@ -296,7 +270,7 @@ buildInlineParseClauses accPats wrap resourceTree =
                     pure [Clause [pat] (NormalB expr) []]
 
         ResourceParent name _check _attrs pieces children -> do
-            (pats, dyns) <- handlePiecesPure pieces
+            (pats, dyns) <- handlePiecesM freshName pieces
             let accPats' = accPats ++ pats
                 parentCon childRoute =
                     List.foldl' AppE (ConE (mkName name)) dyns `AppE` childRoute

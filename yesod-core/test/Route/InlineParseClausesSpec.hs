@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
 -- | Unit tests for 'buildInlineParseClauses', the pure (effect-free) core of
@@ -11,7 +12,9 @@ module Route.InlineParseClausesSpec (spec) where
 
 import Test.Hspec
 import Control.Monad.State.Strict (evalState)
+import Data.Maybe (catMaybes)
 import Language.Haskell.TH
+import Web.PathPieces (fromPathPiece)
 import Yesod.Routes.TH.Types
 import Yesod.Routes.TH.ParseRoute (buildInlineParseClauses)
 
@@ -35,6 +38,66 @@ withOnlyClause cs k =
     case cs of
         [c] -> k c
         _   -> expectationFailure $ "expected exactly one clause, got " <> show (length cs)
+
+-- | Variables bound by a @fromPathPiece@ view pattern, descending through the
+-- list\/tuple\/constructor patterns the inline builder nests them in.
+boundDynVars :: Pat -> [Name]
+boundDynVars (ViewP (VarE f) inner)
+    | f == 'fromPathPiece = simpleVars inner
+boundDynVars p = concatMap boundDynVars (subPats p)
+
+-- | Plain 'VarP' names anywhere within a pattern.
+simpleVars :: Pat -> [Name]
+simpleVars (VarP n) = [n]
+simpleVars p        = concatMap simpleVars (subPats p)
+
+-- | The immediate sub-patterns of a pattern (only the shapes the inline
+-- builder produces need handling).
+subPats :: Pat -> [Pat]
+subPats (TupP ps)     = ps
+subPats (ListP ps)    = ps
+subPats (ViewP _ p)   = [p]
+subPats (ParensP p)   = [p]
+subPats (BangP p)     = [p]
+subPats (TildeP p)    = [p]
+subPats (AsP _ p)     = [p]
+subPats (SigP p _)    = [p]
+#if MIN_VERSION_template_haskell(2,18,0)
+subPats (ConP _ _ ps) = ps
+#else
+subPats (ConP _ ps)   = ps
+#endif
+subPats _             = []
+
+-- | The variables referenced in an expression.
+usedVars :: Exp -> [Name]
+usedVars (VarE n) = [n]
+usedVars e        = concatMap usedVars (subExps e)
+
+-- | The immediate sub-expressions of an expression.
+subExps :: Exp -> [Exp]
+subExps (AppE a b)       = [a, b]
+subExps (AppTypeE e _)   = [e]
+subExps (InfixE ma _ mb) = catMaybes [ma, mb]
+subExps (UInfixE a b c)  = [a, b, c]
+subExps (ParensE e)      = [e]
+subExps (LamE _ e)       = [e]
+subExps (SigE e _)       = [e]
+subExps (CondE a b c)    = [a, b, c]
+subExps (ListE es)       = es
+#if MIN_VERSION_template_haskell(2,16,0)
+subExps (TupE mes)       = catMaybes mes
+#else
+subExps (TupE es)        = es
+#endif
+subExps _                = []
+
+-- | The expression in a clause body (the inline builder emits 'NormalB' for
+-- leaves and a single-guard 'GuardedB' under fallthrough).
+clauseBodyExp :: Body -> Exp
+clauseBodyExp (NormalB e)            = e
+clauseBodyExp (GuardedB ((_, e) : _)) = e
+clauseBodyExp (GuardedB [])          = error "clauseBodyExp: empty guarded body"
 
 spec :: Spec
 spec = describe "buildInlineParseClauses (pure inline parseRoute codegen)" $ do
@@ -77,3 +140,18 @@ spec = describe "buildInlineParseClauses (pure inline parseRoute codegen)" $ do
         withOnlyClause (run tree) $ \c -> do
             pprint c `shouldContain` "org"
             pprint c `shouldContain` "team"
+
+    it "threads the parent's dynamic binder into the reconstructed route body" $ do
+        -- A parent with a dynamic piece: its binder must be matched in the path
+        -- pattern (via 'fromPathPiece') *and* fed back into the reconstructed
+        -- route in the body. That threading — not merely that the pieces show
+        -- up textually — is the property the inline arm has to preserve.
+        let tree = parent "OrgR" [Static "org", Dynamic (ConT ''Int)]
+                [ leaf "TeamR" [Static "team"] (methods ["GET"]) ]
+        withOnlyClause (run tree) $ \(Clause pats body _) -> do
+            let dynVars = concatMap boundDynVars pats
+            -- exactly one dynamic piece (the parent's), bound via fromPathPiece
+            dynVars `shouldSatisfy` ((== 1) . length)
+            -- and that very binder is referenced in the reconstructed body
+            let used = usedVars (clauseBodyExp body)
+            dynVars `shouldSatisfy` all (`elem` used)
