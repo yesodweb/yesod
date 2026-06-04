@@ -269,6 +269,16 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
 -- 1. A 'YesodSubDispatch' instance using 'mkYesodSubDispatch'
 -- 2. 'YesodSubDispatchNested' instances for any nested route fragments
 --
+-- The generated instances quantify over the @master@ site and constrain it
+-- only through the subsite's own class. For a parameterized subsite this
+-- normally means the subsite's class carries a @subsite -> master@ functional
+-- dependency (so @master@ is determined) and the using module enables
+-- @UndecidableInstances@ (the instance contexts mention type-family
+-- applications and non-variable arguments), along with @FlexibleContexts@,
+-- @FlexibleInstances@, @MultiParamTypeClasses@ and @TypeFamilies@. The nested
+-- route datatype must also declare exactly as many type parameters as the
+-- subsite has type arguments (see the arity note below).
+--
 -- @since 1.7.0.0
 mkYesodSubDispatchInstance
     :: String                -- ^ Foundation type with optional context, e.g. @"(MyClass a) => MySub a"@

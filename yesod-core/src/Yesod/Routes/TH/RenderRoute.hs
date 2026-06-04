@@ -193,7 +193,21 @@ setCreateResources b rdo = rdo { roCreateResources = b }
 shouldCreateResources :: RouteOpts -> Bool
 shouldCreateResources = roCreateResources
 
--- | If True, we will correctly pass parameters for subroutes around.
+-- | If True, generate nested-discovery code (separate subroute datatypes and
+-- @RenderRouteNested@ / dispatch instances) for a /parameterized/ site instead
+-- of the backwards-compatible inline output. The subroute datatypes then carry
+-- the parent site's type variables so that the @ParentSite@ \/ @ParentArgs@
+-- associated types stay well-scoped.
+--
+-- Because the generated nested instances are parameterized over the site's
+-- type variables, the splice emits instance heads with non-variable arguments;
+-- a module using this typically needs @FlexibleContexts@, @FlexibleInstances@,
+-- @MultiParamTypeClasses@, @TypeFamilies@ and, for a parameterized subsite
+-- whose @master@ is determined by the @subsite@ (a @subsite -> master@
+-- functional dependency on the user's class), @UndecidableInstances@.
+--
+-- Monomorphic sites always use nested discovery regardless of this flag; see
+-- 'discoveryMode'.
 --
 -- @since 1.6.28.0
 setParameterizedSubroute :: Bool -> RouteOpts -> RouteOpts
