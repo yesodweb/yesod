@@ -17,6 +17,9 @@ import YesodCoreTest.ParamSubsiteParameterized ()
 import YesodCoreTest.ParameterizedSubDispatch ()
 import qualified YesodCoreTest.ParameterizedSubDispatchRuntime as ParameterizedSubDispatchRuntime
 import qualified YesodCoreTest.ParamSubDispatchInstanceRuntime as ParamSubDispatchInstanceRuntime
+import qualified YesodCoreTest.ParamSplitSubRuntime as ParamSplitSubRuntime
+import qualified YesodCoreTest.ParamTopLevelRuntime as ParamTopLevelRuntime
+import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -86,6 +89,9 @@ specs = do
           NestedDispatch.specs
       ParameterizedSubDispatchRuntime.specs
       ParamSubDispatchInstanceRuntime.specs
+      ParamSplitSubRuntime.specs
+      ParamTopLevelRuntime.specs
+      ParamFallthroughRuntime.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do
