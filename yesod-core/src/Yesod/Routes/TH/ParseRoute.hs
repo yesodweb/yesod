@@ -19,7 +19,6 @@ import Language.Haskell.TH.Syntax
 import Yesod.Routes.Class
 import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
-import Web.PathPieces
 import Yesod.Routes.TH.Internal
 
 mkParseRouteInstance :: TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
@@ -107,17 +106,17 @@ generateParseRouteClause routeOpts resourceTree =
                 Methods multi _ -> do
                     (finalTail, dyns') <-
                         case multi of
-                            Nothing -> do
+                            Nothing ->
                                 pure (EndExact, dyns)
                             Just _ -> do
                                 multiName <- liftQ $ newName "multi"
                                 pure (EndMulti multiName, dyns ++ [VarE multiName])
 
+                    queryParamsName <- liftQ $ newName "_queryParams"
                     let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` route
                         pathPat = mkPathPat finalTail pats
-                    queryParamsName <- liftQ $ newName "_queryParams"
-                    pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
+                        pat = TupP [pathPat, VarP queryParamsName]
                     pure $ Clause [pat] (NormalB jroute) []
 
                 Subsite _ _ -> do
@@ -126,10 +125,11 @@ generateParseRouteClause routeOpts resourceTree =
 
                     let route = applyConPieces name dyns
                         pathPat = mkPathPat (EndRest restName) pats
-
-                    pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
-                    tupExp <- liftQ [e| ( $(pure $ VarE restName), $(pure $ VarE queryParamsName) ) |]
-                    expr <- liftQ [e| fmap $(pure route) ( parseRoute $(pure tupExp) ) |]
+                        pat = TupP [pathPat, VarP queryParamsName]
+                        tupExp = mkTupE [VarE restName, VarE queryParamsName]
+                        expr = VarE 'fmap
+                            `AppE` route
+                            `AppE` (VarE 'parseRoute `AppE` tupExp)
                     pure $ Clause [pat] (NormalB expr) []
 
         ResourceParent name _check _attrs pieces _children -> do
@@ -142,21 +142,21 @@ generateParseRouteClause routeOpts resourceTree =
             restName <- liftQ $ newName "rest"
             queryParamsName <- liftQ $ newName "_queryParams"
 
-            parseRouteOnRest <- liftQ [e| parseRouteNested ( $(pure $ VarE restName), $(pure $ VarE queryParamsName)) |]
+            let parseRouteOnRest =
+                    VarE 'parseRouteNested
+                        `AppE` mkTupE [VarE restName, VarE queryParamsName]
 
             body <-
                     if roNestedRouteFallthrough routeOpts
                         then do
                             resultName <- liftQ $ newName "result"
                             let stmt = BindS (AsP resultName (conPCompat 'Just [WildP])) parseRouteOnRest
-                                route' = applyConPieces name dyns
-                            expr <- liftQ [e| fmap $(pure route') ( $(pure (VarE resultName)) ) |]
+                                expr = VarE 'fmap `AppE` route `AppE` VarE resultName
                             pure $ GuardedB [(PatG [stmt], expr)]
-                        else do
-                            expr <- liftQ [e| fmap $(pure route) ( $(pure parseRouteOnRest) ) |]
-                            pure $ NormalB expr
+                        else
+                            pure $ NormalB (VarE 'fmap `AppE` route `AppE` parseRouteOnRest)
 
-            pat <- liftQ [p| ($(pure (mkPathPat (EndRest restName) pats)), $(pure (VarP queryParamsName)) ) |]
+            let pat = TupP [mkPathPat (EndRest restName) pats, VarP queryParamsName]
             pure $ Clause [pat] body []
 
   where
