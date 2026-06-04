@@ -264,6 +264,8 @@ test-suite tests
                    YesodCoreTest.ParamSubDispatchInstanceRuntime
                    YesodCoreTest.ParamSplitSubNested
                    YesodCoreTest.ParamSplitSubRuntime
+                   YesodCoreTest.ParamDefaultSplitData
+                   YesodCoreTest.ParamDefaultSplitRuntime
                    YesodCoreTest.ParamTopLevelRuntime
                    YesodCoreTest.ParamFallthroughRuntime
                    YesodCoreTest.ParamNoFallthroughRuntime

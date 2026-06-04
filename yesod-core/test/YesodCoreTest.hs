@@ -18,6 +18,7 @@ import YesodCoreTest.ParameterizedSubDispatch ()
 import qualified YesodCoreTest.ParameterizedSubDispatchRuntime as ParameterizedSubDispatchRuntime
 import qualified YesodCoreTest.ParamSubDispatchInstanceRuntime as ParamSubDispatchInstanceRuntime
 import qualified YesodCoreTest.ParamSplitSubRuntime as ParamSplitSubRuntime
+import qualified YesodCoreTest.ParamDefaultSplitRuntime as ParamDefaultSplitRuntime
 import qualified YesodCoreTest.ParamTopLevelRuntime as ParamTopLevelRuntime
 import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
 import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
@@ -91,6 +92,7 @@ specs = do
       ParameterizedSubDispatchRuntime.specs
       ParamSubDispatchInstanceRuntime.specs
       ParamSplitSubRuntime.specs
+      ParamDefaultSplitRuntime.specs
       ParamTopLevelRuntime.specs
       ParamFallthroughRuntime.specs
       ParamNoFallthroughRuntime.specs

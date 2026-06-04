@@ -229,11 +229,17 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             runMaybeT $ do
                 typeName <- MaybeT $ lookupTypeName name
                 guard $ fromMaybe True mtargetMatch
-                -- Use the same applied-route-type helper as every other
-                -- delegation probe (':675', ':870', 'Core/Internal/TH'); with
-                -- 'NoTyArgs' this is exactly 'fullyApplyType', and with concrete
-                -- 'tyargs' it probes the same polymorphic instance head.
-                appliedT <- Trans.lift $ appliedRouteType typeName tyargs
+                -- Saturate the child datatype by its *own* reified arity, not
+                -- the site's 'tyargs'. In the InlineCompat path the child was
+                -- generated at kind 'Type' regardless of how many type args the
+                -- site has, so applying the site's 'tyargs' here would build an
+                -- ill-kinded head (e.g. @SubParentR a@ over a kind-'Type'
+                -- @SubParentR@) and 'isInstance' would *throw* a kind error and
+                -- abort the splice rather than return 'False'. 'fullyApplyType'
+                -- is safe here because 'lookupTypeName' already succeeded. Other
+                -- delegation probes (see 'mkNestedDispatchInstance' and
+                -- 'mkNestedSubDispatchInstance') saturate the same way.
+                appliedT <- Trans.lift $ fullyApplyType typeName
                 t <- Trans.lift $ isInstance mdsNestedDispatchClass [appliedT]
                 guard t
 
