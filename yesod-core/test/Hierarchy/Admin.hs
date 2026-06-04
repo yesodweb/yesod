@@ -11,7 +11,7 @@ import Data.Text (Text)
 mkRenderRouteInstanceOpts
     (setFocusOnNestedRoute (Just "AdminR") defaultOpts)
     []
-    []
+    NoTyArgs
     (ConT ''Hierarchy)
     (map (fmap parseType) hierarchyResources)
 mkRouteAttrsInstanceFor

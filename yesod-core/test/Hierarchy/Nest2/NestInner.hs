@@ -12,7 +12,7 @@ import Language.Haskell.TH
 mkRenderRouteInstanceOpts
     (setFocusOnNestedRoute (Just "NestInner") defaultOpts)
     []
-    []
+    NoTyArgs
     (ConT ''Hierarchy)
     (map (fmap parseType) hierarchyResources)
 mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner" $ map (fmap parseType) hierarchyResources

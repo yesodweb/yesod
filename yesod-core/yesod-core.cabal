@@ -139,6 +139,9 @@ test-suite test-routes
                    Route.FallthroughSpec
                    Route.RenderRouteSpec
                    Route.RouteAttrSpec
+                   Route.DiscoveryModeSpec
+                   Route.SubDispatchAritySpec
+                   Route.InlineParseClausesSpec
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
@@ -256,6 +259,9 @@ test-suite tests
                    YesodCoreTest.ParamSubsiteParameterized
                    YesodCoreTest.ParameterizedSubDispatch
                    YesodCoreTest.ParameterizedSubDispatch.Data
+                   YesodCoreTest.ParameterizedSubDispatchRuntime
+                   YesodCoreTest.ParameterizedSubDispatchRuntime.Data
+                   YesodCoreTest.ParamSubDispatchInstanceRuntime
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

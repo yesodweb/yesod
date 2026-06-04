@@ -18,7 +18,7 @@ do
     let int = ConT ''Int
     -- This block exercises the nested-discovery delegation path, so it opts
     -- in via 'setParameterizedSubroute'.
-    (clauses, names) <- mkRenderRouteClauses (setParameterizedSubroute True defaultOpts) []
+    (clauses, names) <- mkRenderRouteClauses (setParameterizedSubroute True defaultOpts) NoTyArgs
         [ ResourceParent "FirstR" False mempty [Static "first", Dynamic int]
             [ ResourceLeaf Resource
                 { resourceName = "BlahR"
@@ -151,7 +151,7 @@ data App = App
 
 do
     let int = ConT ''Int
-    mkRenderRouteInstanceOpts defaultOpts [] [] (ConT (mkName "App"))
+    mkRenderRouteInstanceOpts defaultOpts [] NoTyArgs (ConT (mkName "App"))
             [ ResourceParent "FirstR" False mempty [Static "first", Dynamic int]
                 [ ResourceLeaf Resource
                     { resourceName = "BlahR"

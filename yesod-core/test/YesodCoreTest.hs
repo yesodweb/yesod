@@ -15,6 +15,8 @@ import YesodCoreTest.SplitSubsite (splitSubsiteSpec)
 import YesodCoreTest.ParameterizedSubData ()
 import YesodCoreTest.ParamSubsiteParameterized ()
 import YesodCoreTest.ParameterizedSubDispatch ()
+import qualified YesodCoreTest.ParameterizedSubDispatchRuntime as ParameterizedSubDispatchRuntime
+import qualified YesodCoreTest.ParamSubDispatchInstanceRuntime as ParamSubDispatchInstanceRuntime
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -82,6 +84,8 @@ specs = do
       Content.specs
       describe "NestedDispatch" $ do
           NestedDispatch.specs
+      ParameterizedSubDispatchRuntime.specs
+      ParamSubDispatchInstanceRuntime.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do

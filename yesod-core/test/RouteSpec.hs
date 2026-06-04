@@ -25,6 +25,9 @@ import qualified Data.Set as Set
 import qualified Route.FallthroughSpec as FallthroughSpec
 import qualified Route.RenderRouteSpec as RenderRouteSpec
 import qualified Route.RouteAttrSpec as RouteAttrSpec
+import qualified Route.DiscoveryModeSpec as DiscoveryModeSpec
+import qualified Route.SubDispatchAritySpec as SubDispatchAritySpec
+import qualified Route.InlineParseClausesSpec as InlineParseClausesSpec
 import qualified Data.Text as Text
 
 data MyApp = MyApp
@@ -91,6 +94,9 @@ main = hspec $ do
     describe "Route.FallthroughSpec" FallthroughSpec.spec
     describe "Route.RenderRouteSpec" RenderRouteSpec.spec
     describe "Route.RouteAttrSpec" RouteAttrSpec.spec
+    describe "Route.DiscoveryModeSpec" DiscoveryModeSpec.spec
+    describe "Route.SubDispatchAritySpec" SubDispatchAritySpec.spec
+    describe "Route.InlineParseClausesSpec" InlineParseClausesSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ Text.pack "foo") @?= (map Text.pack ["blog", "foo"], [])

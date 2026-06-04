@@ -63,7 +63,7 @@ import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
 import Yesod.Routes.TH.Dispatch (mkNestedSubDispatchInstance)
-import Yesod.Routes.TH.Internal (fullyApplyType, instanceD)
+import Yesod.Routes.TH.Internal (fullyApplyType, instanceD, typeArity, checkNestedSubArity)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
@@ -226,7 +226,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
         -- Base type (site type with variables)
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
-    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt boundNames site res
+    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt (toTyArgs boundNames) site res
     routeAttrsDec  <-
         case roFocusOnNestedRoute opts of
             Nothing ->
@@ -234,8 +234,8 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             Just target ->
                 mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
 
-    dispatchDec <- mkDispatchInstance opts site appCxt boundNames f res
-    parseRoute <- mkParseRouteInstanceOpts opts boundNames appCxt site res
+    dispatchDec <- mkDispatchInstance opts site appCxt (toTyArgs boundNames) f res
+    parseRoute <- mkParseRouteInstanceOpts opts (toTyArgs boundNames) appCxt site res
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
         if shouldCreateResources opts
@@ -304,6 +304,7 @@ mkYesodSubDispatchInstance nameStr resS = do
     let name = mkName namestr
     vns <- replicateM (arity - length mtys) $ newName "t"
     let boundNames = fmap nameToType mtys
+        tyArgs = toTyArgs boundNames
         argtypes = fmap fst boundNames ++ fmap VarT vns
     let site = foldl' AppT (ConT name) argtypes
         res = map (fmap (parseType . dropBracket)) resS
@@ -331,22 +332,26 @@ mkYesodSubDispatchInstance nameStr resS = do
         -- Check if instance already exists
         instanceExists <- fmap (fromMaybe False) $ runMaybeT $ do
             tyname <- MaybeT $ lookupTypeName nestedName
-            nameAppliedT <- Trans.lift $ case boundNames of
-                (_:_) -> pure $ foldl' (\t (ty, _) -> t `AppT` ty) (ConT tyname) boundNames
-                [] -> fullyApplyType tyname
+            nameAppliedT <- Trans.lift $ case tyArgs of
+                SomeTyArgs{} -> pure $ applyTyArgs (ConT tyname) tyArgs
+                NoTyArgs -> fullyApplyType tyname
             Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
         if instanceExists
             then pure []
-            else
-                -- This is the opt-in, module-splitting subsite API: the nested
-                -- subroute datatypes it targets carry the parent's type
-                -- arguments, so it must use the nested-discovery machinery.
-                -- Opt in explicitly via 'setParameterizedSubroute' so the gate
-                -- ('useNestedDiscovery') agrees regardless of the parent's
-                -- arity.
+            else do
+                -- This API targets parameterized subsites whose nested subroute
+                -- datatypes carry the parent's type arguments, so it uses the
+                -- nested-discovery machinery (opted in via
+                -- 'setParameterizedSubroute'). Guard the misuse where the
+                -- subsite is parameterized but the nested datatype is not:
+                -- otherwise applying the subsite's type args to a kind-'Type'
+                -- datatype produces a cryptic kind error from generated code.
+                nestedArity <- maybe (pure 0) typeArity =<< lookupTypeName nestedName
+                either fail pure $
+                    checkNestedSubArity namestr nestedName (tyArgsArity tyArgs) nestedArity
                 mkNestedSubDispatchInstance
                     (setParameterizedSubroute True defaultOpts)
-                    nestedName appCxt boundNames return res
+                    nestedName appCxt tyArgs return res
 
     return $ yesodSubDispatchInst : nestedInstances
   where

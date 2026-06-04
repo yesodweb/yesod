@@ -183,7 +183,7 @@ subsiteNestedConfig = NestedDispatchConfig
 -- instances for delegation classes. For 'ParseRoute', that's
 -- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> [Exp] -> [(Type, Name)] -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> [Exp] -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
 mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
@@ -446,7 +446,7 @@ nestedDispatchCall
     -- ^ The name of the nested route (e.g., "FirstFooR")
     -> [Exp]
     -- ^ The dynamic arguments for this route constructor
-    -> [(Type, Name)]
+    -> TyArgs
     -- ^ Type arguments for parameterized routes
     -> SDC
     -- ^ The accumulated 'SDC'.
@@ -459,8 +459,8 @@ nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
     -- fresh variables (needed for mkYesodSubDispatch which doesn't
     -- know the parent's type args).
     routeType <- case tyargs of
-        (_:_) -> pure $ foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName routeName)) tyargs
-        [] -> do
+        SomeTyArgs{} -> pure $ applyTyArgs (ConT (mkName routeName)) tyargs
+        NoTyArgs -> do
             mname <- lookupTypeName routeName
             case mname of
                 Just typeName -> fullyApplyType typeName
@@ -517,7 +517,7 @@ mkDispatchInstance
     -- ^ The master site type
     -> Cxt
     -- ^ Context of the instance
-    -> [(Type, Name)]
+    -> TyArgs
     -- ^ type arguments to constructors
     -> (Exp -> Q Exp)
     -- ^ Unwrap handler
@@ -548,13 +548,13 @@ mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) ma
     let thisDispatch = FunD 'yesodDispatch [clause']
         -- Only generate 'YesodDispatchNested' instances for children when this
         -- site uses nested discovery. A parameterized site that has not opted
-        -- in keeps unparameterized subroute datatypes (see 'useNestedDiscovery'
-        -- in RenderRoute), so generating nested instances — which would
-        -- reference the parameterized form — must be suppressed to stay
-        -- consistent.
-        childNamesToGenerate
-            | useNestedDiscovery routeOpts tyargs = childNames
-            | otherwise                           = []
+        -- in keeps unparameterized subroute datatypes (see 'discoveryMode' in
+        -- RenderRoute), so generating nested instances — which would reference
+        -- the parameterized form — must be suppressed to stay consistent.
+        childNamesToGenerate =
+            case discoveryMode routeOpts (hasTyArgs tyargs) of
+                NestedDiscovery -> childNames
+                InlineCompat    -> []
     childInstances <-
         fmap mconcat $ forM childNamesToGenerate $ \name -> do
             mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
@@ -570,7 +570,7 @@ mkNestedDispatchInstance
     -> String
     -> Type
     -> Cxt
-    -> [(Type, Name)] -- ^ tyargs
+    -> TyArgs -- ^ tyargs
     -> (Exp -> Q Exp)
     -> [ResourceTree Type]
     -> Q [Dec]
@@ -595,7 +595,7 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
         [] -> do
             -- In this case, we can generate UrlToDispatch.
             let targetT =
-                    foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
+                    applyTyArgs (ConT (mkName target)) tyargs
             urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
             urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
             mYesodConstraint <- do
@@ -667,7 +667,7 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
         tyargs
         subres
 
-    let targetT = foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
+    let targetT = applyTyArgs (ConT (mkName target)) tyargs
     yDispatchNested <- [t| YesodDispatchNested $(pure targetT) |]
 
     let pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
@@ -686,8 +686,8 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res = do
                     instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
                         tyname <- MaybeT $ lookupTypeName name
                         nameAppliedT <- Trans.lift $ case tyargs of
-                            (_:_) -> pure $ foldl' (\t x -> t `AppT` fst x) (ConT tyname) tyargs
-                            [] -> fullyApplyType tyname
+                            SomeTyArgs{} -> pure $ applyTyArgs (ConT tyname) tyargs
+                            NoTyArgs -> fullyApplyType tyname
                         Trans.lift $ isInstance ''YesodDispatchNested [nameAppliedT]
                     if instanceExists
                         then pure []
@@ -740,7 +740,7 @@ mkUrlToDispatchNestedInstance siteString targetName = do
 -- This allows these constructors to be used in setUrl in @hspec-yesod@.
 mkUrlToDispatchInstances
     :: Cxt
-    -> [(Type, Name)]
+    -> TyArgs
     -> Type
     -> [ResourceTree Type]
     -> Q [Dec]
@@ -806,7 +806,7 @@ mkUrlToDispatchInstances cxt tyargs master ress =
                 pure []
 
     applyTypeVariables name =
-        foldl' (\t x -> t `AppT` fst x) (ConT (mkName name)) tyargs
+        applyTyArgs (ConT (mkName name)) tyargs
 
 -- | Generate a 'YesodSubDispatchNested' instance for a nested route within
 -- a subsite. Parallel to 'mkNestedDispatchInstance' but for the subsite case.
@@ -816,7 +816,7 @@ mkNestedSubDispatchInstance
     :: RouteOpts
     -> String       -- ^ target nested route name
     -> Cxt          -- ^ instance context
-    -> [(Type, Name)] -- ^ type arguments
+    -> TyArgs -- ^ type arguments
     -> (Exp -> Q Exp) -- ^ unwrapper
     -> [ResourceTree Type] -- ^ all resources
     -> Q [Dec]
@@ -863,7 +863,7 @@ mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res = do
         tyargs
         subres
 
-    let targetT = foldl' (\t x -> t `AppT` fst x) (ConT (mkName target)) tyargs
+    let targetT = applyTyArgs (ConT (mkName target)) tyargs
     ySubDispatchNested <- [t| YesodSubDispatchNested $(pure targetT) |]
 
     let pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
@@ -883,8 +883,8 @@ mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res = do
                     instanceExists <- fmap (fromMaybe False) . runMaybeT $ do
                         tyname <- MaybeT $ lookupTypeName name
                         nameAppliedT <- Trans.lift $ case tyargs of
-                            (_:_) -> pure $ foldl' (\t x -> t `AppT` fst x) (ConT tyname) tyargs
-                            [] -> fullyApplyType tyname
+                            SomeTyArgs{} -> pure $ applyTyArgs (ConT tyname) tyargs
+                            NoTyArgs -> fullyApplyType tyname
                         Trans.lift $ isInstance ''YesodSubDispatchNested [nameAppliedT]
                     if instanceExists
                         then pure []
@@ -910,7 +910,7 @@ genNestedDispatchClauses
     -> Exp -- ^ yre expression (YesodRunnerEnv or YesodSubRunnerEnv)
     -> Exp -- ^ req expression
     -> (Exp -> Q Exp) -- ^ unwrapper
-    -> [(Type, Name)] -- ^ type arguments for parameterized routes
+    -> TyArgs -- ^ type arguments for parameterized routes
     -> [ResourceTree Type]
     -> Q [Match]
 genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yreE reqE unwrapper tyargs resources = do
@@ -1006,8 +1006,8 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
         -- Apply type arguments to the route type for parameterized routes
         -- When tyargs is empty (e.g. from mkYesodSubDispatch), look up the type's arity
         routeType <- case tyargs of
-            (_:_) -> pure $ foldl' (\t (ty, _) -> t `AppT` ty) (ConT (mkName name)) tyargs
-            [] -> do
+            SomeTyArgs{} -> pure $ applyTyArgs (ConT (mkName name)) tyargs
+            NoTyArgs -> do
                 mname <- lookupTypeName name
                 case mname of
                     Just typeName -> fullyApplyType typeName
@@ -1090,7 +1090,7 @@ mkYesodSubDispatch res = do
             TopLevelDispatch
             []
             []
-            []
+            NoTyArgs
             mds
             res
     inner <- newName "inner"
