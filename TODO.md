@@ -1,5 +1,11 @@
 # TODO — `mattp/nested-route-discovery` (round-4 review)
 
+> **STATUS: ALL ITEMS RESOLVED.** Every finding below (#1–#16, plus the
+> bench/th.hs housekeeping) has been implemented across PR-A…PR-D and the
+> housekeeping commit. #7 required no action. Both suites green (311 + 77).
+> See `git log` from `53b9c404` for the per-item commits. Original review text
+> retained below for reference.
+
 Findings from a max-effort review of `c331b994..HEAD` (the feature refinement:
 acad9bf9 → 532d50ea → 9017bcdc → 43998c2f → 53b9c404), through the
 legibility / duplication / type-safety lenses. HEAD = `53b9c404`, shipped as
