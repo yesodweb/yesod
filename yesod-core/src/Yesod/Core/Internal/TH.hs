@@ -63,7 +63,7 @@ import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
 import Yesod.Routes.TH.Dispatch (mkNestedSubDispatchInstance)
-import Yesod.Routes.TH.Internal (instanceD, typeArity, checkNestedSubArity, resolveRouteCon, nestedInstanceExists, rcResolved)
+import Yesod.Routes.TH.Internal (instanceD, typeArity, checkNestedSubArity, arityMismatchMessage, SubsiteName(..), RouteName(..), SubsiteArity(..), RouteArity(..), resolveRouteCon, nestedInstanceExists, rcResolved)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
@@ -345,8 +345,12 @@ mkYesodSubDispatchInstance nameStr resS = do
                 case rcResolved rc of
                     Just tyname -> do
                         nestedArity <- typeArity tyname
-                        either fail pure $
-                            checkNestedSubArity namestr nestedName (tyArgsArity tyArgs) nestedArity
+                        either (fail . arityMismatchMessage) (const (pure ())) $
+                            checkNestedSubArity
+                                (SubsiteName namestr)
+                                (RouteName nestedName)
+                                (SubsiteArity (tyArgsArity tyArgs))
+                                (RouteArity nestedArity)
                     Nothing -> pure ()
                 mkNestedSubDispatchInstance
                     (setParameterizedSubroute True defaultOpts)

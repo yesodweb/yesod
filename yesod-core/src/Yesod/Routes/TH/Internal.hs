@@ -9,8 +9,8 @@ module Yesod.Routes.TH.Internal where
 import Prelude hiding (exp)
 import Data.List (foldl')
 import Data.Maybe (mapMaybe)
-import Language.Haskell.TH.Syntax
-import Web.PathPieces (fromPathPiece)
+import Language.Haskell.TH.Syntax hiding (Arity)
+import Web.PathPieces (fromPathPiece, fromPathMultiPiece)
 import Yesod.Routes.TH.Types
 
 conPCompat :: Name -> [Pat] -> Pat
@@ -156,20 +156,77 @@ appliedRouteTypeNamed routeName tyargs = do
 --   * Too many leaves it partially applied (kind @Type -> ...@).
 --
 -- Either way the result is a kind error reported deep inside generated code.
--- This turns it into an actionable, attributable message (suitable for
--- 'fail').
+-- 'checkNestedSubArity' turns it into an actionable, attributable message
+-- (suitable for 'fail').
+
+-- | A subsite's type-constructor name. Distinct from 'RouteName' so the two
+-- can't be swapped at a 'checkNestedSubArity' call site without a type error.
+--
+-- @since 1.7.0.0
+newtype SubsiteName = SubsiteName String deriving (Eq, Show)
+
+-- | A nested route datatype's name. See 'SubsiteName'.
+--
+-- @since 1.7.0.0
+newtype RouteName = RouteName String deriving (Eq, Show)
+
+-- | How many type arguments a subsite has. Distinct from 'RouteArity' so the
+-- two arities can't be swapped (the equality predicate is symmetric, but the
+-- error message is not).
+--
+-- @since 1.7.0.0
+newtype SubsiteArity = SubsiteArity Int deriving (Eq, Show)
+
+-- | The declared type-parameter arity of a nested route datatype. See
+-- 'SubsiteArity'.
+--
+-- @since 1.7.0.0
+newtype RouteArity = RouteArity Int deriving (Eq, Show)
+
+-- | The arity proven equal on a successful 'checkNestedSubArity' — returned
+-- rather than discarded as @()@, so the check parses rather than merely
+-- validates.
+--
+-- @since 1.7.0.0
+newtype Arity = Arity Int deriving (Eq, Show)
+
+-- | A detected mismatch between a subsite's type-argument count and its nested
+-- route datatype's declared arity. Carrying the four facts (rather than a
+-- pre-rendered 'String') lets the caller decide how to surface it and lets
+-- tests assert on structure instead of substring-matching a message.
+--
+-- @since 1.7.0.0
+data ArityMismatch = ArityMismatch
+    { amSubsiteName  :: SubsiteName
+    , amRouteName    :: RouteName
+    , amSubsiteArity :: SubsiteArity
+    , amRouteArity   :: RouteArity
+    } deriving (Eq, Show)
+
+-- | Validate that a parameterized subsite's nested route datatype carries
+-- exactly as many type parameters as the subsite has type arguments, returning
+-- the proven 'Arity' on success or a structured 'ArityMismatch' otherwise.
 --
 -- Pure so it can be unit-tested directly.
+--
+-- @since 1.7.0.0
 checkNestedSubArity
-    :: String  -- ^ subsite type name
-    -> String  -- ^ nested route datatype name
-    -> Int     -- ^ number of the subsite's type arguments
-    -> Int     -- ^ declared arity of the nested route datatype
-    -> Either String ()
-checkNestedSubArity subName nestedName subArgs nestedArity
-    | subArgs == nestedArity = Right ()
-    | otherwise = Left $ concat
-        [ "mkYesodSubDispatchInstance: the nested route datatype `", nestedName
+    :: SubsiteName
+    -> RouteName
+    -> SubsiteArity
+    -> RouteArity
+    -> Either ArityMismatch Arity
+checkNestedSubArity subName routeName (SubsiteArity subArgs) (RouteArity nestedArity)
+    | subArgs == nestedArity = Right (Arity subArgs)
+    | otherwise = Left $ ArityMismatch subName routeName (SubsiteArity subArgs) (RouteArity nestedArity)
+
+-- | The actionable @fail@ message for an 'ArityMismatch'.
+--
+-- @since 1.7.0.0
+arityMismatchMessage :: ArityMismatch -> String
+arityMismatchMessage (ArityMismatch (SubsiteName subName) (RouteName routeName) (SubsiteArity subArgs) (RouteArity nestedArity)) =
+    concat
+        [ "mkYesodSubDispatchInstance: the nested route datatype `", routeName
         , "` has ", show nestedArity, " type parameter(s), but the subsite `"
         , subName, "` has ", show subArgs
         , ". The subroute datatypes must carry exactly the subsite's type "
@@ -213,10 +270,29 @@ handlePiecesM fresh =
 applyConPieces :: String -> [Exp] -> Exp
 applyConPieces name = foldl' AppE (ConE (mkName name))
 
+-- | How a path match pattern ends, after its matched piece patterns. Only
+-- these four shapes are ever valid as a path tail, so making it a closed type
+-- (rather than an arbitrary 'Pat') stops a caller from silently matching the
+-- wrong number of segments — e.g. binding a @rest@ where the path was meant to
+-- end exactly.
+data PathTail
+    = EndExact      -- ^ @[]@ — the path ends exactly here
+    | EndRest Name  -- ^ bind the remaining segments to the given variable
+    | EndWild       -- ^ @_@ — ignore any remaining segments
+    | EndMulti Name -- ^ a trailing multipiece: @'fromPathMultiPiece' -> 'Just' n@
+
+-- | The 'Pat' a 'PathTail' denotes (the seed the matched piece patterns are
+-- consed onto in 'mkPathPat').
+pathTailPat :: PathTail -> Pat
+pathTailPat EndExact     = conPCompat '[] []
+pathTailPat (EndRest n)  = VarP n
+pathTailPat EndWild      = WildP
+pathTailPat (EndMulti n) = ViewP (VarE 'fromPathMultiPiece) (conPCompat 'Just [VarP n])
+
 -- | Build a path match pattern: a list pattern of the given piece patterns
--- ending in a final tail pattern (e.g. @[]@, a @rest@ binder, or 'WildP').
-mkPathPat :: Pat -> [Pat] -> Pat
-mkPathPat = foldr (\x y -> conPCompat '(:) [x, y])
+-- ending in the given 'PathTail'.
+mkPathPat :: PathTail -> [Pat] -> Pat
+mkPathPat tl = foldr (\x y -> conPCompat '(:) [x, y]) (pathTailPat tl)
 
 -- | Generate a single-argument lambda expression with a fresh name.
 -- Takes a base name hint, generates a unique 'Name', and passes it

@@ -105,19 +105,17 @@ generateParseRouteClause routeOpts resourceTree =
 
             case dispatch of
                 Methods multi _ -> do
-                    (finalPat, dyns') <-
+                    (finalTail, dyns') <-
                         case multi of
                             Nothing -> do
-                                pure (conPCompat '[] [], dyns)
+                                pure (EndExact, dyns)
                             Just _ -> do
                                 multiName <- liftQ $ newName "multi"
-                                let pat = ViewP (VarE 'fromPathMultiPiece)
-                                                (conPCompat 'Just [VarP multiName])
-                                pure (pat, dyns ++ [VarE multiName])
+                                pure (EndMulti multiName, dyns ++ [VarE multiName])
 
                     let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` route
-                        pathPat = mkPathPat finalPat pats
+                        pathPat = mkPathPat finalTail pats
                     queryParamsName <- liftQ $ newName "_queryParams"
                     pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
                     pure $ Clause [pat] (NormalB jroute) []
@@ -127,7 +125,7 @@ generateParseRouteClause routeOpts resourceTree =
                     queryParamsName <- liftQ $ newName "_queryParams"
 
                     let route = applyConPieces name dyns
-                        pathPat = mkPathPat (VarP restName) pats
+                        pathPat = mkPathPat (EndRest restName) pats
 
                     pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
                     tupExp <- liftQ [e| ( $(pure $ VarE restName), $(pure $ VarE queryParamsName) ) |]
@@ -158,7 +156,7 @@ generateParseRouteClause routeOpts resourceTree =
                             expr <- liftQ [e| fmap $(pure route) ( $(pure parseRouteOnRest) ) |]
                             pure $ NormalB expr
 
-            pat <- liftQ [p| ($(pure (mkPathPat (VarP restName) pats)), $(pure (VarP queryParamsName)) ) |]
+            pat <- liftQ [p| ($(pure (mkPathPat (EndRest restName) pats)), $(pure (VarP queryParamsName)) ) |]
             pure $ Clause [pat] body []
 
   where
@@ -227,19 +225,17 @@ buildInlineParseClauses accPats wrap resourceTree =
             (pats, dyns) <- handlePiecesM freshName pieces
             case dispatch of
                 Methods multi _ -> do
-                    (finalPat, dyns') <-
+                    (finalTail, dyns') <-
                         case multi of
                             Nothing ->
-                                pure (conPCompat '[] [], dyns)
+                                pure (EndExact, dyns)
                             Just _ -> do
                                 multiName <- freshName "multi"
-                                let pat = ViewP (VarE 'fromPathMultiPiece)
-                                                (conPCompat 'Just [VarP multiName])
-                                pure (pat, dyns ++ [VarE multiName])
+                                pure (EndMulti multiName, dyns ++ [VarE multiName])
                     queryParamsName <- freshName "_queryParams"
                     let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` wrap route
-                        pathPat = mkPathPat finalPat (accPats ++ pats)
+                        pathPat = mkPathPat finalTail (accPats ++ pats)
                         pat = TupP [pathPat, VarP queryParamsName]
                     pure [Clause [pat] (NormalB jroute) []]
 
@@ -249,7 +245,7 @@ buildInlineParseClauses accPats wrap resourceTree =
                     subName <- freshName "sub"
                     let route = applyConPieces name dyns
                         wrapSub = wrap (route `AppE` VarE subName)
-                        pathPat = mkPathPat (VarP restName) (accPats ++ pats)
+                        pathPat = mkPathPat (EndRest restName) (accPats ++ pats)
                         pat = TupP [pathPat, VarP queryParamsName]
                         tupExp = mkTupE [VarE restName, VarE queryParamsName]
                         expr = VarE 'fmap

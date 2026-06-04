@@ -6,27 +6,46 @@ module Route.SubDispatchAritySpec (spec) where
 
 import Test.Hspec
 import Data.Either (isLeft)
-import Yesod.Routes.TH.Internal (checkNestedSubArity)
+import Yesod.Routes.TH.Internal
+    ( checkNestedSubArity
+    , arityMismatchMessage
+    , SubsiteName(..)
+    , RouteName(..)
+    , SubsiteArity(..)
+    , RouteArity(..)
+    , Arity(..)
+    )
+
+-- | The newtype wrappers are positional noise in the tests; this names the
+-- call the way the production caller does.
+check :: String -> String -> Int -> Int -> Either String Arity
+check sub route subArgs routeArity =
+    either (Left . arityMismatchMessage) Right $
+        checkNestedSubArity
+            (SubsiteName sub)
+            (RouteName route)
+            (SubsiteArity subArgs)
+            (RouteArity routeArity)
 
 spec :: Spec
 spec = describe "checkNestedSubArity" $ do
     it "accepts a monomorphic subsite with an unparameterized nested datatype" $
-        checkNestedSubArity "MySub" "NestedR" 0 0 `shouldBe` Right ()
+        check "MySub" "NestedR" 0 0 `shouldBe` Right (Arity 0)
 
     it "accepts a parameterized subsite whose nested datatype carries the param" $
-        checkNestedSubArity "MySub" "NestedR" 1 1 `shouldBe` Right ()
+        check "MySub" "NestedR" 1 1 `shouldBe` Right (Arity 1)
 
     it "rejects when the nested datatype carries more params than the subsite" $
         -- Over-arity leaves the instance head partially applied (kind
         -- @Type -> ...@), so this must be rejected, not silently accepted.
-        checkNestedSubArity "MySub" "NestedR" 1 2 `shouldSatisfy` isLeft
+        check "MySub" "NestedR" 1 2 `shouldSatisfy` isLeft
 
     it "rejects a parameterized subsite with an unparameterized nested datatype" $
-        checkNestedSubArity "MySub" "NestedR" 1 0 `shouldSatisfy` isLeft
+        check "MySub" "NestedR" 1 0 `shouldSatisfy` isLeft
 
     it "names both types in the error message" $
-        case checkNestedSubArity "MySub" "NestedR" 1 0 of
-            Right () -> expectationFailure "expected a Left"
+        case check "MySub" "NestedR" 1 0 of
+            Right _ -> expectationFailure "expected a Left"
             Left msg -> do
                 msg `shouldContain` "MySub"
                 msg `shouldContain` "NestedR"

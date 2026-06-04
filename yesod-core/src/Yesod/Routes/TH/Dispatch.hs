@@ -294,7 +294,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                 then mempty
                 else [name]
             , [ Clause
-                [mkPathPat restP pats]
+                [mkPathPat (EndRest restName) pats]
                 body
                 [FunD helperName helperClauses]]
             )
@@ -327,18 +327,16 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                         []
                     )
       where
-        handleDispatch :: Dispatch a -> [Exp] -> Q (Exp, Pat)
+        handleDispatch :: Dispatch a -> [Exp] -> Q (Exp, PathTail)
         handleDispatch dispatch' dyns =
             case dispatch' of
                 Methods multi methods -> do
                     (finalPat, mfinalE) <-
                         case multi of
-                            Nothing -> return (conPCompat '[] [], Nothing)
+                            Nothing -> return (EndExact, Nothing)
                             Just _ -> do
                                 multiName <- newName "multi"
-                                let pat = ViewP (VarE 'fromPathMultiPiece)
-                                                (conPCompat 'Just [VarP multiName])
-                                return (pat, Just $ VarE multiName)
+                                return (EndMulti multiName, Just $ VarE multiName)
 
                     let dynsMulti =
                             case mfinalE of
@@ -398,7 +396,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                             `AppE` route
                             `AppE` envExp
                             `AppE` reqExp'
-                    return (exp, VarP restPath)
+                    return (exp, EndRest restPath)
 
     mkClause404 envE reqE = do
         let actual404 = do
@@ -886,7 +884,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                             `AppE` yreE
                             `AppE` (ConE 'Just `AppE` routeExp)
                             `AppE` reqE)
-                return [Match (mkPathPat (conPCompat '[] []) pats) (NormalB body) []]
+                return [Match (mkPathPat EndExact pats) (NormalB body) []]
 
             Subsite _ getSub -> do
                 restPath <- newName "restPath"
@@ -920,7 +918,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                                     , ('ysreParentEnv, VarE 'ysreParentEnv `AppE` yreE)
                                     ])
                                 `AppE` reqExp'
-                return [Match (mkPathPat (VarP restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
+                return [Match (mkPathPat (EndRest restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
 
     genClauseForResource (ResourceParent name _check _attrs pieces _children) = do
         (pats, dynVars) <- handlePiecesNames newName pieces
@@ -954,10 +952,10 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                 -- Generate pattern guard version
                 let patGuard = BindS (conPCompat 'Just [VarP resultName]) nestedCall
                     guardedBody = GuardedB [(PatG [patGuard], ConE 'Just `AppE` VarE resultName)]
-                return [Match (mkPathPat WildP pats) guardedBody []]
+                return [Match (mkPathPat EndWild pats) guardedBody []]
             else do
                 -- Direct call version
-                return [Match (mkPathPat WildP pats) (NormalB nestedCall) []]
+                return [Match (mkPathPat EndWild pats) (NormalB nestedCall) []]
 
     genHandlerCase :: String -> [String] -> Maybe Type -> [Name] -> Q Exp
     genHandlerCase name methods _mmulti allDynVars = do
