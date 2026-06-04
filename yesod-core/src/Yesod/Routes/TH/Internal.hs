@@ -205,6 +205,14 @@ handlePiecesM :: Applicative m => (String -> m Name) -> [Piece a] -> m ([Pat], [
 handlePiecesM fresh =
     fmap (\(pats, names) -> (pats, map VarE names)) . handlePiecesNames fresh
 
+-- | Rebuild a route by applying its constructor (named by 'String', resolved
+-- with 'mkName') to the captured dynamic-piece expressions — the companion to
+-- 'handlePiecesM', which produces the @['Exp']@. This is the single spelling
+-- of the @'foldl'' 'AppE' ('ConE' ('mkName' name))@ route-construction idiom
+-- that recurred across the dispatch and parse clause builders.
+applyConPieces :: String -> [Exp] -> Exp
+applyConPieces name = foldl' AppE (ConE (mkName name))
+
 -- | Build a path match pattern: a list pattern of the given piece patterns
 -- ending in a final tail pattern (e.g. @[]@, a @rest@ binder, or 'WildP').
 mkPathPat :: Pat -> [Pat] -> Pat

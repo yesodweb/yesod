@@ -384,37 +384,9 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
                         -- `Nothing` (no target, or we already found it). Emit
                         -- the child datatype plus its RenderRouteNested
                         -- instance so the parent's renderRoute can delegate.
-                        let piecesAndNames =
-                                map
-                                    (\p -> case p of
-                                        Static str -> Left str
-                                        Dynamic a -> Right a)
-                                    (prePieces <> pieces)
-                            preDyns =
-                                mapMaybe (either (const Nothing) Just) piecesAndNames
-
-                        parentDynT <-
-                            case preDyns of
-                                [] -> [t| () |]
-                                [t] -> pure t
-                                ts ->
-                                    pure $ foldl' AppT (TupleT (length ts)) ts
-                        parentNames <- forM piecesAndNames $ \epiece'name -> do
-                            case epiece'name of
-                                Left piece ->
-                                    pure (Left piece)
-                                Right t -> do
-                                    let tyName =
-                                            filter isAlphaNum
-                                            $ show t
-                                        lowerFirst xs =
-                                            case xs of
-                                                (a : as) -> toLower a : as
-                                                [] -> error "empty name????"
-                                    Right <$> newName (lowerFirst tyName)
+                        (parentDynT, childClauses) <- renderRouteNestedBody (prePieces <> pieces) children
                         let parentSiteT = ConT ''ParentSite `AppT` consDataType
                             parentDynSig = ConT ''ParentArgs `AppT` consDataType
-                        (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
                         let childInstances =
                                 InstanceD
                                     Nothing
@@ -699,6 +671,43 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
             (tsp `AppE` VarE dyn) : goParentPieces rest dyns
         goParentPieces (Right _ : _) [] = error "mkParentPieces: dynamic piece without corresponding variable"
 
+-- | The shared core of every 'RenderRouteNested' instance body. From a parent
+-- route's accumulated path pieces and its child resources it computes the
+-- @ParentArgs@ tuple 'Type' and the @renderRouteNested@ method clauses. The
+-- three instance-emitting sites (the inline child datatype in
+-- 'mkRenderRouteInstanceOpts', the focused target in
+-- 'mkRenderRouteNestedInstanceOpts', and that target's nested children) differ
+-- only in the instance head, the @ParentSite@ right-hand side, and the context
+-- they wrap around this — so only those wrappers remain at the call sites, and
+-- the piece-naming\/clause-building boilerplate (including the dynamic-binder
+-- name derivation) lives here once.
+renderRouteNestedBody
+    :: [Piece Type]            -- ^ accumulated parent path pieces
+    -> [ResourceTree Type]     -- ^ child resources
+    -> Q (Type, [Clause])      -- ^ (ParentArgs tuple type, renderRouteNested clauses)
+renderRouteNestedBody prepieces children = do
+    let piecesAndNames =
+            map (\p -> case p of
+                    Static str -> Left str
+                    Dynamic a -> Right a)
+                prepieces
+        preDyns = mapMaybe (either (const Nothing) Just) piecesAndNames
+    parentDynT <-
+        case preDyns of
+            [] -> [t| () |]
+            [t] -> pure t
+            ts -> pure $ foldl' AppT (TupleT (length ts)) ts
+    parentNames <- forM piecesAndNames $ \epiece'name ->
+        case epiece'name of
+            Left piece -> pure (Left piece)
+            Right t ->
+                case filter isAlphaNum (show t) of
+                    (a : as) -> Right <$> newName (toLower a : as)
+                    []       -> fail
+                        "renderRouteNested: a dynamic piece's type renders with no alphanumeric characters, so no binder name can be derived from it"
+    (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
+    pure (parentDynT, childClauses)
+
 -- | Generate the 'RenderRoute' instance.
 --
 -- This includes both the 'Route' associated type and the
@@ -901,34 +910,8 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
     -- Create the datatype declaration
     let dataDecl = DataD [] targetName subrouteDecTypeArgs Nothing cons inlineDerives
 
-    -- Compute ParentArgs type from accumulated dynamic pieces
-    let piecesAndNames =
-            map (\p -> case p of
-                    Static str -> Left str
-                    Dynamic a -> Right a)
-                prepieces
-        preDyns = mapMaybe (either (const Nothing) Just) piecesAndNames
-
-    parentDynT <-
-        case preDyns of
-            [] -> [t| () |]
-            [t] -> pure t
-            ts -> pure $ foldl' AppT (TupleT (length ts)) ts
-
-    -- Generate variable names for parent pieces
-    parentNames <- forM piecesAndNames $ \epiece'name -> do
-        case epiece'name of
-            Left piece ->
-                pure (Left piece)
-            Right t -> do
-                let tyName = filter isAlphaNum $ show t
-                    lowerFirst xs = case xs of
-                        (a : as) -> toLower a : as
-                        [] -> error "empty name????"
-                Right <$> newName (lowerFirst tyName)
-
-    -- Generate renderRouteNested clauses for the children
-    (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames ress
+    -- Compute the ParentArgs tuple type and the renderRouteNested clauses
+    (parentDynT, childClauses) <- renderRouteNestedBody prepieces ress
 
     -- Create the RenderRouteNested instance
     let parentSiteT = ConT ''ParentSite `AppT` targetDataType
@@ -995,30 +978,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
                     childDataType = applyTyArgs (ConT childDataName) tyargs
 
                 -- Generate the RenderRouteNested instance for the child
-                let piecesAndNames' =
-                        map (\p -> case p of
-                                Static str -> Left str
-                                Dynamic a -> Right a)
-                            (prePieces <> pieces)
-                    preDyns' = mapMaybe (either (const Nothing) Just) piecesAndNames'
-
-                parentDynT' <-
-                    case preDyns' of
-                        [] -> [t| () |]
-                        [t] -> pure t
-                        ts -> pure $ foldl' AppT (TupleT (length ts)) ts
-
-                parentNames' <- forM piecesAndNames' $ \epiece'name -> do
-                    case epiece'name of
-                        Left piece -> pure (Left piece)
-                        Right t -> do
-                            let tyName = filter isAlphaNum $ show t
-                                lowerFirst xs = case xs of
-                                    (a : as) -> toLower a : as
-                                    [] -> error "empty name????"
-                            Right <$> newName (lowerFirst tyName)
-
-                (childClauses', _) <- mkRenderRouteNestedClauses parentNames' children
+                (parentDynT', childClauses') <- renderRouteNestedBody (prePieces <> pieces) children
 
                 parentSiteT' <- [t| ParentSite _ |]
                 parentDynSig' <- [t| ParentArgs _ |]

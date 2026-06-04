@@ -26,8 +26,6 @@ module YesodCoreTest.ParamSplitSubRuntime
     ) where
 
 import Data.Text (Text)
-import Network.Wai (pathInfo, requestMethod)
-import Network.Wai.Test
 import Test.Hspec
 import qualified Data.ByteString.Lazy as L
 import qualified Network.HTTP.Types as H
@@ -35,6 +33,7 @@ import Yesod.Core
 
 import YesodCoreTest.ParamSubsiteParameterized
 import YesodCoreTest.ParamSplitSubNested ()  -- brings the split nested instance into scope
+import YesodCoreTest.RuntimeHarness (assertRequest)
 
 -- | Concrete instantiation of the parameterized subsite.
 data ConcretePSub = ConcretePSub
@@ -90,16 +89,8 @@ testRequestIO
     -> H.Method
     -> Maybe L.ByteString
     -> IO ()
-testRequestIO status path method mexpected = do
-    app <- toWaiApp App
-    sres <- flip runSession app $ request defaultRequest
-        { pathInfo = path
-        , requestMethod = method
-        }
-    H.statusCode (simpleStatus sres) `shouldBe` status
-    case mexpected of
-        Nothing -> pure ()
-        Just expected -> simpleBody sres `shouldBe` expected
+testRequestIO status path method mexpected =
+    assertRequest (toWaiApp App) method status path mexpected
 
 specs :: Spec
 specs = describe "parameterized subsite, nested routes split across modules" $ do

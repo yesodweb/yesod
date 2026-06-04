@@ -25,8 +25,6 @@ module YesodCoreTest.ParamSubDispatchInstanceRuntime
     ) where
 
 import Data.Text (Text)
-import Network.Wai (defaultRequest, pathInfo, requestMethod)
-import Network.Wai.Test
 import Test.Hspec
 import qualified Data.ByteString.Lazy as L
 import qualified Network.HTTP.Types as H
@@ -34,6 +32,7 @@ import Yesod.Core
 import Yesod.Core.Dispatch (toWaiApp, mkYesodSubDispatchInstance)
 
 import YesodCoreTest.ParamSubsiteParameterized
+import YesodCoreTest.RuntimeHarness (assertRequest)
 
 -- | Concrete instantiation of the parameterized subsite.
 data ConcretePSub = ConcretePSub
@@ -94,16 +93,8 @@ testRequestIO
     -> H.Method
     -> Maybe L.ByteString
     -> IO ()
-testRequestIO status path method mexpected = do
-    app <- toWaiApp App
-    sres <- flip runSession app $ request defaultRequest
-        { pathInfo = path
-        , requestMethod = method
-        }
-    H.statusCode (simpleStatus sres) `shouldBe` status
-    case mexpected of
-        Nothing -> pure ()
-        Just expected -> simpleBody sres `shouldBe` expected
+testRequestIO status path method mexpected =
+    assertRequest (toWaiApp App) method status path mexpected
 
 specs :: Spec
 specs = describe "mkYesodSubDispatchInstance (parameterized subsite, opt-in subroutes)" $ do

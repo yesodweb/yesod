@@ -262,6 +262,7 @@ test-suite tests
                    YesodCoreTest.ParameterizedSubDispatchRuntime
                    YesodCoreTest.ParameterizedSubDispatchRuntime.Data
                    YesodCoreTest.ParamSubDispatchInstanceRuntime
+                   YesodCoreTest.RuntimeHarness
                    YesodCoreTest.ParamSplitSubNested
                    YesodCoreTest.ParamSplitSubRuntime
                    YesodCoreTest.ParamDefaultSplitData

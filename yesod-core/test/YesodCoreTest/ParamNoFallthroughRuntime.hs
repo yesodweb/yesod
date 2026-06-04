@@ -21,12 +21,12 @@ module YesodCoreTest.ParamNoFallthroughRuntime
     ( specs
     ) where
 
-import Network.Wai (pathInfo)
-import Network.Wai.Test
 import Test.Hspec
 import Data.ByteString.Lazy (ByteString)
 import Data.Text (Text)
 import Yesod.Core
+
+import YesodCoreTest.RuntimeHarness (assertRequest)
 
 data PNApp a = PNApp a
 
@@ -63,14 +63,8 @@ handleOtherR :: HandlerFor app String
 handleOtherR = pure "OtherR"
 
 testRequestIO :: HasCallStack => Int -> [Text] -> Maybe ByteString -> IO ()
-testRequestIO status path mexpected = do
-    app <- toWaiApp (PNApp ())
-    flip runSession app $ do
-        sres <- request defaultRequest { pathInfo = path }
-        assertStatus status sres
-        case mexpected of
-            Nothing -> pure ()
-            Just expected -> assertBody expected sres
+testRequestIO status path mexpected =
+    assertRequest (toWaiApp (PNApp ())) "GET" status path mexpected
 
 specs :: Spec
 specs = describe "parameterized site, nested-route fallthrough DISABLED" $ do

@@ -23,14 +23,13 @@ module YesodCoreTest.ParamDefaultSplitRuntime
     ) where
 
 import Data.Text (Text)
-import Network.Wai (pathInfo, requestMethod)
-import Network.Wai.Test
 import Test.Hspec
 import qualified Data.ByteString.Lazy as L
 import qualified Network.HTTP.Types as H
 import Yesod.Core
 
 import YesodCoreTest.ParamDefaultSplitData
+import YesodCoreTest.RuntimeHarness (assertRequest)
 
 mkYesodDispatch "PolyD a" resourcesPolyD
 
@@ -64,16 +63,8 @@ testRequestIO
     -> H.Method
     -> Maybe L.ByteString
     -> IO ()
-testRequestIO status path method mexpected = do
-    app <- toWaiApp (PolyD ())
-    sres <- flip runSession app $ request defaultRequest
-        { pathInfo = path
-        , requestMethod = method
-        }
-    H.statusCode (simpleStatus sres) `shouldBe` status
-    case mexpected of
-        Nothing -> pure ()
-        Just expected -> simpleBody sres `shouldBe` expected
+testRequestIO status path method mexpected =
+    assertRequest (toWaiApp (PolyD ())) method status path mexpected
 
 specs :: Spec
 specs = describe "parameterized site, default opts, nested route split across modules (#1 regression)" $ do

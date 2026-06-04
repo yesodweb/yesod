@@ -241,7 +241,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
         helperName <- newName $ "helper" ++ name
         let helperE = VarE helperName
 
-        let constr = foldl' AppE (ConE (mkName name)) dyns
+        let constr = applyConPieces name dyns
             routeDyns = dyns
             -- ParentArgs for the nested route are the dynamics from THIS route's pieces
             -- plus any accumulated parent dynamics from outer scopes
@@ -344,7 +344,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                             case mfinalE of
                                 Nothing -> dyns
                                 Just e -> dyns ++ [e]
-                        route' = foldl' AppE (ConE (mkName name)) dynsMulti
+                        route' = applyConPieces name dynsMulti
                         route = foldr AppE route' extraCons
                         jroute = ConE 'Just `AppE` route
                         allDyns = extraParams ++ dynsMulti
@@ -389,7 +389,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                     sub2 <- mkLambda "sub" $ \sub ->
                         pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) allDyns
                     route <- mkLambda "sroute" $ \sroute ->
-                        pure $ let route' = foldl' AppE (ConE (mkName name)) dyns
+                        pure $ let route' = applyConPieces name dyns
                                in foldr AppE (AppE route' $ VarE sroute) extraCons
                     let reqExp' = setPathInfoE `AppE` VarE restPath `AppE` reqExp
                         exp = subDispatcherE
@@ -450,7 +450,7 @@ nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
         proxyType = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
     -- Build the wrapper: \child -> ParentCon (RouteCon d1 d2 child)
     wrapperExpr <- mkLambda "child" $ \childN ->
-        pure $ let routeConApp = foldl' AppE (ConE (mkName routeName)) routeDyns `AppE` VarE childN
+        pure $ let routeConApp = applyConPieces routeName routeDyns `AppE` VarE childN
                in foldr AppE routeConApp (extraCons sdc)
     pure $ VarE dispatchFn
         `AppE` proxyType
@@ -908,7 +908,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
     genClauseForResource :: ResourceTree Type -> Q [Match]
     genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dynVars) <- handlePiecesNames newName pieces
-        let routeCon = foldl' AppE (ConE (mkName name)) (map VarE dynVars)
+        let routeCon = applyConPieces name (map VarE dynVars)
             routeExp = toParentE `AppE` routeCon
             allDynVars = parentDynVars ++ dynVars
 
@@ -967,7 +967,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                 [v] -> VarE v
                 vs -> mkTupE (map VarE vs)
 
-            routeConWrapper = foldl' (\acc dv -> acc `AppE` VarE dv) (ConE (mkName name)) dynVars
+            routeConWrapper = applyConPieces name (map VarE dynVars)
             toParentComposed = InfixE (Just toParentE) (VarE '(.)) (Just routeConWrapper)
 
         -- Apply type arguments to the route type for parameterized routes

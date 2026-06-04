@@ -11,7 +11,6 @@ module Yesod.Routes.TH.ParseRoute
     , buildInlineParseClauses
     ) where
 
-import qualified Data.List as List
 import qualified Control.Monad.Trans as Trans
 import qualified Data.Set as Set
 import Control.Monad
@@ -116,7 +115,7 @@ generateParseRouteClause routeOpts resourceTree =
                                                 (conPCompat 'Just [VarP multiName])
                                 pure (pat, dyns ++ [VarE multiName])
 
-                    let route = List.foldl' AppE (ConE (mkName name)) dyns'
+                    let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` route
                         pathPat = mkPathPat finalPat pats
                     queryParamsName <- liftQ $ newName "_queryParams"
@@ -127,7 +126,7 @@ generateParseRouteClause routeOpts resourceTree =
                     restName <- liftQ $ newName "rest"
                     queryParamsName <- liftQ $ newName "_queryParams"
 
-                    let route = List.foldl' AppE (ConE (mkName name)) dyns
+                    let route = applyConPieces name dyns
                         pathPat = mkPathPat (VarP restName) pats
 
                     pat <- liftQ [p| ($(pure pathPat), $(pure (VarP queryParamsName)) ) |]
@@ -140,7 +139,7 @@ generateParseRouteClause routeOpts resourceTree =
 
             (pats, dyns) <- liftQ $ handlePiecesM newName pieces
 
-            let route = List.foldl' AppE (ConE (mkName name)) dyns
+            let route = applyConPieces name dyns
 
             restName <- liftQ $ newName "rest"
             queryParamsName <- liftQ $ newName "_queryParams"
@@ -152,7 +151,7 @@ generateParseRouteClause routeOpts resourceTree =
                         then do
                             resultName <- liftQ $ newName "result"
                             let stmt = BindS (AsP resultName (conPCompat 'Just [WildP])) parseRouteOnRest
-                                route' = List.foldl' AppE (ConE (mkName name)) dyns
+                                route' = applyConPieces name dyns
                             expr <- liftQ [e| fmap $(pure route') ( $(pure (VarE resultName)) ) |]
                             pure $ GuardedB [(PatG [stmt], expr)]
                         else do
@@ -238,7 +237,7 @@ buildInlineParseClauses accPats wrap resourceTree =
                                                 (conPCompat 'Just [VarP multiName])
                                 pure (pat, dyns ++ [VarE multiName])
                     queryParamsName <- freshName "_queryParams"
-                    let route = List.foldl' AppE (ConE (mkName name)) dyns'
+                    let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` wrap route
                         pathPat = mkPathPat finalPat (accPats ++ pats)
                         pat = TupP [pathPat, VarP queryParamsName]
@@ -248,7 +247,7 @@ buildInlineParseClauses accPats wrap resourceTree =
                     restName <- freshName "rest"
                     queryParamsName <- freshName "_queryParams"
                     subName <- freshName "sub"
-                    let route = List.foldl' AppE (ConE (mkName name)) dyns
+                    let route = applyConPieces name dyns
                         wrapSub = wrap (route `AppE` VarE subName)
                         pathPat = mkPathPat (VarP restName) (accPats ++ pats)
                         pat = TupP [pathPat, VarP queryParamsName]
@@ -262,6 +261,6 @@ buildInlineParseClauses accPats wrap resourceTree =
             (pats, dyns) <- handlePiecesM freshName pieces
             let accPats' = accPats ++ pats
                 parentCon childRoute =
-                    List.foldl' AppE (ConE (mkName name)) dyns `AppE` childRoute
+                    applyConPieces name dyns `AppE` childRoute
                 wrap' = wrap . parentCon
             concat <$> mapM (buildInlineParseClauses accPats' wrap') children
