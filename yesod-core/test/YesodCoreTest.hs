@@ -24,6 +24,7 @@ import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntim
 import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
 import qualified YesodCoreTest.ParamNestedNoFallthroughRuntime as ParamNestedNoFallthroughRuntime
 import qualified YesodCoreTest.FallthroughMatrixRuntime as FallthroughMatrixRuntime
+import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -100,6 +101,7 @@ specs = do
       ParamNoFallthroughRuntime.specs
       ParamNestedNoFallthroughRuntime.specs
       FallthroughMatrixRuntime.specs
+      MultiPieceNestedRuntime.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do

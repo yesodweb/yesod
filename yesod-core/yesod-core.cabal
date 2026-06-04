@@ -274,6 +274,7 @@ test-suite tests
                    YesodCoreTest.FallthroughMatrix.Resources
                    YesodCoreTest.FallthroughMatrix.FirstFoo
                    YesodCoreTest.FallthroughMatrixRuntime
+                   YesodCoreTest.MultiPieceNestedRuntime
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest
