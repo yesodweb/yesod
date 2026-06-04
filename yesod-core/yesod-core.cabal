@@ -266,6 +266,7 @@ test-suite tests
                    YesodCoreTest.ParamSplitSubRuntime
                    YesodCoreTest.ParamTopLevelRuntime
                    YesodCoreTest.ParamFallthroughRuntime
+                   YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

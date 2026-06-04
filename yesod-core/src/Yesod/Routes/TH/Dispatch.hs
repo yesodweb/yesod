@@ -213,12 +213,6 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             [FunD helperName $ clauses ++ [clause404']]
         )
   where
-    mkPathPat :: Pat -> [Pat] -> Pat
-    mkPathPat final =
-        foldr addPat final
-      where
-        addPat x y = conPCompat '(:) [x, y]
-
     go :: DispatchPhase -> NestedRouteSettings -> SDC -> ResourceTree a -> Q ([String], [Clause])
     go goPhase nrs sdc (ResourceParent name _check _attrs pieces children) = do
         let mtargetName = nrsTargetName nrs
@@ -235,7 +229,11 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             runMaybeT $ do
                 typeName <- MaybeT $ lookupTypeName name
                 guard $ fromMaybe True mtargetMatch
-                appliedT <- Trans.lift $ fullyApplyType typeName
+                -- Use the same applied-route-type helper as every other
+                -- delegation probe (':675', ':870', 'Core/Internal/TH'); with
+                -- 'NoTyArgs' this is exactly 'fullyApplyType', and with concrete
+                -- 'tyargs' it probes the same polymorphic instance head.
+                appliedT <- Trans.lift $ appliedRouteType typeName tyargs
                 t <- Trans.lift $ isInstance mdsNestedDispatchClass [appliedT]
                 guard t
 
@@ -447,11 +445,7 @@ nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
     -- provided, use it; otherwise look up the type's arity and apply
     -- fresh variables (needed for mkYesodSubDispatch which doesn't
     -- know the parent's type args).
-    routeType <- do
-        mname <- lookupTypeName routeName
-        case mname of
-            Just typeName -> appliedRouteType typeName tyargs
-            Nothing -> pure $ applyTyArgs (ConT (mkName routeName)) tyargs
+    routeType <- appliedRouteTypeNamed routeName tyargs
     let parentDynsExpr =
             case parentDyns of
                 [] -> ConE '()
@@ -923,7 +917,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
     genClauseForResource :: ResourceTree Type -> Q [Match]
     genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
-        (pats, dynVars) <- genPiecePats pieces
+        (pats, dynVars) <- handlePiecesNames newName pieces
         let routeCon = foldl' AppE (ConE (mkName name)) (map VarE dynVars)
             routeExp = toParentE `AppE` routeCon
             allDynVars = parentDynVars ++ dynVars
@@ -937,7 +931,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                             `AppE` yreE
                             `AppE` (ConE 'Just `AppE` routeExp)
                             `AppE` reqE)
-                return [Match (foldr consPat (conPCompat '[] []) pats) (NormalB body) []]
+                return [Match (mkPathPat (conPCompat '[] []) pats) (NormalB body) []]
 
             Subsite _ getSub -> do
                 restPath <- newName "restPath"
@@ -971,10 +965,10 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                                     , ('ysreParentEnv, VarE 'ysreParentEnv `AppE` yreE)
                                     ])
                                 `AppE` reqExp'
-                return [Match (foldr consPat (VarP restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
+                return [Match (mkPathPat (VarP restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
 
     genClauseForResource (ResourceParent name _check _attrs pieces _children) = do
-        (pats, dynVars) <- genPiecePats pieces
+        (pats, dynVars) <- handlePiecesNames newName pieces
 
         -- Build the parent args tuple for the nested call
         let allDynVars = parentDynVars ++ dynVars
@@ -988,11 +982,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
         -- Apply type arguments to the route type for parameterized routes
         -- When tyargs is empty (e.g. from mkYesodSubDispatch), look up the type's arity
-        routeType <- do
-            mname <- lookupTypeName name
-            case mname of
-                Just typeName -> appliedRouteType typeName tyargs
-                Nothing -> pure $ applyTyArgs (ConT (mkName name)) tyargs
+        routeType <- appliedRouteTypeNamed name tyargs
         let proxyExp = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
 
         resultName <- newName "k"
@@ -1009,23 +999,10 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                 -- Generate pattern guard version
                 let patGuard = BindS (conPCompat 'Just [VarP resultName]) nestedCall
                     guardedBody = GuardedB [(PatG [patGuard], ConE 'Just `AppE` VarE resultName)]
-                return [Match (foldr consPat WildP pats) guardedBody []]
+                return [Match (mkPathPat WildP pats) guardedBody []]
             else do
                 -- Direct call version
-                return [Match (foldr consPat WildP pats) (NormalB nestedCall) []]
-
-    genPiecePats :: [Piece Type] -> Q ([Pat], [Name])
-    genPiecePats pieces = do
-        results <- forM pieces $ \piece -> case piece of
-            Static str -> return (LitP (StringL str), Nothing)
-            Dynamic _ -> do
-                n <- newName "dyn"
-                let pat = ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP n])
-                return (pat, Just n)
-        return (map fst results, catMaybes $ map snd results)
-
-    consPat :: Pat -> Pat -> Pat
-    consPat x y = conPCompat '(:) [x, y]
+                return [Match (mkPathPat WildP pats) (NormalB nestedCall) []]
 
     genHandlerCase :: String -> [String] -> Maybe Type -> [Name] -> Q Exp
     genHandlerCase name methods _mmulti allDynVars = do

@@ -95,9 +95,11 @@ subExps _                = []
 -- | The expression in a clause body (the inline builder emits 'NormalB' for
 -- leaves and a single-guard 'GuardedB' under fallthrough).
 clauseBodyExp :: Body -> Exp
-clauseBodyExp (NormalB e)            = e
+clauseBodyExp (NormalB e)             = e
 clauseBodyExp (GuardedB ((_, e) : _)) = e
-clauseBodyExp (GuardedB [])          = error "clauseBodyExp: empty guarded body"
+-- Total on the (unreached) empty-guard case: a var-free sentinel so a stray
+-- input fails an assertion locally instead of aborting the whole spec run.
+clauseBodyExp (GuardedB [])           = ConE '()
 
 spec :: Spec
 spec = describe "buildInlineParseClauses (pure inline parseRoute codegen)" $ do
@@ -150,8 +152,8 @@ spec = describe "buildInlineParseClauses (pure inline parseRoute codegen)" $ do
                 [ leaf "TeamR" [Static "team"] (methods ["GET"]) ]
         withOnlyClause (run tree) $ \(Clause pats body _) -> do
             let dynVars = concatMap boundDynVars pats
-            -- exactly one dynamic piece (the parent's), bound via fromPathPiece
-            dynVars `shouldSatisfy` ((== 1) . length)
-            -- and that very binder is referenced in the reconstructed body
-            let used = usedVars (clauseBodyExp body)
-            dynVars `shouldSatisfy` all (`elem` used)
+                used    = usedVars (clauseBodyExp body)
+            -- Exactly one dynamic piece (the parent's, bound via fromPathPiece)
+            -- and it is referenced in the reconstructed body — i.e. one 'True'.
+            -- Empty dynVars gives @[] /= [True]@, so this never passes vacuously.
+            map (`elem` used) dynVars `shouldBe` [True]

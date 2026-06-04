@@ -63,6 +63,19 @@ appliedRouteType tyname tyargs =
         SomeTyArgs{} -> pure $ applyTyArgs (ConT tyname) tyargs
         NoTyArgs     -> fullyApplyType tyname
 
+-- | 'appliedRouteType' starting from the route datatype's name as a 'String':
+-- resolve it with 'lookupTypeName' and apply the type arguments, falling back
+-- to the bare (unresolved) constructor — still applied to any explicit
+-- 'TyArgs' — when the name isn't in scope (e.g. it is defined in the same
+-- splice group). The fallback is why this can't be a plain @'lookupTypeName' >>=
+-- 'appliedRouteType'@.
+appliedRouteTypeNamed :: String -> TyArgs -> Q Type
+appliedRouteTypeNamed routeName tyargs = do
+    mname <- lookupTypeName routeName
+    case mname of
+        Just typeName -> appliedRouteType typeName tyargs
+        Nothing       -> pure $ applyTyArgs (ConT (mkName routeName)) tyargs
+
 -- | Validate that a parameterized subsite's nested route datatype carries
 -- exactly as many type parameters as the subsite has type arguments.
 --
@@ -98,23 +111,37 @@ checkNestedSubArity subName nestedName subArgs nestedArity
         , "so a parameterized subsite gets parameterized subroutes."
         ]
 
--- | Turn a single route piece into a match pattern, returning a binder
--- expression for dynamic pieces (and 'Nothing' for static ones). Abstracted
+-- | Turn a single route piece into a match pattern, returning the freshly
+-- bound 'Name' for dynamic pieces (and 'Nothing' for static ones). Abstracted
 -- over the fresh-'Name' supply @m@: the 'Q' code generators pass 'newName',
 -- while the pure, deterministic inline-parse path passes a 'State' 'Int'
--- counter. This is the single source of truth shared by the parse and
+-- counter. This is the single source of truth for the
+-- @ViewP fromPathPiece (Just x)@ dynamic encoding shared by the parse and
 -- dispatch clause builders.
-handlePieceM :: Applicative m => (String -> m Name) -> Piece a -> m (Pat, Maybe Exp)
+handlePieceM :: Applicative m => (String -> m Name) -> Piece a -> m (Pat, Maybe Name)
 handlePieceM _ (Static str) = pure (LitP $ StringL str, Nothing)
 handlePieceM fresh (Dynamic _) = mk <$> fresh "dyn"
   where
-    mk x = (ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x]), Just (VarE x))
+    mk x = (ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x]), Just x)
 
--- | The list variant of 'handlePieceM': match patterns for every piece plus the
--- binder expressions for the dynamic ones.
+-- | The list form of 'handlePieceM' projecting the dynamic binders as 'Name's,
+-- for callers that consume the bound variables directly (e.g. nested-dispatch
+-- handler arguments).
+handlePiecesNames :: Applicative m => (String -> m Name) -> [Piece a] -> m ([Pat], [Name])
+handlePiecesNames fresh =
+    fmap (\pps -> (map fst pps, mapMaybe snd pps)) . traverse (handlePieceM fresh)
+
+-- | The list form of 'handlePieceM' projecting the dynamic binders as 'VarE'
+-- expressions, for callers that rebuild a route by applying its constructor to
+-- the captured pieces.
 handlePiecesM :: Applicative m => (String -> m Name) -> [Piece a] -> m ([Pat], [Exp])
 handlePiecesM fresh =
-    fmap (\pps -> (map fst pps, mapMaybe snd pps)) . traverse (handlePieceM fresh)
+    fmap (\(pats, names) -> (pats, map VarE names)) . handlePiecesNames fresh
+
+-- | Build a path match pattern: a list pattern of the given piece patterns
+-- ending in a final tail pattern (e.g. @[]@, a @rest@ binder, or 'WildP').
+mkPathPat :: Pat -> [Pat] -> Pat
+mkPathPat = foldr (\x y -> conPCompat '(:) [x, y])
 
 -- | Generate a single-argument lambda expression with a fresh name.
 -- Takes a base name hint, generates a unique 'Name', and passes it

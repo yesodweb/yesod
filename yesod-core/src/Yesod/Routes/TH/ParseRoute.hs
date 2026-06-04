@@ -22,7 +22,6 @@ import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
 import Web.PathPieces
 import Yesod.Routes.TH.Internal
-import Data.Maybe
 
 mkParseRouteInstance :: TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstance =
@@ -95,11 +94,6 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
                             else focusTarget children <> acc
             Nothing ->
                 ts
-
--- | Build a path match pattern: a list pattern of the given piece patterns
--- ending in a final tail pattern (e.g. @[]@ or a @rest@ binder).
-mkPathPat :: Pat -> [Pat] -> Pat
-mkPathPat = foldr (\x y -> conPCompat '(:) [x, y])
 
 generateParseRouteClause
     :: RouteOpts
