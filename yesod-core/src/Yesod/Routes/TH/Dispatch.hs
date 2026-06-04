@@ -914,13 +914,28 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
         if roNestedRouteFallthrough routeOpts
             then do
-                -- Generate pattern guard version
+                -- Fallthrough enabled: pattern-guard on a 'Just' result, so a
+                -- 'Nothing' from the delegated child lets dispatch fall through
+                -- to sibling clauses (and ultimately the 'Nothing' fallback).
                 let patGuard = BindS (conPCompat 'Just [VarP resultName]) nestedCall
                     guardedBody = GuardedB [(PatG [patGuard], ConE 'Just `AppE` VarE resultName)]
                 return [Match (mkPathPat EndWild pats) guardedBody []]
             else do
-                -- Direct call version
-                return [Match (mkPathPat EndWild pats) (NormalB nestedCall) []]
+                -- Fallthrough disabled: once this parent's path prefix matches we
+                -- commit to its subtree. If the delegated child dispatch returns
+                -- 'Nothing', convert it to a 404 handler call rather than letting
+                -- the 'Nothing' propagate (which, under an outer fallthrough
+                -- caller, would let it fall through to siblings). This mirrors the
+                -- inline no-fallthrough path's @Nothing -> Just 404@ shape.
+                let notFoundExp =
+                        VarE (ndcRunnerFn config)
+                            `AppE` AppE (VarE 'void) (VarE 'notFound)
+                            `AppE` yreE
+                            `AppE` ConE 'Nothing
+                            `AppE` reqE
+                    committedBody =
+                        ConE 'Just `AppE` (VarE 'fromMaybe `AppE` notFoundExp `AppE` nestedCall)
+                return [Match (mkPathPat EndWild pats) (NormalB committedBody) []]
 
     genHandlerCase :: String -> [String] -> Maybe Type -> [Name] -> Q Exp
     genHandlerCase name methods _mmulti allDynVars = do

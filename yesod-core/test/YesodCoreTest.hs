@@ -22,6 +22,7 @@ import qualified YesodCoreTest.ParamDefaultSplitRuntime as ParamDefaultSplitRunt
 import qualified YesodCoreTest.ParamTopLevelRuntime as ParamTopLevelRuntime
 import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
 import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
+import qualified YesodCoreTest.ParamNestedNoFallthroughRuntime as ParamNestedNoFallthroughRuntime
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -96,6 +97,7 @@ specs = do
       ParamTopLevelRuntime.specs
       ParamFallthroughRuntime.specs
       ParamNoFallthroughRuntime.specs
+      ParamNestedNoFallthroughRuntime.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do
