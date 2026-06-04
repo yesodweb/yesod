@@ -260,6 +260,28 @@ discoveryMode opts hasArgs
     | isJust (roFocusOnNestedRoute opts) = NestedDiscovery
     | otherwise                          = InlineCompat
 
+-- | 'PlainTV' across template-haskell versions. @th-abstraction@ covers this,
+-- but the version it was introduced in isn't always available — and the
+-- 'TyVarBndr' /flag/ type also varies by version, so the result type is
+-- CPP-guarded too. Used to build the type-variable binders of generated
+-- subroute datatypes.
+plainTVCompat :: Name ->
+#if MIN_VERSION_template_haskell(2,21,0)
+    TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
+    TyVarBndr ()
+#else
+    TyVarBndr
+#endif
+plainTVCompat =
+#if MIN_VERSION_template_haskell(2,21,0)
+    (`PlainTV` BndrReq)
+#elif MIN_VERSION_template_haskell(2,17,0)
+    (`PlainTV` ())
+#else
+    PlainTV
+#endif
+
 -- | Generate the constructors of a route data type, with custom
 -- 'RouteOpts'.
 --
@@ -284,17 +306,6 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
                         pure r
     mkRouteConsOpts' prePieces focusedTrees
   where
-    -- th-abstraction does cover this but the version it was introduced in
-    -- isn't always available
-    tyvarbndr =
-#if MIN_VERSION_template_haskell(2,21,0)
-        (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
-#elif MIN_VERSION_template_haskell(2,17,0)
-        (`PlainTV` ()) :: Name -> TyVarBndr ()
-#else
-        PlainTV :: Name -> TyVarBndr
-#endif
-
     -- When nested route discovery is enabled, child datatypes carry the
     -- parent's type variables, because RenderRouteNested has associated type
     -- families (ParentSite, ParentArgs) that reference the parent type;
@@ -309,7 +320,7 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
         case mode of
             NestedDiscovery -> origTyargs
             InlineCompat    -> NoTyArgs
-    subrouteDecTypeArgs = fmap tyvarbndr (tyArgsBinders tyargs)
+    subrouteDecTypeArgs = fmap plainTVCompat (tyArgsBinders tyargs)
 
     -- Derives for the child (subroute) datatypes. When the child datatype is
     -- unparameterized (the backwards-compatible default), it cannot carry the
@@ -897,15 +908,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
         targetDataType = applyTyArgs (ConT targetName) tyargs
 
     -- Set up type arguments for the datatype declaration
-    let tyvarbndr =
-#if MIN_VERSION_template_haskell(2,21,0)
-            (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
-#elif MIN_VERSION_template_haskell(2,17,0)
-            (`PlainTV` ()) :: Name -> TyVarBndr ()
-#else
-            PlainTV :: Name -> TyVarBndr
-#endif
-        subrouteDecTypeArgs = fmap tyvarbndr (tyArgsBinders tyargs)
+    let subrouteDecTypeArgs = fmap plainTVCompat (tyArgsBinders tyargs)
 
     -- Get deriving clauses
     let (inlineDerives, mkStandaloneDerives) = getDerivesFor routeOpts cxt
@@ -967,15 +970,7 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
             Just _ -> pure Nothing
             Nothing -> do
                 -- Generate the child datatype and instances
-                let tyvarbndr' =
-#if MIN_VERSION_template_haskell(2,21,0)
-                        (`PlainTV` BndrReq) :: Name -> TyVarBndr BndrVis
-#elif MIN_VERSION_template_haskell(2,17,0)
-                        (`PlainTV` ()) :: Name -> TyVarBndr ()
-#else
-                        PlainTV :: Name -> TyVarBndr
-#endif
-                    subrouteDecTypeArgs' = fmap tyvarbndr' (tyArgsBinders tyargs)
+                let subrouteDecTypeArgs' = fmap plainTVCompat (tyArgsBinders tyargs)
                     (inlineDerives', mkStandaloneDerives') = getDerivesFor routeOpts cxt
                     childData = DataD [] childDataName subrouteDecTypeArgs' Nothing cons inlineDerives'
                     childDataType = applyTyArgs (ConT childDataName) tyargs

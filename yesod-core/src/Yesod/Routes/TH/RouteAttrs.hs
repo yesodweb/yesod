@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -8,7 +7,7 @@ module Yesod.Routes.TH.RouteAttrs
     ) where
 
 import Yesod.Routes.TH.Types
-import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon)
+import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon, instanceD, conPCompat)
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import Data.Foldable (toList)
@@ -53,7 +52,7 @@ goTree mtarget front (ResourceParent name _check _attrs pieces trees) = do
     if doesNestedInstanceExist
         then do
             x <- newName "x"
-            pure [Clause [mkConP (mkName name) (ignored (VarP x))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
+            pure [Clause [conPCompat (mkName name) (ignored (VarP x))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
         else do
             let mtarget' = do
                     target <- mtarget
@@ -72,7 +71,7 @@ goTree mtarget front (ResourceParent name _check _attrs pieces trees) = do
     toIgnore = length $ filter isDynamic pieces
     isDynamic Dynamic{} = True
     isDynamic Static{} = False
-    front' = front . mkConP (mkName name)
+    front' = front . conPCompat (mkName name)
                    . ignored
 
 goRes :: (Pat -> Pat) -> Resource a -> Maybe Clause
@@ -84,14 +83,3 @@ goRes front Resource {..} = do
         []
   where
     toText s = VarE 'Text.pack `AppE` LitE (StringL s)
-
-instanceD :: Cxt -> Type -> [Dec] -> Dec
-instanceD = InstanceD Nothing
-
-mkConP :: Name -> [Pat] -> Pat
-mkConP n p =
-    ConP n
-#if MIN_VERSION_template_haskell(2,18,0)
-        []
-#endif
-        p
