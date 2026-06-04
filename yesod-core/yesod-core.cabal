@@ -271,6 +271,9 @@ test-suite tests
                    YesodCoreTest.ParamFallthroughRuntime
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
+                   YesodCoreTest.FallthroughMatrix.Resources
+                   YesodCoreTest.FallthroughMatrix.FirstFoo
+                   YesodCoreTest.FallthroughMatrixRuntime
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

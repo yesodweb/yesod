@@ -402,21 +402,21 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
         let actual404 = do
                 handler <- mds404
                 runHandlerE <- mdsRunHandler
-                let baseExp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
-                    -- In NestedDispatch mode, wrap the result in Just
-                    exp = case phase of
-                        TopLevelDispatch -> baseExp
-                        NestedDispatch -> ConE 'Just `AppE` baseExp
+                let exp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
                 return $ Clause [WildP] (NormalB exp) []
-            fallthrough404 = do
+            returnNothing =
                 return $ Clause [WildP] (NormalB (ConE 'Nothing)) []
 
-        case guard mdsNestedRouteFallthrough of
-            Nothing -> actual404
-            Just () ->
-                case phase of
-                    TopLevelDispatch -> actual404
-                    NestedDispatch -> fallthrough404
+        case phase of
+            -- The top-level dispatch helper is a terminal authority: a final
+            -- miss commits to a 404 here (the disabled-fallthrough flag, when
+            -- relevant, has already taken effect at the delegating clauses).
+            TopLevelDispatch -> actual404
+            -- A nested helper always returns 'Nothing' on a terminal miss and
+            -- lets the delegating caller decide — independent of the
+            -- fallthrough flag. See the terminal-miss clause in
+            -- 'genNestedDispatchClauses' for the full rationale.
+            NestedDispatch -> returnNothing
 
 -- | This function generates code to call the nested dispatch function
 -- (either 'yesodDispatchNested' or 'yesodSubDispatchNested').
@@ -811,17 +811,18 @@ genNestedDispatchClauses
 genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yreE reqE unwrapper tyargs resources = do
     resourceClauses <- forM resources $ \res -> genClauseForResource res
 
-    -- Add fallback clause
-    fallbackClause <- if roNestedRouteFallthrough routeOpts
-        then return $ Match WildP (NormalB $ ConE 'Nothing) []
-        else do
-            let notFoundExp = ConE 'Just `AppE`
-                    (VarE (ndcRunnerFn config)
-                        `AppE` (AppE (VarE 'void) (VarE 'notFound))
-                        `AppE` yreE
-                        `AppE` ConE 'Nothing
-                        `AppE` reqE)
-            return $ Match WildP (NormalB notFoundExp) []
+    -- Terminal-miss clause: a nested dispatch instance ALWAYS returns 'Nothing'
+    -- when no clause matches the remaining path, regardless of this module's
+    -- fallthrough flag. 'yesodDispatchNested'/'yesodSubDispatchNested' are
+    -- documented to return 'Nothing' on a miss so that the *caller* (the
+    -- delegating parent clause, or the top-level/subsite terminal authority)
+    -- decides whether the miss commits to a 404 or falls through to a sibling.
+    -- Baking a 404 in here when fallthrough is disabled would let a split-out
+    -- child silently override a fallthrough-wanting parent compiled in another
+    -- module. The commit semantics of @fallthrough = False@ instead live at the
+    -- delegating clauses (the 'ResourceParent' arm below and the inline parent
+    -- body in 'mkDispatchClause') and at the terminal authorities.
+    let fallbackClause = Match WildP (NormalB (ConE 'Nothing)) []
 
     return $ concat resourceClauses ++ [fallbackClause]
   where
