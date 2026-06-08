@@ -3,7 +3,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 -- | Data module for the split-subsite test. Defines a (non-parameterized)
 -- subsite with a nested route, and generates its route datatype, render and

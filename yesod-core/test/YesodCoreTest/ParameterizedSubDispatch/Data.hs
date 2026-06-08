@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 -- | Route data for a parameterized subsite used by
 -- ParameterizedSubDispatch to test mkYesodSubDispatch.

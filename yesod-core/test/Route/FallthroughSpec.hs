@@ -13,27 +13,15 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
 
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Route.FallthroughSpec where
 
 import Network.Wai
-import Network.Wai.Test
 import Yesod.Core
 import Test.Hspec
-import Data.Foldable (for_)
 import Data.ByteString.Lazy (ByteString)
-import Control.Exception (try, SomeException)
-import qualified Network.HTTP.Types as H
 
--- | Attach an annotation to an expectation. If the expectation fails,
--- the annotation is included in the failure message.
-annotate_ :: String -> IO () -> IO ()
-annotate_ msg action = do
-    result <- try action
-    case result of
-        Left e -> expectationFailure (msg <> "\n" <> show (e :: SomeException))
-        Right () -> pure ()
+import YesodCoreTest.RuntimeHarness (assertRequestRaw)
 
 data App = App
 
@@ -100,11 +88,5 @@ testRequestIO :: HasCallStack => Int -- ^ http status code
             -> Request
             -> Maybe ByteString -- ^ expected body
             -> IO ()
-testRequestIO status req mexpected = do
-    app <- toWaiApp App
-    sres <- flip runSession app $ do
-        request req
-    annotate_ ("Request body: " <> show (simpleBody sres )) $ do
-        H.statusCode (simpleStatus sres) `shouldBe` status
-        for_ mexpected $ \expected -> do
-            simpleBody sres `shouldBe` expected
+testRequestIO status req mexpected =
+    assertRequestRaw (toWaiApp App) req status mexpected

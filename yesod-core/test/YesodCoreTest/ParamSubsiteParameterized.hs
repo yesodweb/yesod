@@ -9,7 +9,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 -- | Opt-in counterpart to "YesodCoreTest.ParameterizedSubData": this subsite
 -- enables parameterized subroutes via

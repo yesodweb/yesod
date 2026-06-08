@@ -26,7 +26,7 @@ import qualified Data.ByteString.Lazy as L
 import qualified Network.HTTP.Types as H
 import Yesod.Core
 
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertRequestFor)
 
 -- A phantom-parameterized top-level site. With 'setParameterizedSubroute'
 -- enabled, the nested subroute datatype 'SubParentR' carries the parameter
@@ -72,7 +72,7 @@ testRequestIO
     -> Maybe L.ByteString
     -> IO ()
 testRequestIO status path method mexpected =
-    assertRequest (toWaiApp (Poly ())) method status path mexpected
+    assertRequestFor (Poly ()) method status path mexpected
 
 specs :: Spec
 specs = describe "top-level parameterized site, opted into nested discovery" $ do

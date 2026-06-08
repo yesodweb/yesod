@@ -12,7 +12,12 @@ module Yesod.Core
     , YesodSubDispatch (..)
     , YesodSubDispatchNested (..)
     , RenderRoute (..)
-    , ToParentRoute (..)
+    -- | Note: the 'toParentRoute' method is intentionally /not/ re-exported
+    -- here. It collides with a common local binding name (e.g. the
+    -- @toParentRoute@ from @getRouteToParent@), so an @import Yesod@ should not
+    -- inject it. Import it from "Yesod.Core.Class.Dispatch.ToParentRoute" when
+    -- you need it.
+    , ToParentRoute
     , RenderRouteNested (..)
     , ParseRoute (..)
     , RouteAttrs (..)
@@ -23,7 +28,10 @@ module Yesod.Core
     , Approot (..)
     , FileUpload (..)
     , ErrorResponse (..)
-    , WithParentArgs (..)
+    -- | The field accessors @theParentArgs@\/@parentArgsFor@ are not
+    -- re-exported (generic names that would shadow common local bindings);
+    -- only the type and its constructor are.
+    , WithParentArgs (WithParentArgs)
       -- * Utilities
     , maybeAuthorized
     , widgetToPageContent

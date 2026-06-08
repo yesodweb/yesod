@@ -35,6 +35,7 @@ module Yesod.Core.Internal.TH
 
     , mkYesodSubDispatch
     , mkYesodSubDispatchInstance
+    , mkYesodSubDispatchInstanceOpts
 
     , subTopDispatch
 
@@ -58,15 +59,12 @@ import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
 import Data.Maybe
 import Control.Monad
-import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
-import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
-import Yesod.Routes.TH.Dispatch (mkNestedSubDispatchInstance)
-import Yesod.Routes.TH.Internal (instanceD, typeArity, checkNestedSubArity, arityMismatchMessage, SubsiteName(..), RouteName(..), SubsiteArity(..), RouteArity(..), resolveRouteCon, nestedInstanceExists, rcResolved)
+import Yesod.Routes.TH.Dispatch (parseYesodName)
+import Yesod.Routes.TH.Internal (instanceD, typeArity, assertNestedSubArity, SubsiteName(..), SubsiteArity(..), resolveRouteCon, nestedInstanceExists)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
-import Yesod.Routes.TH.Dispatch (parseYesodName)
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSubData' and 'mkYesodSubDispatch' for the latter.
@@ -161,6 +159,17 @@ mkYesodDispatchOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatchOpts opts name = fmap snd . mkYesodWithParserOpts opts name False return
 
 
+-- | Build an instance context ('Cxt') from the parsed @=>@ class-application
+-- groups produced by 'parseYesodName'. Each group is a class name applied to
+-- type arguments, e.g. @["MyClass","a"]@ becomes @MyClass a@. Shared by
+-- 'mkYesodGeneralOpts' and 'mkYesodSubDispatchInstanceOpts'.
+buildAppCxt :: [[String]] -> Q Cxt
+buildAppCxt = traverse $ \ctxs ->
+    case ctxs of
+        c:rest ->
+            pure $ foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
+        [] -> fail $ "mkYesod: empty type-class context in route definition: " ++ show ctxs
+
 -- | Get the Handler and Widget type synonyms for the given site.
 masterTypeSyns :: [Name] -> Type -> [Dec] -- FIXME remove from here, put into the scaffolding itself?
 masterTypeSyns vs site =
@@ -192,12 +201,7 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
-    appCxt <- traverse (\ctxs ->
-            case ctxs of
-                c:rest ->
-                    pure $ foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
-                [] -> fail $ "mkYesod: empty type-class context in route definition: " ++ show ctxs
-          ) appCxt'
+    appCxt <- buildAppCxt appCxt'
     mname <- lookupTypeName namestr
     arity <- maybe (pure 0) typeArity mname
     let name = mkName namestr
@@ -214,8 +218,20 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt (toTyArgs boundNames) site res
     routeAttrsDec  <-
         case roFocusOnNestedRoute opts of
-            Nothing ->
-                pure <$> mkRouteAttrsInstance appCxt site res
+            Nothing -> do
+                -- The flat 'RouteAttrs (Route site)' instance, plus — in
+                -- nested-discovery mode — a 'RouteAttrsNested' instance for each
+                -- child fragment, mirroring the RenderRouteNested /
+                -- ParseRouteNested / YesodDispatchNested instances generated for
+                -- the same children. Without this, 'routeAttrsNested ChildR'
+                -- would fail to resolve for a single-module 'mkYesod' site even
+                -- though the other nested-delegation methods resolve.
+                flatAttrs <- mkRouteAttrsInstance appCxt site res
+                nestedAttrs <-
+                    case discoveryMode opts (hasTyArgs (toTyArgs boundNames)) of
+                        NestedDiscovery -> mkRouteAttrsNestedInstances appCxt (toTyArgs boundNames) res
+                        InlineCompat    -> pure []
+                pure (flatAttrs : nestedAttrs)
             Just target ->
                 mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
 
@@ -271,18 +287,29 @@ mkYesodSubDispatchInstance
     :: String                -- ^ Foundation type with optional context, e.g. @"(MyClass a) => MySub a"@
     -> [ResourceTree String] -- ^ Resources (e.g. @resourcesMySub@)
     -> Q [Dec]
-mkYesodSubDispatchInstance nameStr resS = do
+mkYesodSubDispatchInstance = mkYesodSubDispatchInstanceOpts defaultOpts
+
+-- | Like 'mkYesodSubDispatchInstance', but takes a 'RouteOpts' so a subsite can
+-- control nested-route generation — most usefully 'setNestedRouteFallthrough'
+-- (which 'mkYesodSubDispatchInstance' leaves at its default of 'False'). The
+-- parameterized-subroute flag is always forced on for the nested subroute
+-- datatypes regardless of the supplied opts, since this API targets
+-- parameterized subsites.
+--
+-- @since 1.7.0.0
+mkYesodSubDispatchInstanceOpts
+    :: RouteOpts
+    -> String                -- ^ Foundation type with optional context, e.g. @"(MyClass a) => MySub a"@
+    -> [ResourceTree String] -- ^ Resources (e.g. @resourcesMySub@)
+    -> Q [Dec]
+mkYesodSubDispatchInstanceOpts opts nameStr resS = do
     -- Parse the name string to extract context, type name, and type args
-    (namestr, mtys, appCxt') <- case parse parseName "" nameStr of
-        Left err -> fail $ show err
+    -- (the same parser the top-level mkYesod entry points use).
+    (namestr, mtys, appCxt') <- case parseYesodName nameStr of
+        Left err -> fail err
         Right a -> pure a
 
-    appCxt <- traverse (\ctxs ->
-            case ctxs of
-                c:rest ->
-                    pure $ foldl' (\acc v -> acc `AppT` fst (nameToType v)) (ConT $ mkName c) rest
-                [] -> fail $ "mkYesod: empty type-class context in route definition: " ++ show ctxs
-          ) appCxt'
+    appCxt <- buildAppCxt appCxt'
 
     -- Look up the type to determine arity
     mname <- lookupTypeName namestr
@@ -339,47 +366,12 @@ mkYesodSubDispatchInstance nameStr resS = do
                 -- unresolved name has no knowable arity (defaulting it to 0
                 -- would wrongly report "0 type parameter(s)"), and downstream
                 -- codegen reports the not-in-scope case on its own.
-                case rcResolved rc of
-                    Just tyname -> do
-                        nestedArity <- typeArity tyname
-                        either (fail . arityMismatchMessage) (const (pure ())) $
-                            checkNestedSubArity
-                                (SubsiteName namestr)
-                                (RouteName nestedName)
-                                (SubsiteArity (tyArgsArity tyArgs))
-                                (RouteArity nestedArity)
-                    Nothing -> pure ()
+                assertNestedSubArity
+                    (SubsiteName namestr)
+                    (SubsiteArity (tyArgsArity tyArgs))
+                    rc
                 mkNestedSubDispatchInstance
-                    (setParameterizedSubroute True defaultOpts)
+                    (setParameterizedSubroute True opts)
                     nestedName appCxt tyArgs return res
 
     return $ yesodSubDispatchInst : nestedInstances
-  where
-    parseName = do
-        cxt <- option [] parseContext
-        name' <- parseWord
-        args <- many parseWord
-        spaces
-        eof
-        return (name', args, cxt)
-
-    parseWord = do
-        spaces
-        many1 alphaNum
-
-    parseContext = try $ do
-        cxts <- parseParen parseContexts
-        spaces
-        _ <- string "=>"
-        return cxts
-
-    parseParen p = do
-        spaces
-        _ <- char '('
-        r <- p
-        spaces
-        _ <- char ')'
-        return r
-
-    parseContexts =
-        sepBy1 (many1 parseWord) (spaces >> char ',' >> return ())

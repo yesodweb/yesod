@@ -24,7 +24,7 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Text (Text)
 import Yesod.Core
 
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertGet)
 
 data PApp a = PApp a
 
@@ -69,8 +69,7 @@ handleFooWithTextR :: String -> HandlerFor app String
 handleFooWithTextR str = pure $ "FooWithTextR " <> str
 
 testRequestIO :: HasCallStack => Int -> [Text] -> Maybe ByteString -> IO ()
-testRequestIO status path mexpected =
-    assertRequest (toWaiApp (PApp ())) "GET" status path mexpected
+testRequestIO = assertGet (PApp ())
 
 specs :: Spec
 specs = describe "parameterized site, nested-route fallthrough" $ do

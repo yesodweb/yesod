@@ -12,7 +12,7 @@ module Yesod.Routes.TH.RenderRoute
     , mkRenderRouteNestedClauses
     , shouldCreateResources
 
-    , RouteOpts(MkRouteOpts)
+    , RouteOpts
     , defaultOpts
     , setEqDerived
     , setShowDerived
@@ -305,6 +305,38 @@ plainTVCompat =
 -- for those instances.
 --
 -- @since 1.6.25.0
+-- | Build the data constructor for a route leaf: @LeafR ty… [multi] [Route Sub]@.
+-- Shared by the full-tree ('mkRouteConsOpts') and focused-nested
+-- ('mkRenderRouteNestedInstanceOpts') constructor generators, which previously
+-- spelled this identically.
+leafRouteCon :: Resource Type -> Con
+leafRouteCon res =
+    NormalC (mkName $ resourceName res)
+        $ map (notStrict,)
+        $ concat [singles, multi, sub]
+  where
+    singles = concatMap toSingle $ resourcePieces res
+    toSingle Static{}      = []
+    toSingle (Dynamic typ) = [typ]
+    multi = maybeToList $ resourceMulti res
+    sub =
+        case resourceDispatch res of
+            Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
+            _ -> []
+
+-- | Build the data constructor for a route parent: @ParentR ty… (ChildR tyargs…)@,
+-- whose trailing field is the (possibly type-argument-applied) child route
+-- datatype. Shared by the full-tree and focused-nested constructor generators.
+parentRouteCon :: String -> [Piece Type] -> TyArgs -> Con
+parentRouteCon name pieces tyargs =
+    NormalC (mkName name)
+        $ map (notStrict,)
+        $ singles ++ [applyTyArgs (ConT (mkName name)) tyargs]
+  where
+    singles = concatMap toSingle pieces
+    toSingle Static{}      = []
+    toSingle (Dynamic typ) = [typ]
+
 mkRouteConsOpts :: RouteOpts -> Cxt -> TyArgs -> Type -> [ResourceTree Type] -> Q ([Con], [Dec])
 mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
     (prePieces, focusedTrees) <-
@@ -354,26 +386,11 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
     mkRouteCon :: [Piece Type] -> ResourceTree Type -> Q ([Con], [Dec])
     mkRouteCon _ (ResourceLeaf res) =
         case roFocusOnNestedRoute opts of
-            Nothing -> do
-                pure ([con], [])
-            Just _ -> do
+            Nothing -> pure ([leafRouteCon res], [])
+            Just _ ->
                 -- If we are focusing on a specific nested subroute, then
                 -- a Leaf cannot possibly be what we want.
                 pure ([], [])
-      where
-        con = NormalC (mkName $ resourceName res)
-            $ map (notStrict,)
-            $ concat [singles, multi, sub]
-        singles = concatMap toSingle $ resourcePieces res
-        toSingle Static{} = []
-        toSingle (Dynamic typ) = [typ]
-
-        multi = maybeToList $ resourceMulti res
-
-        sub =
-            case resourceDispatch res of
-                Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
-                _ -> []
 
     mkRouteCon prePieces (ResourceParent name _check _attrs pieces children) = do
         -- Accumulate pieces for children: combine parent pieces with this route's pieces
@@ -423,16 +440,8 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
                                     ]
                         pure $ Just (childData : [childInstances] ++ mkStandaloneDerives childDataType)
 
-        return ([con], maybe id (<>) mdec decs)
+        return ([parentRouteCon name pieces tyargs], maybe id (<>) mdec decs)
       where
-        con = NormalC dataName
-            $ map (notStrict,)
-            $ singles ++ [consDataType]
-
-        singles = concatMap toSingle pieces
-        toSingle Static{} = []
-        toSingle (Dynamic typ) = [typ]
-
         mkChildDataGen :: Name -> [Con] -> [DerivClause] -> Dec
         mkChildDataGen childDataName cons conts =
             DataD [] childDataName subrouteDecTypeArgs Nothing cons conts
@@ -480,10 +489,7 @@ mkRenderRouteClauses opts origTyargs =
 
             hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
 
-            let parentArgs =
-                    case dyns of
-                        [a] -> VarE a
-                        _ -> mkTupE (map VarE dyns)
+            let parentArgs = parentArgsExpr dyns
             let renderRouteNestedCall =
                     VarE 'renderRouteNested `AppE` parentArgs `AppE` VarE child
                 childNames =
@@ -604,18 +610,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
         -- Accumulate parent args: combine parent dynamic vars with this route's dynamic vars
         let allDyns = parentDyns ++ dyns
-            accumulatedParentArgsExp =
-                case allDyns of
-                    [] -> ConE '()
-                    [a] -> VarE a
-                    _ -> mkTupE (map VarE allDyns)
-
-            -- Pattern for extracting parent args from the function parameter
-            parentArgsPat =
-                case map VarP parentDyns of
-                    [] -> WildP
-                    [a] -> a
-                    pats -> TupP pats
+            accumulatedParentArgsExp = parentArgsExpr allDyns
 
         -- The body should call renderRouteNested with accumulated parent args
         let renderRouteNestedCall =
@@ -627,7 +622,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
                 else [name]
 
         pure
-            ( [Clause [parentArgsPat, pat] (NormalB renderRouteNestedCall) []]
+            ( [Clause [parentArgsPat parentDyns, pat] (NormalB renderRouteNestedCall) []]
             , childNames
             )
 
@@ -646,11 +641,6 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
         -- Build the FULL path including parent pieces
         -- parentArgsNames contains Either String Name for each piece in the parent path
         let parentDyns = mapMaybe (either (const Nothing) Just) parentArgsNames
-            parentArgsPat =
-                case map VarP parentDyns of
-                    [] -> WildP
-                    [a] -> a
-                    pats -> TupP pats
 
         -- Build parent path pieces from parentArgsNames
         parentPieces <- mkParentPieces pack' tsp parentArgsNames parentDyns
@@ -681,7 +671,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 #endif
                       [foldr cons piecesMulti allPieces, ListE []]
 
-        return ( [Clause [parentArgsPat, pat] (NormalB body) []], [])
+        return ( [Clause [parentArgsPat parentDyns, pat] (NormalB body) []], [])
 
     mkPieces _ _ [] _ = pure []
     mkPieces toText tsp (Static s:ps) dyns = (toText s :) <$> mkPieces toText tsp ps dyns
@@ -722,11 +712,7 @@ renderRouteNestedBody prepieces children = do
                     Dynamic a -> Right a)
                 prepieces
         preDyns = mapMaybe (either (const Nothing) Just) piecesAndNames
-    parentDynT <-
-        case preDyns of
-            [] -> [t| () |]
-            [t] -> pure t
-            ts -> pure $ foldl' AppT (TupleT (length ts)) ts
+    let parentDynT = parentArgsType preDyns
     parentNames <- forM piecesAndNames $ \epiece'name ->
         case epiece'name of
             Left piece -> pure (Left piece)
@@ -836,10 +822,6 @@ mkToParentRouteInstances routeOpts cxt origTyargs ress = do
 
         -- ParentArgs includes BOTH acc and pieces dynamic vars
         let allParentDynVars = accDynVars ++ piecesDynVars
-            parentArgsPat = case map VarP allParentDynVars of
-                [] -> WildP
-                [a] -> a
-                pats -> TupP pats
 
         -- Build the full route by applying all parent constructors
         -- We need to partition allParentDynVars according to each constructor's piece count
@@ -848,7 +830,7 @@ mkToParentRouteInstances routeOpts cxt origTyargs ress = do
         let toParentRouteD =
                 FunD 'toParentRoute
                     [ Clause
-                        [parentArgsPat, VarP child]
+                        [parentArgsPat allParentDynVars, VarP child]
                         (NormalB applyConToParentArgs)
                         []
                     ]
@@ -957,22 +939,8 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
         pure (mconcat results)
 
     mkRouteCon' :: [Piece Type] -> ResourceTree Type -> Q ([Con], [Dec])
-    mkRouteCon' _ (ResourceLeaf res) = do
-        pure ([con], [])
-      where
-        con = NormalC (mkName $ resourceName res)
-            $ map (notStrict,)
-            $ concat [singles, multi, sub]
-        singles = concatMap toSingle $ resourcePieces res
-        toSingle Static{} = []
-        toSingle (Dynamic typ') = [typ']
-
-        multi = maybeToList $ resourceMulti res
-
-        sub =
-            case resourceDispatch res of
-                Subsite { subsiteType = subtyp } -> [ConT ''Route `AppT` subtyp]
-                _ -> []
+    mkRouteCon' _ (ResourceLeaf res) =
+        pure ([leafRouteCon res], [])
 
     mkRouteCon' prePieces (ResourceParent name _check _attrs pieces children) = do
         -- For nested parents within the focused route, recursively generate
@@ -1008,12 +976,4 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
 
                 pure $ Just (childData : [childInstances] ++ mkStandaloneDerives' childDataType)
 
-        let con = NormalC (mkName name)
-                $ map (notStrict,)
-                $ singles ++ [applyTyArgs (ConT childDataName) tyargs]
-
-            singles = concatMap toSingle pieces
-            toSingle Static{} = []
-            toSingle (Dynamic subtyp) = [subtyp]
-
-        return ([con], maybe id (<>) mdec decs)
+        return ([parentRouteCon name pieces tyargs], maybe id (<>) mdec decs)

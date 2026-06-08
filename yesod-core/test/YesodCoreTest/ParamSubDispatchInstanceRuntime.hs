@@ -32,7 +32,7 @@ import Yesod.Core
 import Yesod.Core.Dispatch (toWaiApp, mkYesodSubDispatchInstance)
 
 import YesodCoreTest.ParamSubsiteParameterized
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertRequestFor)
 
 -- | Concrete instantiation of the parameterized subsite.
 data ConcretePSub = ConcretePSub
@@ -94,7 +94,7 @@ testRequestIO
     -> Maybe L.ByteString
     -> IO ()
 testRequestIO status path method mexpected =
-    assertRequest (toWaiApp App) method status path mexpected
+    assertRequestFor App method status path mexpected
 
 specs :: Spec
 specs = describe "mkYesodSubDispatchInstance (parameterized subsite, opt-in subroutes)" $ do

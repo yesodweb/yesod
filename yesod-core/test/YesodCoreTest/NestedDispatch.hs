@@ -16,10 +16,9 @@ module YesodCoreTest.NestedDispatch
     , resourcesApp
     ) where
 
-import Data.Foldable (for_)
 import Yesod.Core
+import Yesod.Core.Class.Dispatch.ToParentRoute (toParentRoute)
 import Test.Hspec
-import Control.Exception (try, SomeException)
 import Network.Wai
 import Network.Wai.Test
 import Data.ByteString.Lazy (ByteString)
@@ -28,6 +27,7 @@ import Data.String (IsString)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Maybe (fromJust)
+import Data.Proxy (Proxy (..))
 import Data.Monoid (Endo (..))
 import qualified Control.Monad.Trans.Writer    as Writer
 import qualified Data.Set as Set
@@ -37,16 +37,8 @@ import YesodCoreTest.NestedDispatch.InnerR (InnerR(..))
 import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
 import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..), Child0R(..))
 import YesodCoreTest.NestedDispatch.Parent0R.Child0R
+import YesodCoreTest.RuntimeHarness (assertRequestRaw)
 import qualified Network.HTTP.Types as H
-
--- | Attach an annotation to an expectation. If the expectation fails,
--- the annotation is included in the failure message.
-annotate_ :: String -> IO () -> IO ()
-annotate_ msg action = do
-    result <- try action
-    case result of
-        Left e -> expectationFailure (msg <> "\n" <> show (e :: SomeException))
-        Right () -> pure ()
 
 mkYesod "App" nestedDispatchResources
 
@@ -94,14 +86,8 @@ testRequestIO :: HasCallStack => Int -- ^ http status code
             -> Request
             -> Maybe ByteString -- ^ expected body
             -> IO ()
-testRequestIO status req mexpected = do
-    app <- toWaiApp App
-    sres <- flip runSession app $ do
-        request req
-    annotate_ ("Request body: " <> show (simpleBody sres )) $ do
-        H.statusCode (simpleStatus sres) `shouldBe` status
-        for_ mexpected $ \expected -> do
-            simpleBody sres `shouldBe` expected
+testRequestIO status req mexpected =
+    assertRequestRaw (toWaiApp App) req status mexpected
 
 test :: String -- ^ accept header
      -> ByteString -- ^ expected body
@@ -113,6 +99,17 @@ acceptRequest :: String -> Request
 acceptRequest accept = defaultRequest
             { requestHeaders = [("Accept", S8.pack accept)]
             }
+
+-- | Build a WAI app rooted at a nested route fragment (via the public
+-- 'toWaiAppPlainNested' entry point), issue one GET at @path@, and return the
+-- status code.
+nestedStatusFor
+    :: (ParentSite route ~ App, YesodDispatchNested route, ToParentRoute route)
+    => Proxy route -> ParentArgs route -> [Text] -> IO Int
+nestedStatusFor proxy parentArgs path = do
+    app <- toWaiAppPlainNested proxy parentArgs App
+    sres <- flip runSession app $ request defaultRequest { pathInfo = path }
+    pure $ H.statusCode (simpleStatus sres)
 
 
 specs :: Spec
@@ -308,6 +305,36 @@ specs = do
                     , requestMethod = "GET"
                     }
                 Nothing
+
+    describe "nested-dispatch entry points (miss / deep 404)" $ do
+        -- These exercise toWaiAppPlainNested/toWaiAppYreNested directly, not just
+        -- the happy path. In particular they cover the `Nothing -> notFound`
+        -- branch in toWaiAppYreNested (a fragment instance returning Nothing on a
+        -- non-match) and confirm a `drop parentDepth` against a too-short pathInfo
+        -- yields a clean 404 rather than a mis-dispatch.
+        describe "rooted at NestR (no dynamic prefix, depth 1)" $ do
+            it "dispatches the matching index path" $
+                nestedStatusFor (Proxy :: Proxy NestR) () ["nest"]
+                    `shouldReturn` 200
+            it "404s a non-matching tail through the Nothing -> notFound branch" $
+                nestedStatusFor (Proxy :: Proxy NestR) () ["nest", "oops"]
+                    `shouldReturn` 404
+
+        describe "rooted at a deep dynamic parent (ParentR/#Int, depth 2)" $ do
+            it "dispatches a full matching path" $
+                nestedStatusFor (Proxy :: Proxy ParentR) (1 :: Int)
+                    ["parent", "1", "hello", "child1"]
+                    `shouldReturn` 200
+            it "cleanly 404s a pathInfo shorter than the parent depth" $
+                nestedStatusFor (Proxy :: Proxy ParentR) (1 :: Int) ["parent"]
+                    `shouldReturn` 404
+            it "cleanly 404s an empty pathInfo" $
+                nestedStatusFor (Proxy :: Proxy ParentR) (1 :: Int) []
+                    `shouldReturn` 404
+            it "404s a non-matching deep tail" $
+                nestedStatusFor (Proxy :: Proxy ParentR) (1 :: Int)
+                    ["parent", "1", "nope"]
+                    `shouldReturn` 404
 
     describe "UrlToDispatch NestIndexR" $ do
         it "works" $ do

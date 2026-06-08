@@ -38,7 +38,7 @@ import Yesod.Core.Dispatch (toWaiApp)
 import YesodCoreTest.ParameterizedSubData
 import YesodCoreTest.ParameterizedSubDispatch ()
 import YesodCoreTest.ParameterizedSubDispatchRuntime.Data
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertRequestFor)
 
 -- | A concrete subsite for 'ParamSubsite'. Its associated 'AssocType' is
 -- 'Text', so the dynamically-keyed nested parent (@!/#{AssocType subsite}@)
@@ -130,7 +130,7 @@ testRequestIO
     -> Maybe L.ByteString -- ^ expected body (Nothing = don't check)
     -> IO ()
 testRequestIO status path method mexpected =
-    assertRequest (toWaiApp App) method status path mexpected
+    assertRequestFor App method status path mexpected
 
 specs :: Spec
 specs = describe "opt-out (backwards-compat) parameterized nested routes" $ do

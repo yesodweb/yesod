@@ -23,7 +23,7 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Text (Text)
 import Yesod.Core
 
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertGet)
 
 data MPApp = MPApp
 
@@ -43,8 +43,7 @@ getUserR :: Int -> Text -> HandlerFor MPApp String
 getUserR shopId name = pure ("user:" <> show shopId <> ":" <> show name)
 
 testRequestIO :: HasCallStack => Int -> [Text] -> Maybe ByteString -> IO ()
-testRequestIO status path mexpected =
-    assertRequest (toWaiApp MPApp) "GET" status path mexpected
+testRequestIO = assertGet MPApp
 
 specs :: Spec
 specs = describe "multi-piece nested parent (/shop/#Int/admin)" $ do

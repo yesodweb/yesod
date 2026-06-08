@@ -7,7 +7,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Runtime coverage for a *parameterized* subsite whose nested routes are
@@ -33,7 +32,7 @@ import Yesod.Core
 
 import YesodCoreTest.ParamSubsiteParameterized
 import YesodCoreTest.ParamSplitSubNested ()  -- brings the split nested instance into scope
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertRequestFor)
 
 -- | Concrete instantiation of the parameterized subsite.
 data ConcretePSub = ConcretePSub
@@ -90,7 +89,7 @@ testRequestIO
     -> Maybe L.ByteString
     -> IO ()
 testRequestIO status path method mexpected =
-    assertRequest (toWaiApp App) method status path mexpected
+    assertRequestFor App method status path mexpected
 
 specs :: Spec
 specs = describe "parameterized subsite, nested routes split across modules" $ do

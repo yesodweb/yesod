@@ -63,7 +63,10 @@ piecesOverlap :: Piece t -> Piece t -> Bool
 piecesOverlap (Static x) (Static y) = x == y
 piecesOverlap _ _ = True
 
-findOverlapNames :: [ResourceTree String] -> [(String, String)]
+-- | The overlap check never inspects the dynamic-piece type, so this is
+-- parametric in it (the reported names come from 'resourceName', always a
+-- 'String').
+findOverlapNames :: [ResourceTree t] -> [(String, String)]
 findOverlapNames =
     map go . findOverlapsF . filter fCheck . concatMap Yesod.Routes.Overlap.flatten
   where

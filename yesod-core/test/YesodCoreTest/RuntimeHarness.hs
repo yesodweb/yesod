@@ -10,13 +10,17 @@
 -- 'assertStatus' / 'assertBody' so a mismatch prints the offending response.
 module YesodCoreTest.RuntimeHarness
     ( assertRequest
+    , assertRequestFor
+    , assertGet
+    , assertRequestRaw
     ) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Text (Text)
-import Network.Wai (Application, pathInfo, requestMethod)
+import Network.Wai (Application, Request, pathInfo, requestMethod)
 import Network.Wai.Test
 import Test.Hspec (HasCallStack)
+import Yesod.Core (Yesod, YesodDispatch, toWaiApp)
 import qualified Network.HTTP.Types as H
 
 -- | Build the WAI app, issue one request at @path@ with @method@, assert the
@@ -36,6 +40,43 @@ assertRequest mkApp method status path mexpected = do
             { pathInfo = path
             , requestMethod = method
             }
+        assertStatus status sres
+        case mexpected of
+            Nothing -> pure ()
+            Just expected -> assertBody expected sres
+
+-- | 'assertRequest' specialised to a concrete site: builds the WAI app with
+-- 'toWaiApp' for you. This is the shape almost every runtime spec wants, and
+-- standardises the argument order (@site → method → status → path → body@) that
+-- the per-module @testRequestIO@ wrappers used to spell inconsistently.
+assertRequestFor
+    :: (HasCallStack, Yesod site, YesodDispatch site)
+    => site                -- ^ the site to dispatch against
+    -> H.Method            -- ^ request method
+    -> Int                 -- ^ expected status code
+    -> [Text]              -- ^ request path
+    -> Maybe ByteString    -- ^ expected body, if checked
+    -> IO ()
+assertRequestFor site = assertRequest (toWaiApp site)
+
+-- | 'assertRequestFor' fixed to @GET@ — the common case.
+assertGet
+    :: (HasCallStack, Yesod site, YesodDispatch site)
+    => site -> Int -> [Text] -> Maybe ByteString -> IO ()
+assertGet site = assertRequestFor site "GET"
+
+-- | Like 'assertRequest', but issue a fully caller-built 'Request' (e.g. one
+-- carrying an @Accept@ header for content negotiation) rather than just a
+-- path + method. 'assertStatus'/'assertBody' already print the offending
+-- response on a mismatch, so callers don't need their own annotate-on-failure
+-- wrapper.
+assertRequestRaw
+    :: HasCallStack
+    => IO Application -> Request -> Int -> Maybe ByteString -> IO ()
+assertRequestRaw mkApp req status mexpected = do
+    app <- mkApp
+    flip runSession app $ do
+        sres <- request req
         assertStatus status sres
         case mexpected of
             Nothing -> pure ()

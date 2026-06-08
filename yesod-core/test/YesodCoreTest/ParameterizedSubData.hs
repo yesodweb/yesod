@@ -9,7 +9,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 -- ^ Useful for debugging generated code; can be removed once stable
 
 -- | Test case for mkYesodSubData and mkYesodSubDispatch with

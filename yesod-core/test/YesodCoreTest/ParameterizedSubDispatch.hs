@@ -6,7 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Test mkYesodSubDispatch with parameterized/constrained types.

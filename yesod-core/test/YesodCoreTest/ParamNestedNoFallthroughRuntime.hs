@@ -30,7 +30,7 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Text (Text)
 import Yesod.Core
 
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertGet)
 
 data PNNApp a = PNNApp a
 
@@ -58,8 +58,7 @@ handleAlsoR :: HandlerFor app String
 handleAlsoR = pure "AlsoR"
 
 testRequestIO :: HasCallStack => Int -> [Text] -> Maybe ByteString -> IO ()
-testRequestIO status path mexpected =
-    assertRequest (toWaiApp (PNNApp ())) "GET" status path mexpected
+testRequestIO = assertGet (PNNApp ())
 
 specs :: Spec
 specs = describe "parameterized site, deep nesting, fallthrough DISABLED" $ do

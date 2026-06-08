@@ -29,7 +29,7 @@ import qualified Network.HTTP.Types as H
 import Yesod.Core
 
 import YesodCoreTest.ParamDefaultSplitData
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertRequestFor)
 
 mkYesodDispatch "PolyD a" resourcesPolyD
 
@@ -64,7 +64,7 @@ testRequestIO
     -> Maybe L.ByteString
     -> IO ()
 testRequestIO status path method mexpected =
-    assertRequest (toWaiApp (PolyD ())) method status path mexpected
+    assertRequestFor (PolyD ()) method status path mexpected
 
 specs :: Spec
 specs = describe "parameterized site, default opts, nested route split across modules (#1 regression)" $ do

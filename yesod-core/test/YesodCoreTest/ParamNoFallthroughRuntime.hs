@@ -26,7 +26,7 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Text (Text)
 import Yesod.Core
 
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertGet)
 
 data PNApp a = PNApp a
 
@@ -63,8 +63,7 @@ handleOtherR :: HandlerFor app String
 handleOtherR = pure "OtherR"
 
 testRequestIO :: HasCallStack => Int -> [Text] -> Maybe ByteString -> IO ()
-testRequestIO status path mexpected =
-    assertRequest (toWaiApp (PNApp ())) "GET" status path mexpected
+testRequestIO = assertGet (PNApp ())
 
 specs :: Spec
 specs = describe "parameterized site, nested-route fallthrough DISABLED" $ do

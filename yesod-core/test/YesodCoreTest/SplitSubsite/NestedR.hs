@@ -5,7 +5,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | The split-out dispatch module for the subsite's nested 'NestedR'

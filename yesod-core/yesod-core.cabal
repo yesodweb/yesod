@@ -137,6 +137,7 @@ test-suite test-routes
                    Yesod.Routes.TH.Types
                    Yesod.Routes.TH.Internal
                    Route.FallthroughSpec
+                   YesodCoreTest.RuntimeHarness
                    Route.RenderRouteSpec
                    Route.RouteAttrSpec
                    Route.DiscoveryModeSpec
@@ -276,6 +277,10 @@ test-suite tests
                    YesodCoreTest.FallthroughMatrix.FirstFoo
                    YesodCoreTest.FallthroughMatrixRuntime
                    YesodCoreTest.MultiPieceNestedRuntime
+                   YesodCoreTest.ZeroPieceShadowRuntime
+                   YesodCoreTest.ZeroPieceShadow.ShadowApp
+                   YesodCoreTest.ZeroPieceShadow.FallApp
+                   YesodCoreTest.BangSeparatorRuntime
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest
@@ -330,8 +335,13 @@ test-suite tests
                   , attoparsec-aeson
                   , wai-extra
                   , warp
-                  , yesod-core
                   , th-lift-instances
+    -- NB: this suite does NOT depend on the yesod-core library. It puts `src`
+    -- on hs-source-dirs and recompiles the library modules locally (it needs
+    -- internal, non-exposed modules like Yesod.Routes.Class). A yesod-core dep
+    -- here would supply a *second* copy of types like RenderRouteNested/RouteOpts
+    -- that only compiles via home-package shadowing — see `test-routes`, which
+    -- has always relied on the same src-recompile-only approach.
     ghc-options:     -Wall -threaded
     other-extensions: TemplateHaskell
 

@@ -9,8 +9,6 @@ module Yesod.Routes.TH.Dispatch
     ( MkDispatchSettings (..)
     , mkDispatchClause
     , defaultGetHandler
-    , NestedRouteSettings (..)
-    , DispatchPhase (..)
     , SDC(..)
     , mkDispatchInstance
     , mkNestedDispatchInstance
@@ -59,10 +57,6 @@ data MkDispatchSettings b site c = MkDispatchSettings
     , mds405 :: Q Exp
     , mdsGetHandler :: Maybe String -> String -> Q Exp
     , mdsUnwrapper :: Exp -> Q Exp
-    , mdsHandleNestedRoute :: NestedRouteSettings
-    -- ^ These settings describe how to handle nested routes.
-    --
-    -- @since 1.7.0.0
     , mdsNestedRouteFallthrough :: !Bool
     -- ^ When 'True', fall through if no route matches (except in the final
     -- case). When 'False', return 404 if the current route clause fails to
@@ -83,36 +77,11 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- @since 1.7.0.0
     }
 
+-- | Whether 'mkDispatchClause's @go@ is generating a top-level dispatch clause
+-- (the final, unwrapped dispatch result) or an inline nested-helper clause (a
+-- @'Maybe'@ wrapped in 'Just' so the enclosing parent can fall through on a
+-- miss). Internal to the clause builder.
 data DispatchPhase = TopLevelDispatch | NestedDispatch
-
--- | This function determines the phase at the call site of
--- 'mkDispatchInstance' by reflecting on the 'nrsTargetName'. If this value
--- is present, then we are doing a nested dispatch. Otherwise, we are doing
--- a top-level dispatch.
-determinePhase :: MkDispatchSettings x y z -> DispatchPhase
-determinePhase mds =
-    case nrsTargetName (mdsHandleNestedRoute mds) of
-        Nothing ->
-            TopLevelDispatch
-        Just _ ->
-            NestedDispatch
-
--- | These settings describe how to handle nested routes for the given
--- dispatch. This is not used for Subsites, but for constructions like:
---
--- @
--- /admin/ AdminR:
---     /   AdminIndexR POST GET
--- @
---
--- This construction allows us to delegate nested routes to their own
--- modules for parsing, attributes, and dispatch.
---
--- @since 1.7.0.0
-data NestedRouteSettings = NestedRouteSettings
-    { nrsTargetName :: Maybe String
-    -- ^ The name of the target that we are currently generating code for.
-    }
 
 data SDC = SDC
     { clause404 :: Clause
@@ -180,8 +149,8 @@ subsiteNestedConfig = NestedDispatchConfig
 -- instances for delegation classes. For 'ParseRoute', that's
 -- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
 -- Since 1.4.0
-mkDispatchClause :: forall a b site c. DispatchPhase -> [Name] -> [Exp] -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resources = do
+mkDispatchClause :: forall a b site c. [Name] -> [Exp] -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -201,7 +170,10 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             , envExp = envE
             , reqExp = reqE
             }
-    (childNames, clauses) <- mconcat <$> mapM (go phase mdsHandleNestedRoute sdc) resources
+    -- The top-level resources produce the final (unwrapped) dispatch clauses;
+    -- the inline children of a parent are generated as 'NestedDispatch' helper
+    -- clauses (wrapped in 'Just') by the recursion below.
+    (childNames, clauses) <- mconcat <$> mapM (go TopLevelDispatch sdc) resources
 
     pure
         ( childNames
@@ -211,27 +183,19 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
             [FunD helperName $ clauses ++ [clause404']]
         )
   where
-    go :: DispatchPhase -> NestedRouteSettings -> SDC -> ResourceTree a -> Q ([String], [Clause])
-    go goPhase nrs sdc (ResourceParent name _check _attrs pieces children) = do
-        let mtargetName = nrsTargetName nrs
-        let mtargetMatch =
-                fmap (name ==) mtargetName
-
+    go :: DispatchPhase -> SDC -> ResourceTree a -> Q ([String], [Clause])
+    go goPhase sdc (ResourceParent name _check _attrs pieces children) = do
         -- Delegate to the child's nested-dispatch instance when one already
         -- exists (the configured class: YesodDispatchNested for top-level,
         -- YesodSubDispatchNested for subsites). This is what makes splitting
         -- a parent's nested routes across modules work. When no such instance
         -- exists — the ordinary single-module case — the check fails and we
         -- inline the children below, so this stays backwards compatible.
-        -- Delegate only when we're not focused on a different target, and an
-        -- instance of the configured nested-dispatch class already exists for
-        -- this child. 'nestedInstanceExists' is the shared probe: it resolves
-        -- the name once and saturates by the child's own reified arity, so it
-        -- never aborts the splice (see its haddock).
+        -- 'nestedInstanceExists' is the shared probe: it resolves the name once
+        -- and saturates by the child's own reified arity, so it never aborts
+        -- the splice (see its haddock).
         instanceExists <-
-            if fromMaybe True mtargetMatch
-                then nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name
-                else pure False
+            nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name
 
         (pats, dyns) <- handlePiecesM newName pieces
         restName <- newName "_rest"
@@ -258,7 +222,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                         { extraParams = extraParams sdc ++ dyns
                         , extraCons = extraCons sdc ++ [constr]
                         }
-                (_childNames, childClauses) <- mconcat <$> mapM (go NestedDispatch (NestedRouteSettings Nothing) childSdc) children
+                (_childNames, childClauses) <- mconcat <$> mapM (go NestedDispatch childSdc) children
                 let fallbackClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
                 pure $ childClauses ++ [fallbackClause]
 
@@ -299,15 +263,7 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                 [FunD helperName helperClauses]]
             )
 
-    go phase' nrs SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
-        case pure nrs >>= nrsTargetName of
-            Just _target -> do
-                -- Don't generate a clause if we're focused on a target.
-                -- Other code branches will set nrsTargetName to Nothing
-                -- when a match has hit, so we'll generate clauses for
-                -- sub-routes of a match.
-                pure ([], [])
-            Nothing -> do
+    go phase' SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
                 (pats, dyns) <- handlePiecesM newName pieces
 
                 (chooseMethod, finalPat) <- handleDispatch dispatch dyns
@@ -398,25 +354,15 @@ mkDispatchClause phase preDyns parentCons tyargs MkDispatchSettings {..} resourc
                             `AppE` reqExp'
                     return (exp, EndRest restPath)
 
+    -- The dispatch helper produced by 'mkDispatchClause' is always a terminal
+    -- authority (the top-level / subsite entry point), so a final miss commits
+    -- to a 404 here. Inline nested helpers built by the 'NestedDispatch'
+    -- recursion bake their own @Nothing@ fallback at their call site instead.
     mkClause404 envE reqE = do
-        let actual404 = do
-                handler <- mds404
-                runHandlerE <- mdsRunHandler
-                let exp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
-                return $ Clause [WildP] (NormalB exp) []
-            returnNothing =
-                return $ Clause [WildP] (NormalB (ConE 'Nothing)) []
-
-        case phase of
-            -- The top-level dispatch helper is a terminal authority: a final
-            -- miss commits to a 404 here (the disabled-fallthrough flag, when
-            -- relevant, has already taken effect at the delegating clauses).
-            TopLevelDispatch -> actual404
-            -- A nested helper always returns 'Nothing' on a terminal miss and
-            -- lets the delegating caller decide — independent of the
-            -- fallthrough flag. See the terminal-miss clause in
-            -- 'genNestedDispatchClauses' for the full rationale.
-            NestedDispatch -> returnNothing
+        handler <- mds404
+        runHandlerE <- mdsRunHandler
+        let exp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
+        return $ Clause [WildP] (NormalB exp) []
 
 -- | This function generates code to call the nested dispatch function
 -- (either 'yesodDispatchNested' or 'yesodSubDispatchNested').
@@ -440,11 +386,7 @@ nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
     -- fresh variables (needed for mkYesodSubDispatch which doesn't
     -- know the parent's type args).
     routeType <- appliedRouteTypeNamed routeName tyargs
-    let parentDynsExpr =
-            case parentDyns of
-                [] -> ConE '()
-                [a] -> a
-                _ -> mkTupE parentDyns
+    let parentDynsExpr = parentArgsExprFromExps parentDyns
         proxyType = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
     -- Build the wrapper: \child -> ParentCon (RouteCon d1 d2 child)
     wrapperExpr <- mkLambda "child" $ \childN ->
@@ -499,7 +441,26 @@ mkDispatchInstance
     -> [ResourceTree Type]
     -- ^ The resource
     -> DecsQ
-mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) master cxt tyargs unwrapper res = do
+mkDispatchInstance routeOpts master cxt tyargs unwrapper res =
+    -- Branch on the focus target via the accessor rather than a constructor
+    -- pattern, so 'RouteOpts' can stay abstract (its constructor is not
+    -- exported). 'Just target' focuses a single nested route for
+    -- module-splitting; 'Nothing' generates the full top-level instance.
+    case roFocusOnNestedRoute routeOpts of
+        Just target ->
+            mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res
+        Nothing ->
+            mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res
+
+mkTopLevelDispatchInstance
+    :: RouteOpts
+    -> Type
+    -> Cxt
+    -> TyArgs
+    -> (Exp -> Q Exp)
+    -> [ResourceTree Type]
+    -> DecsQ
+mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
     let mds =
             mkMDS
                 unwrapper
@@ -514,12 +475,8 @@ mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) ma
                 |]
         mdsWithNestedDispatch = mds
             { mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
-            , mdsHandleNestedRoute = NestedRouteSettings
-                { nrsTargetName = Nothing
-                }
             }
-        phase = determinePhase mds
-    (childNames, clause') <- mkDispatchClause phase [] [] tyargs mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClause [] [] tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
         -- Only generate 'YesodDispatchNested' instances for children when this
         -- site uses nested discovery. A parameterized site that has not opted
@@ -536,9 +493,6 @@ mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Nothing }) ma
     return (instanceD cxt yDispatch [thisDispatch] : childInstances)
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
-
-mkDispatchInstance routeOpts@(MkRouteOpts { roFocusOnNestedRoute = Just target}) master cxt tyargs unwrapper res = do
-    mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res
 
 -- | Generate the top-level @YesodDispatchNested@ instance (and the
 -- @UrlToDispatch@\/@RedirectUrl@ instances for fragments with no dynamic parent
@@ -578,37 +532,41 @@ mkNestedDispatchInstanceWith
     -> [ResourceTree Type]
     -> Q [Dec]
 mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrapper res = do
-    (prePieces, subres) <- case findNestedRoute target res of
+    -- Resolve the target subtree from the root exactly once. The recursion into
+    -- nested children below threads the already-resolved @(prePieces, subres)@
+    -- straight through ('go'), rather than re-passing the full root and walking
+    -- it from scratch for every descendant (which was O(nodes × depth)).
+    case findNestedRoute target res of
         Nothing ->
             fail $ "Target '" ++ target ++ "' was not found in resources."
-        Just stuff ->
-            pure stuff
-
+        Just (prePieces, subres) ->
+            go target prePieces subres
+  where
+   go curTarget prePieces subres = do
     -- The parent's static depth and how many dynamic pieces it consumes (only
     -- the count matters below, for the parent-dynamics pattern and the
     -- no-dynamics UrlToDispatch case).
     let parentDepth = length prePieces
         preDyns = [() | Dynamic _ <- prePieces]
-        targetT = applyTyArgs (ConT (mkName target)) tyargs
+        targetT = applyTyArgs (ConT (mkName curTarget)) tyargs
 
     -- UrlToDispatch/RedirectUrl is a top-level-only convenience and only
     -- possible when ParentArgs ~ () (no dynamic parent pieces).
     urlToDispatchInstances <- case (mmaster, preDyns) of
         (Just master, []) ->
-            mkUrlToDispatchRedirectInstances cxt target targetT master
+            mkUrlToDispatchRedirectInstances cxt curTarget targetT master
         _ ->
             pure []
 
-    -- Generate parent dynamic argument pattern
+    -- Generate the parent dynamic argument variables once, and derive the
+    -- binding pattern from them. The clause-generator is handed the @['Name']@
+    -- directly (it used to re-decode them out of the pattern).
+    parentDynVars <- forM preDyns $ \_ -> newName "parentDyn"
     parentDynsP <-
-        case preDyns of
-            [] -> [p| () |]
-            [_] -> do
-                n <- newName "parentDyn"
-                pure $ VarP n
-            xs -> do
-                ns <- forM xs $ \_ -> newName "parentDyn"
-                pure $ TupP $ map VarP ns
+        case parentDynVars of
+            []  -> [p| () |]
+            [n] -> pure $ VarP n
+            ns  -> pure $ TupP $ map VarP ns
 
     -- Generate names for the instance parameters
     toParentN <- newName "toParentRoute"
@@ -620,7 +578,7 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
         config
         routeOpts
         parentDepth
-        parentDynsP
+        parentDynVars
         (VarE toParentN)
         (VarE envN)
         (VarE reqN)
@@ -641,11 +599,27 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
     childInstances <-
         fmap mconcat $ forM subres $ \childRes -> do
             case childRes of
-                ResourceParent name _ _ _ _ -> do
-                    instanceExists <- nestedInstanceExists (ndcDispatchClass config) =<< resolveRouteCon name
+                ResourceParent name _ _ childPieces grandchildren -> do
+                    rc <- resolveRouteCon name
+                    instanceExists <- nestedInstanceExists (ndcDispatchClass config) rc
                     if instanceExists
                         then pure []
-                        else mkNestedDispatchInstanceWith config mmaster routeOpts name cxt tyargs unwrapper res
+                        else do
+                            -- Run the same arity guard the top-level
+                            -- 'mkYesodSubDispatchInstance' applies, so a
+                            -- 2nd-level-or-deeper nested datatype whose
+                            -- parameter count doesn't match the (sub)site's
+                            -- type arguments fails with the actionable message
+                            -- rather than a cryptic kind error from generated
+                            -- code. A no-op for the monomorphic (0-arity) case.
+                            assertNestedSubArity
+                                (SubsiteName curTarget)
+                                (SubsiteArity (tyArgsArity tyargs))
+                                rc
+                            -- Recurse on the already-resolved subtree: this
+                            -- child's accumulated prefix is the parent's plus
+                            -- this child's own pieces.
+                            go name (prePieces <> childPieces) grandchildren
                 _ -> pure []
 
     return
@@ -699,7 +673,10 @@ mkUrlToDispatchRedirectInstances cxt target targetT master = do
                 [ Clause [ WildP ] (NormalB urlToDispatchFn) []
                 ]
             ]
-        , instanceD (cxt <> mToParentRouteConstraint) redirectT
+        -- OVERLAPPABLE so a hand-written `RedirectUrl Site Child` instance for
+        -- the same child route wins instead of clashing with this generated
+        -- convenience instance.
+        , InstanceD (Just Overlappable) (cxt <> mToParentRouteConstraint) redirectT
             [ FunD 'toTextUrl
                 [ Clause [ ] (NormalB redirectUrlFn) [] ]
             ]
@@ -728,7 +705,7 @@ genNestedDispatchClauses
     :: NestedDispatchConfig
     -> RouteOpts
     -> Int -- ^ parent piece count (for error messages/debugging)
-    -> Pat -- ^ parent dynamic args pattern
+    -> [Name] -- ^ parent dynamic arg variables
     -> Exp -- ^ toParentRoute expression
     -> Exp -- ^ yre expression (YesodRunnerEnv or YesodSubRunnerEnv)
     -> Exp -- ^ req expression
@@ -736,7 +713,7 @@ genNestedDispatchClauses
     -> TyArgs -- ^ type arguments for parameterized routes
     -> [ResourceTree Type]
     -> Q [Match]
-genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yreE reqE unwrapper tyargs resources = do
+genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE yreE reqE unwrapper tyargs resources = do
     resourceClauses <- forM resources $ \res -> genClauseForResource res
 
     -- Terminal-miss clause: a nested dispatch instance ALWAYS returns 'Nothing'
@@ -754,14 +731,6 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
     return $ concat resourceClauses ++ [fallbackClause]
   where
-    -- Extract parent dynamic variables from the pattern
-    getParentDynVars :: Pat -> [Name]
-    getParentDynVars (VarP n) = [n]
-    getParentDynVars (TupP ps) = concatMap getParentDynVars ps
-    getParentDynVars _ = []
-
-    parentDynVars = getParentDynVars parentDynsP
-
     genClauseForResource :: ResourceTree Type -> Q [Match]
     genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dynVars) <- handlePiecesNames newName pieces
@@ -834,10 +803,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
 
         -- Build the parent args tuple for the nested call
         let allDynVars = parentDynVars ++ dynVars
-            parentArgsExp = case allDynVars of
-                [] -> ConE '()
-                [v] -> VarE v
-                vs -> mkTupE (map VarE vs)
+            parentArgsExp = parentArgsExpr allDynVars
 
             routeConWrapper = applyConPieces name (map VarE dynVars)
             toParentComposed = InfixE (Just toParentE) (VarE '(.)) (Just routeConWrapper)
@@ -922,7 +888,6 @@ mkYesodSubDispatch res = do
                 }
     (_childNames, clause') <-
         mkDispatchClause
-            TopLevelDispatch
             []
             []
             NoTyArgs
@@ -971,9 +936,6 @@ mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings
     , mds405 = [|void badMethod|]
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = unwrapper
-    , mdsHandleNestedRoute = NestedRouteSettings
-        { nrsTargetName = Nothing
-        }
     , mdsNestedRouteFallthrough = False
     , mdsNestedDispatchClass = ''YesodDispatchNested
     , mdsNestedDispatchFn = 'yesodDispatchNested

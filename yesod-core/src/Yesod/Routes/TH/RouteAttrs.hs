@@ -4,6 +4,7 @@
 module Yesod.Routes.TH.RouteAttrs
     ( mkRouteAttrsInstance
     , mkRouteAttrsInstanceFor
+    , mkRouteAttrsNestedInstances
     ) where
 
 import Yesod.Routes.TH.Types
@@ -36,6 +37,29 @@ mkRouteAttrsInstanceFor cxt typ target ress = do
                 [Clause [ WildP ] (NormalB $ VarE 'mempty) []]
         ]
         ]
+
+-- | Generate a 'RouteAttrsNested' instance for every nested parent route in
+-- the tree (recursively), skipping any whose instance already exists (e.g. one
+-- generated in another module when routes are split). This is the
+-- 'RouteAttrs' counterpart to the @RenderRouteNested@ \/ @ParseRouteNested@ \/
+-- @YesodDispatchNested@ instances that a plain 'mkYesod' already emits for its
+-- child route fragments, so that @routeAttrsNested ChildR@ resolves for a
+-- single-module site just like the other nested-delegation methods do.
+--
+-- @since 1.7.0.0
+mkRouteAttrsNestedInstances :: Cxt -> TyArgs -> [ResourceTree a] -> Q [Dec]
+mkRouteAttrsNestedInstances cxt tyargs ress =
+    concat <$> mapM perParent (parentNames ress)
+  where
+    parentNames trees = concat
+        [ name : parentNames children
+        | ResourceParent name _ _ _ children <- trees
+        ]
+    perParent name = do
+        exists <- nestedInstanceExists ''RouteAttrsNested =<< resolveRouteCon name
+        if exists
+            then pure []
+            else mkRouteAttrsInstanceFor cxt (applyTyArgs (ConT (mkName name)) tyargs) name ress
 
 goTree :: Maybe String -> (Pat -> Pat) -> ResourceTree a -> Q [Clause]
 goTree mtarget front (ResourceLeaf res) =

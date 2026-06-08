@@ -30,7 +30,7 @@ import Yesod.Core
 
 import YesodCoreTest.FallthroughMatrix.Resources
 import YesodCoreTest.FallthroughMatrix.FirstFoo (FirstFooR(..))
-import YesodCoreTest.RuntimeHarness (assertRequest)
+import YesodCoreTest.RuntimeHarness (assertGet)
 
 mkYesodOpts (setNestedRouteFallthrough True defaultOpts) "FMApp" fmResources
 
@@ -44,8 +44,7 @@ getOtherR :: HandlerFor FMApp String
 getOtherR = pure "OtherR"
 
 testRequestIO :: HasCallStack => Int -> [Text] -> Maybe ByteString -> IO ()
-testRequestIO status path mexpected =
-    assertRequest (toWaiApp FMApp) "GET" status path mexpected
+testRequestIO = assertGet FMApp
 
 specs :: Spec
 specs = describe "cross-module fallthrough flag mismatch (top True, split child False)" $ do

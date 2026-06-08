@@ -9,7 +9,7 @@ module Yesod.Routes.TH.Internal where
 import Prelude hiding (exp)
 import Data.List (foldl')
 import Data.Maybe (mapMaybe)
-import Language.Haskell.TH.Syntax hiding (Arity)
+import Language.Haskell.TH.Syntax
 import Web.PathPieces (fromPathPiece, fromPathMultiPiece)
 import Yesod.Routes.TH.Types
 
@@ -29,6 +29,36 @@ mkTupE =
 #if MIN_VERSION_template_haskell(2,16,0)
         . fmap Just
 #endif
+
+-- | The expression form of a route's accumulated @ParentArgs@: @()@ when there
+-- are no dynamic pieces, the lone expression when there is one, and a tuple of
+-- them otherwise. This is the single spelling of the unit\/single\/tuple idiom
+-- that recurred across the dispatch and render-route clause builders.
+parentArgsExprFromExps :: [Exp] -> Exp
+parentArgsExprFromExps []  = ConE '()
+parentArgsExprFromExps [e] = e
+parentArgsExprFromExps es  = mkTupE es
+
+-- | 'parentArgsExprFromExps' for the common case where the arguments are plain
+-- variable names.
+parentArgsExpr :: [Name] -> Exp
+parentArgsExpr = parentArgsExprFromExps . map VarE
+
+-- | The /pattern/ form of a route's accumulated @ParentArgs@, for binding the
+-- incoming parent arguments: @_@ when there are none (the @ParentArgs@ is @()@
+-- and ignored), the lone variable when there is one, and a tuple otherwise.
+parentArgsPat :: [Name] -> Pat
+parentArgsPat []  = WildP
+parentArgsPat [a] = VarP a
+parentArgsPat as  = TupP (map VarP as)
+
+-- | The /type/ form of a route's accumulated @ParentArgs@: the unit type when
+-- there are no dynamic pieces, the lone type when there is one, and a tuple
+-- type otherwise.
+parentArgsType :: [Type] -> Type
+parentArgsType []  = ConT ''()
+parentArgsType [t] = t
+parentArgsType ts  = foldl' AppT (TupleT (length ts)) ts
 
 -- | The number of type parameters a type constructor declares (0 for a type
 -- that isn't a data\/newtype\/type-synonym, or that we can't reify).
@@ -77,13 +107,6 @@ data RouteCon = RouteCon
 -- @since 1.7.0.0
 resolveRouteCon :: String -> Q RouteCon
 resolveRouteCon name = RouteCon name <$> lookupTypeName name
-
--- | The declared type-parameter arity of a 'RouteCon', or 0 when it isn't in
--- scope (an unresolved name has no knowable arity).
---
--- @since 1.7.0.0
-routeConArity :: RouteCon -> Q Int
-routeConArity = maybe (pure 0) typeArity . rcResolved
 
 -- | Does an instance of the given (nested-discovery) class — e.g.
 -- @''YesodDispatchNested@, @''RenderRouteNested@, @''ParseRouteNested@,
@@ -183,13 +206,6 @@ newtype SubsiteArity = SubsiteArity Int deriving (Eq, Show)
 -- @since 1.7.0.0
 newtype RouteArity = RouteArity Int deriving (Eq, Show)
 
--- | The arity proven equal on a successful 'checkNestedSubArity' — returned
--- rather than discarded as @()@, so the check parses rather than merely
--- validates.
---
--- @since 1.7.0.0
-newtype Arity = Arity Int deriving (Eq, Show)
-
 -- | A detected mismatch between a subsite's type-argument count and its nested
 -- route datatype's declared arity. Carrying the four facts (rather than a
 -- pre-rendered 'String') lets the caller decide how to surface it and lets
@@ -204,8 +220,8 @@ data ArityMismatch = ArityMismatch
     } deriving (Eq, Show)
 
 -- | Validate that a parameterized subsite's nested route datatype carries
--- exactly as many type parameters as the subsite has type arguments, returning
--- the proven 'Arity' on success or a structured 'ArityMismatch' otherwise.
+-- exactly as many type parameters as the subsite has type arguments: 'Nothing'
+-- when the arities match, or a structured 'ArityMismatch' otherwise.
 --
 -- Pure so it can be unit-tested directly.
 --
@@ -215,10 +231,27 @@ checkNestedSubArity
     -> RouteName
     -> SubsiteArity
     -> RouteArity
-    -> Either ArityMismatch Arity
+    -> Maybe ArityMismatch
 checkNestedSubArity subName routeName (SubsiteArity subArgs) (RouteArity nestedArity)
-    | subArgs == nestedArity = Right (Arity subArgs)
-    | otherwise = Left $ ArityMismatch subName routeName (SubsiteArity subArgs) (RouteArity nestedArity)
+    | subArgs == nestedArity = Nothing
+    | otherwise = Just $ ArityMismatch subName routeName (SubsiteArity subArgs) (RouteArity nestedArity)
+
+-- | Run 'checkNestedSubArity' for a (possibly unresolved) nested route
+-- datatype and 'fail' with 'arityMismatchMessage' on a mismatch. A no-op when
+-- the datatype is not in scope — an unresolved name has no knowable arity, so
+-- the error (if any) surfaces from the generated code instead. This is the
+-- single arity-guard shared by 'mkYesodSubDispatchInstance' and the nested
+-- dispatch-instance recursion.
+--
+-- @since 1.7.0.0
+assertNestedSubArity :: SubsiteName -> SubsiteArity -> RouteCon -> Q ()
+assertNestedSubArity subName subArity rc =
+    case rcResolved rc of
+        Nothing -> pure ()
+        Just tyname -> do
+            nestedArity <- typeArity tyname
+            maybe (pure ()) (fail . arityMismatchMessage) $
+                checkNestedSubArity subName (RouteName (rcName rc)) subArity (RouteArity nestedArity)
 
 -- | The actionable @fail@ message for an 'ArityMismatch'.
 --

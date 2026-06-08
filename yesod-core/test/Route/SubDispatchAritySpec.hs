@@ -5,7 +5,7 @@
 module Route.SubDispatchAritySpec (spec) where
 
 import Test.Hspec
-import Data.Either (isLeft)
+import Data.Maybe (isJust)
 import Yesod.Routes.TH.Internal
     ( checkNestedSubArity
     , arityMismatchMessage
@@ -13,14 +13,14 @@ import Yesod.Routes.TH.Internal
     , RouteName(..)
     , SubsiteArity(..)
     , RouteArity(..)
-    , Arity(..)
     )
 
 -- | The newtype wrappers are positional noise in the tests; this names the
--- call the way the production caller does.
-check :: String -> String -> Int -> Int -> Either String Arity
+-- call the way the production caller does. 'Nothing' means the arities match;
+-- 'Just' carries the rendered mismatch message.
+check :: String -> String -> Int -> Int -> Maybe String
 check sub route subArgs routeArity =
-    either (Left . arityMismatchMessage) Right $
+    fmap arityMismatchMessage $
         checkNestedSubArity
             (SubsiteName sub)
             (RouteName route)
@@ -30,22 +30,22 @@ check sub route subArgs routeArity =
 spec :: Spec
 spec = describe "checkNestedSubArity" $ do
     it "accepts a monomorphic subsite with an unparameterized nested datatype" $
-        check "MySub" "NestedR" 0 0 `shouldBe` Right (Arity 0)
+        check "MySub" "NestedR" 0 0 `shouldBe` Nothing
 
     it "accepts a parameterized subsite whose nested datatype carries the param" $
-        check "MySub" "NestedR" 1 1 `shouldBe` Right (Arity 1)
+        check "MySub" "NestedR" 1 1 `shouldBe` Nothing
 
     it "rejects when the nested datatype carries more params than the subsite" $
         -- Over-arity leaves the instance head partially applied (kind
         -- @Type -> ...@), so this must be rejected, not silently accepted.
-        check "MySub" "NestedR" 1 2 `shouldSatisfy` isLeft
+        check "MySub" "NestedR" 1 2 `shouldSatisfy` isJust
 
     it "rejects a parameterized subsite with an unparameterized nested datatype" $
-        check "MySub" "NestedR" 1 0 `shouldSatisfy` isLeft
+        check "MySub" "NestedR" 1 0 `shouldSatisfy` isJust
 
     it "names both types in the error message" $
         case check "MySub" "NestedR" 1 0 of
-            Right _ -> expectationFailure "expected a Left"
-            Left msg -> do
+            Nothing -> expectationFailure "expected a mismatch"
+            Just msg -> do
                 msg `shouldContain` "MySub"
                 msg `shouldContain` "NestedR"

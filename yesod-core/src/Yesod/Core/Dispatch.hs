@@ -25,6 +25,7 @@ module Yesod.Core.Dispatch
     , mkYesodDispatchOpts
     , mkYesodSubDispatch
     , mkYesodSubDispatchInstance
+    , mkYesodSubDispatchInstanceOpts
       -- *** Route generation options
     , RouteOpts
     , defaultOpts

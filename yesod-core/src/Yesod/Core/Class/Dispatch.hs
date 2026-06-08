@@ -71,6 +71,14 @@ class RenderRouteNested a => YesodDispatchNested a where
         -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
         -- that completes the 'Application' type when given a respond callback
 
+-- | The base case of the nested-dispatch recursion: a full @'Route' site@ is
+-- the whole route, not a fragment, so there is no sibling to fall through to.
+-- This instance therefore always returns @'Just'@ — committing to
+-- 'yesodDispatch', which itself terminates in a 404 on a miss — rather than the
+-- 'Nothing' that the class haddock describes for /fragment/ instances. The only
+-- intended caller is the terminal authority 'toWaiAppYreNested', where that 404
+-- is exactly the right answer; do not rely on this instance to signal
+-- fallthrough.
 instance YesodDispatch site => YesodDispatchNested (Route site) where
     yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
 

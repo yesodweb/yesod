@@ -4,7 +4,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | End-to-end test that a subsite's nested routes can be split across
