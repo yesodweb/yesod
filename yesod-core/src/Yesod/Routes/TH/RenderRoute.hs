@@ -62,7 +62,7 @@ data RouteOpts = MkRouteOpts
     -- ^ If this option is set, then we will only generate datatypes for
     -- the nested subroute that matches this string.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     , roParameterizedSubroute :: Bool
     , roNestedRouteFallthrough :: Bool
     -- ^ If 'True', then a nested route will fall through if it fails to
@@ -71,7 +71,7 @@ data RouteOpts = MkRouteOpts
     --
     -- Default: 'False'.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     }
 
 -- | Default options for generating routes.
@@ -147,13 +147,13 @@ defaultOpts = MkRouteOpts
 -- The call to 'mkYesod' will delegate to the generated code for @NestR@
 -- rather than regenerating it.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 setFocusOnNestedRoute :: Maybe String -> RouteOpts -> RouteOpts
 setFocusOnNestedRoute mstr rdo = rdo { roFocusOnNestedRoute = mstr }
 
 -- | When 'True', a nested route can fall through if it does not match.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
 setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
 
@@ -439,6 +439,17 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
         dataName = mkName name
         consDataType = applyTyArgs (ConT dataName) tyargs
 
+-- | The shared preamble for rendering a 'ResourceParent': fresh names for the
+-- parent's dynamic pieces and for the wrapped @child@ route, plus the
+-- constructor pattern @Name dyn… child@ binding them. Returns the dynamic
+-- names, the child name, and the pattern.
+parentConPat :: String -> [Piece a] -> Q ([Name], Name, Pat)
+parentConPat name pieces = do
+    let cnt = length [() | Dynamic{} <- pieces]
+    dyns <- replicateM cnt $ newName "dyn"
+    child <- newName "child"
+    pure (dyns, child, conPCompat (mkName name) $ map VarP $ dyns ++ [child])
+
 -- | Clauses for the 'renderRoute' method. This should be called from the
 -- instance derivation for 'RenderRoute'. Also returns a list of 'String'
 -- corresponding to types that don't yet have 'RenderRouteNested'
@@ -465,10 +476,7 @@ mkRenderRouteClauses opts origTyargs =
             InlineCompat -> goInline
       where
         goNested = do
-            let cnt = length $ filter isDynamic pieces
-            dyns <- replicateM cnt $ newName "dyn"
-            child <- newName "child"
-            let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
+            (dyns, child, pat) <- parentConPat name pieces
 
             hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
 
@@ -489,10 +497,7 @@ mkRenderRouteClauses opts origTyargs =
                 )
 
         goInline = do
-            let cnt = length $ filter isDynamic pieces
-            dyns <- replicateM cnt $ newName "dyn"
-            child <- newName "child"
-            let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
+            (dyns, child, pat) <- parentConPat name pieces
 
             pack' <- [|pack|]
             tsp <- [|toPathPiece|]
@@ -590,10 +595,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
     isDynamic _ = False
 
     go (ResourceParent name _check _attrs pieces _children) = do
-        let cnt = length $ filter isDynamic pieces
-        dyns <- replicateM cnt $ newName "dyn"
-        child <- newName "child"
-        let pat = conPCompat (mkName name) $ map VarP $ dyns ++ [child]
+        (dyns, child, pat) <- parentConPat name pieces
 
         hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
 
@@ -992,8 +994,8 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
                 -- Generate the RenderRouteNested instance for the child
                 (parentDynT', childClauses') <- renderRouteNestedBody (prePieces <> pieces) children
 
-                parentSiteT' <- [t| ParentSite _ |]
-                parentDynSig' <- [t| ParentArgs _ |]
+                let parentSiteT' = ConT ''ParentSite `AppT` childDataType
+                    parentDynSig' = ConT ''ParentArgs `AppT` childDataType
                 let childInstances =
                         InstanceD
                             Nothing

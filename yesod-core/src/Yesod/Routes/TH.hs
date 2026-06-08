@@ -4,6 +4,8 @@ module Yesod.Routes.TH
     , -- ** RenderRoute
       mkRenderRouteInstanceOpts
     , mkRouteConsOpts
+    , mkRenderRouteClauses
+    , mkRenderRouteNestedClauses
     , shouldCreateResources
 
     , RouteOpts
@@ -17,6 +19,9 @@ module Yesod.Routes.TH
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , nullifyWhenNoParam
+    , DiscoveryMode(..)
+    , discoveryMode
     , module Yesod.Routes.TH.ParseRoute
     , module Yesod.Routes.TH.RouteAttrs
       -- ** Dispatch

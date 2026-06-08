@@ -33,7 +33,6 @@ module Yesod.Core.Dispatch
     , setReadDerived
     , setCreateResources
     , setFocusOnNestedRoute
-    , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
       -- *** Helpers
@@ -48,9 +47,9 @@ module Yesod.Core.Dispatch
     , toWaiAppPlain
     , UrlToDispatch(..)
     , mkYesodRunnerEnv
-    , toWaiAppPlain' -- TODO: rename me
+    , toWaiAppPlainNested
     , toWaiAppYre
-    , toWaiAppYre' -- TODO: rename me
+    , toWaiAppYreNested
     , warp
     , warpDebug
     , warpEnv
@@ -140,7 +139,9 @@ mkYesodRunnerEnv site = do
 -- to a subset of the 'site' routes. This is really only useful for writing
 -- tests, but it does allow you to write tests that only depend on a subset
 -- of the handlers instead of all handlers.
-toWaiAppPlain'
+--
+-- @since 1.7.0.0
+toWaiAppPlainNested
     :: ( site ~ ParentSite route
         , Yesod site
         , YesodDispatchNested route
@@ -150,9 +151,9 @@ toWaiAppPlain'
     -> ParentArgs route
     -> site
     -> IO W.Application
-toWaiAppPlain' proxy parentArgs site = do
+toWaiAppPlainNested proxy parentArgs site = do
     yre <- mkYesodRunnerEnv site
-    return $ toWaiAppYre' proxy parentArgs yre
+    return $ toWaiAppYreNested proxy parentArgs yre
 
 -- | Generate a random number uniformly distributed in the full range
 -- of 'Int'.
@@ -176,7 +177,7 @@ defaultGen = bsToInt <$> getEntropy bytes
 --
 -- @since 1.4.29
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
-toWaiAppYre = toWaiAppYre' (Proxy :: Proxy (Route site)) ()
+toWaiAppYre = toWaiAppYreNested (Proxy :: Proxy (Route site)) ()
 
 -- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
 -- set may change with future releases, but currently covers:

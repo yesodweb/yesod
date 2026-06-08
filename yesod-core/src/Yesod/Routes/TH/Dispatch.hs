@@ -62,13 +62,13 @@ data MkDispatchSettings b site c = MkDispatchSettings
     , mdsHandleNestedRoute :: NestedRouteSettings
     -- ^ These settings describe how to handle nested routes.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     , mdsNestedRouteFallthrough :: !Bool
     -- ^ When 'True', fall through if no route matches (except in the final
     -- case). When 'False', return 404 if the current route clause fails to
     -- match.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     , mdsNestedDispatchClass :: Name
     -- ^ The class to check for nested dispatch delegation.
     -- @''YesodDispatchNested@ for top-level dispatch,
@@ -108,7 +108,7 @@ determinePhase mds =
 -- This construction allows us to delegate nested routes to their own
 -- modules for parsing, attributes, and dispatch.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 data NestedRouteSettings = NestedRouteSettings
     { nrsTargetName :: Maybe String
     -- ^ The name of the target that we are currently generating code for.
@@ -667,7 +667,7 @@ mkUrlToDispatchRedirectInstances
     -> Q [Dec]
 mkUrlToDispatchRedirectInstances cxt target targetT master = do
     urlToDispatchT <- [t| UrlToDispatch $(pure targetT) $(pure master) |]
-    urlToDispatchFn <- [e| toWaiAppYre' (Proxy :: Proxy $(pure targetT)) () |]
+    urlToDispatchFn <- [e| toWaiAppYreNested (Proxy :: Proxy $(pure targetT)) () |]
     mYesodConstraint <- do
         hasYesodInstance <- isInstance ''Yesod [master]
         if hasYesodInstance
@@ -766,19 +766,34 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
     genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dynVars) <- handlePiecesNames newName pieces
         let routeCon = applyConPieces name (map VarE dynVars)
-            routeExp = toParentE `AppE` routeCon
             allDynVars = parentDynVars ++ dynVars
 
         case dispatch of
             Methods mmulti methods -> do
-                handlerExp <- genHandlerCase name methods mmulti allDynVars
+                -- Mirror the inline path (see 'handleDispatch' in
+                -- 'mkDispatchClause'): a trailing multipiece binds a fresh
+                -- @multi@ via 'EndMulti', and that value must be appended both
+                -- to the route constructor's arguments and to the handler's
+                -- arguments. Hardcoding 'EndExact' here would 404 any non-empty
+                -- tail and build the constructor one argument short.
+                (finalPat, mMultiE) <- case mmulti of
+                    Nothing -> pure (EndExact, Nothing)
+                    Just _ -> do
+                        multiName <- newName "multi"
+                        pure (EndMulti multiName, Just (VarE multiName))
+                let dynExpsMulti = case mMultiE of
+                        Nothing -> map VarE dynVars
+                        Just e  -> map VarE dynVars ++ [e]
+                    routeExp = toParentE `AppE` applyConPieces name dynExpsMulti
+                    allDynExps = map VarE parentDynVars ++ dynExpsMulti
+                handlerExp <- genHandlerCase name methods allDynExps
                 let body = ConE 'Just `AppE`
                         (VarE (ndcRunnerFn config)
                             `AppE` handlerExp
                             `AppE` yreE
                             `AppE` (ConE 'Just `AppE` routeExp)
                             `AppE` reqE)
-                return [Match (mkPathPat EndExact pats) (NormalB body) []]
+                return [Match (mkPathPat finalPat pats) (NormalB body) []]
 
             Subsite _ getSub -> do
                 restPath <- newName "restPath"
@@ -866,8 +881,8 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                         ConE 'Just `AppE` (VarE 'fromMaybe `AppE` notFoundExp `AppE` nestedCall)
                 return [Match (mkPathPat EndWild pats) (NormalB committedBody) []]
 
-    genHandlerCase :: String -> [String] -> Maybe Type -> [Name] -> Q Exp
-    genHandlerCase name methods _mmulti allDynVars = do
+    genHandlerCase :: String -> [String] -> [Exp] -> Q Exp
+    genHandlerCase name methods allDynExps = do
         let getHandlerName mmethod =
                 let prefix = case mmethod of
                         Nothing -> "handle"
@@ -878,7 +893,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
             then do
                 -- No specific methods, just call handler
                 let handlerName = getHandlerName Nothing
-                handlerE <- unwrapper $ foldl' AppE (VarE handlerName) (map VarE allDynVars)
+                handlerE <- unwrapper $ foldl' AppE (VarE handlerName) allDynExps
                 let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
                 return wrappedHandler
             else do
@@ -886,7 +901,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynsP toParentE yre
                 -- Wrap each handler with fmap toTypedContent so all branches have the same type
                 methodMatches <- forM methods $ \method -> do
                     let handlerName = getHandlerName (Just method)
-                    handlerE <- unwrapper $ foldl' AppE (VarE handlerName) (map VarE allDynVars)
+                    handlerE <- unwrapper $ foldl' AppE (VarE handlerName) allDynExps
                     let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
                     return $ Match (LitP $ StringL method) (NormalB wrappedHandler) []
 

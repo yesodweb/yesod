@@ -227,6 +227,7 @@ test-suite tests
                    YesodCoreTest.Meta
                    YesodCoreTest.NestedDispatch
                    YesodCoreTest.NestedDispatch.NestR
+                   YesodCoreTest.NestedDispatch.InnerR
                    YesodCoreTest.NestedDispatch.ParentR
                    YesodCoreTest.NestedDispatch.Parent0R
                    YesodCoreTest.NestedDispatch.Parent0R.Child0R

@@ -45,18 +45,18 @@ instance (Eq (ParentArgs a), RenderRouteNested a) => RenderRouteNested (WithPare
 -- | This class acts as a delegation class for 'RenderRoute' on nested
 -- route fragments.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 class Eq a => RenderRouteNested a where
     -- | The site type for a given route fragment.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     type ParentSite a :: Type
 
     -- | The 'ParentArgs' are the route fragments necessary to call the
     -- dispatched route that are not part of the route fragments used in
     -- parsing the route.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     type ParentArgs a :: Type
     type ParentArgs a = ()
 
@@ -64,7 +64,7 @@ class Eq a => RenderRouteNested a where
     -- need to `mappend` this with the result from the parent `renderRoute`
     -- or `renderRouteNested` call.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     renderRouteNested :: ParentArgs a -> a -> ([Text], [(Text, Text)])
 
 instance (RenderRoute site) => RenderRouteNested (Route site) where
@@ -80,11 +80,11 @@ class RenderRoute a => ParseRoute a where
 -- | Like 'RenderRouteNested', this acts as a delegation class for nested
 -- route fragments.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 class RenderRouteNested a => ParseRouteNested a where
     -- |
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     parseRouteNested
         :: ([Text], [(Text, Text)])
         -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
@@ -101,9 +101,9 @@ class RenderRoute a => RouteAttrs a where
 -- | Like 'RenderRouteNested', this acts as a delegation class for nested
 -- route fragments to provide 'RouteAttrs'.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 class RenderRouteNested a => RouteAttrsNested a where
     -- | Retrieve the 'RouteAttrs' for a given route fragment.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     routeAttrsNested :: a -> Set Text

@@ -41,7 +41,7 @@ class Yesod site => YesodDispatch site where
 --
 -- For details on use, see 'setFocusOnNestedRoute'.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 class RenderRouteNested a => YesodDispatchNested a where
     -- | Dispatches a request to a nested route fragment.
     --
@@ -54,7 +54,7 @@ class RenderRouteNested a => YesodDispatchNested a where
     -- is statically known during Template Haskell generation and baked into
     -- the generated instance.
     --
-    -- @since 1.6.28.0
+    -- @since 1.7.0.0
     yesodDispatchNested
         :: (Yesod (ParentSite a))
         => Proxy a
@@ -99,7 +99,7 @@ instance
   =>
     UrlToDispatch (WithParentArgs route) site
   where
-    urlToDispatch (WithParentArgs args _) = toWaiAppYre' (Proxy :: Proxy route) args
+    urlToDispatch (WithParentArgs args _) = toWaiAppYreNested (Proxy :: Proxy route) args
 
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application
@@ -168,13 +168,19 @@ subHelper (SubHandlerFor f) YesodSubRunnerEnv {..} mroute =
             }
        in f hd { handlerEnv = rhe' }
 
-toWaiAppYre'
+-- | Build a WAI 'W.Application' that dispatches starting at a nested route
+-- fragment @a@ (rather than the whole @'Route' site@), given a
+-- 'YesodRunnerEnv' for the parent site and the parent route's 'ParentArgs'.
+-- Handles @cleanPath@ redirects and a terminal 404 just like 'toWaiAppYre'.
+--
+-- @since 1.7.0.0
+toWaiAppYreNested
     :: (Yesod (ParentSite a), YesodDispatchNested a, ToParentRoute a)
     => Proxy a
     -> ParentArgs a
     -> YesodRunnerEnv (ParentSite a)
     -> W.Application
-toWaiAppYre' proxy parentArgs yre req =
+toWaiAppYreNested proxy parentArgs yre req =
     case cleanPath site $ W.pathInfo req of
         Left pieces -> sendRedirect site pieces req
         Right pieces -> do

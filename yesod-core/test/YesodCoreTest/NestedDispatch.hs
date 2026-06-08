@@ -33,6 +33,7 @@ import qualified Control.Monad.Trans.Writer    as Writer
 import qualified Data.Set as Set
 import YesodCoreTest.NestedDispatch.Resources
 import YesodCoreTest.NestedDispatch.NestR (NestR(..))
+import YesodCoreTest.NestedDispatch.InnerR (InnerR(..))
 import YesodCoreTest.NestedDispatch.ParentR (ParentR(..))
 import YesodCoreTest.NestedDispatch.Parent0R (Parent0R(..), Child0R(..))
 import YesodCoreTest.NestedDispatch.Parent0R.Child0R
@@ -193,6 +194,32 @@ specs = do
                             Nothing
 
             describe "Parent0R" $ do
+                describe "FilesR (multi-piece *Texts leaf under a split parent)" $ do
+                    it "dispatches a non-empty tail, forwarding parent #Int and the multipiece" $ do
+                        testRequestIO
+                            200
+                            defaultRequest
+                                { pathInfo = ["parent0", tshow @Int 7, "files", "a", "b"]
+                                , requestMethod = "GET"
+                                }
+                            (Just "7:[\"a\",\"b\"]")
+                    it "dispatches an empty tail as the empty multipiece" $ do
+                        testRequestIO
+                            200
+                            defaultRequest
+                                { pathInfo = ["parent0", tshow @Int 7, "files"]
+                                , requestMethod = "GET"
+                                }
+                            (Just "7:[]")
+                    it "405s on a non-GET method" $ do
+                        testRequestIO
+                            405
+                            defaultRequest
+                                { pathInfo = ["parent0", tshow @Int 7, "files", "a", "b"]
+                                , requestMethod = "POST"
+                                }
+                            Nothing
+
                 describe "Parent0IndexR" $ do
                     it "GET works" $ do
                         testRequestIO
@@ -272,6 +299,16 @@ specs = do
                                     }
                                 Nothing
 
+    describe "trailing-slash redirect (cleanPath) for a nested route" $ do
+        it "301s a trailing slash on a GET to a split nested route" $ do
+            testRequestIO
+                301
+                defaultRequest
+                    { pathInfo = ["parent", tshow @Int 1, tshow @Int 3, "child2", ""]
+                    , requestMethod = "GET"
+                    }
+                Nothing
+
     describe "UrlToDispatch NestIndexR" $ do
         it "works" $ do
             yre <- mkYesodRunnerEnv App
@@ -303,6 +340,20 @@ specs = do
         it "HomeR" $ routeAttrs HomeR `shouldBe` Set.singleton "home"
         it "JsonR" $ routeAttrs JsonR `shouldBe` Set.empty
         it "ChildR" $ routeAttrs (ParentR 5 $ Child1R "ignored") `shouldBe` Set.singleton "child"
+        -- Bug-2 regression: InnerR is split (RouteAttrsNested InnerR), OuterR is
+        -- inlined. The generated clause must carry the OuterR ancestor pattern.
+        it "InnerIndexR (split parent under an inlined parent)" $
+            routeAttrs (OuterR (InnerR InnerIndexR)) `shouldBe` Set.singleton "innerleaf"
+
+    describe "OuterR (inlined parent delegating to a split InnerR)" $ do
+        it "dispatches /outer/inner" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = ["outer", "inner"]
+                    , requestMethod = "GET"
+                    }
+                (Just "getInnerIndexR")
 
     describe "fallthrough" $ do
         it "is 404 because fallthrough is disabled" $ do

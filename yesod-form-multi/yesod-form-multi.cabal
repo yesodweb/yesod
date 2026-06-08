@@ -25,7 +25,7 @@ library
                    , shakespeare           >= 2.0
                    , text                  >= 0.9
                    , transformers          >= 0.2.2
-                   , yesod-core            >= 1.6      && < 1.7
+                   , yesod-core            >= 1.6      && < 1.8
                    , yesod-form            >= 1.6      && < 1.8
 
     if flag(network-uri)

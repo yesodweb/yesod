@@ -45,7 +45,6 @@ module Yesod.Core.Internal.TH
     , setReadDerived
     , setCreateResources
     , setFocusOnNestedRoute
-    , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
     )
@@ -200,19 +199,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 [] -> fail $ "mkYesod: empty type-class context in route definition: " ++ show ctxs
           ) appCxt'
     mname <- lookupTypeName namestr
-    arity <- case mname of
-               Just name -> do
-                 info <- reify name
-                 return $
-                   case info of
-                     TyConI dec ->
-                       case dec of
-                         DataD _ _ vs _ _ _ -> length vs
-                         NewtypeD _ _ vs _ _ _ -> length vs
-                         TySynD _ vs _ -> length vs
-                         _ -> 0
-                     _ -> 0
-               _ -> return 0
+    arity <- maybe (pure 0) typeArity mname
     let name = mkName namestr
     -- Generate as many variable names as the arity indicates
     vns <- replicateM (arity - length mtys) $ newName "t"

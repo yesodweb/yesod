@@ -21,7 +21,7 @@ library
                    , time                      >= 1.1.4
                    , xml-conduit               >= 1.0
                    , xml-types
-                   , yesod-core                >= 1.6      && < 1.7
+                   , yesod-core                >= 1.6      && < 1.8
     exposed-modules: Yesod.Sitemap
     ghc-options:     -Wall
 

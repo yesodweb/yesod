@@ -27,7 +27,7 @@ mkRouteAttrsInstance cxt typ ress = do
 -- subroute to generate nested instances instead of generating the full
 -- instance for all routes.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 mkRouteAttrsInstanceFor :: Cxt -> Type -> String -> [ResourceTree a] -> Q [Dec]
 mkRouteAttrsInstanceFor cxt typ target ress = do
     clauses <- mapM (goTree (Just target) id) ress
@@ -52,7 +52,7 @@ goTree mtarget front (ResourceParent name _check _attrs pieces trees) = do
     if doesNestedInstanceExist
         then do
             x <- newName "x"
-            pure [Clause [conPCompat (mkName name) (ignored (VarP x))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
+            pure [Clause [front (conPCompat (mkName name) (ignored (VarP x)))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
         else do
             let mtarget' = do
                     target <- mtarget

@@ -21,7 +21,7 @@ library
                    , text                    >= 0.7
                    , unliftio
                    , yesod-auth              >= 1.6       && < 1.7
-                   , yesod-core              >= 1.6       && < 1.7
+                   , yesod-core              >= 1.6       && < 1.8
                    , yesod-form              >= 1.6       && < 1.8
     exposed-modules: Yesod.Auth.OAuth
     ghc-options:     -Wall

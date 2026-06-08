@@ -28,7 +28,7 @@ mkParseRouteInstance =
 -- | Generate a ParseRouteNested instance for a specific nested route target.
 -- This is a convenience wrapper around mkParseRouteInstanceOpts with setFocusOnNestedRoute.
 --
--- @since 1.6.28.0
+-- @since 1.7.0.0
 mkParseRouteInstanceFor :: String -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceFor target ress = do
     let opts = setFocusOnNestedRoute (Just target) defaultOpts

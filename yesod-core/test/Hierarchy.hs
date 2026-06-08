@@ -76,7 +76,7 @@ subDispatch handler _runHandler getSub toMaster env req =
         }
 
 do
-    mconcat
+    fmap concat $ sequence
         [ mkRenderRouteInstanceOpts defaultOpts [] NoTyArgs (ConT ''Hierarchy) hierarchyResourcesWithType
         , pure <$> mkRouteAttrsInstance [] (ConT ''Hierarchy) hierarchyResourcesWithType
         , mkParseRouteInstance NoTyArgs [] (ConT ''Hierarchy) hierarchyResourcesWithType
