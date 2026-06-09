@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0.3
+
+* Support `yesod-core` 1.7
+
 ## 1.7.0.2
 
 * Allow yesod-form 1.7

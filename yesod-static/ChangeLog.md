@@ -1,5 +1,9 @@
 # ChangeLog for yesod-static
 
+## 1.6.1.3
+
+* Support `yesod-core` 1.7
+
 ## 1.6.1.2
 
 * Allow JavaScript MIME type used by `mime-types >= 0.1.2.1` in test suite [#1898](https://github.com/yesodweb/yesod/pull/1898)

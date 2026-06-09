@@ -1,5 +1,9 @@
 # ChangeLog for yesod-form
 
+## 1.7.9.3
+
+* Support `yesod-core` 1.7
+
 ## 1.7.9.2
 
 * Improve deprecation messages for `radioField` and `checkboxesField` [#1902](https://github.com/yesodweb/yesod/pull/1902)
