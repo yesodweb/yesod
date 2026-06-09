@@ -38,7 +38,7 @@ $(do
             ]
     (cons, _decs) <-
         mkRouteConsOpts
-            (setFocusOnNestedRoute (Just "FocusNestR") defaultOpts)
+            (setFocusOnNestedRoute "FocusNestR" defaultOpts)
             []
             NoTyArgs
             (ConT ''App)

@@ -9,6 +9,13 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- | The single-module fallthrough contract demo for a top-level site, built
+-- with @setNestedRouteFallthrough True@. Two same-prefix parents share @\/foo@:
+-- @FirstFooR@ (with an index + @\/neat@) and @SecondFooR@ (@\/other@). With
+-- fallthrough on, a request that misses inside @FirstFooR@ continues to the
+-- sibling @SecondFooR@ instead of committing to @FirstFooR@'s 404 — the WAI
+-- specs here pin exactly which parent serves each path. Route table in
+-- ".FallthroughDispatch.Resources".
 module YesodCoreTest.FallthroughDispatch where
 
 import YesodCoreTest.FallthroughDispatch.Resources

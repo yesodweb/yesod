@@ -2,32 +2,14 @@
 
 ## 1.7.0.0
 
-### Highlights
-
-* Routes can now be defined across multiple modules. Use `setFocusOnNestedRoute` to generate a nested route block's datatype and dispatch in its own module, so a large site no longer needs one giant TH splice. [#1887](https://github.com/yesodweb/yesod/pull/1887)
-* Subsites can split their nested routes across modules too: `mkYesodSubDispatchInstance` generates the delegating subsite instances and `mkNestedSubDispatchInstance` generates the split-out fragment. Everything the recipe needs (`mkNestedSubDispatchInstance`, `TyArgs`, `parseType`, `dropBracket`) is importable from `Yesod.Core.Dispatch`.
-* Parameterized foundations (`data App a`) are supported throughout route generation. Type arguments travel in the new `TyArgs` type (`Yesod.Routes.TH.Types`); the `DiscoveryMode` classifier in `Yesod.Routes.TH` reports which codegen path a site gets. Parameterized sites keep their 1.6 codegen unless they opt in via `setParameterizedSubroute` or `setFocusOnNestedRoute`.
-* Choose between 404-and-stop and fallthrough for nested routes with `setNestedRouteFallthrough`: when enabled, a parent whose subtree has no match falls through to later sibling routes instead of committing to a 404. Works for top-level sites and subsites, and each module containing a parent route decides for its own parents.
-* Nested route fragments work directly in `redirect` and `setUrl`: wrap a fragment constructor in `WithParentArgs` together with its parent's dynamic arguments, or — when the parent binds no dynamics — use the constructor bare via generated `UrlToDispatch`/`RedirectUrl` convenience instances. (The generated `RedirectUrl` instance is `OVERLAPPABLE`, which lets a *more specific* hand-written instance win; a hand-written instance with the identical head is still a duplicate-instance error.)
-
-### Improvements
-
-* Parent routes carry their own attributes: `ResourceParent` records them and `frParentDetails` replaces `frParentPieces`. Children inherit parent attributes as before. [#1911](https://github.com/yesodweb/yesod/pull/1911)
-* Better Template Haskell errors: malformed `parseRoutes` blocks fail with splice-attributed diagnostics instead of a bare `error`; a subsite/nested-datatype arity mismatch is reported with an actionable message at generation time; and a `setFocusOnNestedRoute` target that doesn't exist fails with `Target '...' was not found in resources.` instead of generating broken instances.
-* `Yesod.Core` re-exports the nested-route vocabulary: `ToParentRoute`, `RenderRouteNested` (with `ParentSite`/`ParentArgs`/`renderRouteNested`), `ParseRouteNested`, `RouteAttrsNested`, and `WithParentArgs`. The `toParentRoute` method is deliberately *not* re-exported (it would clobber common local bindings) — import it from the newly exposed `Yesod.Core.Class.Dispatch.ToParentRoute`.
-* `findOverlapNames` accepts `[ResourceTree t]` instead of `[ResourceTree String]`.
-
-### Breaking changes
-
-* Modules that splice a nested route block now need `MultiParamTypeClasses`, and usually `FlexibleContexts`, for the generated fragment instances. GHC's error names the missing extension; adding the two pragmas is the whole migration.
-* The new `Yesod.Core` re-exports can collide with local definitions (e.g. a top-level `renderRouteNested` or a type named `ParentArgs`); resolve `Ambiguous occurrence` errors with explicit import lists.
-* TH power-user API reshuffle: route-generation entry points take `TyArgs`; `mkDispatchClause` returns `Q ([String], Clause)` and drops its always-empty leading arguments; `mkParseRouteInstance` returns `Q [Dec]`; `mkRouteConsOpts` runs in `Q`; `mkDispatchInstance` moved to `Yesod.Routes.TH.Dispatch` and takes a leading `RouteOpts`; `mkYesodSubDispatchWith` is the new `RouteOpts`-taking `mkYesodSubDispatch`; `mkRenderRouteClauses`, the `MkRouteOpts` constructor, and `Yesod.Core.Internal.TH.instanceD` are no longer exported.
-* New dependency: `th-lift-instances` (in Stackage).
-* Companion packages published against `yesod-core < 1.7` must be re-released with bumped bounds alongside this version.
-
-### Notes
-
-* A nested parent route with no leading static path piece matches unconditionally, so siblings declared after it are unreachable under the default fallthrough-off behavior (unchanged from 1.6, now documented). Give the parent a static segment or enable `setNestedRouteFallthrough`.
+* Split route compilation ([#1887](https://github.com/yesodweb/yesod/pull/1887), [guide](https://github.com/yesodweb/yesod/blob/master/yesod-core/docs/split-route-compilation.md)):
+    * Use `setFocusOnNestedRoute` to generate a nested route block's types and dispatch in their own module — for top-level sites, subsites, and parameterized foundations (`data App a`).
+    * `setNestedRouteFallthrough` lets a nested parent with no matching child fall through to later sibling routes instead of committing to a 404.
+    * Nested route fragments work in `redirect`/`setUrl`: wrap them in `WithParentArgs`, or use the bare constructor when the parent binds no dynamic pieces.
+    * Clearer TH errors for malformed route blocks, subsite/nested-datatype arity mismatches, and missing focus targets.
+    * Breaking: modules that splice a nested route block need `MultiParamTypeClasses` (and usually `FlexibleContexts`).
+    * Breaking: TH codegen entry points changed (`TyArgs` threading; `mkDispatchClause`, `mkParseRouteInstance`, `mkRouteConsOpts`, `mkDispatchInstance`); `mkRenderRouteClauses` and the `MkRouteOpts` constructor are no longer exported.
+* `ResourceParent` records the parent's own route attributes; `frParentDetails` replaces `frParentPieces`. [#1911](https://github.com/yesodweb/yesod/pull/1911)
 
 ## 1.6.29.1
 

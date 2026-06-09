@@ -12,6 +12,7 @@ module Yesod.Routes.TH
     , setShowDerived
     , setReadDerived
     , setFocusOnNestedRoute
+    , unsetFocusOnNestedRoute
     , roFocusOnNestedRoute
     , roNestedRouteFallthrough
     , setCreateResources
@@ -30,10 +31,7 @@ module Yesod.Routes.TH
     , mkDispatchInstance
     , mkNestedDispatchInstance
     , mkNestedSubDispatchInstance
-    , NestedDispatchConfig (..)
-    , SubsiteEnvMode (..)
-    , topLevelNestedConfig
-    , subsiteNestedConfig
+    , NestedTarget (..)
     , mkMDS
     , mkYesodSubDispatch
     , mkYesodSubDispatchWith

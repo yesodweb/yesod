@@ -46,6 +46,7 @@ module Yesod.Core.Internal.TH
     , setReadDerived
     , setCreateResources
     , setFocusOnNestedRoute
+    , unsetFocusOnNestedRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
     )

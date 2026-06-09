@@ -13,10 +13,7 @@ module Yesod.Routes.TH.Dispatch
     , mkDispatchInstance
     , mkNestedDispatchInstance
     , mkNestedSubDispatchInstance
-    , NestedDispatchConfig (..)
-    , SubsiteEnvMode (..)
-    , topLevelNestedConfig
-    , subsiteNestedConfig
+    , NestedTarget (..)
     , mkMDS
     , mkYesodSubDispatch
     , mkYesodSubDispatchWith
@@ -66,16 +63,12 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- match.
     --
     -- @since 1.7.0.0
-    , mdsNestedDispatchClass :: Name
-    -- ^ The class to check for nested dispatch delegation.
-    -- @''YesodDispatchNested@ for top-level dispatch,
-    -- @''YesodSubDispatchNested@ for subsite dispatch.
-    --
-    -- @since 1.7.0.0
-    , mdsNestedDispatchFn :: Name
-    -- ^ The function to call for nested dispatch delegation.
-    -- @'yesodDispatchNested@ for top-level dispatch,
-    -- @'yesodSubDispatchNested@ for subsite dispatch.
+    , mdsNestedTarget :: NestedTarget
+    -- ^ Whether this dispatch is for a top-level site or a subsite. Selects the
+    -- nested-dispatch class to probe ('nestedTargetClass') and the
+    -- nested-dispatch function to delegate to ('nestedTargetFn'):
+    -- 'TopLevelNested' uses @YesodDispatchNested@\/@yesodDispatchNested@,
+    -- 'SubsiteNested' uses @YesodSubDispatchNested@\/@yesodSubDispatchNested@.
     --
     -- @since 1.7.0.0
     , mdsNestedDelegateInline :: !Bool
@@ -123,55 +116,48 @@ data Env = Env
 -- 'local') rather than as arguments; 'liftQ' lifts the concrete-'Q' primitives.
 type DispatchM = ReaderT Env Q
 
--- | Configuration for generating nested dispatch clauses.
--- Parameterizes the runner function, dispatch function/class, and
--- how subsite environments are constructed.
+-- | Whether nested-route dispatch is being generated for a top-level site or
+-- for a subsite. This is the single bit that selects the whole top-vs-subsite
+-- plumbing: the dispatch class to probe and the function to delegate to (used
+-- by 'MkDispatchSettings' via 'mdsNestedTarget'), and the runner function,
+-- dispatch function\/class, and subsite-environment construction used when
+-- generating nested-dispatch instances. All of those follow from this enum via
+-- the @nestedTarget*@ derivation functions below.
 --
 -- @since 1.7.0.0
-data NestedDispatchConfig = NestedDispatchConfig
-    { ndcRunnerFn      :: Name
-    -- ^ Runner function: @'yesodRunner@ for top-level, @'subHelper@ for subsites
-    , ndcDispatchFn    :: Name
-    -- ^ Nested dispatch function: @'yesodDispatchNested@ or @'yesodSubDispatchNested@
-    , ndcDispatchClass :: Name
-    -- ^ Nested dispatch class: @''YesodDispatchNested@ or @''YesodSubDispatchNested@
-    , ndcSubsiteEnv    :: SubsiteEnvMode
-    -- ^ How to construct 'YesodSubRunnerEnv' for child subsites
-    }
+data NestedTarget
+    = TopLevelNested
+    -- ^ A top-level site: @YesodDispatchNested@\/@yesodDispatchNested@, run via
+    -- @yesodRunner@, constructing 'YesodSubRunnerEnv' directly.
+    | SubsiteNested
+    -- ^ A subsite: @YesodSubDispatchNested@\/@yesodSubDispatchNested@, run via
+    -- @subHelper@, composing through the outer 'YesodSubRunnerEnv' (like
+    -- 'subTopDispatch').
+    deriving (Eq, Show)
 
--- | How to construct 'YesodSubRunnerEnv' when dispatching to a child subsite
--- within a nested route.
---
--- @since 1.7.0.0
-data SubsiteEnvMode
-    = DirectEnv
-    -- ^ Top-level: construct 'YesodSubRunnerEnv' with @yesodRunner@ as parent
-    -- runner and the 'YesodRunnerEnv' directly as parent env.
-    | ComposedEnv
-    -- ^ Subsite: compose through the outer 'YesodSubRunnerEnv', threading
-    -- the master site's runner and env through (like 'subTopDispatch').
+-- | The nested-dispatch class to probe\/emit for a target:
+-- @''YesodDispatchNested@ for top-level, @''YesodSubDispatchNested@ for subsites.
+nestedTargetClass :: NestedTarget -> Name
+nestedTargetClass TopLevelNested = ''YesodDispatchNested
+nestedTargetClass SubsiteNested  = ''YesodSubDispatchNested
 
--- | Configuration for generating 'YesodDispatchNested' instances.
---
--- @since 1.7.0.0
-topLevelNestedConfig :: NestedDispatchConfig
-topLevelNestedConfig = NestedDispatchConfig
-    { ndcRunnerFn      = 'yesodRunner
-    , ndcDispatchFn    = 'yesodDispatchNested
-    , ndcDispatchClass = ''YesodDispatchNested
-    , ndcSubsiteEnv    = DirectEnv
-    }
+-- | The nested-dispatch function to delegate to\/emit for a target:
+-- @'yesodDispatchNested@ for top-level, @'yesodSubDispatchNested@ for subsites.
+nestedTargetFn :: NestedTarget -> Name
+nestedTargetFn TopLevelNested = 'yesodDispatchNested
+nestedTargetFn SubsiteNested  = 'yesodSubDispatchNested
 
--- | Configuration for generating 'YesodSubDispatchNested' instances.
---
--- @since 1.7.0.0
-subsiteNestedConfig :: NestedDispatchConfig
-subsiteNestedConfig = NestedDispatchConfig
-    { ndcRunnerFn      = 'subHelper
-    , ndcDispatchFn    = 'yesodSubDispatchNested
-    , ndcDispatchClass = ''YesodSubDispatchNested
-    , ndcSubsiteEnv    = ComposedEnv
-    }
+-- | The runner function used inside generated nested-dispatch clauses:
+-- @'yesodRunner@ for top-level, @'subHelper@ for subsites.
+nestedTargetRunner :: NestedTarget -> Name
+nestedTargetRunner TopLevelNested = 'yesodRunner
+nestedTargetRunner SubsiteNested  = 'subHelper
+
+-- | The 'ArityCallSite' for arity-mismatch error messages: a top-level site is
+-- reached through @mkYesod@, a subsite through @mkYesodSubDispatchInstance@.
+nestedTargetCallSite :: NestedTarget -> ArityCallSite
+nestedTargetCallSite TopLevelNested = TopLevelCall
+nestedTargetCallSite SubsiteNested  = SubsiteCall
 
 -- | A simpler version of Yesod.Routes.TH.Dispatch.mkDispatchClause, based on
 -- view patterns.
@@ -269,7 +255,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
         -- and saturates by the child's own reified arity, so it never aborts
         -- the splice (see its haddock).
         instanceExists <-
-            liftQ (nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name)
+            liftQ (nestedInstanceExists (nestedTargetClass mdsNestedTarget) =<< resolveRouteCon name)
 
         -- Delegate to the nested-dispatch instance either when one already
         -- exists (cross-module split) or when the caller will generate it in
@@ -281,9 +267,9 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
         -- instance actually gets generated.
         let delegate = instanceExists || mdsNestedDelegateInline
 
-        (pats, dyns) <- handlePiecesM pieces
-        restName <- freshName "_rest"
-        helperName <- freshName ("helper" ++ name)
+        (pats, dyns) <- liftQ $ handlePiecesM pieces
+        restName <- liftQ $ newName "_rest"
+        helperName <- liftQ $ newName ("helper" ++ name)
         let helperCall = VarE helperName `AppE` VarE restName
             constr = applyConPieces name dyns
 
@@ -316,7 +302,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
             )
 
     go (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
-        (pats, dyns) <- handlePiecesM pieces
+        (pats, dyns) <- liftQ $ handlePiecesM pieces
         (chooseMethod, finalPat) <- handleDispatch name dispatch dyns
         clauseBody <- NormalB <$> wrapResult chooseMethod
         pure ([], [Clause [mkPathPat finalPat pats] clauseBody []])
@@ -329,7 +315,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
     delegateToNestedInstance name dyns = do
         sdc <- asks envSdc
         let thisRouteParentArgs = extraParams sdc ++ dyns
-        liftQ (nestedDispatchCall mdsNestedDispatchFn name dyns tyargs sdc thisRouteParentArgs)
+        liftQ (nestedDispatchCall (nestedTargetFn mdsNestedTarget) name dyns tyargs sdc thisRouteParentArgs)
 
     -- | The body of a parent dispatch clause. @helperCall@ runs the parent's
     -- inline helper on the remaining path; per the fallthrough flag we either
@@ -593,21 +579,21 @@ mkNestedDispatchInstance
     -> [ResourceTree Type]
     -> Q [Dec]
 mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res =
-    mkNestedDispatchInstanceWith topLevelNestedConfig (Just master)
+    mkNestedDispatchInstanceWith TopLevelNested (Just master)
         routeOpts target cxt tyargs unwrapper res
 
 -- | The shared body of the top-level ('mkNestedDispatchInstance') and subsite
 -- ('mkNestedSubDispatchInstance') nested-dispatch instance generators. Both
 -- find the target, build the parent-dynamics pattern, generate the dispatch
 -- clauses via 'genNestedDispatchClauses', emit one
--- @ndcDispatchClass@\/@ndcDispatchFn@ instance, and recurse into nested
--- children. They differ only in the 'NestedDispatchConfig' (which carries the
--- dispatch function\/class and subsite-env mode) and whether a master site is
--- in play: a @'Just' master@ marks the top-level case and additionally emits
+-- 'nestedTargetClass'\/'nestedTargetFn' instance, and recurse into nested
+-- children. They differ only in the 'NestedTarget' (which selects the
+-- dispatch function\/class, runner, and subsite-env construction) and whether a
+-- master site is in play: a @'Just' master@ marks the top-level case and additionally emits
 -- the @UrlToDispatch@\/@RedirectUrl@ instances, which the subsite case
 -- ('Nothing') never produces.
 mkNestedDispatchInstanceWith
-    :: NestedDispatchConfig
+    :: NestedTarget
     -> Maybe Type            -- ^ @Just master@ ⇒ top-level (also emit UrlToDispatch\/RedirectUrl); @Nothing@ ⇒ subsite
     -> RouteOpts
     -> String
@@ -616,7 +602,7 @@ mkNestedDispatchInstanceWith
     -> (Exp -> Q Exp)
     -> [ResourceTree Type]
     -> Q [Dec]
-mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrapper res = do
+mkNestedDispatchInstanceWith nestedTarget mmaster routeOpts target cxt tyargs unwrapper res = do
     -- Resolve the target subtree from the root exactly once. The recursion into
     -- nested children below threads the already-resolved @(prePieces, subres)@
     -- straight through ('go'), rather than re-passing the full root and walking
@@ -656,7 +642,7 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
 
     -- Generate dispatch clauses for each child resource
     clauses <- genNestedDispatchClauses
-        config
+        nestedTarget
         routeOpts
         parentDynVars
         (VarE toParentN)
@@ -666,10 +652,10 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
         tyargs
         subres
 
-    let dispatchNestedT = ConT (ndcDispatchClass config) `AppT` targetT
+    let dispatchNestedT = ConT (nestedTargetClass nestedTarget) `AppT` targetT
         pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
         dropExp = VarE 'drop `AppE` LitE (IntegerL $ fromIntegral parentDepth) `AppE` pathInfoExp
-        thisDispatch = FunD (ndcDispatchFn config)
+        thisDispatch = FunD (nestedTargetFn nestedTarget)
             [Clause
                 [WildP, parentDynsP, VarP toParentN, VarP envN, VarP reqN]
                 (NormalB $ CaseE dropExp clauses)
@@ -681,7 +667,7 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
             case childRes of
                 ResourceParent name _ _ childPieces grandchildren -> do
                     rc <- resolveRouteCon name
-                    instanceExists <- nestedInstanceExists (ndcDispatchClass config) rc
+                    instanceExists <- nestedInstanceExists (nestedTargetClass nestedTarget) rc
                     if instanceExists
                         then pure []
                         else do
@@ -693,7 +679,7 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
                             -- rather than a cryptic kind error from generated
                             -- code. A no-op for the monomorphic (0-arity) case.
                             assertNestedSubArity
-                                (maybe SubsiteCall (const TopLevelCall) mmaster)
+                                (nestedTargetCallSite nestedTarget)
                                 (SubsiteName curTarget)
                                 (SubsiteArity (tyArgsArity tyargs))
                                 rc
@@ -778,14 +764,14 @@ mkNestedSubDispatchInstance
     -> [ResourceTree Type] -- ^ all resources
     -> Q [Dec]
 mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res =
-    mkNestedDispatchInstanceWith subsiteNestedConfig Nothing
+    mkNestedDispatchInstanceWith SubsiteNested Nothing
         routeOpts target cxt tyargs unwrapper res
 
 -- | Generate dispatch clauses for nested dispatch instances.
--- Parameterized by 'NestedDispatchConfig' to support both
+-- Parameterized by 'NestedTarget' to support both
 -- 'YesodDispatchNested' (top-level) and 'YesodSubDispatchNested' (subsite).
 genNestedDispatchClauses
-    :: NestedDispatchConfig
+    :: NestedTarget
     -> RouteOpts
     -> [Name] -- ^ parent dynamic arg variables
     -> Exp -- ^ toParentRoute expression
@@ -795,7 +781,7 @@ genNestedDispatchClauses
     -> TyArgs -- ^ type arguments for parameterized routes
     -> [ResourceTree Type]
     -> Q [Match]
-genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwrapper tyargs resources = do
+genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE reqE unwrapper tyargs resources = do
     resourceClauses <- forM resources $ \res -> genClauseForResource res
 
     -- Terminal-miss clause: a nested dispatch instance ALWAYS returns 'Nothing'
@@ -839,7 +825,7 @@ genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwr
                     allDynExps = map VarE parentDynVars ++ dynExpsMulti
                 handlerExp <- genHandlerCase name methods allDynExps
                 let body = ConE 'Just `AppE`
-                        (VarE (ndcRunnerFn config)
+                        (VarE (nestedTargetRunner nestedTarget)
                             `AppE` handlerExp
                             `AppE` yreE
                             `AppE` (ConE 'Just `AppE` routeExp)
@@ -853,8 +839,8 @@ genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwr
                 routeLam <- mkLambda "sroute" $ \srouteN ->
                     pure $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
                 let reqExp' = RecUpdE reqE [('W.pathInfo, VarE restPath)]
-                let subsiteExp = case ndcSubsiteEnv config of
-                        DirectEnv ->
+                let subsiteExp = case nestedTarget of
+                        TopLevelNested ->
                             -- Top-level: construct YesodSubRunnerEnv directly
                             VarE 'yesodSubDispatch
                                 `AppE` (RecConE 'YesodSubRunnerEnv
@@ -864,7 +850,7 @@ genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwr
                                     , ('ysreParentEnv, yreE)
                                     ])
                                 `AppE` reqExp'
-                        ComposedEnv ->
+                        SubsiteNested ->
                             -- Subsite: compose through the outer YesodSubRunnerEnv
                             let composeE f g = InfixE (Just f) (VarE '(.)) (Just g)
                             in VarE 'yesodSubDispatch
@@ -894,7 +880,7 @@ genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwr
 
         resultName <- newName "k"
 
-        let nestedCall = VarE (ndcDispatchFn config)
+        let nestedCall = VarE (nestedTargetFn nestedTarget)
                 `AppE` proxyExp
                 `AppE` parentArgsExp
                 `AppE` toParentComposed
@@ -917,7 +903,7 @@ genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwr
                 -- caller, would let it fall through to siblings). This mirrors the
                 -- inline no-fallthrough path's @Nothing -> Just 404@ shape.
                 let notFoundExp =
-                        VarE (ndcRunnerFn config)
+                        VarE (nestedTargetRunner nestedTarget)
                             `AppE` AppE (VarE 'void) (VarE 'notFound)
                             `AppE` yreE
                             `AppE` ConE 'Nothing
@@ -988,8 +974,7 @@ mkYesodSubDispatchWithDelegate delegateInline routeOpts res = do
                 return
                 [|subHelper|]
                 [|subTopDispatch|])
-                { mdsNestedDispatchClass = ''YesodSubDispatchNested
-                , mdsNestedDispatchFn = 'yesodSubDispatchNested
+                { mdsNestedTarget = SubsiteNested
                 , mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
                 , mdsNestedDelegateInline = delegateInline
                 }
@@ -1042,8 +1027,7 @@ mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = unwrapper
     , mdsNestedRouteFallthrough = False
-    , mdsNestedDispatchClass = ''YesodDispatchNested
-    , mdsNestedDispatchFn = 'yesodDispatchNested
+    , mdsNestedTarget = TopLevelNested
     , mdsNestedDelegateInline = False
     }
 

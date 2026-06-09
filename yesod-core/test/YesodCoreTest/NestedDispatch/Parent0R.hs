@@ -6,6 +6,13 @@
 {-# LANGUAGE ViewPatterns #-}
 
 
+-- | Split-out @Parent0R@ fragment of the "YesodCoreTest.NestedDispatch" demo.
+-- Besides delegation, this module pins two non-obvious cases: a multipiece
+-- (@*Texts@) leaf under a split-out parent (see 'getFilesR' below), and a
+-- /grandchild/ parent @Child0R@ nested two levels deep. This focused splice
+-- generates both @Parent0R@ and its grandchild @Child0R@ datatype\/instance;
+-- the grandchild's leaf /handlers/ live in
+-- "YesodCoreTest.NestedDispatch.Parent0R.Child0R".
 module YesodCoreTest.NestedDispatch.Parent0R where
 
 import Data.Text (Text)
@@ -15,7 +22,7 @@ import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Core
 import YesodCoreTest.NestedDispatch.Parent0R.Child0R
 
-mkYesodOpts (setFocusOnNestedRoute (Just "Parent0R") defaultOpts) "App" nestedDispatchResources
+mkYesodOpts (setFocusOnNestedRoute "Parent0R" defaultOpts) "App" nestedDispatchResources
 
 getParent0IndexR :: Int -> HandlerFor App Text
 getParent0IndexR = pure . Text.pack . show

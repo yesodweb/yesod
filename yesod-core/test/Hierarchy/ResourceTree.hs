@@ -1,6 +1,12 @@
 {-# language TemplateHaskell #-}
 {-# language QuasiQuotes #-}
 
+-- | Shared resource tree + foundation type for the @Hierarchy@ split-codegen
+-- fixture. The @Hierarchy.*@ sibling modules each focus on one nested parent
+-- (NestR, Nest2, Nest3, NestInner, AdminR) via @setFocusOnNestedRoute@ and emit
+-- that fragment's instances separately, while "Hierarchy" itself emits the
+-- whole-tree instances; keeping the tree here lets every splice share it
+-- without tripping the TH stage restriction. Used by the @test-routes@ suite.
 module Hierarchy.ResourceTree where
 
 import Yesod.Routes.Parse

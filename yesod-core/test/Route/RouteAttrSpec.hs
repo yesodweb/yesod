@@ -1,5 +1,10 @@
 {-# LANGUAGE QuasiQuotes #-}
 
+-- | Pure spec asserting that route attributes (@!x@) declared on a /nested
+-- parent/ are captured in its flattened 'frParentDetails' (@pdAttrs@), not just
+-- on leaves. Operates directly on the parsed 'ResourceTree' decision data — no
+-- splicing or codegen — so it pins where in the flattened structure parent
+-- attrs land.
 module Route.RouteAttrSpec (spec) where
 
 import Yesod.Core

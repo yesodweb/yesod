@@ -23,7 +23,7 @@ import Data.Text (Text)
 import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Core
 
-mkYesodOpts (setFocusOnNestedRoute (Just "InnerR") defaultOpts) "App" nestedDispatchResources
+mkYesodOpts (setFocusOnNestedRoute "InnerR" defaultOpts) "App" nestedDispatchResources
 
 getInnerIndexR :: HandlerFor App Text
 getInnerIndexR = pure "getInnerIndexR"

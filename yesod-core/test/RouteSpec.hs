@@ -12,6 +12,12 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
 
+-- | Entry point ('main') for the @test-routes@ suite — the pure-routing tests
+-- that need no running site. Aggregates the @Route.*@ specs (fallthrough,
+-- render, attrs, the pure decision/codegen specs, arity guards, focus-target
+-- lookups, ...) and the @Hierarchy@ fixture, then adds inline RenderRoute /
+-- route-parsing / overlap-checking / @parseRouteType@ checks below.
+
 import Test.Hspec
 import Test.HUnit ((@?=))
 import Data.Text (Text)
@@ -29,6 +35,7 @@ import qualified Route.RouteAttrSpec as RouteAttrSpec
 import qualified Route.DiscoveryModeSpec as DiscoveryModeSpec
 import qualified Route.SubDispatchAritySpec as SubDispatchAritySpec
 import qualified Route.DeepAritySpec as DeepAritySpec
+import qualified Route.InstanceProbeSpec as InstanceProbeSpec
 import qualified Route.InlineParseClausesSpec as InlineParseClausesSpec
 import qualified Route.NestedParseClausesSpec as NestedParseClausesSpec
 import qualified Route.FocusLeafConsSpec as FocusLeafConsSpec
@@ -103,6 +110,7 @@ main = hspec $ do
     describe "Route.DiscoveryModeSpec" DiscoveryModeSpec.spec
     describe "Route.SubDispatchAritySpec" SubDispatchAritySpec.spec
     describe "Route.DeepAritySpec" DeepAritySpec.spec
+    describe "Route.InstanceProbeSpec" InstanceProbeSpec.spec
     describe "Route.InlineParseClausesSpec" InlineParseClausesSpec.spec
     describe "Route.NestedParseClausesSpec" NestedParseClausesSpec.spec
     describe "Route.FocusLeafConsSpec" FocusLeafConsSpec.spec

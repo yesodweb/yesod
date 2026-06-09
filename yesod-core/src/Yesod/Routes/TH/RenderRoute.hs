@@ -17,6 +17,7 @@ module Yesod.Routes.TH.RenderRoute
     , setReadDerived
     , setCreateResources
     , setFocusOnNestedRoute
+    , unsetFocusOnNestedRoute
     , roFocusOnNestedRoute
     , roNestedRouteFallthrough
     , setParameterizedSubroute
@@ -74,8 +75,19 @@ data RouteOpts = MkRouteOpts
 
 -- | Default options for generating routes.
 --
--- Defaults to all instances derived, subroutes being unparameterized, and to
--- create the @resourcesSite :: [ResourceTree String]@ term.
+-- The defaults are:
+--
+--   * 'setEqDerived', 'setShowDerived', 'setReadDerived': 'True' — derive
+--     'Eq', 'Show' and 'Read' for the route datatype.
+--   * 'setCreateResources': 'True' — emit the @resourcesSite ::
+--     [ResourceTree String]@ term.
+--   * 'setParameterizedSubroute': 'False' — subroutes are unparameterized.
+--   * 'setFocusOnNestedRoute': unset — generate the whole route tree
+--     rather than focusing on a single nested route.
+--   * 'setNestedRouteFallthrough': 'False' — a nested route that fails to
+--     match throws 'notFound' instead of falling through.
+--
+-- Use the @set*@ functions to override individual fields.
 --
 -- @since 1.6.25.0
 defaultOpts :: RouteOpts
@@ -89,7 +101,7 @@ defaultOpts = MkRouteOpts
     , roNestedRouteFallthrough = False
     }
 
--- | If you set this with @Just routeName@, then the code generation will
+-- | If you set this with @routeName@, then the code generation will
 -- generate code for the @routeName@ to be imported in the main dispatch
 -- class. This allows you to generate code in separate modules.
 --
@@ -125,7 +137,7 @@ defaultOpts = MkRouteOpts
 -- import App.Routes.Resources
 -- import Yesod.Core
 --
--- mkYesodOpts (setFocusOnNestedRoute (Just "NestR") defaultOptions) "App" appResources
+-- mkYesodOpts (setFocusOnNestedRoute "NestR" defaultOpts) "App" appResources
 -- @
 --
 -- If you only want to generate the datatypes, you can separate things
@@ -145,29 +157,56 @@ defaultOpts = MkRouteOpts
 -- The call to 'mkYesod' will delegate to the generated code for @NestR@
 -- rather than regenerating it.
 --
+-- By default, 'defaultOpts' starts unfocused (the whole route tree is
+-- generated). Use 'unsetFocusOnNestedRoute' to clear a previously-set focus.
+--
+-- For a full walkthrough — including subsites, linking to nested routes, and
+-- why split sites should enable 'setNestedRouteFallthrough' — see the guide at
+-- <https://github.com/yesodweb/yesod/blob/master/yesod-core/docs/split-route-compilation.md>.
+--
 -- @since 1.7.0.0
-setFocusOnNestedRoute :: Maybe String -> RouteOpts -> RouteOpts
-setFocusOnNestedRoute mstr rdo = rdo { roFocusOnNestedRoute = mstr }
+setFocusOnNestedRoute :: String -> RouteOpts -> RouteOpts
+setFocusOnNestedRoute str rdo = rdo { roFocusOnNestedRoute = Just str }
 
--- | When 'True', a nested route can fall through if it does not match.
+-- | Clear any nested-route focus set by 'setFocusOnNestedRoute', so that
+-- the whole route tree is generated.
+--
+-- 'defaultOpts' already starts unfocused, so this is only needed to undo a
+-- previous 'setFocusOnNestedRoute'.
+--
+-- @since 1.7.0.0
+unsetFocusOnNestedRoute :: RouteOpts -> RouteOpts
+unsetFocusOnNestedRoute rdo = rdo { roFocusOnNestedRoute = Nothing }
+
+-- | When 'True', a nested route that fails to match falls through to the
+-- enclosing dispatch rather than throwing 'notFound'. When 'False', a
+-- non-matching nested route throws 'notFound'.
+--
+-- Default: 'False'.
 --
 -- @since 1.7.0.0
 setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
 setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
 
--- |
+-- | When 'True', derive an 'Eq' instance for the route datatype.
+--
+-- Default: 'True'.
 --
 -- @since 1.6.25.0
 setEqDerived :: Bool -> RouteOpts -> RouteOpts
 setEqDerived b rdo = rdo { roDerivedEq = b }
 
--- |
+-- | When 'True', derive a 'Show' instance for the route datatype.
+--
+-- Default: 'True'.
 --
 -- @since 1.6.25.0
 setShowDerived :: Bool -> RouteOpts -> RouteOpts
 setShowDerived b rdo = rdo { roDerivedShow = b }
 
--- |
+-- | When 'True', derive a 'Read' instance for the route datatype.
+--
+-- Default: 'True'.
 --
 -- @since 1.6.25.0
 setReadDerived :: Bool -> RouteOpts -> RouteOpts
@@ -179,6 +218,8 @@ setReadDerived b rdo = rdo { roDerivedRead = b }
 -- [ResourceTree String]@ elsewhere in your module, and referring to it
 -- here. The @resourcesApp@ can become very large in large applications,
 -- and duplicating it can result in signifiacntly higher compile times.
+--
+-- Default: 'True'.
 --
 -- @since 1.6.28.0
 setCreateResources :: Bool -> RouteOpts -> RouteOpts
@@ -206,6 +247,8 @@ shouldCreateResources = roCreateResources
 --
 -- Monomorphic sites always use nested discovery regardless of this flag; see
 -- 'discoveryMode'.
+--
+-- Default: 'False'.
 --
 -- @since 1.6.28.0
 setParameterizedSubroute :: Bool -> RouteOpts -> RouteOpts
@@ -294,15 +337,6 @@ plainTVCompat =
     PlainTV
 #endif
 
--- | Generate the constructors of a route data type, with custom
--- 'RouteOpts'.
---
--- The first element in the return is the list of constructors for the
--- @Route site@ datatype. The second element is the list of 'Dec' to
--- declare nested datatypes or class instances of the 'RenderRouteNested'
--- for those instances.
---
--- @since 1.6.25.0
 -- | Build the data constructor for a route leaf: @LeafR ty… [multi] [Route Sub]@.
 -- Shared by the full-tree ('mkRouteConsOpts') and focused-nested
 -- ('mkRenderRouteNestedInstanceOpts') constructor generators, which previously
@@ -335,6 +369,15 @@ parentRouteCon name pieces tyargs =
     toSingle Static{}      = []
     toSingle (Dynamic typ) = [typ]
 
+-- | Generate the constructors of a route data type, with custom
+-- 'RouteOpts'.
+--
+-- The first element in the return is the list of constructors for the
+-- @Route site@ datatype. The second element is the list of 'Dec' to
+-- declare nested datatypes or class instances of the 'RenderRouteNested'
+-- for those instances.
+--
+-- @since 1.6.25.0
 mkRouteConsOpts :: RouteOpts -> Cxt -> TyArgs -> Type -> [ResourceTree Type] -> Q ([Con], [Dec])
 mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
     (prePieces, focusedTrees) <-

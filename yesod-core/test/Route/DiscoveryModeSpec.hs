@@ -29,11 +29,11 @@ spec = describe "discoveryMode" $ do
 
     -- Dimension 3: roFocusOnNestedRoute in the parameterized case.
     it "is NestedDiscovery for a parameterized site when focusing on a nested route" $
-        discoveryMode (setFocusOnNestedRoute (Just "Target") defaultOpts) True
+        discoveryMode (setFocusOnNestedRoute "Target" defaultOpts) True
             `shouldBe` NestedDiscovery
 
     it "stays NestedDiscovery for a monomorphic site with the flags set" $ do
         discoveryMode (setParameterizedSubroute True defaultOpts) False
             `shouldBe` NestedDiscovery
-        discoveryMode (setFocusOnNestedRoute (Just "Target") defaultOpts) False
+        discoveryMode (setFocusOnNestedRoute "Target" defaultOpts) False
             `shouldBe` NestedDiscovery

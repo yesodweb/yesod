@@ -11,17 +11,17 @@
 module Route.InlineParseClausesSpec (spec) where
 
 import Test.Hspec
-import Control.Monad.State.Strict (evalState)
 import Data.Maybe (catMaybes)
 import Language.Haskell.TH
 import Web.PathPieces (fromPathPiece)
 import Yesod.Routes.TH.Types
 import Yesod.Routes.TH.ParseRoute (buildInlineParseClauses)
+import Route.PureQ (runPureQ)
 
 -- | Run the pure builder at the top level (no wrapping), the way
 -- 'generateParseRouteClausesInline' invokes it.
 run :: ResourceTree Type -> [Clause]
-run t = evalState (buildInlineParseClauses id t) (0 :: Int)
+run t = runPureQ (buildInlineParseClauses id t)
 
 leaf :: String -> [Piece Type] -> Dispatch Type -> ResourceTree Type
 leaf name pieces d = ResourceLeaf (Resource name pieces d [] True)

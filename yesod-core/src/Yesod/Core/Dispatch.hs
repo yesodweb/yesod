@@ -48,6 +48,7 @@ module Yesod.Core.Dispatch
     , setReadDerived
     , setCreateResources
     , setFocusOnNestedRoute
+    , unsetFocusOnNestedRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
       -- *** Helpers

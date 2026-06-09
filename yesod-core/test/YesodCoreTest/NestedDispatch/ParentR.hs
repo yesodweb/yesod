@@ -5,6 +5,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
+-- | Split-out @ParentR@ fragment of the "YesodCoreTest.NestedDispatch" demo.
+-- The @setFocusOnNestedRoute "ParentR"@ splice emits the @ParentR@ datatype and
+-- its @YesodDispatchNested@ instance here, alongside the child handlers; the
+-- main @App@ module reaches these only by delegation. Exercises a dynamic
+-- parent piece (@\/parent\/#Int@) feeding its captured arg to the children.
 module YesodCoreTest.NestedDispatch.ParentR where
 
 import Data.Text (Text)
@@ -13,7 +18,7 @@ import Yesod.Core.Handler
 import YesodCoreTest.NestedDispatch.Resources
 import Yesod.Core
 
-mkYesodOpts (setFocusOnNestedRoute (Just "ParentR") defaultOpts) "App" nestedDispatchResources
+mkYesodOpts (setFocusOnNestedRoute "ParentR" defaultOpts) "App" nestedDispatchResources
 
 handleChild1R :: Int -> Text -> HandlerFor App  Text
 handleChild1R i t = return (Text.pack (show i) <> t)

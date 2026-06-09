@@ -21,7 +21,7 @@ module YesodCoreTest.FallthroughMatrix.FirstFoo where
 import Yesod.Core
 import YesodCoreTest.FallthroughMatrix.Resources
 
-mkYesodOpts (setFocusOnNestedRoute (Just "FirstFooR") defaultOpts) "FMApp" fmResources
+mkYesodOpts (setFocusOnNestedRoute "FirstFooR" defaultOpts) "FMApp" fmResources
 
 getFooIndexR :: HandlerFor FMApp String
 getFooIndexR = pure "FooIndexR"

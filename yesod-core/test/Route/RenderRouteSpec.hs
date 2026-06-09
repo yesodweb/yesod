@@ -14,6 +14,10 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ViewPatterns#-}
 
+-- | Behavioural spec for @renderRouteNested@ on a deeply-nested route tree.
+-- Pins the contract that rendering a nested leaf reconstructs the /entire/ path
+-- from the site root (parent pieces and captures included), not just the leaf's
+-- own fragment — the caller supplies the ancestor captures as a tuple.
 module Route.RenderRouteSpec where
 
 import Yesod.Core

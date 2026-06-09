@@ -5,6 +5,11 @@
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
+-- | Behavioural @renderRoute@ spec built from a hand-constructed
+-- 'ResourceTree' AST (a @ResourceParent@ with one dynamic piece over a leaf)
+-- rather than @parseRoutes@, so it pins @mkRenderRouteInstanceOpts@ directly
+-- against a known tree. Companion module "YesodCoreTest.RenderRouteSpec.TH"
+-- reuses the generated instance from a compile-time splice.
 module YesodCoreTest.RenderRouteSpec where
 
 import Yesod.Routes.TH.Types

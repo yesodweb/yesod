@@ -24,7 +24,7 @@ import Yesod.Core
 import YesodCoreTest.ParamFocusSplit.Resources
 
 mkYesodOpts
-    (setFocusOnNestedRoute (Just "SubR") (setParameterizedSubroute True defaultOpts))
+    (setFocusOnNestedRoute "SubR" (setParameterizedSubroute True defaultOpts))
     "PApp a"
     paramFocusResources
 

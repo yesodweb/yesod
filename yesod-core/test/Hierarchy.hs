@@ -12,6 +12,12 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- | Whole-tree end of the @Hierarchy@ split-codegen fixture: generates the
+-- full @RenderRoute@\/@RouteAttrs@\/@ParseRoute@\/@YesodDispatch@ instances for
+-- the shared tree (from "Hierarchy.ResourceTree") in one set of splices, and
+-- supplies every leaf handler. The @Hierarchy.*@ sibling modules instead each
+-- emit one focused nested fragment; importing them here checks the per-fragment
+-- and whole-tree codegen agree. Drives the @test-routes@ suite's @hierarchy@ spec.
 module Hierarchy
     ( hierarchy
     -- to avoid warnings

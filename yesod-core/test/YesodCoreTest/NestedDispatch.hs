@@ -12,6 +12,15 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- | The headline nested-route-dispatch demo. @mkYesod "App"@ here generates a
+-- @YesodDispatch App@ whose flat dispatch /delegates/ to a per-parent
+-- @YesodDispatchNested@ instance for every @ResourceParent@ in the tree (NestR,
+-- ParentR, Parent0R, OuterR, ...). Each such instance is generated in-splice by
+-- this module, /unless/ a sibling module already provides it: NestR\/ParentR\/
+-- Parent0R\/Child0R are split out (each via @setFocusOnNestedRoute@) so their
+-- handlers and instances live elsewhere and are only reached through delegation.
+-- The .Resources module holds the shared route table; the WAI specs here drive
+-- real requests through the delegated dispatch.
 module YesodCoreTest.NestedDispatch
     ( specs
     , Widget

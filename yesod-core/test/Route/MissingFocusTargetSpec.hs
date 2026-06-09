@@ -50,7 +50,7 @@ renderRouteFailed :: Bool
 renderRouteFailed =
     $(recover [| True |] $ do
         _ <- mkRenderRouteInstanceOpts
-                (setFocusOnNestedRoute (Just bogusName) defaultOpts)
+                (setFocusOnNestedRoute bogusName defaultOpts)
                 [] NoTyArgs bogusType sampleTree
         [| False |])
 
@@ -58,7 +58,7 @@ dispatchFailed :: Bool
 dispatchFailed =
     $(recover [| True |] $ do
         _ <- mkDispatchInstance
-                (setFocusOnNestedRoute (Just bogusName) defaultOpts)
+                (setFocusOnNestedRoute bogusName defaultOpts)
                 bogusType [] NoTyArgs pure sampleTree
         [| False |])
 

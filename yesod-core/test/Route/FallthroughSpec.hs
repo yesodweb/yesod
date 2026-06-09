@@ -14,6 +14,13 @@
 {-# LANGUAGE ViewPatterns#-}
 
 
+-- | The nested-route fallthrough contract for a top-level site, generated with
+-- @setNestedRouteFallthrough True@. Two same-prefix parents share @\/foo@
+-- (@FirstFooR@ index-only, @SecondFooR@ with deeper children). With fallthrough
+-- on, a request missing inside @FirstFooR@ continues to the sibling rather than
+-- committing. Asserts at both layers: @parseRoute@ falls through to the right
+-- constructor, and a WAI dispatch round-trip (via 'YesodCoreTest.RuntimeHarness')
+-- serves the expected handler.
 module Route.FallthroughSpec where
 
 import Network.Wai

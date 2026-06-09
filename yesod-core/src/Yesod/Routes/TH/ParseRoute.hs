@@ -8,10 +8,9 @@ module Yesod.Routes.TH.ParseRoute
       mkParseRouteInstance
     , mkParseRouteInstanceOpts
     , mkParseRouteInstanceFor
-      -- ** Clause construction (monad-polymorphic; testable at @State Int@)
+      -- ** Clause construction (monad-polymorphic over 'Quote'; testable purely)
     , buildInlineParseClauses
     , generateParseRouteClause
-    , FreshName(..)
     ) where
 
 import qualified Control.Monad.Trans as Trans
@@ -19,6 +18,7 @@ import qualified Data.Set as Set
 import Control.Monad
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax.Compat (Quote(..))
 import Yesod.Routes.Class
 import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
@@ -34,7 +34,7 @@ mkParseRouteInstance =
 -- @since 1.7.0.0
 mkParseRouteInstanceFor :: String -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceFor target ress = do
-    let opts = setFocusOnNestedRoute (Just target) defaultOpts
+    let opts = setFocusOnNestedRoute target defaultOpts
         targetType = ConT (mkName target)
     mkParseRouteInstanceOpts opts NoTyArgs [] targetType ress
 
@@ -104,8 +104,8 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
 -- | Probe (in 'Q') which of the given resources' top-level parents already
 -- have a 'ParseRouteNested' instance. Pulling these compiler queries
 -- ('isInstance', via 'nestedInstanceExists') out of 'generateParseRouteClause'
--- is what lets that generator be monad-polymorphic — and thus runnable, and
--- testable, at @'State' 'Int'@.
+-- is what lets that generator be monad-polymorphic over 'Quote' — and thus
+-- runnable, and testable, at a pure 'Quote' instance.
 --
 -- @since 1.7.0.0
 existingNestedInstances :: [ResourceTree a] -> Q (Set.Set String)
@@ -126,12 +126,13 @@ existingNestedInstances ress = do
 -- The \"does this name already have an instance?\" decision is a compiler query
 -- ('isInstance'), which would pin this to 'Q'; it is instead /hoisted out/ and
 -- passed in as @existingInstances@, leaving only fresh-name generation as an
--- effect. That makes the generator monad-polymorphic via 'FreshName': it runs
--- at 'Q' in production and at @'State' 'Int'@ in tests.
+-- effect. That makes the generator monad-polymorphic over 'Quote': it runs at
+-- 'Q' in production and at a pure 'Quote' instance (a monotonic counter) in
+-- tests.
 --
 -- @since 1.7.0.0
 generateParseRouteClause
-    :: FreshName m
+    :: Quote m
     => Set.Set String
     -- ^ Route names that already have a 'ParseRouteNested' instance (so this
     -- clause should not re-request one). Computed by the caller in 'Q' via
@@ -151,10 +152,10 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
                             Nothing ->
                                 pure (EndExact, dyns)
                             Just _ -> do
-                                multiName <- liftQ $ freshName "multi"
+                                multiName <- liftQ $ newName "multi"
                                 pure (EndMulti multiName, dyns ++ [VarE multiName])
 
-                    queryParamsName <- liftQ $ freshName "_queryParams"
+                    queryParamsName <- liftQ $ newName "_queryParams"
                     let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` route
                         pathPat = mkPathPat finalTail pats
@@ -162,8 +163,8 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
                     pure $ Clause [pat] (NormalB jroute) []
 
                 Subsite _ _ -> do
-                    restName <- liftQ $ freshName "rest"
-                    queryParamsName <- liftQ $ freshName "_queryParams"
+                    restName <- liftQ $ newName "rest"
+                    queryParamsName <- liftQ $ newName "_queryParams"
 
                     let route = applyConPieces name dyns
                         pathPat = mkPathPat (EndRest restName) pats
@@ -181,8 +182,8 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
 
             let route = applyConPieces name dyns
 
-            restName <- liftQ $ freshName "rest"
-            queryParamsName <- liftQ $ freshName "_queryParams"
+            restName <- liftQ $ newName "rest"
+            queryParamsName <- liftQ $ newName "_queryParams"
 
             let parseRouteOnRest =
                     VarE 'parseRouteNested
@@ -191,7 +192,7 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
             body <-
                     if roNestedRouteFallthrough routeOpts
                         then do
-                            resultName <- liftQ $ freshName "result"
+                            resultName <- liftQ $ newName "result"
                             let stmt = BindS (AsP resultName (conPCompat 'Just [WildP])) parseRouteOnRest
                                 expr = VarE 'fmap `AppE` route `AppE` VarE resultName
                             pure $ GuardedB [(PatG [stmt], expr)]
@@ -234,7 +235,7 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
 -- The inline path needs no compiler queries (@reify@\/@lookupTypeName@\/
 -- @isInstance@), only fresh names, so it is just 'buildInlineParseClauses' run
 -- at @m ~ 'Q'@ — production gets hygienic 'newName' binders, while the same
--- code runs at @'State' 'Int'@ under test.
+-- code runs at a pure 'Quote' instance (a monotonic counter) under test.
 generateParseRouteClausesInline
     :: (Exp -> Exp)
     -- ^ Wrap a child-route expression in the accumulated parent constructors.
@@ -244,7 +245,7 @@ generateParseRouteClausesInline = buildInlineParseClauses
 
 -- | The core of 'generateParseRouteClausesInline'. It assembles the
 -- @parseRoute@ clauses for the backwards-compatible inline path directly as
--- AST, drawing fresh names from a 'FreshName' supply and building
+-- AST, drawing fresh names from a 'Quote' name supply and building
 -- tuples\/applications by hand instead of through quotation brackets.
 --
 -- Each call yields one clause per resource tree: a leaf is its own matching
@@ -255,18 +256,18 @@ generateParseRouteClausesInline = buildInlineParseClauses
 -- parent prefix matches, a child miss is a definite 'Nothing' rather than a
 -- fall-through to a sibling top-level route.
 --
--- It is monad-polymorphic in the name supply: production runs it at 'Q' (so
--- binders are hygienic 'newName's), while tests run it at @'State' 'Int'@,
--- where names are a deterministic counter and the '[Clause]' output can be
--- asserted on directly without splicing or 'runQ'. Under the deterministic
--- supply every name is a freshly-bound pattern variable scoped to its clause,
--- the shared counter keeps them distinct within a tree, and it is threaded
--- through the parent\/child recursion so a parent binder never collides with a
--- child's.
+-- It is monad-polymorphic in the name supply via 'Quote': production runs it at
+-- 'Q' (so binders are hygienic 'newName's), while tests run it at a pure
+-- 'Quote' instance backed by a monotonic counter, where names are deterministic
+-- and the '[Clause]' output can be asserted on directly without splicing or
+-- 'runQ'. Under the deterministic supply every name is a freshly-bound pattern
+-- variable scoped to its clause, the shared counter keeps them distinct within a
+-- tree, and it is threaded through the parent\/child recursion so a parent
+-- binder never collides with a child's.
 --
 -- @since 1.7.0.0
 buildInlineParseClauses
-    :: FreshName m
+    :: Quote m
     => (Exp -> Exp)
     -- ^ Wrap a child-route expression in the accumulated parent constructors.
     -> ResourceTree a
@@ -282,9 +283,9 @@ buildInlineParseClauses wrap resourceTree =
                             Nothing ->
                                 pure (EndExact, dyns)
                             Just _ -> do
-                                multiName <- freshName "multi"
+                                multiName <- newName "multi"
                                 pure (EndMulti multiName, dyns ++ [VarE multiName])
-                    queryParamsName <- freshName "_queryParams"
+                    queryParamsName <- newName "_queryParams"
                     let route = applyConPieces name dyns'
                         jroute = ConE 'Just `AppE` wrap route
                         pathPat = mkPathPat finalTail pats
@@ -292,9 +293,9 @@ buildInlineParseClauses wrap resourceTree =
                     pure [Clause [pat] (NormalB jroute) []]
 
                 Subsite _ _ -> do
-                    restName <- freshName "rest"
-                    queryParamsName <- freshName "_queryParams"
-                    subName <- freshName "sub"
+                    restName <- newName "rest"
+                    queryParamsName <- newName "_queryParams"
+                    subName <- newName "sub"
                     let route = applyConPieces name dyns
                         wrapSub = wrap (route `AppE` VarE subName)
                         pathPat = mkPathPat (EndRest restName) pats
@@ -307,8 +308,8 @@ buildInlineParseClauses wrap resourceTree =
 
         ResourceParent name _check _attrs pieces children -> do
             (pats, dyns) <- handlePiecesM pieces
-            restName <- freshName "rest"
-            queryParamsName <- freshName "_queryParams"
+            restName <- newName "rest"
+            queryParamsName <- newName "_queryParams"
             let parentCon childRoute =
                     applyConPieces name dyns `AppE` childRoute
                 wrap' = wrap . parentCon
