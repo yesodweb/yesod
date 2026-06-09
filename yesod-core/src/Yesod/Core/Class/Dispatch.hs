@@ -82,7 +82,13 @@ class RenderRouteNested a => YesodDispatchNested a where
 instance YesodDispatch site => YesodDispatchNested (Route site) where
     yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
 
+-- | Dispatch a request using a value that can be rendered to a route of
+-- @site@ (via its 'RedirectUrl' instance). This lets a route fragment or a
+-- @(route, params)@ pair be turned directly into a WAI 'W.Application'.
+--
+-- @since 1.7.0.0
 class RedirectUrl site url => UrlToDispatch url site where
+    -- | @since 1.7.0.0
     urlToDispatch :: url -> YesodRunnerEnv site -> W.Application
 
 instance YesodDispatch site => UrlToDispatch (Route site) site where

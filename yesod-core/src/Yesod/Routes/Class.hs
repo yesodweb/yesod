@@ -26,8 +26,10 @@ class Eq (Route a) => RenderRoute a where
                 -> ([Text], [(Text, Text)]) -- ^ The path of the URL split on forward slashes, and a list of query parameters with their associated value.
 
 -- | This datatype wraps up the 'ParentArgs' for a route fragment with the
--- route fragment itself. A route fragment with it's parent arguments can
+-- route fragment itself. A route fragment with its parent arguments can
 -- be rendered and dispatched on.
+--
+-- @since 1.7.0.0
 data WithParentArgs a = WithParentArgs
     { theParentArgs :: ParentArgs a
     , parentArgsFor :: a
@@ -61,8 +63,8 @@ class Eq a => RenderRouteNested a where
     type ParentArgs a = ()
 
     -- | Render the fragment of the route. To form a complete route, you'll
-    -- need to `mappend` this with the result from the parent `renderRoute`
-    -- or `renderRouteNested` call.
+    -- need to 'mappend' this with the result from the parent 'renderRoute'
+    -- or 'renderRouteNested' call.
     --
     -- @since 1.7.0.0
     renderRouteNested :: ParentArgs a -> a -> ([Text], [(Text, Text)])
@@ -82,7 +84,9 @@ class RenderRoute a => ParseRoute a where
 --
 -- @since 1.7.0.0
 class RenderRouteNested a => ParseRouteNested a where
-    -- |
+    -- | Parse a route fragment from a path. Like 'parseRoute', but produces
+    -- the fragment @a@ directly rather than a complete 'Route'; the parent is
+    -- responsible for constructing the full route from the result.
     --
     -- @since 1.7.0.0
     parseRouteNested

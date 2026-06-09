@@ -587,6 +587,8 @@ delegatingBody piecesSingle rr childArg = do
 
 -- | Like 'mkRenderRouteClauses', but instead generates clauses for the
 -- definition of 'renderRouteNested'.
+--
+-- @since 1.7.0.0
 mkRenderRouteNestedClauses
     :: [Either String Name]
     -- ^ Either the static path piece or the names of the tuple of the parent arg.

@@ -35,6 +35,12 @@ mkParseRouteInstanceFor target ress = do
         targetType = ConT (mkName target)
     mkParseRouteInstanceOpts opts NoTyArgs [] targetType ress
 
+-- | Generate the 'ParseRoute' instance (and, under nested discovery, the
+-- accompanying 'ParseRouteNested' instances) for a site, honoring the supplied
+-- 'RouteOpts' and the site's 'TyArgs'. The options-driven core that
+-- 'mkParseRouteInstanceFor' and the @mkYesod@ entry points build on.
+--
+-- @since 1.7.0.0
 mkParseRouteInstanceOpts :: RouteOpts -> TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
     case discoveryMode routeOpts (hasTyArgs origTyargs) of
@@ -212,6 +218,8 @@ freshName base = state $ \n -> (mkName (base ++ show n), n + 1)
 -- threaded through the parent\/child recursion so an accumulated parent binder
 -- never collides with a child's. Because it is pure, it is directly
 -- unit-testable on its '[Clause]' output without splicing or 'runQ'.
+--
+-- @since 1.7.0.0
 buildInlineParseClauses
     :: [Pat]
     -- ^ Accumulated parent path-piece patterns (binding the parent dynamics).

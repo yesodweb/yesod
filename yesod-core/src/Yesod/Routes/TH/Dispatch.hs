@@ -498,6 +498,8 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
 -- @UrlToDispatch@\/@RedirectUrl@ instances for fragments with no dynamic parent
 -- pieces) for a nested route target. A thin wrapper over
 -- 'mkNestedDispatchInstanceWith' with the top-level config and the master site.
+--
+-- @since 1.7.0.0
 mkNestedDispatchInstance
     :: RouteOpts
     -> String
@@ -942,6 +944,12 @@ mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings
     , mdsNestedDispatchFn = 'yesodDispatchNested
     }
 
+-- | Parse the foundation-type string given to @mkYesod@ into its components:
+-- the type-constructor name, its type arguments, and the @=>@ class-context
+-- groups (each a class name applied to type arguments). Returns 'Left' with a
+-- parse-error message on malformed input.
+--
+-- @since 1.7.0.0
 parseYesodName :: String -> Either String (String, [String], [[String]])
 parseYesodName name = do
     either (Left . show) Right $ parse parseName "" name

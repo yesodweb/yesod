@@ -119,6 +119,12 @@ toWaiAppPlain site = do
     yre <- mkYesodRunnerEnv site
     return $ toWaiAppYre yre
 
+-- | Construct a 'YesodRunnerEnv' for a site, initializing its logger, session
+-- backend, and other runtime state. This is the environment threaded through
+-- dispatch; 'toWaiAppPlain' and friends build one for you, but it is exposed so
+-- callers can construct and reuse a runner environment directly.
+--
+-- @since 1.7.0.0
 mkYesodRunnerEnv :: Yesod site => site -> IO (YesodRunnerEnv site)
 mkYesodRunnerEnv site = do
     logger <- makeLogger site

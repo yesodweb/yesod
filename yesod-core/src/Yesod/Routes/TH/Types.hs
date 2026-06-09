@@ -128,6 +128,11 @@ resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
 
+-- | The details of a 'ResourceParent' gathered for a flattened resource: the
+-- parent's name, its path pieces, and the route attributes it contributes to
+-- its descendants.
+--
+-- @since 1.7.0.0
 data ParentDetails a = ParentDetails
     { pdName :: String
     , pdPieces :: [Piece a]

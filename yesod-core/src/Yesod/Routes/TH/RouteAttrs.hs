@@ -24,7 +24,7 @@ mkRouteAttrsInstance cxt typ ress = do
                 [Clause [ WildP ] (NormalB $ VarE 'mempty) []]
         ]
 
--- |  Like 'mkRouteAttrsInstance', but uses a 'String' name of a nested
+-- | Like 'mkRouteAttrsInstance', but uses a 'String' name of a nested
 -- subroute to generate nested instances instead of generating the full
 -- instance for all routes.
 --

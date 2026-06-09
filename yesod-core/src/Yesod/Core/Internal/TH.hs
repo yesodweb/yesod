@@ -189,9 +189,6 @@ mkYesodGeneral :: [[String]]                -- ^ Appliction context. Used in Ren
                -> Q([Dec],[Dec])
 mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 
--- |
---
--- @since 1.6.25.0
 -- | Convert the parsed-from-source 'String' route types into real 'Type's at a
 -- splice site. A malformed type or an unclosed @#{…}@ bracket surfaces as an
 -- attributed compile error (via 'fail') rather than a raw 'error' thrown lazily
@@ -200,6 +197,9 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
 parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
 
+-- |
+--
+-- @since 1.6.25.0
 mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
                    -> [[String]]                -- ^ Application context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                    -> String                    -- ^ foundation type
