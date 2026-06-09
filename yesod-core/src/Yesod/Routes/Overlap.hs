@@ -57,9 +57,12 @@ overlaps (pieceX:xs) (pieceY:ys) suffixX suffixY =
     piecesOverlap pieceX pieceY && overlaps xs ys suffixX suffixY
 
 piecesOverlap :: Piece t -> Piece t -> Bool
--- Statics only match if they equal. Dynamics match with anything
--- Hmmm. this is actually not true. A Text/String/etc will match anything,
--- but an Int will not - only valid ints will register correctly.
+-- Statics only match if they are equal. A dynamic piece is treated as
+-- overlapping with anything: although at runtime a typed dynamic (e.g. an
+-- 'Int') only matches inputs that parse to its type, the overlap check is
+-- intentionally conservative and never inspects the dynamic-piece type — it is
+-- parametric in @t@ (see 'findOverlapNames'). Reporting a possible overlap that
+-- cannot actually occur is harmless; missing a real one would not be.
 piecesOverlap (Static x) (Static y) = x == y
 piecesOverlap _ _ = True
 

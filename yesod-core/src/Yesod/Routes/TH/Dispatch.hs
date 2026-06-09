@@ -19,6 +19,8 @@ module Yesod.Routes.TH.Dispatch
     , subsiteNestedConfig
     , mkMDS
     , mkYesodSubDispatch
+    , mkYesodSubDispatchWith
+    , mkYesodSubDispatchWithDelegate
     , subTopDispatch
     , parseYesodName
     ) where
@@ -76,11 +78,27 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- @'yesodSubDispatchNested@ for subsite dispatch.
     --
     -- @since 1.7.0.0
+    , mdsNestedDelegateInline :: !Bool
+    -- ^ When 'True', a parent's dispatch clause /delegates/ to its
+    -- nested-dispatch instance even when no such instance exists /yet/ — because
+    -- the caller will generate it in the same splice (see
+    -- 'mkTopLevelDispatchInstance'). This avoids inlining each nested leaf's
+    -- dispatch logic into the flat @yesodDispatch@ /and/ re-emitting it in the
+    -- per-parent @YesodDispatchNested@ instance: GHC resolves the same-splice
+    -- instance after the whole declaration group is spliced, so the flat clause
+    -- can call @yesodDispatchNested@ for an instance declared alongside it.
+    --
+    -- When 'False' (the default), a parent only delegates if its instance
+    -- already exists (the cross-module split case) and otherwise inlines, which
+    -- is required for callers that emit the flat dispatch /without/ generating
+    -- the matching nested instances in the same splice (e.g. a bare
+    -- 'mkYesodSubDispatch').
+    --
+    -- @since 1.7.0.0
     }
 
 data SDC = SDC
-    { clause404 :: Clause
-    , extraParams :: [Exp]
+    { extraParams :: [Exp]
     , extraCons :: [Exp]
     , envExp :: Exp
     , reqExp :: Exp
@@ -158,13 +176,15 @@ subsiteNestedConfig = NestedDispatchConfig
 -- | A simpler version of Yesod.Routes.TH.Dispatch.mkDispatchClause, based on
 -- view patterns.
 --
--- The function returns the 'Clause' for the dispatch, along with
--- a @['Name']@ corresponding to the names of types that require generating
--- instances for delegation classes. For 'ParseRoute', that's
--- 'ParseRouteNtested'. For 'YesodDispatch', that's 'YesodDispatchNested'.
--- Since 1.4.0
-mkDispatchClause :: forall a b site c. [Name] -> [Exp] -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = do
+-- The function returns the dispatch 'Clause' along with a @['String']@ of the
+-- names of nested route types that require a delegation instance to be
+-- generated. For 'YesodDispatch', those are 'YesodDispatchNested' instances; for
+-- the subsite case, 'YesodSubDispatchNested'.
+--
+-- @since 1.7.0.0 — the leading @[Name]@\/@[Exp]@ parameters were dropped and the
+-- result type changed from @Clause@ to @Q ([String], Clause)@.
+mkDispatchClause :: forall a b site c. TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClause tyargs MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -178,9 +198,8 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
     let pathInfo = getPathInfo `AppE` reqE
 
     let sdc = SDC
-            { clause404 = clause404'
-            , extraParams = []
-            , extraCons = parentCons
+            { extraParams = []
+            , extraCons = []
             , envExp = envE
             , reqExp = reqE
             }
@@ -252,6 +271,16 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
         instanceExists <-
             liftQ (nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name)
 
+        -- Delegate to the nested-dispatch instance either when one already
+        -- exists (cross-module split) or when the caller will generate it in
+        -- this same splice ('mdsNestedDelegateInline'). In the latter case the
+        -- instance does not exist at probe time, but GHC resolves it after the
+        -- whole declaration group is spliced — so we avoid inlining every nested
+        -- leaf's dispatch logic here only to re-emit it in the parent's
+        -- 'YesodDispatchNested' instance. We still report the name below so that
+        -- instance actually gets generated.
+        let delegate = instanceExists || mdsNestedDelegateInline
+
         (pats, dyns) <- handlePiecesM pieces
         restName <- freshName "_rest"
         helperName <- freshName ("helper" ++ name)
@@ -259,7 +288,7 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
             constr = applyConPieces name dyns
 
         helperClauses <-
-            if instanceExists
+            if delegate
                 then do
                     expr <- delegateToNestedInstance name dyns
                     pure [Clause [VarP restName] (NormalB expr) []]
@@ -273,10 +302,11 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
 
         body <- parentBody helperCall
 
-        -- Report this parent as needing a nested-dispatch instance only when we
-        -- did NOT already delegate to an existing one. Whether the caller acts
-        -- on this (i.e. actually generates the instance) is the caller's
-        -- decision — see 'mkDispatchInstance'.
+        -- Report this parent as needing a nested-dispatch instance whenever one
+        -- does not already exist — both when we inlined and when we delegated to
+        -- a yet-to-be-generated same-splice instance ('mdsNestedDelegateInline').
+        -- Whether the caller acts on this (i.e. actually generates the instance)
+        -- is the caller's decision — see 'mkDispatchInstance'.
         pure
             ( [name | not instanceExists]
             , [ Clause
@@ -298,7 +328,7 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
     delegateToNestedInstance :: String -> [Exp] -> DispatchM Exp
     delegateToNestedInstance name dyns = do
         sdc <- asks envSdc
-        let thisRouteParentArgs = fmap VarE preDyns <> extraParams sdc ++ dyns
+        let thisRouteParentArgs = extraParams sdc ++ dyns
         liftQ (nestedDispatchCall mdsNestedDispatchFn name dyns tyargs sdc thisRouteParentArgs)
 
     -- | The body of a parent dispatch clause. @helperCall@ runs the parent's
@@ -516,10 +546,22 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
                     , ysreParentEnv = env
                     }
                 |]
+        -- Under nested discovery this instance also emits a
+        -- 'YesodDispatchNested' instance per top-level parent (see
+        -- 'childNamesToGenerate'). When it does, the flat @yesodDispatch@ clause
+        -- can /delegate/ each parent to that same-splice instance rather than
+        -- inlining the whole subtree's dispatch logic (which the nested instance
+        -- would then re-emit). Under 'InlineCompat' no nested instances are
+        -- generated, so the flat clause must inline as before.
+        usesNestedDiscovery =
+            case discoveryMode routeOpts (hasTyArgs tyargs) of
+                NestedDiscovery -> True
+                InlineCompat    -> False
         mdsWithNestedDispatch = mds
             { mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
+            , mdsNestedDelegateInline = usesNestedDiscovery
             }
-    (childNames, clause') <- mkDispatchClause [] [] tyargs mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClause tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
         -- Only generate 'YesodDispatchNested' instances for children when this
         -- site uses nested discovery. A parameterized site that has not opted
@@ -527,9 +569,7 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
         -- RenderRoute), so generating nested instances — which would reference
         -- the parameterized form — must be suppressed to stay consistent.
         childNamesToGenerate =
-            case discoveryMode routeOpts (hasTyArgs tyargs) of
-                NestedDiscovery -> childNames
-                InlineCompat    -> []
+            if usesNestedDiscovery then childNames else []
     childInstances <-
         fmap mconcat $ forM childNamesToGenerate $ \name -> do
             mkNestedDispatchInstance routeOpts name master cxt tyargs unwrapper res
@@ -607,11 +647,7 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
     -- binding pattern from them. The clause-generator is handed the @['Name']@
     -- directly (it used to re-decode them out of the pattern).
     parentDynVars <- forM preDyns $ \_ -> newName "parentDyn"
-    parentDynsP <-
-        case parentDynVars of
-            []  -> [p| () |]
-            [n] -> pure $ VarP n
-            ns  -> pure $ TupP $ map VarP ns
+    let parentDynsP = parentArgsPat parentDynVars
 
     -- Generate names for the instance parameters
     toParentN <- newName "toParentRoute"
@@ -622,7 +658,6 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
     clauses <- genNestedDispatchClauses
         config
         routeOpts
-        parentDepth
         parentDynVars
         (VarE toParentN)
         (VarE envN)
@@ -719,9 +754,11 @@ mkUrlToDispatchRedirectInstances cxt target targetT master = do
                 [ Clause [ WildP ] (NormalB urlToDispatchFn) []
                 ]
             ]
-        -- OVERLAPPABLE so a hand-written `RedirectUrl Site Child` instance for
-        -- the same child route wins instead of clashing with this generated
-        -- convenience instance.
+        -- OVERLAPPABLE so a strictly more specific hand-written instance (e.g.
+        -- one carrying type variables, as for a parameterized site) takes
+        -- precedence over this generated convenience instance. Note that a
+        -- hand-written instance with an identical fully-concrete head still
+        -- collides as a duplicate, regardless of this pragma.
         , InstanceD (Just Overlappable) (cxt <> mToParentRouteConstraint) redirectT
             [ FunD 'toTextUrl
                 [ Clause [ ] (NormalB redirectUrlFn) [] ]
@@ -750,7 +787,6 @@ mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res =
 genNestedDispatchClauses
     :: NestedDispatchConfig
     -> RouteOpts
-    -> Int -- ^ parent piece count (for error messages/debugging)
     -> [Name] -- ^ parent dynamic arg variables
     -> Exp -- ^ toParentRoute expression
     -> Exp -- ^ yre expression (YesodRunnerEnv or YesodSubRunnerEnv)
@@ -759,7 +795,7 @@ genNestedDispatchClauses
     -> TyArgs -- ^ type arguments for parameterized routes
     -> [ResourceTree Type]
     -> Q [Match]
-genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE yreE reqE unwrapper tyargs resources = do
+genNestedDispatchClauses config routeOpts parentDynVars toParentE yreE reqE unwrapper tyargs resources = do
     resourceClauses <- forM resources $ \res -> genClauseForResource res
 
     -- Terminal-miss clause: a nested dispatch instance ALWAYS returns 'Nothing'
@@ -816,10 +852,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE y
                     pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars)
                 routeLam <- mkLambda "sroute" $ \srouteN ->
                     pure $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
-                reqExp' <- do
-                    setPath <- mkLambda "p" $ \pN -> mkLambda "r" $ \rN ->
-                        pure $ RecUpdE (VarE rN) [('W.pathInfo, VarE pN)]
-                    pure $ setPath `AppE` VarE restPath `AppE` reqE
+                let reqExp' = RecUpdE reqE [('W.pathInfo, VarE restPath)]
                 let subsiteExp = case ndcSubsiteEnv config of
                         DirectEnv ->
                             -- Top-level: construct YesodSubRunnerEnv directly
@@ -895,25 +928,21 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE y
 
     genHandlerCase :: String -> [String] -> [Exp] -> Q Exp
     genHandlerCase name methods allDynExps = do
-        let getHandlerName mmethod =
-                let prefix = case mmethod of
-                        Nothing -> "handle"
-                        Just m -> map toLower m
-                in mkName (prefix ++ name)
+        let handlerExpFor mmethod = do
+                handlerName <- defaultGetHandler mmethod name
+                unwrapper $ foldl' AppE handlerName allDynExps
 
         if null methods
             then do
                 -- No specific methods, just call handler
-                let handlerName = getHandlerName Nothing
-                handlerE <- unwrapper $ foldl' AppE (VarE handlerName) allDynExps
+                handlerE <- handlerExpFor Nothing
                 let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
                 return wrappedHandler
             else do
                 -- Generate method case
                 -- Wrap each handler with fmap toTypedContent so all branches have the same type
                 methodMatches <- forM methods $ \method -> do
-                    let handlerName = getHandlerName (Just method)
-                    handlerE <- unwrapper $ foldl' AppE (VarE handlerName) allDynExps
+                    handlerE <- handlerExpFor (Just method)
                     let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
                     return $ Match (LitP $ StringL method) (NormalB wrappedHandler) []
 
@@ -924,18 +953,48 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE y
                 return methodCase
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
-mkYesodSubDispatch res = do
+mkYesodSubDispatch = mkYesodSubDispatchWith defaultOpts
+
+-- | Like 'mkYesodSubDispatch', but threads a 'RouteOpts' into the generated
+-- @yesodSubDispatch@ body. The only option that affects the body is
+-- 'roNestedRouteFallthrough', which controls whether a subsite's top-level
+-- parent clause falls through to a later sibling on an inner miss (mirroring
+-- 'mkTopLevelDispatchInstance'). 'mkYesodSubDispatch' keeps the opts-less
+-- signature for backwards compatibility.
+--
+-- This standalone entry point never delegates a parent's dispatch to a
+-- same-splice 'YesodSubDispatchNested' instance: when called on its own there
+-- are no such instances being generated alongside it (delegating would emit a
+-- reference to a missing instance). 'mkYesodSubDispatchInstanceOpts', which
+-- /does/ generate the matching nested instances in the same splice, uses
+-- 'mkYesodSubDispatchWithDelegate' to opt into delegation.
+--
+-- @since 1.7.0.0
+mkYesodSubDispatchWith :: RouteOpts -> [ResourceTree a] -> Q Exp
+mkYesodSubDispatchWith = mkYesodSubDispatchWithDelegate False
+
+-- | The body-generation core shared by the standalone 'mkYesodSubDispatchWith'
+-- and the instance-generating 'mkYesodSubDispatchInstanceOpts'. The 'Bool'
+-- selects 'mdsNestedDelegateInline': 'False' inlines each parent's subtree
+-- dispatch (correct for the standalone public API, where no same-splice nested
+-- instances exist), 'True' delegates each parent to its 'YesodSubDispatchNested'
+-- instance generated alongside it (avoiding the doubled codegen, mirroring
+-- 'mkTopLevelDispatchInstance' on the top-level path).
+--
+-- @since 1.7.0.0
+mkYesodSubDispatchWithDelegate :: Bool -> RouteOpts -> [ResourceTree a] -> Q Exp
+mkYesodSubDispatchWithDelegate delegateInline routeOpts res = do
     let mds = (mkMDS
                 return
                 [|subHelper|]
                 [|subTopDispatch|])
                 { mdsNestedDispatchClass = ''YesodSubDispatchNested
                 , mdsNestedDispatchFn = 'yesodSubDispatchNested
+                , mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
+                , mdsNestedDelegateInline = delegateInline
                 }
     (_childNames, clause') <-
         mkDispatchClause
-            []
-            []
             NoTyArgs
             mds
             res
@@ -985,6 +1044,7 @@ mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings
     , mdsNestedRouteFallthrough = False
     , mdsNestedDispatchClass = ''YesodDispatchNested
     , mdsNestedDispatchFn = 'yesodDispatchNested
+    , mdsNestedDelegateInline = False
     }
 
 -- | Parse the foundation-type string given to @mkYesod@ into its components:

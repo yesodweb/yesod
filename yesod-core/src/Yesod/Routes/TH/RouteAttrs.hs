@@ -8,7 +8,7 @@ module Yesod.Routes.TH.RouteAttrs
     ) where
 
 import Yesod.Routes.TH.Types
-import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon, instanceD, conPCompat)
+import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon, instanceD, conPCompat, findNestedRoute)
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import Data.Foldable (toList)
@@ -31,6 +31,14 @@ mkRouteAttrsInstance cxt typ ress = do
 -- @since 1.7.0.0
 mkRouteAttrsInstanceFor :: Cxt -> Type -> String -> [ResourceTree a] -> Q [Dec]
 mkRouteAttrsInstanceFor cxt typ target ress = do
+    -- Fail loudly (matching Dispatch/RenderRoute/ParseRoute) when the focus
+    -- target is missing, rather than silently emitting an always-'mempty'
+    -- 'RouteAttrsNested' instance.
+    case findNestedRoute target ress of
+        Nothing ->
+            fail $ "Target '" ++ target ++ "' was not found in resources."
+        Just _ ->
+            pure ()
     clauses <- mapM (goTree (Just target) id) ress
     return [instanceD cxt (ConT ''RouteAttrsNested `AppT` typ)
         [ FunD 'routeAttrsNested $ concat clauses ++
@@ -78,18 +86,18 @@ goTree mtarget front (ResourceParent name _check _attrs pieces trees) = do
             x <- newName "x"
             pure [Clause [front (conPCompat (mkName name) (ignored (VarP x)))] (NormalB $ VarE 'routeAttrsNested `AppE` VarE x) []]
         else do
-            let mtarget' = do
-                    target <- mtarget
-                    guard (target /= name)
-                    mtarget
-                front'' =
-                    case Just name == mtarget of
-                        True ->
-                            front
-                        False ->
-                            front'
-            mainClauses <- concat <$> mapM (goTree mtarget' front'') trees
-            pure mainClauses
+            -- We only reach this clause when @mtarget@ is 'Nothing' (full
+            -- instance) or @Just name@ (we found the focus target); clause 2
+            -- above peeled off the non-matching @Just other@ case. Either way
+            -- the remaining subtree is generated unfocused (@Nothing@). The
+            -- focus target itself is the route boundary, so its own
+            -- constructor is not prepended (@front@); ordinary parents in the
+            -- full instance do prepend theirs (@front'@).
+            let front'' =
+                    if Just name == mtarget
+                        then front
+                        else front'
+            concat <$> mapM (goTree Nothing front'') trees
   where
     ignored = (replicate toIgnore WildP ++) . return
     toIgnore = length $ filter isDynamic pieces

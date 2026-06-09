@@ -14,11 +14,6 @@
 
 module Hierarchy
     ( hierarchy
-    , Handler2
-    , App
-    , toText
-    , Env (..)
-    , subDispatch
     -- to avoid warnings
     , deleteDelete2
     , deleteDelete3
@@ -32,8 +27,6 @@ import Yesod.Routes.TH
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import Data.Text (Text)
-import qualified Data.Text as Text
-import Data.ByteString (ByteString)
 import qualified Data.Set as Set
 import Hierarchy.Admin
 import Hierarchy.ResourceTree
@@ -42,37 +35,10 @@ import Hierarchy.Nest2
 import Hierarchy.Nest3
 import Hierarchy.Nest2.NestInner
 
-class ToText a where
-    toText :: a -> Text
-
-instance ToText Text where toText = id
-instance ToText String where toText = Text.pack
-
-type Handler2 sub master a = a
-type Handler site a = Handler2 site site a
-
-type Request = ([Text], ByteString) -- path info, method
-type App sub master = Request -> (Text, Maybe (Route master))
-data Env sub master = Env
-    { envToMaster :: Route sub -> Route master
-    , envSub :: sub
-    , envMaster :: master
-    }
-
-subDispatch
-    :: (Env sub master -> App sub master)
-    -> (Handler2 sub master Text -> Env sub master -> Maybe (Route sub) -> App sub master)
-    -> (master -> sub)
-    -> (Route sub -> Route master)
-    -> Env master master
-    -> App sub master
-subDispatch handler _runHandler getSub toMaster env req =
-    handler env' req
-  where
-    env' = env
-        { envToMaster = envToMaster env . toMaster
-        , envSub = getSub $ envMaster env
-        }
+-- | Trivial handler synonym kept only for the @deleteDelete2@\/@deleteDelete3@
+-- placeholder handlers below (which exist solely to silence
+-- not-in-scope warnings for routes whose handlers are never invoked here).
+type Handler site a = a
 
 do
     fmap concat $ sequence

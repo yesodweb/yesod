@@ -20,8 +20,8 @@
 module YesodCoreTest.SubsiteFallthroughSub.Nested () where
 
 import Yesod.Core
-import Yesod.Routes.TH (mkNestedSubDispatchInstance, TyArgs(..))
-import Yesod.Routes.Parse (parseType, dropBracket)
+import Yesod.Core.Dispatch
+    (mkNestedSubDispatchInstance, TyArgs(..), parseType, dropBracket)
 import Data.Text (Text)
 
 import YesodCoreTest.SubsiteFallthroughSub.Data

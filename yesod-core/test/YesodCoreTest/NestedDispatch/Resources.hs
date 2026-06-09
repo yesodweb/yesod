@@ -16,6 +16,11 @@ nestedDispatchResources :: [ResourceTree String]
 nestedDispatchResources = [parseRoutes|
 /     HomeR GET !home
 /json JsonR GET
+
+/redirectparent RedirectParentR GET
+/redirecttext   RedirectTextR   GET
+/redirectstring RedirectStringR GET
+/redirectparams RedirectParamsR GET
 /nest NestR:
     / NestIndexR GET POST
 

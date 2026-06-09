@@ -21,6 +21,10 @@ module Yesod.Core
     , RenderRouteNested (..)
     , ParseRoute (..)
     , RouteAttrs (..)
+    -- | @since 1.7.0.0
+    , ParseRouteNested (..)
+    -- | @since 1.7.0.0
+    , RouteAttrsNested (..)
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs

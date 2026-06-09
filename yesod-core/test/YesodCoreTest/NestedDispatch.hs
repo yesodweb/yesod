@@ -1,4 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeApplications #-}
@@ -66,6 +68,24 @@ getHomeR = selectRep $ do
 
 getNestFooR :: Handler ()
 getNestFooR = pure ()
+
+-- | Redirects through the 'RedirectUrl' instance for 'WithParentArgs', which
+-- routes via @toTextUrl (toParentRoute args url)@. Pins that the Location
+-- header for a nested fragment is rendered identically to the full route.
+getRedirectParentR :: Handler ()
+getRedirectParentR = redirect (WithParentArgs (1 :: Int) (Child1R "hello"))
+
+-- | Exercises @RedirectUrl master Text@.
+getRedirectTextR :: Handler ()
+getRedirectTextR = redirect ("/some/where" :: Text)
+
+-- | Exercises @RedirectUrl master String@.
+getRedirectStringR :: Handler ()
+getRedirectStringR = redirect ("/some/string" :: String)
+
+-- | Exercises @RedirectUrl master (Route master, [(Text, Text)])@.
+getRedirectParamsR :: Handler ()
+getRedirectParamsR = redirect (JsonR, [("q", "1")] :: [(Text, Text)])
 
 rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
@@ -348,6 +368,122 @@ specs = do
                 request req
             H.statusCode (simpleStatus sres) `shouldBe` 200
             simpleBody sres `shouldBe` "getNestIndexR"
+
+    describe "UrlToDispatch (WithParentArgs route)" $ do
+        -- Exercises the only UrlToDispatch instance with real args-threading
+        -- logic (Yesod.Core.Class.Dispatch): a fragment plus its dynamic parent
+        -- args is turned into a WAI app that dispatches into the right handler.
+        it "dispatches a dynamic-parent fragment to the right handler (200)" $ do
+            yre <- mkYesodRunnerEnv App
+            let app =
+                    urlToDispatch
+                        (WithParentArgs (1 :: Int) (Child1R "hello"))
+                        yre
+                req = defaultRequest
+                    { pathInfo = ["parent", "1", "hello", "child1"]
+                    , requestMethod = "GET"
+                    }
+            sres <- flip runSession app $ request req
+            H.statusCode (simpleStatus sres) `shouldBe` 200
+            simpleBody sres `shouldBe` "1hello"
+        it "404s a path whose parent arg disagrees with the request path" $ do
+            -- The fragment app is rooted at parent arg 1, but it still parses the
+            -- path off the request; a path that doesn't match the fragment 404s.
+            yre <- mkYesodRunnerEnv App
+            let app =
+                    urlToDispatch
+                        (WithParentArgs (1 :: Int) (Child1R "hello"))
+                        yre
+                req = defaultRequest
+                    { pathInfo = ["parent", "1", "hello", "nope"]
+                    , requestMethod = "GET"
+                    }
+            sres <- flip runSession app $ request req
+            H.statusCode (simpleStatus sres) `shouldBe` 404
+
+    describe "UrlToDispatch (Route site) / Text / String / (Route, params)" $ do
+        -- The plain hand-written instances all just forward to yesodDispatch;
+        -- pin that they actually dispatch (rather than e.g. always 404). The
+        -- url value is ignored by these instances, so we always request /nest.
+        let dispatchVia :: UrlToDispatch url App => url -> IO SResponse
+            dispatchVia url = do
+                yre <- mkYesodRunnerEnv App
+                let app = urlToDispatch url yre
+                    req = defaultRequest { pathInfo = ["nest"], requestMethod = "GET" }
+                flip runSession app $ request req
+            expectNest sres = do
+                H.statusCode (simpleStatus sres) `shouldBe` 200
+                simpleBody sres `shouldBe` "getNestIndexR"
+        it "UrlToDispatch (Route site)" $
+            dispatchVia (HomeR :: Route App) >>= expectNest
+        it "UrlToDispatch (Route site, params)" $
+            dispatchVia (HomeR :: Route App, [] :: [(Text, Text)]) >>= expectNest
+        it "UrlToDispatch Text" $
+            dispatchVia ("ignored" :: Text) >>= expectNest
+        it "UrlToDispatch String" $
+            dispatchVia ("ignored" :: String) >>= expectNest
+
+    describe "RedirectUrl (WithParentArgs url) Location header" $ do
+        -- Pins toTextUrl . toParentRoute: a handler redirecting via a fragment
+        -- + parent args must render the same Location as the full route would.
+        it "renders the full nested route as the Location" $ do
+            app <- toWaiApp App
+            sres <- flip runSession app $
+                request defaultRequest
+                    { pathInfo = ["redirectparent"]
+                    , requestMethod = "GET"
+                    , httpVersion = H.http11
+                    }
+            H.statusCode (simpleStatus sres) `shouldBe` 303
+            lookup "Location" (simpleHeaders sres)
+                `shouldBe` Just "/parent/1/hello/child1"
+
+    describe "RedirectUrl Text / String / (Route, params) Location header" $ do
+        -- The unexercised simple RedirectUrl instances, end to end through a
+        -- handler redirect.
+        it "redirects via plain Text" $ do
+            app <- toWaiApp App
+            sres <- flip runSession app $
+                request defaultRequest
+                    { pathInfo = ["redirecttext"]
+                    , requestMethod = "GET"
+                    , httpVersion = H.http11
+                    }
+            H.statusCode (simpleStatus sres) `shouldBe` 303
+            lookup "Location" (simpleHeaders sres)
+                `shouldBe` Just "/some/where"
+        it "redirects via plain String" $ do
+            app <- toWaiApp App
+            sres <- flip runSession app $
+                request defaultRequest
+                    { pathInfo = ["redirectstring"]
+                    , requestMethod = "GET"
+                    , httpVersion = H.http11
+                    }
+            H.statusCode (simpleStatus sres) `shouldBe` 303
+            lookup "Location" (simpleHeaders sres)
+                `shouldBe` Just "/some/string"
+        it "redirects via (Route, params)" $ do
+            app <- toWaiApp App
+            sres <- flip runSession app $
+                request defaultRequest
+                    { pathInfo = ["redirectparams"]
+                    , requestMethod = "GET"
+                    , httpVersion = H.http11
+                    }
+            H.statusCode (simpleStatus sres) `shouldBe` 303
+            lookup "Location" (simpleHeaders sres)
+                `shouldBe` Just "/json?q=1"
+
+    describe "RenderRouteNested (WithParentArgs a)" $ do
+        it "agrees with renderRoute of the equivalent full Route" $ do
+            renderRouteNested () (WithParentArgs (1 :: Int) (Child1R "hello"))
+                `shouldBe`
+                    renderRoute (toParentRoute (1 :: Int) (Child1R "hello"))
+            -- and concretely, the full path:
+            renderRouteNested () (WithParentArgs (1 :: Int) (Child1R "hello"))
+                `shouldBe`
+                    renderRoute (ParentR 1 (Child1R "hello"))
 
 
     describe "selectRep" $ do

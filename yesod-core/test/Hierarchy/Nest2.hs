@@ -2,7 +2,6 @@
 
 module Hierarchy.Nest2 where
 
-import Yesod.Routes.Parse
 import Yesod.Routes.Class
 import Yesod.Routes.TH
 import Hierarchy.ResourceTree
@@ -18,6 +17,6 @@ do
         Just NestInnerIndexR ->
             pure []
 
-mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "Nest2") defaultOpts) [] NoTyArgs (ConT ''Hierarchy) (map (fmap parseType) hierarchyResources)
-mkRouteAttrsInstanceFor [] (ConT ''Nest2) "Nest2" $ map (fmap parseType) hierarchyResources
-mkParseRouteInstanceFor "Nest2" $ map (fmap parseType) hierarchyResources
+mkRenderRouteInstanceOpts (setFocusOnNestedRoute (Just "Nest2") defaultOpts) [] NoTyArgs (ConT ''Hierarchy) hierarchyResourcesWithType
+mkRouteAttrsInstanceFor [] (ConT ''Nest2) "Nest2" $ hierarchyResourcesWithType
+mkParseRouteInstanceFor "Nest2" $ hierarchyResourcesWithType

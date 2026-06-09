@@ -2,7 +2,6 @@
 
 module Hierarchy.Admin where
 
-import Yesod.Routes.Parse
 import Yesod.Routes.TH
 import Hierarchy.ResourceTree
 import Language.Haskell.TH
@@ -13,12 +12,12 @@ mkRenderRouteInstanceOpts
     []
     NoTyArgs
     (ConT ''Hierarchy)
-    (map (fmap parseType) hierarchyResources)
+    hierarchyResourcesWithType
 mkRouteAttrsInstanceFor
     []
     (ConT ''AdminR)
     "AdminR"
-    $ map (fmap parseType) hierarchyResources
+    $ hierarchyResourcesWithType
 mkParseRouteInstanceFor
     "AdminR"
-    $ map (fmap parseType) hierarchyResources
+    $ hierarchyResourcesWithType

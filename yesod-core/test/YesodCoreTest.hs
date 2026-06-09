@@ -20,6 +20,8 @@ import qualified YesodCoreTest.ParamSubDispatchInstanceRuntime as ParamSubDispat
 import qualified YesodCoreTest.ParamSplitSubRuntime as ParamSplitSubRuntime
 import qualified YesodCoreTest.ParamDefaultSplitRuntime as ParamDefaultSplitRuntime
 import qualified YesodCoreTest.ParamTopLevelRuntime as ParamTopLevelRuntime
+import qualified YesodCoreTest.ParamFocusSplit as ParamFocusSplit
+import qualified YesodCoreTest.ParamNoExplicitArgs as ParamNoExplicitArgs
 import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
 import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
 import qualified YesodCoreTest.ParamNestedNoFallthroughRuntime as ParamNestedNoFallthroughRuntime
@@ -28,6 +30,7 @@ import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntim
 import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
 import qualified YesodCoreTest.BangSeparatorRuntime as BangSeparatorRuntime
 import qualified YesodCoreTest.SubsiteFallthrough as SubsiteFallthrough
+import qualified YesodCoreTest.SubsiteOptsFallthrough as SubsiteOptsFallthrough
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -42,7 +45,6 @@ import qualified YesodCoreTest.Json as Json
 import qualified YesodCoreTest.Content as Content
 import qualified YesodCoreTest.NestedDispatch as NestedDispatch
 import qualified YesodCoreTest.FallthroughDispatch as FallthroughDispatch
-import qualified YesodCoreTest.RenderRouteSpec as RenderRouteSpec
 
 -- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
 #ifndef WINDOWS
@@ -100,6 +102,8 @@ specs = do
       ParamSplitSubRuntime.specs
       ParamDefaultSplitRuntime.specs
       ParamTopLevelRuntime.specs
+      ParamFocusSplit.specs
+      ParamNoExplicitArgs.specs
       ParamFallthroughRuntime.specs
       ParamNoFallthroughRuntime.specs
       ParamNestedNoFallthroughRuntime.specs
@@ -108,7 +112,6 @@ specs = do
       ZeroPieceShadowRuntime.specs
       BangSeparatorRuntime.specs
       SubsiteFallthrough.specs
+      SubsiteOptsFallthrough.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
-      describe "RenderRoute" $ do
-          RenderRouteSpec.spec

@@ -60,7 +60,7 @@ import Data.List (foldl')
 import Data.Maybe
 import Control.Monad
 import Yesod.Routes.TH
-import Yesod.Routes.TH.Dispatch (parseYesodName)
+import Yesod.Routes.TH.Dispatch (parseYesodName, mkYesodSubDispatchWithDelegate)
 import Yesod.Routes.TH.Internal (instanceD, typeArity, assertNestedSubArity, ArityCallSite(..), SubsiteName(..), SubsiteArity(..), resolveRouteCon, nestedInstanceExists)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
@@ -142,7 +142,7 @@ mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> Q([Dec],[Dec])
 mkYesodWithParserOpts opts name isSub f resS = do
     (name', rest, cxt) <- case parseYesodName name of
-            Left err -> fail $ show err
+            Left err -> fail err
             Right a -> pure a
 
     mkYesodGeneralOpts opts cxt name' rest isSub f resS
@@ -197,6 +197,37 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
 parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
 
+-- | The resolved foundation type shared by 'mkYesodGeneralOpts' and
+-- 'mkYesodSubDispatchInstanceOpts': the @boundNames@ from the explicitly-written
+-- type args plus enough fresh @t@ variables to fill the reified arity, the fully
+-- applied @site@ type, and the parsed resources. The callers differ only in how
+-- they roll these into 'TyArgs' (and the synonym-head vars), so that part stays
+-- with each caller.
+data ResolvedFoundation = ResolvedFoundation
+    { rfBoundNames :: [(Type, Name)]  -- ^ explicitly-written type args
+    , rfFillVars   :: [Name]          -- ^ fresh vars filling the reified arity
+    , rfSite       :: Type            -- ^ the fully applied site type
+    , rfResources  :: [ResourceTree Type]
+    }
+
+resolveFoundation :: String -> [String] -> [ResourceTree String] -> Q ResolvedFoundation
+resolveFoundation namestr mtys resS = do
+    mname <- lookupTypeName namestr
+    arity <- maybe (pure 0) typeArity mname
+    let name = mkName namestr
+    -- Generate as many variable names as the arity indicates
+    vns <- replicateM (arity - length mtys) $ newName "t"
+    let boundNames = fmap nameToType mtys
+        argtypes = fmap fst boundNames ++ fmap VarT vns
+        site = foldl' AppT (ConT name) argtypes
+    res <- parseResourceTypes resS
+    pure ResolvedFoundation
+        { rfBoundNames = boundNames
+        , rfFillVars = vns
+        , rfSite = site
+        , rfResources = res
+        }
+
 -- |
 --
 -- @since 1.6.25.0
@@ -210,20 +241,19 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     appCxt <- buildAppCxt appCxt'
-    mname <- lookupTypeName namestr
-    arity <- maybe (pure 0) typeArity mname
-    let name = mkName namestr
-    -- Generate as many variable names as the arity indicates
-    vns <- replicateM (arity - length mtys) $ newName "t"
-    -- types that you apply to get a concrete site name
-    let boundNames = fmap nameToType mtys
-        argtypes = fmap fst boundNames ++ fmap VarT vns
+    ResolvedFoundation { rfBoundNames = boundNames, rfFillVars = vns, rfSite = site, rfResources = res } <-
+        resolveFoundation namestr mtys resS
+    -- The explicitly-written args plus the fresh vars filling the reified
+    -- arity. Both are part of the site's full application ('site'), so both
+    -- must travel in the 'TyArgs' handed to 'discoveryMode' and the generators
+    -- — otherwise a parameterized foundation invoked without explicit type args
+    -- would be misclassified as monomorphic and emit ill-scoped nested
+    -- instances.
+    let fillNames = fmap (\v -> (VarT v, v)) vns
+        tyArgs = toTyArgs (boundNames ++ fillNames)
     -- typevars that should appear in synonym head
     let argvars = (fmap mkName . filter isTvar) mtys ++ vns
-        -- Base type (site type with variables)
-    let site = foldl' AppT (ConT name) argtypes
-    res <- parseResourceTypes resS
-    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt (toTyArgs boundNames) site res
+    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt tyArgs site res
     routeAttrsDec  <-
         case roFocusOnNestedRoute opts of
             Nothing -> do
@@ -236,15 +266,19 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 -- though the other nested-delegation methods resolve.
                 flatAttrs <- mkRouteAttrsInstance appCxt site res
                 nestedAttrs <-
-                    case discoveryMode opts (hasTyArgs (toTyArgs boundNames)) of
-                        NestedDiscovery -> mkRouteAttrsNestedInstances appCxt (toTyArgs boundNames) res
+                    case discoveryMode opts (hasTyArgs tyArgs) of
+                        NestedDiscovery -> mkRouteAttrsNestedInstances appCxt tyArgs res
                         InlineCompat    -> pure []
                 pure (flatAttrs : nestedAttrs)
             Just target ->
-                mkRouteAttrsInstanceFor appCxt (ConT (mkName target)) target res
+                -- Apply the site's type arguments to the focused child's
+                -- constructor, matching the focused ParseRoute / RenderRoute
+                -- paths; a bare 'ConT' here is a kind error for a
+                -- parameterized site.
+                mkRouteAttrsInstanceFor appCxt (applyTyArgs (ConT (mkName target)) tyArgs) target res
 
-    dispatchDec <- mkDispatchInstance opts site appCxt (toTyArgs boundNames) f res
-    parseRoute <- mkParseRouteInstanceOpts opts (toTyArgs boundNames) appCxt site res
+    dispatchDec <- mkDispatchInstance opts site appCxt tyArgs f res
+    parseRoute <- mkParseRouteInstanceOpts opts tyArgs appCxt site res
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
         if shouldCreateResources opts
@@ -300,9 +334,9 @@ mkYesodSubDispatchInstance = mkYesodSubDispatchInstanceOpts defaultOpts
 -- | Like 'mkYesodSubDispatchInstance', but takes a 'RouteOpts' so a subsite can
 -- control nested-route generation — most usefully 'setNestedRouteFallthrough'
 -- (which 'mkYesodSubDispatchInstance' leaves at its default of 'False'). The
--- parameterized-subroute flag is always forced on for the nested subroute
--- datatypes regardless of the supplied opts, since this API targets
--- parameterized subsites.
+-- flag is threaded into both the @yesodSubDispatch@ body (so the subsite's own
+-- top-level parent clauses fall through to later siblings on an inner miss) and
+-- the generated @YesodSubDispatchNested@ fragment instances.
 --
 -- @since 1.7.0.0
 mkYesodSubDispatchInstanceOpts
@@ -319,22 +353,33 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
 
     appCxt <- buildAppCxt appCxt'
 
-    -- Look up the type to determine arity
-    mname <- lookupTypeName namestr
-    arity <- maybe (pure 0) typeArity mname
-
-    let name = mkName namestr
-    vns <- replicateM (arity - length mtys) $ newName "t"
-    let boundNames = fmap nameToType mtys
-        tyArgs = toTyArgs boundNames
-        argtypes = fmap fst boundNames ++ fmap VarT vns
-    let site = foldl' AppT (ConT name) argtypes
-    res <- parseResourceTypes resS
+    ResolvedFoundation { rfBoundNames = boundNames, rfFillVars = vns, rfSite = site, rfResources = res } <-
+        resolveFoundation namestr mtys resS
+    -- The explicitly-written args plus the fresh vars filling the reified
+    -- arity. Both are part of the subsite's full application ('site'), so both
+    -- must travel in the 'TyArgs' handed to 'discoveryMode' and the generators
+    -- — otherwise a parameterized subsite invoked without explicit type args
+    -- (e.g. @mkYesodSubDispatchInstance "MySub"@ for @MySub a@) would be
+    -- misclassified as monomorphic and emit ill-scoped nested instances. This
+    -- mirrors the 'fillNames' fix in 'mkYesodGeneralOpts'.
+    let fillNames = fmap (\v -> (VarT v, v)) vns
+        tyArgs = toTyArgs (boundNames ++ fillNames)
 
     -- Generate the YesodSubDispatch instance
     masterN <- newName "master"
     let masterT = VarT masterN
-        subDispatchExp = mkYesodSubDispatch res
+        -- Thread the opts (in particular 'roNestedRouteFallthrough') into the
+        -- generated @yesodSubDispatch@ body so a subsite's own top-level parent
+        -- clauses honor 'setNestedRouteFallthrough', matching the top-level
+        -- 'mkTopLevelDispatchInstance' path. Pass 'True' for delegateInline:
+        -- this entry point emits a 'YesodSubDispatchNested' instance per parent
+        -- in this same splice (below), so the flat @yesodSubDispatch@ body
+        -- delegates each parent to that instance instead of inlining the
+        -- subtree dispatch (which the nested instance would re-emit), avoiding
+        -- the doubled codegen. This mirrors 'mkTopLevelDispatchInstance' on the
+        -- top-level path. Standalone 'mkYesodSubDispatch'/'mkYesodSubDispatchWith'
+        -- keep delegateInline 'False' (no same-splice instances to delegate to).
+        subDispatchExp = mkYesodSubDispatchWithDelegate True opts res
     subDispatchBody <- subDispatchExp
     let yesodSubDispatchInst = instanceD
             appCxt
@@ -364,9 +409,9 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
             then pure []
             else do
                 -- This API targets parameterized subsites whose nested subroute
-                -- datatypes carry the parent's type arguments, so it uses the
-                -- nested-discovery machinery (opted in via
-                -- 'setParameterizedSubroute'). Guard the misuse where the
+                -- datatypes carry the parent's type arguments (the subsite's
+                -- 'tyArgs' are applied to the nested datatype directly below).
+                -- Guard the misuse where the
                 -- subsite is parameterized but the nested datatype is not:
                 -- otherwise applying the subsite's type args to a kind-'Type'
                 -- datatype produces a cryptic kind error from generated code.
@@ -379,8 +424,13 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
                     (SubsiteName namestr)
                     (SubsiteArity (tyArgsArity tyArgs))
                     rc
+                -- 'mkNestedSubDispatchInstance' applies 'tyArgs' to the nested
+                -- datatype directly and never consults 'roParameterizedSubroute'
+                -- (it only reads 'roNestedRouteFallthrough'), so passing 'opts'
+                -- through unchanged is correct — forcing 'setParameterizedSubroute'
+                -- here was a no-op.
                 mkNestedSubDispatchInstance
-                    (setParameterizedSubroute True opts)
+                    opts
                     nestedName appCxt tyArgs return res
 
     return $ yesodSubDispatchInst : nestedInstances

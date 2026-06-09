@@ -26,6 +26,20 @@ module Yesod.Core.Dispatch
     , mkYesodSubDispatch
     , mkYesodSubDispatchInstance
     , mkYesodSubDispatchInstanceOpts
+      -- *** Splitting a subsite's nested routes across modules
+      --
+      -- | These re-exports let a separately-compiled module generate a
+      -- subsite's @YesodSubDispatchNested@ instance by hand (see the
+      -- subsite-route-splitting recipe in the ChangeLog).
+
+      -- | @since 1.7.0.0
+    , mkNestedSubDispatchInstance
+      -- | @since 1.7.0.0
+    , TyArgs (..)
+      -- | @since 1.7.0.0
+    , parseType
+      -- | @since 1.7.0.0
+    , dropBracket
       -- *** Route generation options
     , RouteOpts
     , defaultOpts
@@ -83,6 +97,7 @@ import qualified Data.ByteString.Char8 as S8
 import Data.Default (def)
 #endif
 import Yesod.Routes.Parse
+import Yesod.Routes.TH (mkNestedSubDispatchInstance, TyArgs (..))
 import Yesod.Core.Types
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch

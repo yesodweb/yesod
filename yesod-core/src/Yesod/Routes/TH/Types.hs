@@ -52,29 +52,41 @@ data TyArgs
     deriving (Eq, Show)
 
 -- | Build 'TyArgs' from a list of (type, source-name) pairs.
+--
+-- @since 1.7.0.0
 toTyArgs :: [(Type, Name)] -> TyArgs
 toTyArgs []       = NoTyArgs
 toTyArgs (x : xs) = SomeTyArgs (x :| xs)
 
 -- | The type arguments as a plain list (empty for 'NoTyArgs').
+--
+-- @since 1.7.0.0
 tyArgsList :: TyArgs -> [(Type, Name)]
 tyArgsList NoTyArgs        = []
 tyArgsList (SomeTyArgs ne) = NonEmpty.toList ne
 
 -- | Just the 'Type's of the arguments, in order.
+--
+-- @since 1.7.0.0
 tyArgsTypes :: TyArgs -> [Type]
 tyArgsTypes = map fst . tyArgsList
 
 -- | Just the source 'Name's of the arguments, in order.
+--
+-- @since 1.7.0.0
 tyArgsBinders :: TyArgs -> [Name]
 tyArgsBinders = map snd . tyArgsList
 
 -- | How many type arguments there are.
+--
+-- @since 1.7.0.0
 tyArgsArity :: TyArgs -> Int
 tyArgsArity NoTyArgs        = 0
 tyArgsArity (SomeTyArgs ne) = NonEmpty.length ne
 
 -- | Whether there are any type arguments (i.e. the site is parameterized).
+--
+-- @since 1.7.0.0
 hasTyArgs :: TyArgs -> Bool
 hasTyArgs NoTyArgs      = False
 hasTyArgs SomeTyArgs {} = True
@@ -83,6 +95,8 @@ hasTyArgs SomeTyArgs {} = True
 -- constructor), left to right. This replaces the ad-hoc
 -- @'foldl'' 'AppT' con ('fst' '<$>' tyargs)@ that recurred across the
 -- generators.
+--
+-- @since 1.7.0.0
 applyTyArgs :: Type -> TyArgs -> Type
 applyTyArgs t = foldl' AppT t . tyArgsTypes
 

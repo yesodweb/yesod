@@ -24,12 +24,15 @@ import Hierarchy
 import qualified Data.Set as Set
 import qualified Route.FallthroughSpec as FallthroughSpec
 import qualified Route.RenderRouteSpec as RenderRouteSpec
+import qualified YesodCoreTest.RenderRouteSpec as NestedRenderRouteSpec
 import qualified Route.RouteAttrSpec as RouteAttrSpec
 import qualified Route.DiscoveryModeSpec as DiscoveryModeSpec
 import qualified Route.SubDispatchAritySpec as SubDispatchAritySpec
 import qualified Route.DeepAritySpec as DeepAritySpec
 import qualified Route.InlineParseClausesSpec as InlineParseClausesSpec
 import qualified Route.NestedParseClausesSpec as NestedParseClausesSpec
+import qualified Route.FocusLeafConsSpec as FocusLeafConsSpec
+import qualified Route.MissingFocusTargetSpec as MissingFocusTargetSpec
 import qualified Data.Text as Text
 
 data MyApp = MyApp
@@ -95,12 +98,15 @@ main :: IO ()
 main = hspec $ do
     describe "Route.FallthroughSpec" FallthroughSpec.spec
     describe "Route.RenderRouteSpec" RenderRouteSpec.spec
+    describe "YesodCoreTest.RenderRouteSpec" NestedRenderRouteSpec.spec
     describe "Route.RouteAttrSpec" RouteAttrSpec.spec
     describe "Route.DiscoveryModeSpec" DiscoveryModeSpec.spec
     describe "Route.SubDispatchAritySpec" SubDispatchAritySpec.spec
     describe "Route.DeepAritySpec" DeepAritySpec.spec
     describe "Route.InlineParseClausesSpec" InlineParseClausesSpec.spec
     describe "Route.NestedParseClausesSpec" NestedParseClausesSpec.spec
+    describe "Route.FocusLeafConsSpec" FocusLeafConsSpec.spec
+    describe "Route.MissingFocusTargetSpec" MissingFocusTargetSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ Text.pack "foo") @?= (map Text.pack ["blog", "foo"], [])

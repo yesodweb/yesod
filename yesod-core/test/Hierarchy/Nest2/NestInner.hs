@@ -4,7 +4,6 @@
 
 module Hierarchy.Nest2.NestInner where
 
-import Yesod.Routes.Parse
 import Yesod.Routes.TH
 import Hierarchy.ResourceTree
 import Language.Haskell.TH
@@ -14,6 +13,6 @@ mkRenderRouteInstanceOpts
     []
     NoTyArgs
     (ConT ''Hierarchy)
-    (map (fmap parseType) hierarchyResources)
-mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner" $ map (fmap parseType) hierarchyResources
-mkParseRouteInstanceFor "NestInner" $ map (fmap parseType) hierarchyResources
+    hierarchyResourcesWithType
+mkRouteAttrsInstanceFor [] (ConT ''NestInner) "NestInner" $ hierarchyResourcesWithType
+mkParseRouteInstanceFor "NestInner" $ hierarchyResourcesWithType

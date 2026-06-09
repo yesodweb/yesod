@@ -18,10 +18,10 @@ import Web.PathPieces (fromPathPiece)
 import Yesod.Routes.TH.Types
 import Yesod.Routes.TH.ParseRoute (buildInlineParseClauses)
 
--- | Run the pure builder at the top level (no accumulated parent pieces, no
--- wrapping), the way 'generateParseRouteClausesInline' invokes it.
+-- | Run the pure builder at the top level (no wrapping), the way
+-- 'generateParseRouteClausesInline' invokes it.
 run :: ResourceTree Type -> [Clause]
-run t = evalState (buildInlineParseClauses [] id t) (0 :: Int)
+run t = evalState (buildInlineParseClauses id t) (0 :: Int)
 
 leaf :: String -> [Piece Type] -> Dispatch Type -> ResourceTree Type
 leaf name pieces d = ResourceLeaf (Resource name pieces d [] True)
@@ -74,6 +74,21 @@ usedVars :: Exp -> [Name]
 usedVars (VarE n) = [n]
 usedVars e        = concatMap usedVars (subExps e)
 
+-- | The match alternatives of the top-level expression, when it is a @case@
+-- (the shape a parent's committing clause produces). 'Nothing' otherwise.
+caseMatches :: Exp -> Maybe [Match]
+caseMatches (CaseE _ ms) = Just ms
+caseMatches _            = Nothing
+
+-- | The body expression of a clause that has no @where@ bindings.
+clauseExp :: Clause -> Exp
+clauseExp (Clause _ body _) = clauseBodyExp body
+
+-- | Whether a match alternative is the catch-all @_ -> Nothing@ fallback.
+isNothingFallback :: Match -> Bool
+isNothingFallback (Match WildP (NormalB (ConE n)) []) = n == 'Nothing
+isNothingFallback _                                    = False
+
 -- | The immediate sub-expressions of an expression.
 subExps :: Exp -> [Exp]
 subExps (AppE a b)       = [a, b]
@@ -84,6 +99,7 @@ subExps (ParensE e)      = [e]
 subExps (LamE _ e)       = [e]
 subExps (SigE e _)       = [e]
 subExps (CondE a b c)    = [a, b, c]
+subExps (CaseE e ms)     = e : [me | Match _ (NormalB me) _ <- ms]
 subExps (ListE es)       = es
 #if MIN_VERSION_template_haskell(2,16,0)
 subExps (TupE mes)       = catMaybes mes
@@ -106,21 +122,59 @@ spec = describe "buildInlineParseClauses (pure inline parseRoute codegen)" $ do
     it "produces one clause for a single static leaf" $
         length (run (leaf "HomeR" [Static "home"] (methods ["GET"]))) `shouldBe` 1
 
-    it "flattens a parent into one clause per descendant leaf (no clause for the parent itself)" $ do
+    it "emits exactly one (committing) clause per parent, matching its prefix once" $ do
+        -- 1.6 semantics: the parent contributes ONE top-level clause that
+        -- matches the parent prefix, then cases over its children. It does not
+        -- expand to one flat clause per descendant leaf (which would re-parse
+        -- the prefix and let a child miss fall through to a sibling route).
         let tree = parent "AdminR" [Static "admin"]
                 [ leaf "UsersR" [Static "users"] (methods ["GET"])
                 , leaf "PostsR" [Static "posts"] (methods ["GET"])
                 ]
-        length (run tree) `shouldBe` 2
+        withOnlyClause (run tree) $ \c ->
+            case caseMatches (clauseExp c) of
+                Nothing -> expectationFailure "expected the parent clause body to be a case over children"
+                -- two children + the committing Nothing fallback
+                Just ms -> length ms `shouldBe` 3
 
-    it "flattens deeply-nested parents (one clause per leaf, parents contribute none)" $ do
+    it "ends the parent's case with a Nothing fallback (commit-on-parent-prefix)" $ do
+        -- This is the heart of the backwards-compat fix: once the parent prefix
+        -- matches, a child miss must resolve to 'Nothing' (a 404 that agrees
+        -- with dispatch), NOT fall through to a later top-level route.
+        let tree = parent "AdminR" [Static "admin"]
+                [ leaf "UsersR" [Static "users"] (methods ["GET"]) ]
+        withOnlyClause (run tree) $ \c ->
+            case caseMatches (clauseExp c) of
+                Nothing -> expectationFailure "expected the parent clause body to be a case over children"
+                Just ms -> case reverse ms of
+                    (lastM : _) -> isNothingFallback lastM `shouldBe` True
+                    []          -> expectationFailure "expected at least the Nothing fallback"
+
+    it "commits at each level for deeply-nested parents (nested cases, each Nothing-terminated)" $ do
         let tree = parent "AR" [Static "a"]
                 [ parent "BR" [Static "b"]
                     [ leaf "CR" [Static "c"] (methods ["GET"])
                     , leaf "DR" [Static "d"] (methods ["GET"])
                     ]
                 ]
-        length (run tree) `shouldBe` 2
+        -- One top-level clause for AR; its case has one child match (BR's
+        -- committing clause-as-match) plus the Nothing fallback.
+        withOnlyClause (run tree) $ \c ->
+            case caseMatches (clauseExp c) of
+                Nothing -> expectationFailure "expected AR's body to be a case"
+                Just msA -> do
+                    length msA `shouldBe` 2
+                    isNothingFallback (last msA) `shouldBe` True
+                    -- The non-fallback alternative is BR's committing match,
+                    -- whose body is itself a case (over CR/DR) ending in Nothing.
+                    case msA of
+                        (Match _ (NormalB innerE) [] : _) ->
+                            case caseMatches innerE of
+                                Nothing  -> expectationFailure "expected BR's body to be a case"
+                                Just msB -> do
+                                    length msB `shouldBe` 3 -- CR, DR, Nothing
+                                    isNothingFallback (last msB) `shouldBe` True
+                        _ -> expectationFailure "unexpected shape for BR's match alternative"
 
     it "binds a dynamic piece with a fromPathPiece view pattern" $
         withOnlyClause (run (leaf "UserR" [Static "user", Dynamic (ConT ''Int)] (methods ["GET"]))) $ \c ->

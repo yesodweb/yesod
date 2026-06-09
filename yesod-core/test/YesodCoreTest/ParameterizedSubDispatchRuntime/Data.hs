@@ -16,7 +16,7 @@ import Data.Text (Text)
 
 -- | A monomorphic leaf subsite, embedded under a 'ResourceParent' of 'BigSub'
 -- to exercise the inline @Subsite@ arm
--- ('generateParseRouteClausesInline', ParseRoute.hs:234).
+-- ('generateParseRouteClausesInline' in Yesod.Routes.TH.ParseRoute).
 data ChildSub = ChildSub
 
 mkYesodSubData "ChildSub" [parseRoutes|

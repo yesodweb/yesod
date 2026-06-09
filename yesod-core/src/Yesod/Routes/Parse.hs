@@ -111,7 +111,7 @@ resourcesFromString =
                         (pieces, mmulti, check) <- piecesFromStringCheck pattern
                         case mmulti of
                             Nothing -> pure ()
-                            Just _ -> fail "Invalid resource line: bad overlap"
+                            Just _ -> fail $ "Parent routes cannot have a multipiece: " ++ pattern
                         pure ((ResourceParent constr check (Set.fromList attrs) pieces children' :), otherLines'')
                 (pattern:constr:rest) -> do
                     (pieces, mmulti, check) <- piecesFromStringCheck pattern

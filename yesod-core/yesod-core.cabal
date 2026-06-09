@@ -79,6 +79,7 @@ library
                      Yesod.Core.Types
                      Yesod.Core.Unsafe
                      Yesod.Routes.TH.Types
+                     Yesod.Core.Class.Dispatch.ToParentRoute
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
@@ -89,7 +90,6 @@ library
                      Yesod.Core.Internal.LiteApp
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
-                     Yesod.Core.Class.Dispatch.ToParentRoute
                      Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.TypeCache
                      Yesod.Core.Types.Content
@@ -146,6 +146,11 @@ test-suite test-routes
                    Route.DeepArityTypes
                    Route.InlineParseClausesSpec
                    Route.NestedParseClausesSpec
+                   Route.FocusLeafConsSpec
+                   Route.MissingFocusTargetSpec
+                   Route.MissingFocusTargetTypes
+                   YesodCoreTest.RenderRouteSpec
+                   YesodCoreTest.RenderRouteSpec.TH
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
@@ -202,11 +207,9 @@ test-suite tests
     default-language: Haskell2010
     type: exitcode-stdio-1.0
     main-is: test.hs
-    hs-source-dirs: test, src
+    hs-source-dirs: test
 
     other-modules: YesodCoreTest
-                   Yesod.Routes.Class
-                   Yesod.Routes.TH.RenderRoute
                    YesodCoreTest.Auth
                    YesodCoreTest.Breadcrumb
                    YesodCoreTest.Cache
@@ -254,8 +257,6 @@ test-suite tests
                    YesodCoreTest.StubStrictSameSite
                    YesodCoreTest.StubUnsecured
                    YesodCoreTest.SubSub
-                   YesodCoreTest.RenderRouteSpec
-                   YesodCoreTest.RenderRouteSpec.TH
                    YesodCoreTest.SubSubData
                    YesodCoreTest.SplitSubsite
                    YesodCoreTest.SplitSubsite.Data
@@ -273,6 +274,10 @@ test-suite tests
                    YesodCoreTest.ParamDefaultSplitData
                    YesodCoreTest.ParamDefaultSplitRuntime
                    YesodCoreTest.ParamTopLevelRuntime
+                   YesodCoreTest.ParamFocusSplit
+                   YesodCoreTest.ParamFocusSplit.Resources
+                   YesodCoreTest.ParamFocusSplit.SubR
+                   YesodCoreTest.ParamNoExplicitArgs
                    YesodCoreTest.ParamFallthroughRuntime
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
@@ -287,6 +292,8 @@ test-suite tests
                    YesodCoreTest.SubsiteFallthrough
                    YesodCoreTest.SubsiteFallthroughSub.Data
                    YesodCoreTest.SubsiteFallthroughSub.Nested
+                   YesodCoreTest.SubsiteOptsFallthrough
+                   YesodCoreTest.SubsiteOptsFallthroughSub.Data
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest
@@ -342,12 +349,14 @@ test-suite tests
                   , wai-extra
                   , warp
                   , th-lift-instances
-    -- NB: this suite does NOT depend on the yesod-core library. It puts `src`
-    -- on hs-source-dirs and recompiles the library modules locally (it needs
-    -- internal, non-exposed modules like Yesod.Routes.Class). A yesod-core dep
-    -- here would supply a *second* copy of types like RenderRouteNested/RouteOpts
-    -- that only compiles via home-package shadowing — see `test-routes`, which
-    -- has always relied on the same src-recompile-only approach.
+                  , yesod-core
+    -- NB: this behavioral suite depends on the *packaged* yesod-core library
+    -- (no `src` on hs-source-dirs), so it compiles against the real
+    -- exposed/hidden module boundary. That is what catches API-exposure
+    -- regressions (a module that downstream consumers cannot import). The
+    -- pure-codegen suite `test-routes` keeps `src` on hs-source-dirs because it
+    -- legitimately needs internal modules (e.g. Yesod.Routes.TH.RenderRoute,
+    -- Yesod.Routes.Class) for compile-time codegen assertions.
     ghc-options:     -Wall -threaded
     other-extensions: TemplateHaskell
 

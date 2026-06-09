@@ -36,6 +36,7 @@ module Yesod.Routes.TH
     , subsiteNestedConfig
     , mkMDS
     , mkYesodSubDispatch
+    , mkYesodSubDispatchWith
     , subTopDispatch
     ) where
 

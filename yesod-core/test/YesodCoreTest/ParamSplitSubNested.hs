@@ -26,8 +26,8 @@
 module YesodCoreTest.ParamSplitSubNested () where
 
 import Yesod.Core
-import Yesod.Routes.TH (mkNestedSubDispatchInstance, TyArgs(..))
-import Yesod.Routes.Parse (parseType, dropBracket)
+import Yesod.Core.Dispatch
+    (mkNestedSubDispatchInstance, TyArgs(..), parseType, dropBracket)
 import Language.Haskell.TH (Type(..), mkName)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Text (Text)

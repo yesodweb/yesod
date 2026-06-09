@@ -19,8 +19,8 @@
 module YesodCoreTest.SplitSubsite.NestedR (NestedR(..)) where
 
 import Yesod.Core
-import Yesod.Routes.TH (mkNestedSubDispatchInstance, defaultOpts, TyArgs(..))
-import Yesod.Routes.Parse (parseType, dropBracket)
+import Yesod.Core.Dispatch
+    (mkNestedSubDispatchInstance, defaultOpts, TyArgs(..), parseType, dropBracket)
 import Data.Text (Text, pack)
 
 import YesodCoreTest.SplitSubsite.Data
