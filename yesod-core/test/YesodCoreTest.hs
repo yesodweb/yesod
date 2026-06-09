@@ -27,6 +27,7 @@ import qualified YesodCoreTest.FallthroughMatrixRuntime as FallthroughMatrixRunt
 import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
 import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
 import qualified YesodCoreTest.BangSeparatorRuntime as BangSeparatorRuntime
+import qualified YesodCoreTest.SubsiteFallthrough as SubsiteFallthrough
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -106,6 +107,7 @@ specs = do
       MultiPieceNestedRuntime.specs
       ZeroPieceShadowRuntime.specs
       BangSeparatorRuntime.specs
+      SubsiteFallthrough.specs
       describe "FallthroughDispatch" $ do
           FallthroughDispatch.spec
       describe "RenderRoute" $ do

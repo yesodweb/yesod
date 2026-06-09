@@ -613,6 +613,7 @@ mkNestedDispatchInstanceWith config mmaster routeOpts target cxt tyargs unwrappe
                             -- rather than a cryptic kind error from generated
                             -- code. A no-op for the monomorphic (0-arity) case.
                             assertNestedSubArity
+                                (maybe SubsiteCall (const TopLevelCall) mmaster)
                                 (SubsiteName curTarget)
                                 (SubsiteArity (tyArgsArity tyargs))
                                 rc

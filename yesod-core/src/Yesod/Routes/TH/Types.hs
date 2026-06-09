@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveLift #-}
 
 -- | Warning! This module is considered internal and may have breaking changes
@@ -87,7 +89,7 @@ applyTyArgs t = foldl' AppT t . tyArgsTypes
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
     | ResourceParent String CheckOverlap (Set String) [Piece typ] [ResourceTree typ]
-    deriving (Lift, Show, Functor)
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
@@ -104,16 +106,12 @@ data Resource typ = Resource
     , resourceAttrs :: [String]
     , resourceCheck :: CheckOverlap
     }
-    deriving (Lift, Show, Functor)
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 type CheckOverlap = Bool
 
 data Piece typ = Static String | Dynamic typ
-    deriving (Lift, Show)
-
-instance Functor Piece where
-    fmap _ (Static s)  = Static s
-    fmap f (Dynamic t) = Dynamic (f t)
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 data Dispatch typ =
     Methods
@@ -124,11 +122,7 @@ data Dispatch typ =
         { subsiteType :: typ
         , subsiteFunc :: String
         }
-    deriving (Lift, Show)
-
-instance Functor Dispatch where
-    fmap f (Methods a b) = Methods (fmap f a) b
-    fmap f (Subsite a b) = Subsite (f a) b
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t

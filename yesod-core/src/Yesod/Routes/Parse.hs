@@ -9,9 +9,11 @@ module Yesod.Routes.Parse
     , parseRoutesNoCheck
     , parseRoutesFileNoCheck
     , parseType
+    , parseTypeM
     , parseTypeTree
     , TypeTree (..)
     , dropBracket
+    , dropBracketM
     , nameToType
     , isTvar
     ) where
@@ -212,6 +214,16 @@ parseType :: String -> Type
 parseType orig =
     maybe (error $ "Invalid type: " ++ show orig) ttToType $ parseTypeTree orig
 
+-- | 'parseType' in 'MonadFail': a malformed type surfaces via 'fail' instead of
+-- a raw 'error'. Used at the 'Language.Haskell.TH.Q' splice sites so a bad type
+-- in a route definition becomes an attributed compile error. The pure
+-- 'parseType' is retained for callers (e.g. tests) supplying known-good input.
+--
+-- @since 1.7.0.0
+parseTypeM :: MonadFail m => String -> m Type
+parseTypeM orig =
+    maybe (fail $ "Invalid type: " ++ show orig) (pure . ttToType) $ parseTypeTree orig
+
 parseTypeTree :: String -> Maybe TypeTree
 parseTypeTree orig =
     toTypeTree pieces
@@ -303,6 +315,16 @@ dropBracket str@('{':x) = case break (== '}') x of
     (s, "}") -> s
     _ -> error $ "Unclosed bracket ('{'): " ++ str
 dropBracket x = x
+
+-- | 'dropBracket' in 'MonadFail': an unclosed @{@ surfaces via 'fail' instead
+-- of a raw 'error', so it becomes an attributed compile error at a splice site.
+--
+-- @since 1.7.0.0
+dropBracketM :: MonadFail m => String -> m String
+dropBracketM str@('{':x) = case break (== '}') x of
+    (s, "}") -> pure s
+    _ -> fail $ "Unclosed bracket ('{'): " ++ str
+dropBracketM x = pure x
 
 -- | If this line ends with a backslash, concatenate it together with the next line.
 --

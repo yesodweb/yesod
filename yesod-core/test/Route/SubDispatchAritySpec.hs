@@ -9,6 +9,8 @@ import Data.Maybe (isJust)
 import Yesod.Routes.TH.Internal
     ( checkNestedSubArity
     , arityMismatchMessage
+    , ArityCallSite(..)
+    , ArityMismatch(..)
     , SubsiteName(..)
     , RouteName(..)
     , SubsiteArity(..)
@@ -17,10 +19,10 @@ import Yesod.Routes.TH.Internal
 
 -- | The newtype wrappers are positional noise in the tests; this names the
 -- call the way the production caller does. 'Nothing' means the arities match;
--- 'Just' carries the rendered mismatch message.
+-- 'Just' carries the rendered mismatch message (phrased for a 'SubsiteCall').
 check :: String -> String -> Int -> Int -> Maybe String
 check sub route subArgs routeArity =
-    fmap arityMismatchMessage $
+    fmap (arityMismatchMessage SubsiteCall) $
         checkNestedSubArity
             (SubsiteName sub)
             (RouteName route)
@@ -49,3 +51,16 @@ spec = describe "checkNestedSubArity" $ do
             Just msg -> do
                 msg `shouldContain` "MySub"
                 msg `shouldContain` "NestedR"
+
+    describe "arityMismatchMessage phrasing per call site" $ do
+        let mismatch = ArityMismatch (SubsiteName "MySub") (RouteName "NestedR")
+                                     (SubsiteArity 1) (RouteArity 0)
+        it "names mkYesodSubDispatchInstance and calls it a subsite for a SubsiteCall" $ do
+            let msg = arityMismatchMessage SubsiteCall mismatch
+            msg `shouldContain` "mkYesodSubDispatchInstance"
+            msg `shouldContain` "subsite"
+        it "names mkYesod and calls it a site (not a subsite) for a TopLevelCall" $ do
+            let msg = arityMismatchMessage TopLevelCall mismatch
+            msg `shouldContain` "mkYesod:"
+            msg `shouldNotContain` "subsite"
+            msg `shouldContain` "site"

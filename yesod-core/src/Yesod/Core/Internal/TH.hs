@@ -61,7 +61,7 @@ import Data.Maybe
 import Control.Monad
 import Yesod.Routes.TH
 import Yesod.Routes.TH.Dispatch (parseYesodName)
-import Yesod.Routes.TH.Internal (instanceD, typeArity, assertNestedSubArity, SubsiteName(..), SubsiteArity(..), resolveRouteCon, nestedInstanceExists)
+import Yesod.Routes.TH.Internal (instanceD, typeArity, assertNestedSubArity, ArityCallSite(..), SubsiteName(..), SubsiteArity(..), resolveRouteCon, nestedInstanceExists)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Dispatch (YesodSubDispatch(..), YesodSubDispatchNested(..))
@@ -192,6 +192,14 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 -- |
 --
 -- @since 1.6.25.0
+-- | Convert the parsed-from-source 'String' route types into real 'Type's at a
+-- splice site. A malformed type or an unclosed @#{…}@ bracket surfaces as an
+-- attributed compile error (via 'fail') rather than a raw 'error' thrown lazily
+-- when the resulting tree is forced. The pure 'parseType'\/'dropBracket' are
+-- kept for callers (e.g. tests) that supply known-good input.
+parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
+parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
+
 mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route creation
                    -> [[String]]                -- ^ Application context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
                    -> String                    -- ^ foundation type
@@ -214,7 +222,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     let argvars = (fmap mkName . filter isTvar) mtys ++ vns
         -- Base type (site type with variables)
     let site = foldl' AppT (ConT name) argtypes
-        res = map (fmap (parseType . dropBracket)) resS
+    res <- parseResourceTypes resS
     renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt (toTyArgs boundNames) site res
     routeAttrsDec  <-
         case roFocusOnNestedRoute opts of
@@ -321,7 +329,7 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
         tyArgs = toTyArgs boundNames
         argtypes = fmap fst boundNames ++ fmap VarT vns
     let site = foldl' AppT (ConT name) argtypes
-        res = map (fmap (parseType . dropBracket)) resS
+    res <- parseResourceTypes resS
 
     -- Generate the YesodSubDispatch instance
     masterN <- newName "master"
@@ -367,6 +375,7 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
                 -- would wrongly report "0 type parameter(s)"), and downstream
                 -- codegen reports the not-in-scope case on its own.
                 assertNestedSubArity
+                    SubsiteCall
                     (SubsiteName namestr)
                     (SubsiteArity (tyArgsArity tyArgs))
                     rc

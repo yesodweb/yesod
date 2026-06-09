@@ -142,6 +142,8 @@ test-suite test-routes
                    Route.RouteAttrSpec
                    Route.DiscoveryModeSpec
                    Route.SubDispatchAritySpec
+                   Route.DeepAritySpec
+                   Route.DeepArityTypes
                    Route.InlineParseClausesSpec
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
@@ -281,6 +283,9 @@ test-suite tests
                    YesodCoreTest.ZeroPieceShadow.ShadowApp
                    YesodCoreTest.ZeroPieceShadow.FallApp
                    YesodCoreTest.BangSeparatorRuntime
+                   YesodCoreTest.SubsiteFallthrough
+                   YesodCoreTest.SubsiteFallthroughSub.Data
+                   YesodCoreTest.SubsiteFallthroughSub.Nested
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

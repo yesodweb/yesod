@@ -27,6 +27,7 @@ import qualified Route.RenderRouteSpec as RenderRouteSpec
 import qualified Route.RouteAttrSpec as RouteAttrSpec
 import qualified Route.DiscoveryModeSpec as DiscoveryModeSpec
 import qualified Route.SubDispatchAritySpec as SubDispatchAritySpec
+import qualified Route.DeepAritySpec as DeepAritySpec
 import qualified Route.InlineParseClausesSpec as InlineParseClausesSpec
 import qualified Data.Text as Text
 
@@ -96,6 +97,7 @@ main = hspec $ do
     describe "Route.RouteAttrSpec" RouteAttrSpec.spec
     describe "Route.DiscoveryModeSpec" DiscoveryModeSpec.spec
     describe "Route.SubDispatchAritySpec" SubDispatchAritySpec.spec
+    describe "Route.DeepAritySpec" DeepAritySpec.spec
     describe "Route.InlineParseClausesSpec" InlineParseClausesSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
