@@ -8,8 +8,6 @@ module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstanceOpts
     , mkRouteConsOpts
-    , mkRenderRouteClauses
-    , mkRenderRouteNestedClauses
     , shouldCreateResources
 
     , RouteOpts
@@ -460,10 +458,8 @@ parentConPat name pieces = do
     pure (dyns, child, conPCompat (mkName name) $ map VarP $ dyns ++ [child])
 
 -- | Clauses for the 'renderRoute' method. This should be called from the
--- instance derivation for 'RenderRoute'. Also returns a list of 'String'
--- corresponding to types that don't yet have 'RenderRouteNested'
--- instances.
-mkRenderRouteClauses :: RouteOpts -> TyArgs -> [ResourceTree Type] -> Q ([Clause], [String])
+-- instance derivation for 'RenderRoute'.
+mkRenderRouteClauses :: RouteOpts -> TyArgs -> [ResourceTree Type] -> Q [Clause]
 mkRenderRouteClauses opts origTyargs =
     goList
   where
@@ -487,20 +483,11 @@ mkRenderRouteClauses opts origTyargs =
         goNested = do
             (dyns, child, pat) <- parentConPat name pieces
 
-            hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
-
             let parentArgs = parentArgsExpr dyns
             let renderRouteNestedCall =
                     VarE 'renderRouteNested `AppE` parentArgs `AppE` VarE child
-                childNames =
-                    if hasNestInstance
-                    then []
-                    else [name]
 
-            pure
-                ( [Clause [pat] (NormalB renderRouteNestedCall) []]
-                , childNames
-                )
+            pure [Clause [pat] (NormalB renderRouteNestedCall) []]
 
         goInline = do
             (dyns, child, pat) <- parentConPat name pieces
@@ -510,14 +497,11 @@ mkRenderRouteClauses opts origTyargs =
             piecesSingle <- mkPieces (AppE pack' . LitE . StringL) tsp pieces dyns
 
             childRender <- newName "childRender"
-            (childClauses, _childNames) <- goList children
+            childClauses <- goList children
 
             body <- delegatingBody piecesSingle (VarE childRender) (VarE child)
 
-            pure
-                ( [Clause [pat] (NormalB body) [FunD childRender childClauses]]
-                , []
-                )
+            pure [Clause [pat] (NormalB body) [FunD childRender childClauses]]
 
     go (ResourceLeaf res) = do
         let cnt = length (filter isDynamic $ resourcePieces res) + maybe 0 (const 1) (resourceMulti res)
@@ -553,7 +537,7 @@ mkRenderRouteClauses opts origTyargs =
 #endif
                       [foldr cons piecesMulti piecesSingle, ListE []]
 
-        return ( [Clause [pat] (NormalB body) []], [])
+        return [Clause [pat] (NormalB body) []]
 
     mkPieces _ _ [] _ = pure []
     mkPieces toText tsp (Static s:ps) dyns = (toText s :) <$> mkPieces toText tsp ps dyns
@@ -595,7 +579,7 @@ mkRenderRouteNestedClauses
     --
     -- These are both necessary to re-synthesize the total route.
     -> [ResourceTree Type]
-    -> Q ([Clause], [String])
+    -> Q [Clause]
 mkRenderRouteNestedClauses parentArgsNames resources = do
     fmap mconcat . mapM go $ resources
   where
@@ -604,8 +588,6 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 
     go (ResourceParent name _check _attrs pieces _children) = do
         (dyns, child, pat) <- parentConPat name pieces
-
-        hasNestInstance <- nestedInstanceExists ''RenderRouteNested =<< resolveRouteCon name
 
         -- Extract parent dynamic variables from parentArgsNames
         let parentDyns = mapMaybe (either (const Nothing) Just) parentArgsNames
@@ -618,15 +600,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
         let renderRouteNestedCall =
                 VarE 'renderRouteNested `AppE` accumulatedParentArgsExp `AppE` VarE child
 
-            childNames =
-                if hasNestInstance
-                then []
-                else [name]
-
-        pure
-            ( [Clause [parentArgsPat parentDyns, pat] (NormalB renderRouteNestedCall) []]
-            , childNames
-            )
+        pure [Clause [parentArgsPat parentDyns, pat] (NormalB renderRouteNestedCall) []]
 
     go (ResourceLeaf res) = do
         let cnt = length (filter isDynamic $ resourcePieces res) + maybe 0 (const 1) (resourceMulti res)
@@ -673,7 +647,7 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
 #endif
                       [foldr cons piecesMulti allPieces, ListE []]
 
-        return ( [Clause [parentArgsPat parentDyns, pat] (NormalB body) []], [])
+        return [Clause [parentArgsPat parentDyns, pat] (NormalB body) []]
 
     mkPieces _ _ [] _ = pure []
     mkPieces toText tsp (Static s:ps) dyns = (toText s :) <$> mkPieces toText tsp ps dyns
@@ -723,7 +697,7 @@ renderRouteNestedBody prepieces children = do
                     (a : as) -> Right <$> newName (toLower a : as)
                     []       -> fail
                         "renderRouteNested: a dynamic piece's type renders with no alphanumeric characters, so no binder name can be derived from it"
-    (childClauses, _childNames) <- mkRenderRouteNestedClauses parentNames children
+    childClauses <- mkRenderRouteNestedClauses parentNames children
     pure (parentDynT, childClauses)
 
 -- | Generate the 'RenderRoute' instance.
@@ -747,7 +721,7 @@ mkRenderRouteInstanceOpts
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
     case roFocusOnNestedRoute opts of
         Nothing -> do
-            (cls, _names) <- mkRenderRouteClauses opts tyargs ress
+            cls <- mkRenderRouteClauses opts tyargs ress
             (cons, decs) <- mkRouteConsOpts opts cxt tyargs typ ress
             let did = DataInstD []
 #if MIN_VERSION_template_haskell(2,15,0)

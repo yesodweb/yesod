@@ -37,6 +37,7 @@ import Prelude hiding (exp)
 import Yesod.Routes.TH.Internal
 import Web.PathPieces
 import Control.Monad
+import Control.Monad.Reader (ReaderT, runReaderT, asks, local, lift)
 import Data.List (foldl')
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
@@ -77,12 +78,6 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- @since 1.7.0.0
     }
 
--- | Whether 'mkDispatchClause's @go@ is generating a top-level dispatch clause
--- (the final, unwrapped dispatch result) or an inline nested-helper clause (a
--- @'Maybe'@ wrapped in 'Just' so the enclosing parent can fall through on a
--- miss). Internal to the clause builder.
-data DispatchPhase = TopLevelDispatch | NestedDispatch
-
 data SDC = SDC
     { clause404 :: Clause
     , extraParams :: [Exp]
@@ -90,6 +85,25 @@ data SDC = SDC
     , envExp :: Exp
     , reqExp :: Exp
     }
+
+-- | The reader environment threaded through 'mkDispatchClause's clause
+-- generator. 'envSdc' is the accumulated dispatch context (extended via 'local'
+-- as we descend into a parent's children); 'envWrap' is how a matched result is
+-- wrapped — 'id' for the top-level (unwrapped) dispatch result, and 'Just' for
+-- the inline nested helper clauses, where the enclosing parent needs to tell a
+-- match from a fall-through miss. The top-level call starts at 'id' and flips
+-- to 'Just' on the first descent (and never back), so the two phases are a
+-- single 'local' rather than two functions.
+data Env = Env
+    { envSdc :: SDC
+    , envWrap :: Exp -> Exp
+    }
+
+-- | The monad 'mkDispatchClause's clause generator runs in: 'Q' carrying an
+-- 'Env' read through 'MonadReader'. Every helper that needs the dispatch
+-- context or the result wrapper takes them from the environment ('asks' /
+-- 'local') rather than as arguments; 'liftQ' lifts the concrete-'Q' primitives.
+type DispatchM = ReaderT Env Q
 
 -- | Configuration for generating nested dispatch clauses.
 -- Parameterizes the runner function, dispatch function/class, and
@@ -170,10 +184,15 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
             , envExp = envE
             , reqExp = reqE
             }
-    -- The top-level resources produce the final (unwrapped) dispatch clauses;
-    -- the inline children of a parent are generated as 'NestedDispatch' helper
-    -- clauses (wrapped in 'Just') by the recursion below.
-    (childNames, clauses) <- mconcat <$> mapM (go TopLevelDispatch sdc) resources
+    -- Generate the dispatch clauses. 'go' runs in @'ReaderT' 'Env' Q@: the
+    -- top-level call starts with @envWrap = id@ so the top-level resources
+    -- produce the final (unwrapped) dispatch result and report which parents
+    -- need a nested-dispatch instance generated. Descending into a parent's
+    -- inline children flips @envWrap@ to 'Just' (via 'local'), so children are
+    -- 'Just'-wrapped helper clauses the enclosing parent can fall through on;
+    -- their reported names are dropped (only top-level parents matter).
+    let topEnv = Env { envSdc = sdc, envWrap = id }
+    (childNames, clauses) <- mconcat <$> runReaderT (mapM go resources) topEnv
 
     pure
         ( childNames
@@ -183,8 +202,44 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
             [FunD helperName $ clauses ++ [clause404']]
         )
   where
-    go :: DispatchPhase -> SDC -> ResourceTree a -> Q ([String], [Clause])
-    go goPhase sdc (ResourceParent name _check _attrs pieces children) = do
+    -- Lift a concrete-'Q' action (the TH primitives and this package's own
+    -- @Q@-typed helpers) into 'DispatchM'.
+    liftQ :: Q x -> DispatchM x
+    liftQ = lift
+
+    -- Apply the current phase's result wrapper, read from the environment: 'id'
+    -- at the top level (unwrapped dispatch result) and 'Just' once inside a
+    -- parent's inline children, where the parent must tell a match from a
+    -- fall-through miss.
+    wrapResult :: Exp -> DispatchM Exp
+    wrapResult e = asks (($ e) . envWrap)
+
+    -- Wrap a result in 'Just' — the nested-phase 'envWrap'.
+    justE :: Exp -> Exp
+    justE e = ConE 'Just `AppE` e
+
+    -- Run an action in the scope of a parent's inline children: extend the
+    -- accumulated dynamics and parent constructors with this parent's, and flip
+    -- 'envWrap' to 'Just'. This single 'local' — entered once at the top→nested
+    -- boundary and never undone — is the entire top-vs-nested phase distinction.
+    withChildScope :: [Exp] -> Exp -> DispatchM r -> DispatchM r
+    withChildScope dyns constr = local $ \e ->
+        let sdc = envSdc e
+        in e { envSdc = sdc
+                 { extraParams = extraParams sdc ++ dyns
+                 , extraCons = extraCons sdc ++ [constr]
+                 }
+             , envWrap = justE
+             }
+
+    -- | Generate the dispatch clauses for a resource tree node, plus the
+    -- @['String']@ of parents that need a nested-dispatch instance generated.
+    -- Names are reported for every parent here, but only the top-level call
+    -- keeps them; the parent arm drops its children's names (the deeper
+    -- instances are generated by a separate recursion in
+    -- 'mkNestedDispatchInstanceWith').
+    go :: ResourceTree a -> DispatchM ([String], [Clause])
+    go (ResourceParent name _check _attrs pieces children) = do
         -- Delegate to the child's nested-dispatch instance when one already
         -- exists (the configured class: YesodDispatchNested for top-level,
         -- YesodSubDispatchNested for subsites). This is what makes splitting
@@ -195,97 +250,85 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
         -- and saturates by the child's own reified arity, so it never aborts
         -- the splice (see its haddock).
         instanceExists <-
-            nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name
+            liftQ (nestedInstanceExists mdsNestedDispatchClass =<< resolveRouteCon name)
 
-        (pats, dyns) <- handlePiecesM newName pieces
-        restName <- newName "_rest"
-        let restE = VarE restName
-            restP = VarP restName
+        (pats, dyns) <- handlePiecesM pieces
+        restName <- freshName "_rest"
+        helperName <- freshName ("helper" ++ name)
+        let helperCall = VarE helperName `AppE` VarE restName
+            constr = applyConPieces name dyns
 
-        helperName <- newName $ "helper" ++ name
-        let helperE = VarE helperName
+        helperClauses <-
+            if instanceExists
+                then do
+                    expr <- delegateToNestedInstance name dyns
+                    pure [Clause [VarP restName] (NormalB expr) []]
+                else do
+                    -- Inline dispatch: descend into the children with the
+                    -- extended scope and 'Just' wrapping; their reported names
+                    -- are dropped (only top-level parents matter).
+                    childClauses <-
+                        concatMap snd <$> withChildScope dyns constr (mapM go children)
+                    pure $ childClauses ++ [Clause [WildP] (NormalB (ConE 'Nothing)) []]
 
-        let constr = applyConPieces name dyns
-            routeDyns = dyns
-            -- ParentArgs for the nested route are the dynamics from THIS route's pieces
-            -- plus any accumulated parent dynamics from outer scopes
-            thisRouteParentArgs = fmap VarE preDyns <> extraParams sdc ++ dyns
+        body <- parentBody helperCall
 
-        -- Build helper clauses: delegate to instance if it exists, otherwise inline
-        helperClauses <- if instanceExists
-            then do
-                expr <- nestedDispatchCall mdsNestedDispatchFn name routeDyns tyargs sdc thisRouteParentArgs
-                pure [Clause [restP] (NormalB expr) []]
-            else do
-                -- Inline dispatch: recursively generate clauses for children
-                let childSdc = sdc
-                        { extraParams = extraParams sdc ++ dyns
-                        , extraCons = extraCons sdc ++ [constr]
-                        }
-                (_childNames, childClauses) <- mconcat <$> mapM (go NestedDispatch childSdc) children
-                let fallbackClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
-                pure $ childClauses ++ [fallbackClause]
-
-        body <- if mdsNestedRouteFallthrough
-            then mkGuardedBody (helperE `AppE` restE) $ \match' -> do
-                let result = VarE match'
-                case goPhase of
-                    TopLevelDispatch -> pure result
-                    NestedDispatch -> pure $ ConE 'Just `AppE` result
-            else do
-                -- When fallthrough is disabled, explicitly handle Nothing with 404
-                matchName <- newName "match"
-                handler <- mds404
-                runHandlerE <- mdsRunHandler
-                let baseNotFoundExp = runHandlerE `AppE` handler `AppE` envExp sdc `AppE` ConE 'Nothing `AppE` reqExp sdc
-                    matchResult = case goPhase of
-                        TopLevelDispatch -> VarE matchName
-                        NestedDispatch -> ConE 'Just `AppE` VarE matchName
-                    notFoundResult = case goPhase of
-                        TopLevelDispatch -> baseNotFoundExp
-                        NestedDispatch -> ConE 'Just `AppE` baseNotFoundExp
-                return $ NormalB $ CaseE (helperE `AppE` restE)
-                    [ Match (conPCompat 'Just [VarP matchName]) (NormalB matchResult) []
-                    , Match (conPCompat 'Nothing []) (NormalB notFoundResult) []
-                    ]
-
+        -- Report this parent as needing a nested-dispatch instance only when we
+        -- did NOT already delegate to an existing one. Whether the caller acts
+        -- on this (i.e. actually generates the instance) is the caller's
+        -- decision — see 'mkDispatchInstance'.
         pure
-            -- Report this parent as needing a nested-dispatch instance only
-            -- when we did NOT already delegate to an existing one. Whether the
-            -- caller acts on this (i.e. actually generates the instance) is the
-            -- caller's decision — see 'mkDispatchInstance'.
-            ( if instanceExists
-                then mempty
-                else [name]
+            ( [name | not instanceExists]
             , [ Clause
                 [mkPathPat (EndRest restName) pats]
                 body
-                [FunD helperName helperClauses]]
+                [FunD helperName helperClauses] ]
             )
 
-    go phase' SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
-                (pats, dyns) <- handlePiecesM newName pieces
+    go (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
+        (pats, dyns) <- handlePiecesM pieces
+        (chooseMethod, finalPat) <- handleDispatch name dispatch dyns
+        clauseBody <- NormalB <$> wrapResult chooseMethod
+        pure ([], [Clause [mkPathPat finalPat pats] clauseBody []])
 
-                (chooseMethod, finalPat) <- handleDispatch dispatch dyns
+    -- | Delegate body for a parent that already has a nested-dispatch instance:
+    -- call the configured nested-dispatch function, passing this route's
+    -- dynamics — plus the accumulated parent dynamics from the environment — as
+    -- ParentArgs.
+    delegateToNestedInstance :: String -> [Exp] -> DispatchM Exp
+    delegateToNestedInstance name dyns = do
+        sdc <- asks envSdc
+        let thisRouteParentArgs = fmap VarE preDyns <> extraParams sdc ++ dyns
+        liftQ (nestedDispatchCall mdsNestedDispatchFn name dyns tyargs sdc thisRouteParentArgs)
 
-                -- For nested dispatch, wrap the result in Just
-                -- chooseMethod already has type (Response -> IO ResponseReceived) -> IO ResponseReceived
-                -- We just wrap it in Just, no need for extra lambda
-                wrappedMethod <- case phase' of
-                    NestedDispatch -> return $ ConE 'Just `AppE` chooseMethod
-                    TopLevelDispatch -> return chooseMethod
+    -- | The body of a parent dispatch clause. @helperCall@ runs the parent's
+    -- inline helper on the remaining path; per the fallthrough flag we either
+    -- fall through on a 'Nothing' (pattern guard) or commit to a 404. The
+    -- matched result is run through the current 'envWrap'.
+    parentBody :: Exp -> DispatchM Body
+    parentBody helperCall = do
+        wrap <- asks envWrap
+        if mdsNestedRouteFallthrough
+            then liftQ $ mkGuardedBody helperCall (\match' -> pure (wrap (VarE match')))
+            else do
+                sdc <- asks envSdc
+                liftQ $ do
+                    matchName <- newName "match"
+                    handler <- mds404
+                    runHandlerE <- mdsRunHandler
+                    let baseNotFoundExp = runHandlerE `AppE` handler `AppE` envExp sdc `AppE` ConE 'Nothing `AppE` reqExp sdc
+                    pure $ NormalB $ CaseE helperCall
+                        [ Match (conPCompat 'Just [VarP matchName]) (NormalB (wrap (VarE matchName))) []
+                        , Match (conPCompat 'Nothing []) (NormalB (wrap baseNotFoundExp)) []
+                        ]
 
-                pure
-                    ( []
-                    , pure $ Clause
-                        [mkPathPat finalPat pats]
-                        (NormalB wrappedMethod)
-                        []
-                    )
-      where
-        handleDispatch :: Dispatch a -> [Exp] -> Q (Exp, PathTail)
-        handleDispatch dispatch' dyns =
-            case dispatch' of
+    -- | Build the chosen-method expression and final path tail for a leaf,
+    -- reading the dispatch context ('extraParams' / 'extraCons' / 'envExp' /
+    -- 'reqExp') from the environment.
+    handleDispatch :: String -> Dispatch a -> [Exp] -> DispatchM (Exp, PathTail)
+    handleDispatch name dispatch' dyns = do
+        SDC {..} <- asks envSdc
+        liftQ $ case dispatch' of
                 Methods multi methods -> do
                     (finalPat, mfinalE) <-
                         case multi of
@@ -356,8 +399,8 @@ mkDispatchClause preDyns parentCons tyargs MkDispatchSettings {..} resources = d
 
     -- The dispatch helper produced by 'mkDispatchClause' is always a terminal
     -- authority (the top-level / subsite entry point), so a final miss commits
-    -- to a 404 here. Inline nested helpers built by the 'NestedDispatch'
-    -- recursion bake their own @Nothing@ fallback at their call site instead.
+    -- to a 404 here. Inline nested helpers built by 'go' under 'withChildScope'
+    -- bake their own @Nothing@ fallback at their call site instead.
     mkClause404 envE reqE = do
         handler <- mds404
         runHandlerE <- mdsRunHandler
@@ -736,7 +779,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE y
   where
     genClauseForResource :: ResourceTree Type -> Q [Match]
     genClauseForResource (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
-        (pats, dynVars) <- handlePiecesNames newName pieces
+        (pats, dynVars) <- handlePiecesNames pieces
         let routeCon = applyConPieces name (map VarE dynVars)
             allDynVars = parentDynVars ++ dynVars
 
@@ -802,7 +845,7 @@ genNestedDispatchClauses config routeOpts _parentDepth parentDynVars toParentE y
                 return [Match (mkPathPat (EndRest restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
 
     genClauseForResource (ResourceParent name _check _attrs pieces _children) = do
-        (pats, dynVars) <- handlePiecesNames newName pieces
+        (pats, dynVars) <- handlePiecesNames pieces
 
         -- Build the parent args tuple for the nested call
         let allDynVars = parentDynVars ++ dynVars

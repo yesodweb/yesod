@@ -21,7 +21,7 @@ import Yesod.Routes.TH.ParseRoute (buildInlineParseClauses)
 -- | Run the pure builder at the top level (no accumulated parent pieces, no
 -- wrapping), the way 'generateParseRouteClausesInline' invokes it.
 run :: ResourceTree Type -> [Clause]
-run t = evalState (buildInlineParseClauses [] id t) 0
+run t = evalState (buildInlineParseClauses [] id t) (0 :: Int)
 
 leaf :: String -> [Piece Type] -> Dispatch Type -> ResourceTree Type
 leaf name pieces d = ResourceLeaf (Resource name pieces d [] True)

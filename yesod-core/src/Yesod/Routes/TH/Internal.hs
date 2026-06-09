@@ -1,5 +1,6 @@
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -7,6 +8,9 @@
 module Yesod.Routes.TH.Internal where
 
 import Prelude hiding (exp)
+import Control.Monad.Reader (ReaderT)
+import qualified Control.Monad.Trans as Trans
+import Control.Monad.State.Strict (State, state)
 import Data.List (foldl')
 import Data.Maybe (mapMaybe)
 import Language.Haskell.TH.Syntax
@@ -285,32 +289,64 @@ arityMismatchMessage callSite (ArityMismatch (SubsiteName subName) (RouteName ro
         SubsiteCall  -> ("mkYesodSubDispatchInstance", "subsite")
         TopLevelCall -> ("mkYesod", "site")
 
+-- | Abstracts fresh-'Name' generation so the TH clause builders can run either
+-- hygienically in 'Q' (production, via 'newName') or deterministically in
+-- @'State' 'Int'@ (tests, via a monotonic counter). The deterministic instance
+-- uses non-hygienic 'mkName', which is fine for the pure-inspection tests but
+-- would risk shadowing in real splices — so production stays on 'Q'\'s
+-- 'newName' and only the tests pin @m@ to @'State' 'Int'@.
+--
+-- @since 1.7.0.0
+class Monad m => FreshName m where
+    freshName :: String -> m Name
+
+-- | Hygienic, for production splicing.
+--
+-- @since 1.7.0.0
+instance FreshName Q where
+    freshName = newName
+
+-- | Deterministic monotonic counter, for pure unit tests: each call yields a
+-- distinct 'mkName', so the resulting AST is fully determined and comparable.
+--
+-- @since 1.7.0.0
+instance FreshName (State Int) where
+    freshName base = state $ \n -> (mkName (base ++ show n), n + 1)
+
+-- | A 'FreshName' base lifts through 'ReaderT' (e.g. the dispatch generator's
+-- @'ReaderT' Env 'Q'@), so reader-based clause builders draw fresh names with
+-- 'freshName' directly rather than @'lift' . 'newName'@.
+--
+-- @since 1.7.0.0
+instance FreshName m => FreshName (ReaderT r m) where
+    freshName = Trans.lift . freshName
+
 -- | Turn a single route piece into a match pattern, returning the freshly
--- bound 'Name' for dynamic pieces (and 'Nothing' for static ones). Abstracted
--- over the fresh-'Name' supply @m@: the 'Q' code generators pass 'newName',
--- while the pure, deterministic inline-parse path passes a 'State' 'Int'
--- counter. This is the single source of truth for the
+-- bound 'Name' for dynamic pieces (and 'Nothing' for static ones). The
+-- fresh-'Name' supply is the 'FreshName' @m@ it runs in: the 'Q' code
+-- generators run at 'Q' ('newName'), while the pure, deterministic inline-parse
+-- path runs at @'State' 'Int'@. This is the single source of truth for the
 -- @ViewP fromPathPiece (Just x)@ dynamic encoding shared by the parse and
 -- dispatch clause builders.
-handlePieceM :: Applicative m => (String -> m Name) -> Piece a -> m (Pat, Maybe Name)
-handlePieceM _ (Static str) = pure (LitP $ StringL str, Nothing)
-handlePieceM fresh (Dynamic _) = mk <$> fresh "dyn"
+handlePieceM :: FreshName m => Piece a -> m (Pat, Maybe Name)
+handlePieceM (Static str) = pure (LitP $ StringL str, Nothing)
+handlePieceM (Dynamic _) = mk <$> freshName "dyn"
   where
     mk x = (ViewP (VarE 'fromPathPiece) (conPCompat 'Just [VarP x]), Just x)
 
 -- | The list form of 'handlePieceM' projecting the dynamic binders as 'Name's,
 -- for callers that consume the bound variables directly (e.g. nested-dispatch
 -- handler arguments).
-handlePiecesNames :: Applicative m => (String -> m Name) -> [Piece a] -> m ([Pat], [Name])
-handlePiecesNames fresh =
-    fmap (\pps -> (map fst pps, mapMaybe snd pps)) . traverse (handlePieceM fresh)
+handlePiecesNames :: FreshName m => [Piece a] -> m ([Pat], [Name])
+handlePiecesNames =
+    fmap (\pps -> (map fst pps, mapMaybe snd pps)) . traverse handlePieceM
 
 -- | The list form of 'handlePieceM' projecting the dynamic binders as 'VarE'
 -- expressions, for callers that rebuild a route by applying its constructor to
 -- the captured pieces.
-handlePiecesM :: Applicative m => (String -> m Name) -> [Piece a] -> m ([Pat], [Exp])
-handlePiecesM fresh =
-    fmap (\(pats, names) -> (pats, map VarE names)) . handlePiecesNames fresh
+handlePiecesM :: FreshName m => [Piece a] -> m ([Pat], [Exp])
+handlePiecesM =
+    fmap (\(pats, names) -> (pats, map VarE names)) . handlePiecesNames
 
 -- | Rebuild a route by applying its constructor (named by 'String', resolved
 -- with 'mkName') to the captured dynamic-piece expressions — the companion to

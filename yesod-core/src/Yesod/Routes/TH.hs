@@ -4,8 +4,6 @@ module Yesod.Routes.TH
     , -- ** RenderRoute
       mkRenderRouteInstanceOpts
     , mkRouteConsOpts
-    , mkRenderRouteClauses
-    , mkRenderRouteNestedClauses
     , shouldCreateResources
 
     , RouteOpts

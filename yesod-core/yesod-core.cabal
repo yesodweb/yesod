@@ -145,6 +145,7 @@ test-suite test-routes
                    Route.DeepAritySpec
                    Route.DeepArityTypes
                    Route.InlineParseClausesSpec
+                   Route.NestedParseClausesSpec
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell

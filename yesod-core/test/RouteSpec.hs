@@ -29,6 +29,7 @@ import qualified Route.DiscoveryModeSpec as DiscoveryModeSpec
 import qualified Route.SubDispatchAritySpec as SubDispatchAritySpec
 import qualified Route.DeepAritySpec as DeepAritySpec
 import qualified Route.InlineParseClausesSpec as InlineParseClausesSpec
+import qualified Route.NestedParseClausesSpec as NestedParseClausesSpec
 import qualified Data.Text as Text
 
 data MyApp = MyApp
@@ -99,6 +100,7 @@ main = hspec $ do
     describe "Route.SubDispatchAritySpec" SubDispatchAritySpec.spec
     describe "Route.DeepAritySpec" DeepAritySpec.spec
     describe "Route.InlineParseClausesSpec" InlineParseClausesSpec.spec
+    describe "Route.NestedParseClausesSpec" NestedParseClausesSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ Text.pack "foo") @?= (map Text.pack ["blog", "foo"], [])
