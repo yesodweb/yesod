@@ -19,7 +19,7 @@ import Control.Monad
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH (varE, varP)
 import Language.Haskell.TH.Syntax hiding (newName)
-import Language.Haskell.TH.Syntax.Compat (Quote(..))
+import Language.Haskell.TH.Syntax.Compat (Quote(..), unsafeQToQuote)
 import Yesod.Routes.Class
 import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
@@ -247,7 +247,9 @@ generateParseRouteClausesInline = buildInlineParseClauses
 -- | The core of 'generateParseRouteClausesInline'. It assembles the
 -- @parseRoute@ clauses for the backwards-compatible inline path directly as
 -- AST, drawing fresh names from a 'Quote' name supply and building
--- tuples\/applications by hand instead of through quotation brackets.
+-- tuples\/applications by hand rather than through quotation brackets
+-- (brackets are monomorphic 'Q' before template-haskell 2.17; the one
+-- exception goes through 'unsafeQToQuote').
 --
 -- Each call yields one clause per resource tree: a leaf is its own matching
 -- clause, while a parent is a single clause that matches its path prefix and
@@ -301,7 +303,12 @@ buildInlineParseClauses wrap resourceTree =
                         wrapSub = wrap (route `AppE` VarE subName)
                         pathPat = mkPathPat (EndRest restName) pats
                         pat = TupP [pathPat, VarP queryParamsName]
-                    expr <- [e|
+                    -- 'unsafeQToQuote' because brackets are monomorphic 'Q'
+                    -- on template-haskell < 2.17. It is safe here: the only
+                    -- effect a bracket performs is drawing hygiene names for
+                    -- its binders, and this one has none (the lambda binder
+                    -- comes from a splice).
+                    expr <- unsafeQToQuote [e|
                         fmap
                             (\ $(varP subName) -> $(pure wrapSub) )
                             (parseRoute ( $(varE restName), $(varE queryParamsName) ) )

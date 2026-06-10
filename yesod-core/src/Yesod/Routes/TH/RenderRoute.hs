@@ -1,6 +1,9 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+-- 'TemplateHaskellQuotes' is not enough here: on GHC < 9.0 it does not
+-- enable nested @$(...)@ splices inside brackets (they parse as the @$@
+-- operator and trigger cross-stage 'Lift' errors).
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -29,6 +32,7 @@ module Yesod.Routes.TH.RenderRoute
 
 import Data.Maybe
 import Yesod.Routes.TH.Types
+import Language.Haskell.TH (varE, varP)
 import Language.Haskell.TH.Syntax
 import Control.Monad
 import Data.Text (pack)
@@ -582,8 +586,11 @@ delegatingBody piecesSingle rr childArg = do
     a <- newName "a"
     b <- newName "b"
     let pieces' = foldr consE (VarE a) piecesSingle
-    pure $ LamE [TupP [VarP a, VarP b]] (mkTupE [pieces', VarE b])
-        `AppE` (rr `AppE` childArg)
+--     pure $ LamE [TupP [VarP a, VarP b]] (mkTupE [pieces', VarE b])
+--         `AppE` (rr `AppE` childArg)
+    [e| ( \ ( $(varP a), $(varP b) ) -> ( $(pure pieces'), $(varE b) ) )
+        ( $(pure rr) $(pure childArg) )
+        |]
 
 -- | Like 'mkRenderRouteClauses', but instead generates clauses for the
 -- definition of 'renderRouteNested'.
