@@ -784,7 +784,7 @@ genNestedDispatchClauses
     -> [ResourceTree Type]
     -> Q [Match]
 genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE reqE unwrapper tyargs resources = do
-    resourceClauses <- forM resources $ \res -> genClauseForResource res
+    resourceClauses <- traverse genClauseForResource resources
 
     -- Terminal-miss clause: a nested dispatch instance ALWAYS returns 'Nothing'
     -- when no clause matches the remaining path, regardless of this module's
@@ -837,9 +837,9 @@ genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE req
             Subsite _ getSub -> do
                 restPath <- newName "restPath"
                 sub2 <- mkLambda "sub" $ \sub ->
-                    pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars)
+                    pure $ foldl' AppE (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars)
                 routeLam <- mkLambda "sroute" $ \srouteN ->
-                    pure $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
+                    [e| $(pure toParentE) ( $(pure routeCon) $(varE srouteN)) |]
                 let reqExp' = RecUpdE reqE [('W.pathInfo, VarE restPath)]
                 body <- case nestedTarget of
                     TopLevelNested ->
@@ -998,13 +998,15 @@ subTopDispatch ::
         (Route sub -> Route mid) ->
         YesodSubRunnerEnv mid master ->
         W.Application
-subTopDispatch _ getSub toParent env = yesodSubDispatch
-            (YesodSubRunnerEnv
+subTopDispatch _ getSub toParent env =
+    yesodSubDispatch
+        ( YesodSubRunnerEnv
             { ysreParentRunner = ysreParentRunner env
             , ysreGetSub = getSub . ysreGetSub env
             , ysreToParentRoute = ysreToParentRoute env . toParent
             , ysreParentEnv = ysreParentEnv env
-            })
+            }
+        )
 
 mkMDS :: (Exp -> Q Exp) -> Q Exp -> Q Exp -> MkDispatchSettings a site b
 mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings

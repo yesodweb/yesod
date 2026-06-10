@@ -17,7 +17,7 @@ import qualified Control.Monad.Trans as Trans
 import qualified Data.Set as Set
 import Control.Monad
 import Yesod.Routes.TH.Types
--- newName hidden: see the note on the same import in Yesod.Routes.TH.Internal
+import Language.Haskell.TH (varE, varP)
 import Language.Haskell.TH.Syntax hiding (newName)
 import Language.Haskell.TH.Syntax.Compat (Quote(..))
 import Yesod.Routes.Class
@@ -301,10 +301,11 @@ buildInlineParseClauses wrap resourceTree =
                         wrapSub = wrap (route `AppE` VarE subName)
                         pathPat = mkPathPat (EndRest restName) pats
                         pat = TupP [pathPat, VarP queryParamsName]
-                        tupExp = mkTupE [VarE restName, VarE queryParamsName]
-                        expr = VarE 'fmap
-                            `AppE` LamE [VarP subName] wrapSub
-                            `AppE` (VarE 'parseRoute `AppE` tupExp)
+                    expr <- [e|
+                        fmap
+                            (\ $(varP subName) -> $(pure wrapSub) )
+                            (parseRoute ( $(varE restName), $(varE queryParamsName) ) )
+                        |]
                     pure [Clause [pat] (NormalB expr) []]
 
         ResourceParent name _check _attrs pieces children -> do
