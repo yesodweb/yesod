@@ -10,7 +10,10 @@ module Yesod.Routes.TH.Internal where
 import Prelude hiding (exp)
 import Data.List (foldl')
 import Data.Maybe (mapMaybe)
-import Language.Haskell.TH.Syntax
+-- newName is hidden so the only one in scope is the 'Quote' class method
+-- (re-exported by th-compat); with template-haskell < 2.17 the monomorphic
+-- 'Language.Haskell.TH.Syntax.newName' is a distinct, ambiguous name.
+import Language.Haskell.TH.Syntax hiding (newName)
 import Language.Haskell.TH.Syntax.Compat (Quote(..))
 import Web.PathPieces (fromPathPiece, fromPathMultiPiece)
 import Yesod.Routes.TH.Types

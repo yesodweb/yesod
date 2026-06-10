@@ -17,7 +17,8 @@ import qualified Control.Monad.Trans as Trans
 import qualified Data.Set as Set
 import Control.Monad
 import Yesod.Routes.TH.Types
-import Language.Haskell.TH.Syntax
+-- newName hidden: see the note on the same import in Yesod.Routes.TH.Internal
+import Language.Haskell.TH.Syntax hiding (newName)
 import Language.Haskell.TH.Syntax.Compat (Quote(..))
 import Yesod.Routes.Class
 import Yesod.Routes.TH.RenderRoute
