@@ -61,7 +61,8 @@ import Data.List (foldl')
 import Data.Maybe
 import Control.Monad
 import Yesod.Routes.TH
-import Yesod.Routes.TH.Dispatch (parseYesodName, mkYesodSubDispatchWithDelegate)
+import Yesod.Routes.TH.Dispatch
+    (parseYesodName, mkYesodSubDispatchWithDelegate, SameSpliceNestedInstances (..))
 import Yesod.Routes.TH.Internal (instanceD, typeArity, assertNestedSubArity, ArityCallSite(..), SubsiteName(..), SubsiteArity(..), resolveRouteCon, nestedInstanceExists)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
@@ -380,15 +381,19 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
         -- Thread the opts (in particular 'roNestedRouteFallthrough') into the
         -- generated @yesodSubDispatch@ body so a subsite's own top-level parent
         -- clauses honor 'setNestedRouteFallthrough', matching the top-level
-        -- 'mkTopLevelDispatchInstance' path. Pass 'True' for delegateInline:
-        -- this entry point emits a 'YesodSubDispatchNested' instance per parent
-        -- in this same splice (below), so the flat @yesodSubDispatch@ body
+        -- 'mkTopLevelDispatchInstance' path. 'GeneratesNestedInstances': this
+        -- entry point emits a 'YesodSubDispatchNested' instance per parent in
+        -- this same splice (below), so the flat @yesodSubDispatch@ body
         -- delegates each parent to that instance instead of inlining the
         -- subtree dispatch (which the nested instance would re-emit), avoiding
         -- the doubled codegen. This mirrors 'mkTopLevelDispatchInstance' on the
         -- top-level path. Standalone 'mkYesodSubDispatch'/'mkYesodSubDispatchWith'
-        -- keep delegateInline 'False' (no same-splice instances to delegate to).
-        subDispatchExp = mkYesodSubDispatchWithDelegate True opts (rfResources foundation)
+        -- stay at 'NoSameSpliceNestedInstances'.
+        subDispatchExp =
+            mkYesodSubDispatchWithDelegate
+                GeneratesNestedInstances
+                opts
+                (rfResources foundation)
     subDispatchBody <- subDispatchExp
     let yesodSubDispatchInst = instanceD
             appCxt

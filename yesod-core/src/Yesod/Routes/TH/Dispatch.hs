@@ -14,6 +14,7 @@ module Yesod.Routes.TH.Dispatch
     , mkNestedDispatchInstance
     , mkNestedSubDispatchInstance
     , NestedTarget (..)
+    , SameSpliceNestedInstances (..)
     , mkMDS
     , mkYesodSubDispatch
     , mkYesodSubDispatchWith
@@ -71,21 +72,11 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- 'SubsiteNested' uses @YesodSubDispatchNested@\/@yesodSubDispatchNested@.
     --
     -- @since 1.7.0.0
-    , mdsNestedDelegateInline :: !Bool
-    -- ^ When 'True', a parent's dispatch clause /delegates/ to its
-    -- nested-dispatch instance even when no such instance exists /yet/ — because
-    -- the caller will generate it in the same splice (see
-    -- 'mkTopLevelDispatchInstance'). This avoids inlining each nested leaf's
-    -- dispatch logic into the flat @yesodDispatch@ /and/ re-emitting it in the
-    -- per-parent @YesodDispatchNested@ instance: GHC resolves the same-splice
-    -- instance after the whole declaration group is spliced, so the flat clause
-    -- can call @yesodDispatchNested@ for an instance declared alongside it.
-    --
-    -- When 'False' (the default), a parent only delegates if its instance
-    -- already exists (the cross-module split case) and otherwise inlines, which
-    -- is required for callers that emit the flat dispatch /without/ generating
-    -- the matching nested instances in the same splice (e.g. a bare
-    -- 'mkYesodSubDispatch').
+    , mdsSameSpliceNestedInstances :: !SameSpliceNestedInstances
+    -- ^ Whether the caller emits the matching per-parent nested-dispatch
+    -- instances in the same splice as this flat dispatch body; see
+    -- 'SameSpliceNestedInstances' for how this affects a parent clause.
+    -- 'mkMDS' defaults to 'NoSameSpliceNestedInstances'.
     --
     -- @since 1.7.0.0
     }
@@ -133,6 +124,27 @@ data NestedTarget
     -- ^ A subsite: @YesodSubDispatchNested@\/@yesodSubDispatchNested@, run via
     -- @subHelper@, composing through the outer 'YesodSubRunnerEnv' (like
     -- 'subTopDispatch').
+    deriving (Eq, Show)
+
+-- | Whether the splice emitting a flat dispatch body also generates the
+-- matching per-parent nested-dispatch instances (@YesodDispatchNested@ \/
+-- @YesodSubDispatchNested@) in the same declaration group.
+--
+-- @since 1.7.0.0
+data SameSpliceNestedInstances
+    = GeneratesNestedInstances
+    -- ^ The caller emits the per-parent nested instances alongside the flat
+    -- dispatch, so a parent clause /delegates/ to its instance even though the
+    -- instance does not exist at probe time — GHC resolves it once the whole
+    -- declaration group is spliced. This avoids inlining each nested leaf's
+    -- dispatch into the flat body /and/ re-emitting it in the per-parent
+    -- instance (see 'mkTopLevelDispatchInstance').
+    | NoSameSpliceNestedInstances
+    -- ^ Only the flat dispatch is emitted. A parent delegates only when its
+    -- nested instance already exists (the cross-module split case) and inlines
+    -- otherwise — required for standalone entry points like
+    -- 'mkYesodSubDispatch', where delegating would reference a missing
+    -- instance.
     deriving (Eq, Show)
 
 -- | The nested-dispatch class to probe\/emit for a target:
@@ -259,13 +271,14 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
 
         -- Delegate to the nested-dispatch instance either when one already
         -- exists (cross-module split) or when the caller will generate it in
-        -- this same splice ('mdsNestedDelegateInline'). In the latter case the
-        -- instance does not exist at probe time, but GHC resolves it after the
-        -- whole declaration group is spliced — so we avoid inlining every nested
-        -- leaf's dispatch logic here only to re-emit it in the parent's
+        -- this same splice ('mdsSameSpliceNestedInstances'). In the latter case
+        -- the instance does not exist at probe time, but GHC resolves it after
+        -- the whole declaration group is spliced — so we avoid inlining every
+        -- nested leaf's dispatch logic here only to re-emit it in the parent's
         -- 'YesodDispatchNested' instance. We still report the name below so that
         -- instance actually gets generated.
-        let delegate = instanceExists || mdsNestedDelegateInline
+        let delegate =
+                instanceExists || mdsSameSpliceNestedInstances == GeneratesNestedInstances
 
         (pats, dyns) <- liftQ $ handlePiecesM pieces
         restName <- liftQ $ newName "_rest"
@@ -290,7 +303,8 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
 
         -- Report this parent as needing a nested-dispatch instance whenever one
         -- does not already exist — both when we inlined and when we delegated to
-        -- a yet-to-be-generated same-splice instance ('mdsNestedDelegateInline').
+        -- a yet-to-be-generated same-splice instance
+        -- ('mdsSameSpliceNestedInstances').
         -- Whether the caller acts on this (i.e. actually generates the instance)
         -- is the caller's decision — see 'mkDispatchInstance'.
         pure
@@ -545,7 +559,10 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
                 InlineCompat    -> False
         mdsWithNestedDispatch = mds
             { mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
-            , mdsNestedDelegateInline = usesNestedDiscovery
+            , mdsSameSpliceNestedInstances =
+                if usesNestedDiscovery
+                    then GeneratesNestedInstances
+                    else NoSameSpliceNestedInstances
             }
     (childNames, clause') <- mkDispatchClause tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
@@ -957,26 +974,25 @@ mkYesodSubDispatch = mkYesodSubDispatchWith defaultOpts
 --
 -- @since 1.7.0.0
 mkYesodSubDispatchWith :: RouteOpts -> [ResourceTree a] -> Q Exp
-mkYesodSubDispatchWith = mkYesodSubDispatchWithDelegate False
+mkYesodSubDispatchWith = mkYesodSubDispatchWithDelegate NoSameSpliceNestedInstances
 
 -- | The body-generation core shared by the standalone 'mkYesodSubDispatchWith'
--- and the instance-generating 'mkYesodSubDispatchInstanceOpts'. The 'Bool'
--- selects 'mdsNestedDelegateInline': 'False' inlines each parent's subtree
--- dispatch (correct for the standalone public API, where no same-splice nested
--- instances exist), 'True' delegates each parent to its 'YesodSubDispatchNested'
--- instance generated alongside it (avoiding the doubled codegen, mirroring
--- 'mkTopLevelDispatchInstance' on the top-level path).
+-- and the instance-generating 'mkYesodSubDispatchInstanceOpts'. The
+-- 'SameSpliceNestedInstances' argument says whether the caller emits the
+-- per-parent 'YesodSubDispatchNested' instances in the same splice — see that
+-- type for what each choice means for the generated body.
 --
 -- @since 1.7.0.0
-mkYesodSubDispatchWithDelegate :: Bool -> RouteOpts -> [ResourceTree a] -> Q Exp
-mkYesodSubDispatchWithDelegate delegateInline routeOpts res = do
+mkYesodSubDispatchWithDelegate
+    :: SameSpliceNestedInstances -> RouteOpts -> [ResourceTree a] -> Q Exp
+mkYesodSubDispatchWithDelegate sameSplice routeOpts res = do
     let mds = (mkMDS
                 return
                 [|subHelper|]
                 [|subTopDispatch|])
                 { mdsNestedTarget = SubsiteNested
                 , mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
-                , mdsNestedDelegateInline = delegateInline
+                , mdsSameSpliceNestedInstances = sameSplice
                 }
     (_childNames, clause') <-
         mkDispatchClause
@@ -1028,7 +1044,7 @@ mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings
     , mdsUnwrapper = unwrapper
     , mdsNestedRouteFallthrough = False
     , mdsNestedTarget = TopLevelNested
-    , mdsNestedDelegateInline = False
+    , mdsSameSpliceNestedInstances = NoSameSpliceNestedInstances
     }
 
 -- | Parse the foundation-type string given to @mkYesod@ into its components:
