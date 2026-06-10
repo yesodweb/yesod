@@ -13,20 +13,20 @@
 
 module Yesod.Core.Class.Dispatch where
 
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString as S
+import Data.ByteString.Builder (toLazyByteString, byteString)
 import Data.Proxy (Proxy(..))
-import qualified Network.Wai as W
-import Yesod.Core.Types
-import Yesod.Core.Content (ToTypedContent (..))
-import Yesod.Core.Handler (sendWaiApplication, RedirectUrl, notFound)
-import           Data.ByteString.Builder      (toLazyByteString, byteString)
-import Yesod.Core.Class.Yesod
-import Yesod.Routes.Class
 import Data.Text (Text)
-import Yesod.Core.Internal.Run
 import Network.HTTP.Types
 import Yesod.Core.Class.Dispatch.ToParentRoute
+import Yesod.Core.Class.Yesod
+import Yesod.Core.Content (ToTypedContent (..))
+import Yesod.Core.Handler (sendWaiApplication, RedirectUrl, notFound)
+import Yesod.Core.Internal.Run
+import Yesod.Core.Types
+import Yesod.Routes.Class
+import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as BL
+import qualified Network.Wai as W
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -69,20 +69,26 @@ class RenderRouteNested a => YesodDispatchNested a where
         -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
         -- that completes the 'Application' type when given a respond callback
 
--- | The base case of the nested-dispatch recursion: a full @'Route' site@ is
--- the whole route, not a fragment, so there is no sibling to fall through to.
--- This instance therefore always returns @'Just'@ — committing to
--- 'yesodDispatch', which itself terminates in a 404 on a miss — rather than the
--- 'Nothing' that the class haddock describes for /fragment/ instances. The only
--- intended caller is the terminal authority 'toWaiAppYreNested', where that 404
--- is exactly the right answer; do not rely on this instance to signal
--- fallthrough.
+-- | 'YesodDispatchNested' is a more flexible class than 'YesodDispatch',
+-- and this instance is the proof. Given a @'Route' site@ we can dispatch
+-- on it as normal, so this code path works. This allows us to create
+-- generalized helpers and reuse them, ensuring that nested and top-level
+-- dispatch remain equivalent. This instance therefore always returns
+-- @'Just'@ — committing to 'yesodDispatch', which itself terminates in
+-- a 404 on a miss — rather than the 'Nothing' that the class haddock
+-- describes for /fragment/ instances. The only intended caller is the
+-- terminal authority 'toWaiAppYreNested', where that 404 is exactly the
+-- right answer; do not rely on this instance to signal fallthrough.
 instance YesodDispatch site => YesodDispatchNested (Route site) where
     yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
 
 -- | Dispatch a request using a value that can be rendered to a route of
 -- @site@ (via its 'RedirectUrl' instance). This lets a route fragment or a
 -- @(route, params)@ pair be turned directly into a WAI 'W.Application'.
+--
+-- This is equivalent to 'YesodDispatch' but allows us to vary on the
+-- @site@ which allows us to demand additional constraints in test
+-- contexts.
 --
 -- @since 1.7.0.0
 class RedirectUrl site url => UrlToDispatch url site where
@@ -101,6 +107,12 @@ instance YesodDispatch site => UrlToDispatch Text site where
 instance YesodDispatch site => UrlToDispatch String site where
     urlToDispatch _ = yesodDispatch
 
+-- | This instance is the pattern upon which 'UrlToDispatch' instances are
+-- generated for subsite fragments. Given the constraints, we are able to
+-- call 'toWaiAppYreNested' at the @route@ type with the correct arguments.
+-- This allows us to create an application for a fragment of a site.
+--
+-- @since 1.7.0.0
 instance
     ( ParentSite route ~ site
     , YesodDispatchNested route
@@ -111,7 +123,8 @@ instance
   =>
     UrlToDispatch (WithParentArgs route) site
   where
-    urlToDispatch (WithParentArgs args _) = toWaiAppYreNested (Proxy :: Proxy route) args
+    urlToDispatch (WithParentArgs args _) =
+        toWaiAppYreNested (Proxy :: Proxy route) args
 
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application

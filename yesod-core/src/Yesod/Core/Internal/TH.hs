@@ -242,19 +242,19 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> Q([Dec],[Dec])
 mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
     appCxt <- buildAppCxt appCxt'
-    ResolvedFoundation { rfBoundNames = boundNames, rfFillVars = vns, rfSite = site, rfResources = res } <-
-        resolveFoundation namestr mtys resS
+    foundation <- resolveFoundation namestr mtys resS
     -- The explicitly-written args plus the fresh vars filling the reified
-    -- arity. Both are part of the site's full application ('site'), so both
+    -- arity. Both are part of the site's full application ('rfSite'), so both
     -- must travel in the 'TyArgs' handed to 'discoveryMode' and the generators
     -- — otherwise a parameterized foundation invoked without explicit type args
     -- would be misclassified as monomorphic and emit ill-scoped nested
     -- instances.
-    let fillNames = fmap (\v -> (VarT v, v)) vns
-        tyArgs = toTyArgs (boundNames ++ fillNames)
+    let fillNames = fmap (\v -> (VarT v, v)) (rfFillVars foundation)
+        tyArgs = toTyArgs (rfBoundNames foundation ++ fillNames)
     -- typevars that should appear in synonym head
-    let argvars = (fmap mkName . filter isTvar) mtys ++ vns
-    renderRouteDec <- mkRenderRouteInstanceOpts opts appCxt tyArgs site res
+    let argvars = (fmap mkName . filter isTvar) mtys ++ rfFillVars foundation
+    renderRouteDec <-
+        mkRenderRouteInstanceOpts opts appCxt tyArgs (rfSite foundation) (rfResources foundation)
     routeAttrsDec  <-
         case roFocusOnNestedRoute opts of
             Nothing -> do
@@ -265,10 +265,11 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 -- the same children. Without this, 'routeAttrsNested ChildR'
                 -- would fail to resolve for a single-module 'mkYesod' site even
                 -- though the other nested-delegation methods resolve.
-                flatAttrs <- mkRouteAttrsInstance appCxt site res
+                flatAttrs <- mkRouteAttrsInstance appCxt (rfSite foundation) (rfResources foundation)
                 nestedAttrs <-
                     case discoveryMode opts (hasTyArgs tyArgs) of
-                        NestedDiscovery -> mkRouteAttrsNestedInstances appCxt tyArgs res
+                        NestedDiscovery ->
+                            mkRouteAttrsNestedInstances appCxt tyArgs (rfResources foundation)
                         InlineCompat    -> pure []
                 pure (flatAttrs : nestedAttrs)
             Just target ->
@@ -276,10 +277,16 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 -- constructor, matching the focused ParseRoute / RenderRoute
                 -- paths; a bare 'ConT' here is a kind error for a
                 -- parameterized site.
-                mkRouteAttrsInstanceFor appCxt (applyTyArgs (ConT (mkName target)) tyArgs) target res
+                mkRouteAttrsInstanceFor
+                    appCxt
+                    (applyTyArgs (ConT (mkName target)) tyArgs)
+                    target
+                    (rfResources foundation)
 
-    dispatchDec <- mkDispatchInstance opts site appCxt tyArgs f res
-    parseRoute <- mkParseRouteInstanceOpts opts tyArgs appCxt site res
+    dispatchDec <-
+        mkDispatchInstance opts (rfSite foundation) appCxt tyArgs f (rfResources foundation)
+    parseRoute <-
+        mkParseRouteInstanceOpts opts tyArgs appCxt (rfSite foundation) (rfResources foundation)
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
         if shouldCreateResources opts
@@ -296,7 +303,9 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             , renderRouteDec
             , routeAttrsDec
             , if isJust (roFocusOnNestedRoute opts) then [] else resourcesDec
-            , if isSub || isJust (roFocusOnNestedRoute opts) then [] else masterTypeSyns argvars site
+            , if isSub || isJust (roFocusOnNestedRoute opts)
+                then []
+                else masterTypeSyns argvars (rfSite foundation)
             ]
     return (dataDec, dispatchDec)
 
@@ -354,17 +363,16 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
 
     appCxt <- buildAppCxt appCxt'
 
-    ResolvedFoundation { rfBoundNames = boundNames, rfFillVars = vns, rfSite = site, rfResources = res } <-
-        resolveFoundation namestr mtys resS
+    foundation <- resolveFoundation namestr mtys resS
     -- The explicitly-written args plus the fresh vars filling the reified
-    -- arity. Both are part of the subsite's full application ('site'), so both
+    -- arity. Both are part of the subsite's full application ('rfSite'), so both
     -- must travel in the 'TyArgs' handed to 'discoveryMode' and the generators
     -- — otherwise a parameterized subsite invoked without explicit type args
     -- (e.g. @mkYesodSubDispatchInstance "MySub"@ for @MySub a@) would be
     -- misclassified as monomorphic and emit ill-scoped nested instances. This
     -- mirrors the 'fillNames' fix in 'mkYesodGeneralOpts'.
-    let fillNames = fmap (\v -> (VarT v, v)) vns
-        tyArgs = toTyArgs (boundNames ++ fillNames)
+    let fillNames = fmap (\v -> (VarT v, v)) (rfFillVars foundation)
+        tyArgs = toTyArgs (rfBoundNames foundation ++ fillNames)
 
     -- Generate the YesodSubDispatch instance
     masterN <- newName "master"
@@ -380,11 +388,11 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
         -- the doubled codegen. This mirrors 'mkTopLevelDispatchInstance' on the
         -- top-level path. Standalone 'mkYesodSubDispatch'/'mkYesodSubDispatchWith'
         -- keep delegateInline 'False' (no same-splice instances to delegate to).
-        subDispatchExp = mkYesodSubDispatchWithDelegate True opts res
+        subDispatchExp = mkYesodSubDispatchWithDelegate True opts (rfResources foundation)
     subDispatchBody <- subDispatchExp
     let yesodSubDispatchInst = instanceD
             appCxt
-            (ConT ''YesodSubDispatch `AppT` site `AppT` masterT)
+            (ConT ''YesodSubDispatch `AppT` rfSite foundation `AppT` masterT)
             [ FunD 'yesodSubDispatch
                 [ Clause [] (NormalB subDispatchBody) [] ]
             ]
@@ -394,7 +402,7 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
         findNested [] = []
         findNested (ResourceParent n _ _ _ _ : rest) = n : findNested rest
         findNested (_ : rest) = findNested rest
-        nestedNames = findNested res
+        nestedNames = findNested (rfResources foundation)
 
     nestedInstances <- fmap mconcat $ forM nestedNames $ \nestedName -> do
         -- Resolve the nested datatype once and reuse it for both the
@@ -432,6 +440,6 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
                 -- here was a no-op.
                 mkNestedSubDispatchInstance
                     opts
-                    nestedName appCxt tyArgs return res
+                    nestedName appCxt tyArgs return (rfResources foundation)
 
     return $ yesodSubDispatchInst : nestedInstances
