@@ -347,6 +347,14 @@ handlePiecesM =
 applyConPieces :: String -> [Exp] -> Exp
 applyConPieces name = foldl' AppE (ConE (mkName name))
 
+-- | @composeE f g@ is the expression @f . g@.
+composeE :: Exp -> Exp -> Exp
+composeE f g = InfixE (Just f) (VarE '(.)) (Just g)
+
+-- | @consE x xs@ is the expression @x : xs@.
+consE :: Exp -> Exp -> Exp
+consE x xs = InfixE (Just x) (ConE '(:)) (Just xs)
+
 -- | How a path match pattern ends, after its matched piece patterns. Only
 -- these four shapes are ever valid as a path tail, so making it a closed type
 -- (rather than an arbitrary 'Pat') stops a caller from silently matching the

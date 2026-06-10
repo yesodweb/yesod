@@ -344,9 +344,8 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
                 sdc <- asks envSdc
                 liftQ $ do
                     matchName <- newName "match"
-                    handler <- mds404
-                    runHandlerE <- mdsRunHandler
-                    let baseNotFoundExp = runHandlerE `AppE` handler `AppE` envExp sdc `AppE` ConE 'Nothing `AppE` reqExp sdc
+                    baseNotFoundExp <-
+                        [| $(mdsRunHandler) $(mds404) $(pure (envExp sdc)) Nothing $(pure (reqExp sdc)) |]
                     pure $ NormalB $ CaseE helperCall
                         [ Match (conPCompat 'Just [VarP matchName]) (NormalB (wrap (VarE matchName))) []
                         , Match (conPCompat 'Nothing []) (NormalB (wrap baseNotFoundExp)) []
@@ -409,22 +408,19 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
 
                 Subsite _ getSub -> do
                     restPath <- newName "restPath"
-                    setPathInfoE <- mdsSetPathInfo
-                    subDispatcherE <- mdsSubDispatcher
-                    runHandlerE <- mdsRunHandler
                     let allDyns = extraParams ++ dyns
                     sub2 <- mkLambda "sub" $ \sub ->
                         pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) allDyns
                     route <- mkLambda "sroute" $ \sroute ->
                         pure $ let route' = applyConPieces name dyns
                                in foldr AppE (AppE route' $ VarE sroute) extraCons
-                    let reqExp' = setPathInfoE `AppE` VarE restPath `AppE` reqExp
-                        exp = subDispatcherE
-                            `AppE` runHandlerE
-                            `AppE` sub2
-                            `AppE` route
-                            `AppE` envExp
-                            `AppE` reqExp'
+                    exp <-
+                        [| $(mdsSubDispatcher)
+                            $(mdsRunHandler)
+                            $(pure sub2)
+                            $(pure route)
+                            $(pure envExp)
+                            ($(mdsSetPathInfo) $(varE restPath) $(pure reqExp)) |]
                     return (exp, EndRest restPath)
 
     -- The dispatch helper produced by 'mkDispatchClause' is always a terminal
@@ -432,9 +428,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
     -- to a 404 here. Inline nested helpers built by 'go' under 'withChildScope'
     -- bake their own @Nothing@ fallback at their call site instead.
     mkClause404 envE reqE = do
-        handler <- mds404
-        runHandlerE <- mdsRunHandler
-        let exp = runHandlerE `AppE` handler `AppE` envE `AppE` ConE 'Nothing `AppE` reqE
+        exp <- [| $(mdsRunHandler) $(mds404) $(pure envE) Nothing $(pure reqE) |]
         return $ Clause [WildP] (NormalB exp) []
 
 -- | This function generates code to call the nested dispatch function
@@ -454,23 +448,15 @@ nestedDispatchCall
     -- ^ The parent dynamic bound variables (for passing as ParentArgs).
     -> Q Exp
 nestedDispatchCall dispatchFn routeName routeDyns tyargs sdc parentDyns = do
-    -- Look up the type to get its full applied form. When tyargs is
-    -- provided, use it; otherwise look up the type's arity and apply
-    -- fresh variables (needed for mkYesodSubDispatch which doesn't
-    -- know the parent's type args).
     routeType <- appliedRouteTypeNamed routeName tyargs
-    let parentDynsExpr = parentArgsExprFromExps parentDyns
-        proxyType = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
-    -- Build the wrapper: \child -> ParentCon (RouteCon d1 d2 child)
-    wrapperExpr <- mkLambda "child" $ \childN ->
-        pure $ let routeConApp = applyConPieces routeName routeDyns `AppE` VarE childN
-               in foldr AppE routeConApp (extraCons sdc)
-    pure $ VarE dispatchFn
-        `AppE` proxyType
-        `AppE` parentDynsExpr
-        `AppE` wrapperExpr
-        `AppE` envExp sdc
-        `AppE` reqExp sdc
+    let wrapper = foldr composeE (applyConPieces routeName routeDyns) (extraCons sdc)
+    [| $(varE dispatchFn)
+        (Proxy :: Proxy $(pure routeType))
+        $(pure $ parentArgsExprFromExps parentDyns)
+        $(pure wrapper)
+        $(pure $ envExp sdc)
+        $(pure $ reqExp sdc)
+     |]
 
 -- | Given an 'Exp' which should result in a @'Maybe' a@, does:
 --
@@ -669,9 +655,8 @@ mkNestedDispatchInstanceWith nestedTarget mmaster routeOpts target cxt tyargs un
         tyargs
         subres
 
+    dropExp <- [| drop parentDepth (W.pathInfo $(varE reqN)) |]
     let dispatchNestedT = ConT (nestedTargetClass nestedTarget) `AppT` targetT
-        pathInfoExp = VarE 'W.pathInfo `AppE` VarE reqN
-        dropExp = VarE 'drop `AppE` LitE (IntegerL $ fromIntegral parentDepth) `AppE` pathInfoExp
         thisDispatch = FunD (nestedTargetFn nestedTarget)
             [Clause
                 [WildP, parentDynsP, VarP toParentN, VarP envN, VarP reqN]
@@ -841,12 +826,12 @@ genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE req
                     routeExp = toParentE `AppE` applyConPieces name dynExpsMulti
                     allDynExps = map VarE parentDynVars ++ dynExpsMulti
                 handlerExp <- genHandlerCase name methods allDynExps
-                let body = ConE 'Just `AppE`
-                        (VarE (nestedTargetRunner nestedTarget)
-                            `AppE` handlerExp
-                            `AppE` yreE
-                            `AppE` (ConE 'Just `AppE` routeExp)
-                            `AppE` reqE)
+                body <-
+                    [| Just ($(varE (nestedTargetRunner nestedTarget))
+                                $(pure handlerExp)
+                                $(pure yreE)
+                                (Just $(pure routeExp))
+                                $(pure reqE)) |]
                 return [Match (mkPathPat finalPat pats) (NormalB body) []]
 
             Subsite _ getSub -> do
@@ -856,29 +841,28 @@ genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE req
                 routeLam <- mkLambda "sroute" $ \srouteN ->
                     pure $ toParentE `AppE` (routeCon `AppE` VarE srouteN)
                 let reqExp' = RecUpdE reqE [('W.pathInfo, VarE restPath)]
-                let subsiteExp = case nestedTarget of
-                        TopLevelNested ->
-                            -- Top-level: construct YesodSubRunnerEnv directly
-                            VarE 'yesodSubDispatch
-                                `AppE` (RecConE 'YesodSubRunnerEnv
-                                    [ ('ysreParentRunner, VarE 'yesodRunner)
-                                    , ('ysreGetSub, sub2)
-                                    , ('ysreToParentRoute, routeLam)
-                                    , ('ysreParentEnv, yreE)
-                                    ])
-                                `AppE` reqExp'
-                        SubsiteNested ->
-                            -- Subsite: compose through the outer YesodSubRunnerEnv
-                            let composeE f g = InfixE (Just f) (VarE '(.)) (Just g)
-                            in VarE 'yesodSubDispatch
-                                `AppE` (RecConE 'YesodSubRunnerEnv
-                                    [ ('ysreParentRunner, VarE 'ysreParentRunner `AppE` yreE)
-                                    , ('ysreGetSub, composeE sub2 (VarE 'ysreGetSub `AppE` yreE))
-                                    , ('ysreToParentRoute, composeE (VarE 'ysreToParentRoute `AppE` yreE) routeLam)
-                                    , ('ysreParentEnv, VarE 'ysreParentEnv `AppE` yreE)
-                                    ])
-                                `AppE` reqExp'
-                return [Match (mkPathPat (EndRest restPath) pats) (NormalB $ ConE 'Just `AppE` subsiteExp) []]
+                body <- case nestedTarget of
+                    TopLevelNested ->
+                        -- Top-level: construct YesodSubRunnerEnv directly
+                        [| Just (yesodSubDispatch
+                            YesodSubRunnerEnv
+                                { ysreParentRunner = yesodRunner
+                                , ysreGetSub = $(pure sub2)
+                                , ysreToParentRoute = $(pure routeLam)
+                                , ysreParentEnv = $(pure yreE)
+                                }
+                            $(pure reqExp')) |]
+                    SubsiteNested ->
+                        -- Subsite: compose through the outer YesodSubRunnerEnv
+                        [| Just (yesodSubDispatch
+                            YesodSubRunnerEnv
+                                { ysreParentRunner = ysreParentRunner $(pure yreE)
+                                , ysreGetSub = $(pure sub2) . ysreGetSub $(pure yreE)
+                                , ysreToParentRoute = ysreToParentRoute $(pure yreE) . $(pure routeLam)
+                                , ysreParentEnv = ysreParentEnv $(pure yreE)
+                                }
+                            $(pure reqExp')) |]
+                return [Match (mkPathPat (EndRest restPath) pats) (NormalB body) []]
 
     genClauseForResource (ResourceParent name _check _attrs pieces _children) = do
         (pats, dynVars) <- handlePiecesNames pieces
@@ -886,23 +870,19 @@ genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE req
         -- Build the parent args tuple for the nested call
         let allDynVars = parentDynVars ++ dynVars
             parentArgsExp = parentArgsExpr allDynVars
-
             routeConWrapper = applyConPieces name (map VarE dynVars)
-            toParentComposed = InfixE (Just toParentE) (VarE '(.)) (Just routeConWrapper)
 
-        -- Apply type arguments to the route type for parameterized routes
-        -- When tyargs is empty (e.g. from mkYesodSubDispatch), look up the type's arity
         routeType <- appliedRouteTypeNamed name tyargs
-        let proxyExp = SigE (ConE 'Proxy) (AppT (ConT ''Proxy) routeType)
 
         resultName <- newName "k"
 
-        let nestedCall = VarE (nestedTargetFn nestedTarget)
-                `AppE` proxyExp
-                `AppE` parentArgsExp
-                `AppE` toParentComposed
-                `AppE` yreE
-                `AppE` reqE
+        nestedCall <-
+            [| $(varE (nestedTargetFn nestedTarget))
+                (Proxy :: Proxy $(pure routeType))
+                $(pure parentArgsExp)
+                ($(pure toParentE) . $(pure routeConWrapper))
+                $(pure yreE)
+                $(pure reqE) |]
 
         if roNestedRouteFallthrough routeOpts
             then do
@@ -919,14 +899,11 @@ genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE req
                 -- the 'Nothing' propagate (which, under an outer fallthrough
                 -- caller, would let it fall through to siblings). This mirrors the
                 -- inline no-fallthrough path's @Nothing -> Just 404@ shape.
-                let notFoundExp =
-                        VarE (nestedTargetRunner nestedTarget)
-                            `AppE` AppE (VarE 'void) (VarE 'notFound)
-                            `AppE` yreE
-                            `AppE` ConE 'Nothing
-                            `AppE` reqE
-                    committedBody =
-                        ConE 'Just `AppE` (VarE 'fromMaybe `AppE` notFoundExp `AppE` nestedCall)
+                committedBody <-
+                    [| Just (fromMaybe
+                        ($(varE (nestedTargetRunner nestedTarget))
+                            (void notFound) $(pure yreE) Nothing $(pure reqE))
+                        $(pure nestedCall)) |]
                 return [Match (mkPathPat EndWild pats) (NormalB committedBody) []]
 
     genHandlerCase :: String -> [String] -> [Exp] -> Q Exp
@@ -939,21 +916,19 @@ genNestedDispatchClauses nestedTarget routeOpts parentDynVars toParentE yreE req
             then do
                 -- No specific methods, just call handler
                 handlerE <- handlerExpFor Nothing
-                let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
-                return wrappedHandler
+                [| fmap toTypedContent $(pure handlerE) |]
             else do
                 -- Generate method case
                 -- Wrap each handler with fmap toTypedContent so all branches have the same type
                 methodMatches <- forM methods $ \method -> do
                     handlerE <- handlerExpFor (Just method)
-                    let wrappedHandler = VarE 'fmap `AppE` VarE 'toTypedContent `AppE` handlerE
+                    wrappedHandler <- [| fmap toTypedContent $(pure handlerE) |]
                     return $ Match (LitP $ StringL method) (NormalB wrappedHandler) []
 
                 badMethodHandler <- unwrapper (VarE 'badMethod)
                 let badMethodMatch = Match WildP (NormalB badMethodHandler) []
-                    methodCase = CaseE (VarE 'W.requestMethod `AppE` reqE) (methodMatches ++ [badMethodMatch])
-
-                return methodCase
+                scrutinee <- [| W.requestMethod $(pure reqE) |]
+                return $ CaseE scrutinee (methodMatches ++ [badMethodMatch])
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch = mkYesodSubDispatchWith defaultOpts

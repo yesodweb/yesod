@@ -514,11 +514,8 @@ mkRenderRouteClauses opts origTyargs =
         goNested = do
             (dyns, child, pat) <- parentConPat name pieces
 
-            let parentArgs = parentArgsExpr dyns
-            let renderRouteNestedCall =
-                    VarE 'renderRouteNested `AppE` parentArgs `AppE` VarE child
-
-            pure [Clause [pat] (NormalB renderRouteNestedCall) []]
+            body <- [| renderRouteNested $(pure (parentArgsExpr dyns)) $(pure (VarE child)) |]
+            pure [Clause [pat] (NormalB body) []]
 
         goInline = do
             (dyns, child, pat) <- parentConPat name pieces
@@ -559,10 +556,8 @@ mkRenderRouteClauses opts origTyargs =
                 [x] -> do
                     rr <- [|renderRoute|]
                     delegatingBody piecesSingle rr (VarE x)
-                _ -> do
-                    colon <- [|(:)|]
-                    let cons a b = InfixE (Just a) colon (Just b)
-                    return $ mkTupE [foldr cons piecesMulti piecesSingle, ListE []]
+                _ ->
+                    return $ mkTupE [foldr consE piecesMulti piecesSingle, ListE []]
 
         return [Clause [pat] (NormalB body) []]
 
@@ -586,9 +581,7 @@ delegatingBody
 delegatingBody piecesSingle rr childArg = do
     a <- newName "a"
     b <- newName "b"
-    colon <- [|(:)|]
-    let cons y ys = InfixE (Just y) colon (Just ys)
-        pieces' = foldr cons (VarE a) piecesSingle
+    let pieces' = foldr consE (VarE a) piecesSingle
     pure $ LamE [TupP [VarP a, VarP b]] (mkTupE [pieces', VarE b])
         `AppE` (rr `AppE` childArg)
 
@@ -620,10 +613,8 @@ mkRenderRouteNestedClauses parentArgsNames resources = do
             accumulatedParentArgsExp = parentArgsExpr allDyns
 
         -- The body should call renderRouteNested with accumulated parent args
-        let renderRouteNestedCall =
-                VarE 'renderRouteNested `AppE` accumulatedParentArgsExp `AppE` VarE child
-
-        pure [Clause [parentArgsPat parentDyns, pat] (NormalB renderRouteNestedCall) []]
+        body <- [| renderRouteNested $(pure accumulatedParentArgsExp) $(pure (VarE child)) |]
+        pure [Clause [parentArgsPat parentDyns, pat] (NormalB body) []]
 
     go (ResourceLeaf res) = do
         let cnt = length (filter isDynamic $ resourcePieces res) + maybe 0 (const 1) (resourceMulti res)
