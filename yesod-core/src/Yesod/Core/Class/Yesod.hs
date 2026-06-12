@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -455,11 +456,24 @@ sslOnlyMiddleware timeout handler = do
 --
 -- Since 1.2.0
 authorizationCheck :: Yesod site => HandlerFor site ()
-authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
+authorizationCheck = do
+    mauth <- HandlerFor $ \hd -> pure (rheRouteAuth (handlerEnv hd))
+    case mauth of
+        -- A dispatch-supplied authorizer takes precedence over the site-wide
+        -- 'isAuthorized'. It still runs here, at the same middleware position.
+        Just auth -> getCurrentRoute >>= \case
+            Nothing -> return ()
+            Just url -> do
+                isWrite <- isWriteRequest url
+                handleAuthResult =<< runRouteAuthorizer auth isWrite
+        -- Legacy path: identical to the previous implementation.
+        Nothing -> getCurrentRoute >>= maybe (return ()) checkUrl
   where
     checkUrl url = do
         isWrite <- isWriteRequest url
         ar <- isAuthorized url isWrite
+        handleAuthResult ar
+    handleAuthResult ar =
         case ar of
             Authorized -> return ()
             AuthenticationRequired -> do

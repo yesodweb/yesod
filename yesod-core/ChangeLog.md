@@ -1,5 +1,24 @@
 # ChangeLog for yesod-core
 
+## 1.7.1.0
+
+* Decentralized route authorization. Dispatch can now supply a per-route or
+  per-subtree authorization check, so authorization can live next to a route's
+  `YesodDispatchNested` instance instead of a single site-wide `isAuthorized`.
+    * New `RouteAuthorizer` type and `yesodRunnerAuth`, a variant of
+      `yesodRunner` that threads an authorizer to `authorizationCheck`. The
+      check still runs at the same point in the middleware stack as
+      `isAuthorized`.
+    * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
+      `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
+      set, generated dispatch references an `authorize<Name>` binding that must
+      be in scope at the splice — forgetting authorization for a route becomes a
+      compile-time error, exactly like forgetting a handler.
+    * Backwards compatible: `RunHandlerEnv` gained an `rheRouteAuth` field
+      defaulting to `Nothing` at every existing construction site, and the
+      default `RouteAuthSpec` is `NoRouteAuth`, so existing sites behave exactly
+      as before (authorization falls back to `isAuthorized`).
+
 ## 1.7.0.0
 
 * Split route compilation ([#1887](https://github.com/yesodweb/yesod/pull/1887), [guide](https://github.com/yesodweb/yesod/blob/master/yesod-core/docs/split-route-compilation.md)):

@@ -18,6 +18,7 @@ module Yesod.Core.Internal.Run
   , safeEh
   , runFakeHandler
   , yesodRunner
+  , yesodRunnerAuth
   , yesodRender
   , resolveApproot
   )
@@ -275,6 +276,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheOnError = errHandler
             , rheMaxExpires = maxExpires
             , rheCatchHandlerExceptions = catchHandlerExceptions site
+            , rheRouteAuth = Nothing
             }
         handler'
       errHandler err req = do
@@ -310,7 +312,25 @@ yesodRunner :: forall res site . (ToTypedContent res, Yesod site)
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
-yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
+yesodRunner = yesodRunnerAuth Nothing
+
+-- | Like 'yesodRunner', but threads a dispatch-supplied 'RouteAuthorizer'
+-- through to 'authorizationCheck'. When the authorizer is 'Just', it is used
+-- in place of the site-wide 'isAuthorized'; when 'Nothing', behavior is
+-- identical to 'yesodRunner' (which is @yesodRunnerAuth Nothing@).
+--
+-- The authorization check still runs at exactly the same point in the
+-- middleware stack as before (inside 'defaultYesodMiddleware'); only the
+-- source of the decision changes.
+--
+-- @since 1.7.1.0
+yesodRunnerAuth :: forall res site . (ToTypedContent res, Yesod site)
+            => Maybe (RouteAuthorizer site)
+            -> HandlerFor site res
+            -> YesodRunnerEnv site
+            -> Maybe (Route site)
+            -> Application
+yesodRunnerAuth routeAuth handler' YesodRunnerEnv {..} route req sendResponse = do
   mmaxLen <- maximumContentLengthIO yreSite route
   case (mmaxLen, requestBodyLength req) of
     (Just maxLen, KnownLength len) | maxLen < len -> sendResponse (tooLargeResponse maxLen len)
@@ -341,6 +361,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
               , rheOnError = safeEh log'
               , rheMaxExpires = maxExpires
               , rheCatchHandlerExceptions = catchHandlerExceptions yreSite
+              , rheRouteAuth = routeAuth
               }
           rhe = rheSafe
               { rheOnError = runHandler rheSafe . errorHandler

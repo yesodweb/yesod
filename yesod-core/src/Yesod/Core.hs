@@ -99,6 +99,7 @@ module Yesod.Core
     , module Yesod.Core.Internal.LiteApp
       -- * Low-level
     , yesodRunner
+    , yesodRunnerAuth
       -- * Re-exports
     , module Yesod.Core.Content
     , module Yesod.Core.Dispatch
@@ -149,7 +150,7 @@ import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
-import Yesod.Core.Internal.Run (yesodRunner, yesodRender)
+import Yesod.Core.Internal.Run (yesodRunner, yesodRunnerAuth, yesodRender)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs

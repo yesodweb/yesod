@@ -25,6 +25,9 @@ module Yesod.Routes.TH.RenderRoute
     , roNestedRouteFallthrough
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
     , nullifyWhenNoParam
     , DiscoveryMode(..)
     , discoveryMode
@@ -75,7 +78,44 @@ data RouteOpts = MkRouteOpts
     -- Default: 'False'.
     --
     -- @since 1.7.0.0
+    , roRouteAuth :: RouteAuthSpec
+    -- ^ Whether generated dispatch demands a per-route\/per-subtree
+    -- authorizer binding (see 'RouteAuthSpec'). Default: 'NoRouteAuth'.
+    --
+    -- @since 1.7.1.0
     }
+
+-- | How dispatch should obtain a 'Yesod.Core.Types.RouteAuthorizer' for each
+-- generated leaf. This is the mechanism behind decentralized authorization:
+-- rather than every request consulting the site-wide @isAuthorized@, the
+-- generated dispatch references an authorizer that must be in scope at the
+-- splice — so forgetting authorization for a route is a compile-time
+-- \"variable not in scope\" error, exactly like forgetting a handler.
+--
+-- The authorizer runs at the same point in the middleware stack as
+-- @isAuthorized@ (see 'Yesod.Core.yesodRunnerAuth').
+--
+-- @since 1.7.1.0
+data RouteAuthSpec
+    = NoRouteAuth
+    -- ^ Status quo: no authorizer is demanded and dispatch runs via
+    -- 'Yesod.Core.yesodRunner', so authorization falls back to the site-wide
+    -- @isAuthorized@.
+    | RouteAuthSubtree
+    -- ^ Demand a single @authorize\<SubtreeName\>@ binding per generated
+    -- nested-dispatch instance, applied to the parent dynamics and the route
+    -- fragment value:
+    -- @authorize\<SubtreeName\> parentDyn1 .. parentDynN fragment :: 'Yesod.Core.Types.RouteAuthorizer' site@.
+    -- Intended as the migration ramp: one function covers a whole subtree
+    -- (e.g. reusing an existing @\<subtree\>IsAuthorized@ that cases over the
+    -- fragment).
+    | RouteAuthPerResource
+    -- ^ Demand one @authorize\<ResourceName\>@ binding per leaf resource,
+    -- applied to the same argument spine as the handler:
+    -- @authorize\<ResourceName\> dyn1 .. dynN :: 'Yesod.Core.Types.RouteAuthorizer' site@.
+    -- The enforced end state: no case expression exists that a wildcard could
+    -- defeat.
+    deriving (Eq, Show)
 
 -- | Default options for generating routes.
 --
@@ -103,6 +143,7 @@ defaultOpts = MkRouteOpts
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
+    , roRouteAuth = NoRouteAuth
     }
 
 -- | If you set this with @routeName@, then the code generation will
@@ -191,6 +232,15 @@ unsetFocusOnNestedRoute rdo = rdo { roFocusOnNestedRoute = Nothing }
 -- @since 1.7.0.0
 setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
 setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
+
+-- | Set whether generated dispatch demands a per-route or per-subtree
+-- authorizer binding. See 'RouteAuthSpec'.
+--
+-- Default: 'NoRouteAuth'.
+--
+-- @since 1.7.1.0
+setRouteAuthorization :: RouteAuthSpec -> RouteOpts -> RouteOpts
+setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --
