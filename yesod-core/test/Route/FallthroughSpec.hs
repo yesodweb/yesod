@@ -75,6 +75,8 @@ spec = do
                 parseRoute (path, []) `shouldBe` Just result
             routeShouldNotParse path =
                 parseRoute (path, []) `shouldBe` (Nothing :: Maybe (Route App))
+        it "matches the first parent without falling through" $ do
+            routeShouldParse ["foo"] (FirstFooR FooIndexR)
         it "can fall through" $ do
             routeShouldParse ["foo", "blah"] (SecondFooR FooBlahR)
         it "nested fallthrough works too" $ do

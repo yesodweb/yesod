@@ -23,7 +23,7 @@
 -- A successful build is therefore proof that the cross-module split works for
 -- a parameterized subsite, exercising the @SomeTyArgs@ / @applyTyArgs@ branches
 -- of the dispatch codegen that were previously untested.
-module YesodCoreTest.ParamSplitSubNested () where
+module YesodCoreTest.ParamSubsite.SplitNested () where
 
 import Yesod.Core
 import Yesod.Core.Dispatch
@@ -32,7 +32,7 @@ import Language.Haskell.TH (Type(..), mkName)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Text (Text)
 
-import YesodCoreTest.ParamSubsiteParameterized
+import YesodCoreTest.ParamSubsite.Data
 
 getPNestedHomeR :: PAssoc subsite -> SubHandlerFor (PSub subsite) master Text
 getPNestedHomeR _ = pure "pNestedHome"
@@ -41,9 +41,16 @@ getPNestedDetailR :: PAssoc subsite -> Int -> SubHandlerFor (PSub subsite) maste
 getPNestedDetailR _ _ = pure "pNestedDetail"
 
 -- Generate @YesodSubDispatchNested (PNestedR subsite)@ in this separate module,
--- with the subsite's type argument applied. The context and 'TyArgs' mirror
--- exactly what 'mkYesodSubDispatchInstance' threads internally for the name
--- string @"(PClass subsite master) => PSub subsite"@.
+-- with the subsite's type argument applied.
+--
+-- The 'Cxt' and 'TyArgs' are built manually (rather than parsed from a string
+-- like @"(PClass subsite master) => PSub subsite"@) because structured
+-- arguments are 'mkNestedSubDispatchInstance''s interface: the string parser
+-- belongs to 'mkYesodSubDispatchInstance', the whole-subsite entry point,
+-- which does this same construction internally after parsing. A split-out
+-- fragment module addresses one nested datatype directly, so it supplies the
+-- pieces directly; what is written here is exactly what the parent entry
+-- point would thread through for that name string.
 $(do
     let subsite = mkName "subsite"
         master  = mkName "master"

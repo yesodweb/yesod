@@ -5,7 +5,6 @@
 module Route.SubDispatchAritySpec (spec) where
 
 import Test.Hspec
-import Data.Maybe (isJust)
 import Yesod.Routes.TH.Internal
     ( checkNestedSubArity
     , arityMismatchMessage
@@ -40,10 +39,23 @@ spec = describe "checkNestedSubArity" $ do
     it "rejects when the nested datatype carries more params than the subsite" $
         -- Over-arity leaves the instance head partially applied (kind
         -- @Type -> ...@), so this must be rejected, not silently accepted.
-        check "MySub" "NestedR" 1 2 `shouldSatisfy` isJust
+        case check "MySub" "NestedR" 1 2 of
+            Nothing -> expectationFailure "expected an arity mismatch"
+            Just msg -> do
+                msg `shouldContain` "`NestedR` has 2 type parameter(s)"
+                msg `shouldContain` "the subsite `MySub` has 1"
 
     it "rejects a parameterized subsite with an unparameterized nested datatype" $
-        check "MySub" "NestedR" 1 0 `shouldSatisfy` isJust
+        check "MySub" "NestedR" 1 0 `shouldBe` Just
+            (concat
+                [ "mkYesodSubDispatchInstance: the nested route datatype "
+                , "`NestedR` has 0 type parameter(s), but the subsite `MySub` "
+                , "has 1. The subroute datatypes must carry exactly the "
+                , "subsite's type parameter(s) \8212 generate the subsite's "
+                , "routes with `mkYesodSubDataOpts (setParameterizedSubroute "
+                , "True defaultOpts) ...` so a parameterized subsite gets "
+                , "parameterized subroutes."
+                ])
 
     it "names both types in the error message" $
         case check "MySub" "NestedR" 1 0 of

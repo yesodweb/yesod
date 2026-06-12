@@ -18,15 +18,15 @@
 -- 'OptsOffSub' at the default. Both have two same-prefix top-level parents
 -- (@\/foo FirstFooR@ then @\/foo SecondFooR@); @\/foo\/bar@ reaches the
 -- @SecondFooR@ sibling only when the body honours the flag. See
--- "YesodCoreTest.SubsiteOptsFallthroughSub.Data" for the route data.
-module YesodCoreTest.SubsiteOptsFallthrough (specs) where
+-- "YesodCoreTest.SubsiteOptsFallthrough.Data" for the route data.
+module YesodCoreTest.SubsiteOptsFallthrough.Runtime (specs) where
 
 import Data.Text (Text)
 import Test.Hspec
 import Yesod.Core
 import Yesod.Core.Dispatch (mkYesodSubDispatchInstanceOpts)
 
-import YesodCoreTest.SubsiteOptsFallthroughSub.Data
+import YesodCoreTest.SubsiteOptsFallthrough.Data
 import YesodCoreTest.RuntimeHarness (assertGet)
 
 -- Handlers for the fallthrough-ENABLED subsite.
@@ -73,7 +73,7 @@ mkYesod "OptsFallApp" [parseRoutes|
 instance Yesod OptsFallApp
 
 specs :: Spec
-specs = describe "YesodCoreTest.SubsiteOptsFallthrough (mkYesodSubDispatchInstanceOpts fallthrough)" $ do
+specs = describe "YesodCoreTest.SubsiteOptsFallthrough.Runtime (mkYesodSubDispatchInstanceOpts fallthrough)" $ do
     describe "fallthrough enabled (setNestedRouteFallthrough True)" $ do
         it "still reaches the shadowing top-level index route" $
             assertGet OptsFallApp 200 ["on", "foo"] (Just "onFooIndex")

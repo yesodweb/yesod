@@ -15,7 +15,7 @@
 -- defines the subsite's top-level 'YesodSubDispatch' instance. That instance's
 -- 'mkYesodSubDispatch' splice sees this 'YesodSubDispatchNested' instance via
 -- 'isInstance' and delegates to it — exactly the cross-module splitting that
--- "YesodCoreTest.NestedDispatch" demonstrates for top-level sites.
+-- "YesodCoreTest.NestedDispatch.Runtime" demonstrates for top-level sites.
 module YesodCoreTest.SplitSubsite.NestedR (NestedR(..)) where
 
 import Yesod.Core

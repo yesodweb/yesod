@@ -21,7 +21,7 @@
 -- handlers and instances live elsewhere and are only reached through delegation.
 -- The .Resources module holds the shared route table; the WAI specs here drive
 -- real requests through the delegated dispatch.
-module YesodCoreTest.NestedDispatch
+module YesodCoreTest.NestedDispatch.Runtime
     ( specs
     , Widget
     , resourcesApp

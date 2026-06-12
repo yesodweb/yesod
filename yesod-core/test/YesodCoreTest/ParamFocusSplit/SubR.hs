@@ -13,7 +13,7 @@
 -- | The split-out @SubR@ fragment of the parameterized @PApp a@ site. The
 -- focused splice ('setFocusOnNestedRoute') here emits only the @SubR a@
 -- fragment's dispatch / parse / render / attrs nested instances; the parent
--- "YesodCoreTest.ParamFocusSplit" generates the rest and delegates to these.
+-- "YesodCoreTest.ParamFocusSplit.Runtime" generates the rest and delegates to these.
 -- This module is the compile-time pin for the focused parameterized codegen
 -- (the @RouteAttrsNested (SubR a)@ instance head in particular, which used to
 -- be built from a bare constructor without the site's type argument).

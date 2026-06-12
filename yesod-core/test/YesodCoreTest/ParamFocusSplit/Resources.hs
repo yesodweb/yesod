@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Shared route tree + foundation datatype for the parameterized
--- focus-split fixture ("YesodCoreTest.ParamFocusSplit" and its
+-- focus-split fixture ("YesodCoreTest.ParamFocusSplit.Runtime" and its
 -- @.SubR@ fragment module). The foundation @PApp a@ carries one type
 -- argument, so this drives the @TyArgs@-applying focused codegen paths.
 module YesodCoreTest.ParamFocusSplit.Resources where

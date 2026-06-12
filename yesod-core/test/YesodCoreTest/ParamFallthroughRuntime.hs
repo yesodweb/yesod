@@ -10,7 +10,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Runtime coverage for nested-route /fallthrough/ on a *parameterized* site.
--- The monomorphic fallthrough test ("YesodCoreTest.FallthroughDispatch")
+-- The monomorphic fallthrough test ("YesodCoreTest.FallthroughDispatch.Runtime")
 -- exercises the @setNestedRouteFallthrough@ fallback only for an
 -- unparameterized site; this is the parameterized counterpart, opted into
 -- nested discovery so the parameterized subroute datatypes carry the type

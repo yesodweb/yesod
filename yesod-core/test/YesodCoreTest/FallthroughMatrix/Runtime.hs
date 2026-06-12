@@ -8,7 +8,8 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | The cross-module fallthrough flag-mismatch cell of the T5 matrix.
+-- | Cross-module fallthrough flag mismatch: the delegating module and the
+-- split-out nested instance are compiled with opposite fallthrough flags.
 --
 -- This top module sets @fallthrough = True@ and delegates @FirstFooR@ to the
 -- nested instance generated (with the default @fallthrough = False@) in
@@ -18,8 +19,10 @@
 -- that with fallthrough enabled, @\/foo\/other@ falls through @FirstFooR@ (which
 -- has no @other@ child) to @SecondFooR@ → @OtherR@ (200). This module is the
 -- same shape but with @FirstFooR@'s instance split into a module compiled with
--- the opposite flag — exactly the configuration the R10 fix targets.
-module YesodCoreTest.FallthroughMatrixRuntime
+-- the opposite flag — the configuration that only works because a nested
+-- instance reports a path miss as 'Nothing' instead of baking in its own 404,
+-- leaving the fallthrough decision to the module that delegates to it.
+module YesodCoreTest.FallthroughMatrix.Runtime
     ( specs
     ) where
 
@@ -56,13 +59,14 @@ specs = describe "cross-module fallthrough flag mismatch (top True, split child 
     it "matches a child of the split parent (FooNeatR at /foo/neat)" $
         testRequestIO 200 ["foo", "neat"] (Just "FooNeatR")
     it "falls through the split parent to the inline sibling (OtherR at /foo/other)" $
-        -- The headline R10 case. The top module wants fallthrough; FirstFooR
-        -- has no "other" child. Post-R10 this falls through to SecondFooR's
-        -- OtherR (200). Pre-R10, FirstFooR's split instance (flag False) bakes
-        -- a 404 and defeats the parent's fallthrough.
+        -- The headline case. The top module wants fallthrough; FirstFooR has
+        -- no "other" child, so dispatch falls through to SecondFooR's OtherR
+        -- (200). If FirstFooR's split instance (compiled with flag False)
+        -- instead baked a 404 into its own terminal fallback, it would defeat
+        -- the parent's fallthrough.
         testRequestIO 200 ["foo", "other"] (Just "OtherR")
 
-    -- Terminal semantics of fallthrough (ISSUE 11). Fallthrough is triggered
+    -- Terminal semantics of fallthrough. Fallthrough is triggered
     -- ONLY by a path-level miss (a 'Nothing' from the matched parent): a
     -- matched leaf — even one rejecting the method — returns @Just <405>@, so
     -- dispatch commits to that leaf and never falls through to a same-prefix

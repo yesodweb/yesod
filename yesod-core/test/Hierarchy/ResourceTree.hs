@@ -48,9 +48,6 @@ hierarchyResources = [parseRoutes|
 /afterwards AfterR !parent !key=value1:
   /             After     GET !child !key=value2
 
--- /trailing-nest TrailingNestR:
---  /foo TrailingFooR GET
---  /#Int TrailingIntR GET
 |]
 
 hierarchyResourcesWithType :: [ResourceTree Type]

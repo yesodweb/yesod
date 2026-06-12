@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
--- | Shared route table + foundation type for the "YesodCoreTest.NestedDispatch"
+-- | Shared route table + foundation type for the "YesodCoreTest.NestedDispatch.Runtime"
 -- demo and its split-out parent modules. Lives in its own module so every
 -- @setFocusOnNestedRoute@ splice (NestR, ParentR, Parent0R, ...) can refer to
 -- the same @nestedDispatchResources@ tree without tripping the TH stage

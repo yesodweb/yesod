@@ -16,7 +16,7 @@
 -- sibling @SecondFooR@ instead of committing to @FirstFooR@'s 404 — the WAI
 -- specs here pin exactly which parent serves each path. Route table in
 -- ".FallthroughDispatch.Resources".
-module YesodCoreTest.FallthroughDispatch where
+module YesodCoreTest.FallthroughDispatch.Runtime where
 
 import YesodCoreTest.FallthroughDispatch.Resources
 import YesodCoreTest.RuntimeHarness (assertGet)

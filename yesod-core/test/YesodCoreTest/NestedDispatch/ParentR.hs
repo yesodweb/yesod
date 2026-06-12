@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
--- | Split-out @ParentR@ fragment of the "YesodCoreTest.NestedDispatch" demo.
+-- | Split-out @ParentR@ fragment of the "YesodCoreTest.NestedDispatch.Runtime" demo.
 -- The @setFocusOnNestedRoute "ParentR"@ splice emits the @ParentR@ datatype and
 -- its @YesodDispatchNested@ instance here, alongside the child handlers; the
 -- main @App@ module reaches these only by delegation. Exercises a dynamic

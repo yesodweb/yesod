@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 
 -- | Datatypes and a stand-in probe class for "Route.InstanceProbeSpec", in
@@ -15,6 +16,8 @@
 module Route.InstanceProbeTypes
     ( Probe
     , HasInst (..)
+    , HasInst2 (..)
+    , HasInstInt (..)
     , NoInst (..)
     , HK (..)
     , HKInst (..)
@@ -32,6 +35,24 @@ class Probe a
 -- as our codegen emits per-route-datatype instances.
 data HasInst a = HasInst
 instance Probe (HasInst a)
+
+-- | Arity-2: 'fullyApplyType' must saturate with /two/ fresh 'VarT's before
+-- the head is well-kinded. With an instance at fully abstract parameters the
+-- probe answers 'True'.
+data HasInst2 a b = HasInst2
+instance Probe (HasInst2 a b)
+
+-- | Arity-1 whose only instance is at a /concrete/ argument. The probe asks
+-- \"could any instance match\" ('reifyInstances' returns unifiers, not just
+-- exact matches), so probing the abstract @HasInstInt a@ finds the @Int@
+-- instance and answers 'True'.
+--
+-- (An instance at the /unapplied/ constructor — @instance Probe HasInstInt@ —
+-- is not a representable case: 'Probe' is 'Type'-kinded exactly like the real
+-- nested-discovery classes, so GHC rejects such an instance at its
+-- definition site.)
+data HasInstInt a = HasInstInt
+instance Probe (HasInstInt Int)
 
 -- | Arity-1, kind-'Type' parameter, /without/ a @Probe@ instance — the probe
 -- must answer 'False'.

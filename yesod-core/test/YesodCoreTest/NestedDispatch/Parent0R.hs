@@ -6,7 +6,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 
--- | Split-out @Parent0R@ fragment of the "YesodCoreTest.NestedDispatch" demo.
+-- | Split-out @Parent0R@ fragment of the "YesodCoreTest.NestedDispatch.Runtime" demo.
 -- Besides delegation, this module pins two non-obvious cases: a multipiece
 -- (@*Texts@) leaf under a split-out parent (see 'getFilesR' below), and a
 -- /grandchild/ parent @Child0R@ nested two levels deep. This focused splice

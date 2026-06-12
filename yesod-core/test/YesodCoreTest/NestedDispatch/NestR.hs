@@ -7,7 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
--- | Split-out @NestR@ fragment of the "YesodCoreTest.NestedDispatch" demo. The
+-- | Split-out @NestR@ fragment of the "YesodCoreTest.NestedDispatch.Runtime" demo. The
 -- @setFocusOnNestedRoute "NestR"@ splice generates the @NestR@ datatype and its
 -- @YesodDispatchNested@ instance here; the @App@ module delegates to it. The
 -- single @NestIndexR@ leaf handles both GET and POST, covering a zero-piece

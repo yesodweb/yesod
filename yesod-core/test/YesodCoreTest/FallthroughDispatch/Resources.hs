@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
--- | Shared route table + foundation type for "YesodCoreTest.FallthroughDispatch".
+-- | Shared route table + foundation type for "YesodCoreTest.FallthroughDispatch.Runtime".
 -- Two parents share the @\/foo@ prefix (@FirstFooR@\/@SecondFooR@), plus
 -- @\/foo\/#Int@ and @\/foo\/#String@ parents — the deliberate overlap is why it
 -- uses @parseRoutesNoCheck@ (the compile-time overlap check would otherwise
@@ -17,7 +17,6 @@ import Yesod.Routes.TH.Types
 
 data App = App
 
--- TODO: make parseRoutesNoCheck smarter
 fallthroughDispatchResources :: [ResourceTree String]
 fallthroughDispatchResources = [parseRoutesNoCheck|
 

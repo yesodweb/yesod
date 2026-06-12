@@ -12,7 +12,7 @@
 -- the subsite's top-level 'YesodSubDispatch' instance (which delegates to the
 -- separately compiled 'YesodSubDispatchNested' instance), and the leaf
 -- handler. We never import the nested handlers — proving the split.
-module YesodCoreTest.SplitSubsite (splitSubsiteSpec) where
+module YesodCoreTest.SplitSubsite.Runtime (splitSubsiteSpec) where
 
 import Test.Hspec
 import Yesod.Core
@@ -47,7 +47,7 @@ runner :: Session () -> IO ()
 runner f = toWaiApp app >>= runSession f
 
 splitSubsiteSpec :: Spec
-splitSubsiteSpec = describe "YesodCoreTest.SplitSubsite (split subsite routes)" $ do
+splitSubsiteSpec = describe "YesodCoreTest.SplitSubsite.Runtime (split subsite routes)" $ do
     it "dispatches the subsite's own leaf route" $ runner $ do
         res <- request defaultRequest { pathInfo = ["split"] }
         assertStatus 200 res

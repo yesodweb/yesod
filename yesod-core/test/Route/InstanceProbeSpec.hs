@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Answers the reviewer's question: /can 'isInstance' fail if the route
--- datatype's type parameters remain abstract?/ ('nestedInstanceExists'
+-- | Pins the answer to: /can 'isInstance' fail if the route datatype's
+-- type parameters remain abstract?/ ('nestedInstanceExists'
 -- saturates a resolved datatype with fresh, unannotated 'VarT's via
 -- 'fullyApplyType' rather than ground types.)
 --
@@ -17,7 +17,7 @@
 --     constructor.
 --
 -- Each probe runs inside a compile-time splice wrapped in 'recover': if
--- 'isInstance' ever threw (the failure mode the reviewer worried about), the
+-- 'isInstance' ever threw (the failure mode guarded against here), the
 -- splice would fall through to the 'recover' handler, which 'error's, and the
 -- expectation would fail loudly rather than silently.
 module Route.InstanceProbeSpec (spec) where
@@ -26,7 +26,7 @@ import Test.Hspec
 import Language.Haskell.TH (recover)
 import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon)
 import Route.InstanceProbeTypes
-    (Probe, HasInst, NoInst, HK, HKInst, Mono)
+    (Probe, HasInst, HasInst2, HasInstInt, NoInst, HK, HKInst, Mono)
 
 spec :: Spec
 spec = describe "nestedInstanceExists / fullyApplyType abstract-parameter probe" $ do
@@ -34,6 +34,20 @@ spec = describe "nestedInstanceExists / fullyApplyType abstract-parameter probe"
         $(do
             rc <- resolveRouteCon "HasInst"
             recover [| error "isInstance crashed on HasInst" |] $ do
+                b <- nestedInstanceExists ''Probe rc
+                [| b |]) `shouldBe` True
+
+    it "returns True for an arity-2 datatype with an instance at abstract parameters" $
+        $(do
+            rc <- resolveRouteCon "HasInst2"
+            recover [| error "isInstance crashed on HasInst2" |] $ do
+                b <- nestedInstanceExists ''Probe rc
+                [| b |]) `shouldBe` True
+
+    it "returns True when the only instance is at a concrete argument (a unifier counts as could-match)" $
+        $(do
+            rc <- resolveRouteCon "HasInstInt"
+            recover [| error "isInstance crashed on HasInstInt" |] $ do
                 b <- nestedInstanceExists ''Probe rc
                 [| b |]) `shouldBe` True
 

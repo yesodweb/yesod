@@ -9,7 +9,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | #1 regression: a *parameterized* site (@PolyD a@) with a nested route,
+-- | Delegation-probe regression: a *parameterized* site (@PolyD a@) with a nested route,
 -- using /default/ opts (opted out of nested-route discovery), with the route
 -- data and the dispatch splice /split across modules/.
 --
@@ -18,7 +18,7 @@
 -- args — or it builds the ill-kinded @SubParentDR a@ and @isInstance@ throws a
 -- kind error that aborts the splice. So this module compiling at all is the
 -- regression assertion; the WAI tests confirm the inlined dispatch still works.
-module YesodCoreTest.ParamDefaultSplitRuntime
+module YesodCoreTest.ParamDefaultSplit.Runtime
     ( specs
     ) where
 
@@ -28,7 +28,7 @@ import qualified Data.ByteString.Lazy as L
 import qualified Network.HTTP.Types as H
 import Yesod.Core
 
-import YesodCoreTest.ParamDefaultSplitData
+import YesodCoreTest.ParamDefaultSplit.Data
 import YesodCoreTest.RuntimeHarness (assertRequestFor)
 
 mkYesodDispatch "PolyD a" resourcesPolyD
@@ -67,7 +67,7 @@ testRequestIO status path method mexpected =
     assertRequestFor (PolyD ()) method status path mexpected
 
 specs :: Spec
-specs = describe "parameterized site, default opts, nested route split across modules (#1 regression)" $ do
+specs = describe "parameterized site, default opts, nested route split across modules" $ do
     describe "parseRoute . renderRoute round-trips" $
         mapM_
             (\r -> it (show r) $ parseRoute (renderRoute r) `shouldBe` Just r)

@@ -20,7 +20,7 @@
 -- 'setParameterizedSubroute', so it must *delegate* to the @SubR a@ fragment
 -- instances compiled in "YesodCoreTest.ParamFocusSplit.SubR"; the build itself
 -- is the split-delegation assertion and the WAI rows confirm dispatch.
-module YesodCoreTest.ParamFocusSplit
+module YesodCoreTest.ParamFocusSplit.Runtime
     ( specs
     ) where
 

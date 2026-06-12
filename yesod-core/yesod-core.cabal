@@ -226,7 +226,7 @@ test-suite tests
                    YesodCoreTest.ErrorHandling
                    YesodCoreTest.ErrorHandling.CustomApp
                    YesodCoreTest.Exceptions
-                   YesodCoreTest.FallthroughDispatch
+                   YesodCoreTest.FallthroughDispatch.Runtime
                    YesodCoreTest.FallthroughDispatch.Resources
                    YesodCoreTest.InternalRequest
                    YesodCoreTest.JsAttributes
@@ -238,7 +238,7 @@ test-suite tests
                    YesodCoreTest.Media
                    YesodCoreTest.MediaData
                    YesodCoreTest.Meta
-                   YesodCoreTest.NestedDispatch
+                   YesodCoreTest.NestedDispatch.Runtime
                    YesodCoreTest.NestedDispatch.NestR
                    YesodCoreTest.NestedDispatch.InnerR
                    YesodCoreTest.NestedDispatch.ParentR
@@ -264,23 +264,23 @@ test-suite tests
                    YesodCoreTest.StubUnsecured
                    YesodCoreTest.SubSub
                    YesodCoreTest.SubSubData
-                   YesodCoreTest.SplitSubsite
+                   YesodCoreTest.SplitSubsite.Runtime
                    YesodCoreTest.SplitSubsite.Data
                    YesodCoreTest.SplitSubsite.NestedR
                    YesodCoreTest.ParameterizedSubData
-                   YesodCoreTest.ParamSubsiteParameterized
+                   YesodCoreTest.ParamSubsite.Data
                    YesodCoreTest.ParameterizedSubDispatch
                    YesodCoreTest.ParameterizedSubDispatch.Data
                    YesodCoreTest.ParameterizedSubDispatchRuntime
                    YesodCoreTest.ParameterizedSubDispatchRuntime.Data
-                   YesodCoreTest.ParamSubDispatchInstanceRuntime
+                   YesodCoreTest.ParamSubsite.InstanceRuntime
                    YesodCoreTest.RuntimeHarness
-                   YesodCoreTest.ParamSplitSubNested
-                   YesodCoreTest.ParamSplitSubRuntime
-                   YesodCoreTest.ParamDefaultSplitData
-                   YesodCoreTest.ParamDefaultSplitRuntime
+                   YesodCoreTest.ParamSubsite.SplitNested
+                   YesodCoreTest.ParamSubsite.SplitRuntime
+                   YesodCoreTest.ParamDefaultSplit.Data
+                   YesodCoreTest.ParamDefaultSplit.Runtime
                    YesodCoreTest.ParamTopLevelRuntime
-                   YesodCoreTest.ParamFocusSplit
+                   YesodCoreTest.ParamFocusSplit.Runtime
                    YesodCoreTest.ParamFocusSplit.Resources
                    YesodCoreTest.ParamFocusSplit.SubR
                    YesodCoreTest.ParamNoExplicitArgs
@@ -289,17 +289,17 @@ test-suite tests
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
                    YesodCoreTest.FallthroughMatrix.Resources
                    YesodCoreTest.FallthroughMatrix.FirstFoo
-                   YesodCoreTest.FallthroughMatrixRuntime
+                   YesodCoreTest.FallthroughMatrix.Runtime
                    YesodCoreTest.MultiPieceNestedRuntime
                    YesodCoreTest.ZeroPieceShadowRuntime
                    YesodCoreTest.ZeroPieceShadow.ShadowApp
                    YesodCoreTest.ZeroPieceShadow.FallApp
                    YesodCoreTest.BangSeparatorRuntime
-                   YesodCoreTest.SubsiteFallthrough
-                   YesodCoreTest.SubsiteFallthroughSub.Data
-                   YesodCoreTest.SubsiteFallthroughSub.Nested
-                   YesodCoreTest.SubsiteOptsFallthrough
-                   YesodCoreTest.SubsiteOptsFallthroughSub.Data
+                   YesodCoreTest.SubsiteFallthrough.Runtime
+                   YesodCoreTest.SubsiteFallthrough.Data
+                   YesodCoreTest.SubsiteFallthrough.Nested
+                   YesodCoreTest.SubsiteOptsFallthrough.Runtime
+                   YesodCoreTest.SubsiteOptsFallthrough.Data
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest

@@ -6,7 +6,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 -- | Leaf handlers for the grandchild parent @Child0R@ of the
--- "YesodCoreTest.NestedDispatch" demo. Non-obvious: this module defines /only/
+-- "YesodCoreTest.NestedDispatch.Runtime" demo. Non-obvious: this module defines /only/
 -- the handlers — the @Child0R@ datatype and its dispatch instance are emitted
 -- by the focused @Parent0R@ splice (one level up), since focusing on a parent
 -- also generates its descendants' nested instances.

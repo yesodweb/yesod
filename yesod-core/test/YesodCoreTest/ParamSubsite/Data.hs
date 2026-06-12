@@ -17,7 +17,7 @@
 -- parameter (kind @Type -> Type@), so the threaded constraints / associated
 -- type families stay well-scoped. This proves that opting a /subsite/ into
 -- parameterized subroutes actually parameterizes its subroutes.
-module YesodCoreTest.ParamSubsiteParameterized where
+module YesodCoreTest.ParamSubsite.Data where
 
 import Yesod.Core
 

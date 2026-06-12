@@ -6,14 +6,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
--- | Route data for the #1 regression: a *parameterized* top-level site with a
+-- | Route data for a delegation-probe regression: a *parameterized* top-level site with a
 -- nested route, generated with /default/ opts (i.e. NOT
 -- 'setParameterizedSubroute'), so the nested datatype 'SubParentDR' is
 -- generated at kind 'Type'. The matching dispatch splice lives in the
--- separately compiled "YesodCoreTest.ParamDefaultSplitRuntime", so the child
+-- separately compiled "YesodCoreTest.ParamDefaultSplit.Runtime", so the child
 -- datatype is in scope there — the precise shape that made the @go@ delegation
 -- probe build the ill-kinded @SubParentDR a@ and abort the splice.
-module YesodCoreTest.ParamDefaultSplitData where
+module YesodCoreTest.ParamDefaultSplit.Data where
 
 import Yesod.Core
 

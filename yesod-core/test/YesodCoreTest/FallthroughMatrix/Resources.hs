@@ -9,7 +9,7 @@
 -- Two parents share the @\/foo@ prefix: @FirstFooR@ (whose nested instance is
 -- generated in a /separate/ module, "YesodCoreTest.FallthroughMatrix.FirstFoo",
 -- with the default @fallthrough = False@) and @SecondFooR@ (inlined in the
--- top module "YesodCoreTest.FallthroughMatrixRuntime", which sets
+-- top module "YesodCoreTest.FallthroughMatrix.Runtime", which sets
 -- @fallthrough = True@). The flag mismatch across the module split is the whole
 -- point: it lets us pin who owns the terminal 404 on @\/foo\/other@.
 --

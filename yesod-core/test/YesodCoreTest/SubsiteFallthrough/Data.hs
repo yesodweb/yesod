@@ -12,10 +12,10 @@
 -- falling through — the behaviour the dispatch modules toggle.
 --
 -- The route data lives here, apart from the 'mkNestedSubDispatchInstance'
--- splices in "YesodCoreTest.SubsiteFallthroughSub.Nested", because the
+-- splices in "YesodCoreTest.SubsiteFallthrough.Nested", because the
 -- generated @resources*@ binding can't feed a splice in the same module (GHC
--- stage restriction) — the same split "YesodCoreTest.SplitSubsite" uses.
-module YesodCoreTest.SubsiteFallthroughSub.Data where
+-- stage restriction) — the same split "YesodCoreTest.SplitSubsite.Runtime" uses.
+module YesodCoreTest.SubsiteFallthrough.Data where
 
 import Yesod.Core
 

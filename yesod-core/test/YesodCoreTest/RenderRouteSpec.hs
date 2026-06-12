@@ -48,4 +48,4 @@ spec = do
                 (["first", "1", "blah"], []) ->
                     pure @IO ()
                 wrong ->
-                    fail $ "Expecte renderRoute to work, but got: " <> show wrong
+                    fail $ "Expected renderRoute to work, but got: " <> show wrong

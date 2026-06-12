@@ -12,16 +12,16 @@
 -- subsites — one with fallthrough enabled, one without — and proves that a
 -- request which misses inside a nested parent reaches the sibling route only
 -- when the subsite was generated with fallthrough on. See
--- "YesodCoreTest.SubsiteFallthroughSub" for the subsite definitions.
-module YesodCoreTest.SubsiteFallthrough (specs) where
+-- "YesodCoreTest.SubsiteFallthrough.Data" for the subsite definitions.
+module YesodCoreTest.SubsiteFallthrough.Runtime (specs) where
 
 import Test.Hspec
 import Yesod.Core
 
-import YesodCoreTest.SubsiteFallthroughSub.Data
+import YesodCoreTest.SubsiteFallthrough.Data
 -- Bring the split-out YesodSubDispatchNested instances into scope (instances
 -- only) so the host site's mkYesodSubDispatch delegates WrapR to them.
-import YesodCoreTest.SubsiteFallthroughSub.Nested ()
+import YesodCoreTest.SubsiteFallthrough.Nested ()
 import YesodCoreTest.RuntimeHarness (assertGet)
 
 data FallApp = FallApp
@@ -41,7 +41,7 @@ instance Yesod FallApp
 
 -- The host site delegates each subsite's nested @WrapR@ to the
 -- 'YesodSubDispatchNested' instance imported from
--- "YesodCoreTest.SubsiteFallthroughSub".
+-- "YesodCoreTest.SubsiteFallthrough.Data".
 instance YesodSubDispatch FallOnSub master where
   yesodSubDispatch = $(mkYesodSubDispatch resourcesFallOnSub)
 
@@ -49,7 +49,7 @@ instance YesodSubDispatch FallOffSub master where
   yesodSubDispatch = $(mkYesodSubDispatch resourcesFallOffSub)
 
 specs :: Spec
-specs = describe "YesodCoreTest.SubsiteFallthrough (subsite nested-route fallthrough)" $ do
+specs = describe "YesodCoreTest.SubsiteFallthrough.Runtime (subsite nested-route fallthrough)" $ do
     describe "fallthrough enabled" $ do
         it "still reaches the shadowing nested index route" $
             assertGet FallApp 200 ["on", "wrap", "foo"] (Just "onFooAIndex")
