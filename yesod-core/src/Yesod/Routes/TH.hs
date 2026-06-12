@@ -18,6 +18,9 @@ module Yesod.Routes.TH
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
     , nullifyWhenNoParam
     , DiscoveryMode(..)
     , discoveryMode

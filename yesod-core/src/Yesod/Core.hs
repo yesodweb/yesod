@@ -45,6 +45,7 @@ module Yesod.Core
     , authorizationCheck
       -- * Data types
     , AuthResult (..)
+    , RouteAuthorizer (..)
     , unauthorizedI
       -- * Logging
     , defaultMakeLogger

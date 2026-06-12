@@ -51,6 +51,8 @@ module Yesod.Core.Dispatch
     , unsetFocusOnNestedRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , setRouteAuthorization
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires

@@ -25,6 +25,7 @@ import qualified YesodCoreTest.ParamNoExplicitArgs as ParamNoExplicitArgs
 import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
 import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
 import qualified YesodCoreTest.ParamNestedNoFallthroughRuntime as ParamNestedNoFallthroughRuntime
+import qualified YesodCoreTest.RouteAuthRuntime as RouteAuthRuntime
 import qualified YesodCoreTest.FallthroughMatrix.Runtime as FallthroughMatrixRuntime
 import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
 import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
@@ -107,6 +108,7 @@ specs = do
       ParamFallthroughRuntime.specs
       ParamNoFallthroughRuntime.specs
       ParamNestedNoFallthroughRuntime.specs
+      RouteAuthRuntime.specs
       FallthroughMatrixRuntime.specs
       MultiPieceNestedRuntime.specs
       ZeroPieceShadowRuntime.specs

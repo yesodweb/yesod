@@ -49,6 +49,9 @@ module Yesod.Core.Internal.TH
     , unsetFocusOnNestedRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
     )
  where
 
