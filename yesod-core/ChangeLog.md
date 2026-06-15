@@ -1,5 +1,15 @@
 # ChangeLog for yesod-core
 
+## 1.6.30.0
+
+* Remove internal utility functions inadvertently exported from `Yesod.Core.Types` in 1.6.29.0 [#1908](https://github.com/yesodweb/yesod/pull/1908):
+  * `putTime`
+  * `getTime`
+  * `formatW3`
+  * `formatRFC1123`
+  * `formatRFC822`
+  * `getCurrentMaxExpiresRFC1123`
+
 ## 1.6.29.1
 
 * Fix compilation error for text >= 2.1.2 [#1905](https://github.com/yesodweb/yesod/pull/1905)
