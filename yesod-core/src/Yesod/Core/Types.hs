@@ -165,17 +165,16 @@ type ResolvedApproot = Text
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized !Text
     deriving (Eq, Show, Read)
 
--- | A route-scoped authorization check, captured at dispatch time and run by
--- 'Yesod.Core.Class.Yesod.authorizationCheck' at the same point in the
--- middleware stack as 'Yesod.Core.isAuthorized'. The 'Bool' is the @isWrite@
--- flag (computed by the runner from the request method, exactly as for
+-- | A route-scoped authorization check, supplied by generated dispatch code
+-- rather than the site-wide 'Yesod.Core.isAuthorized'. The 'Bool' is the
+-- @isWrite@ flag (computed from the request method, exactly as for
 -- 'isAuthorized').
 --
--- This is the hook that lets dispatch supply authorization per route fragment,
--- rather than every request consulting the site-wide 'isAuthorized'. When a
--- 'RunHandlerEnv' carries 'Nothing' for 'rheRouteAuth' (the default for every
--- existing caller), 'authorizationCheck' falls back to 'isAuthorized' and
--- behaves exactly as before.
+-- Generated dispatch glues the authorizer onto the handler (see
+-- 'Yesod.Core.yesodRunnerAuth'), so it runs after the site's 'yesodMiddleware'
+-- and immediately before the handler body. The site-wide 'isAuthorized' check
+-- in 'Yesod.Core.Class.Yesod.authorizationCheck' still runs at its usual
+-- middleware position and is unaffected.
 --
 -- @since 1.7.1.0
 newtype RouteAuthorizer site = RouteAuthorizer
@@ -219,14 +218,6 @@ data RunHandlerEnv child site = RunHandlerEnv
       --   catch function for rendering 500 pages on exceptions.
       --   by default this is catch from unliftio (rethrows all async exceptions).
     , rheCatchHandlerExceptions :: !(forall a m . MonadUnliftIO m =>  m a -> (SomeException -> m a) -> m a)
-
-      -- | A dispatch-supplied authorization check for the current route, run
-      --   by 'authorizationCheck' in place of 'isAuthorized'. 'Nothing' (the
-      --   default for all existing construction sites) preserves the legacy
-      --   'isAuthorized' behavior.
-      --
-      --   @since 1.7.1.0
-    , rheRouteAuth :: !(Maybe (RouteAuthorizer site))
     }
 
 data HandlerData child site = HandlerData

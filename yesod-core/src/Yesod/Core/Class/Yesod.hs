@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -456,38 +455,55 @@ sslOnlyMiddleware timeout handler = do
 --
 -- Since 1.2.0
 authorizationCheck :: Yesod site => HandlerFor site ()
-authorizationCheck = do
-    mauth <- HandlerFor $ \hd -> pure (rheRouteAuth (handlerEnv hd))
-    case mauth of
-        -- A dispatch-supplied authorizer takes precedence over the site-wide
-        -- 'isAuthorized'. It still runs here, at the same middleware position.
-        Just auth -> getCurrentRoute >>= \case
-            Nothing -> return ()
-            Just url -> do
-                isWrite <- isWriteRequest url
-                handleAuthResult =<< runRouteAuthorizer auth isWrite
-        -- Legacy path: identical to the previous implementation.
-        Nothing -> getCurrentRoute >>= maybe (return ()) checkUrl
+authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
   where
     checkUrl url = do
         isWrite <- isWriteRequest url
         ar <- isAuthorized url isWrite
         handleAuthResult ar
-    handleAuthResult ar =
-        case ar of
-            Authorized -> return ()
-            AuthenticationRequired -> do
-                master <- getYesod
-                case authRoute master of
-                    Nothing -> void notAuthenticated
-                    Just url' ->
-                      void $ selectRep $ do
-                          provideRepType typeHtml $ do
-                              setUltDestCurrent
-                              void $ redirect url'
-                          provideRepType typeJson $
-                              void notAuthenticated
-            Unauthorized s' -> permissionDenied s'
+
+-- | Run a dispatch-supplied 'RouteAuthorizer', enforcing its 'AuthResult' with
+-- the same semantics as 'authorizationCheck' ('Authorized' continues,
+-- 'AuthenticationRequired' redirects to 'authRoute' or denies, 'Unauthorized'
+-- is a 403). The @isWrite@ flag is computed via 'isWriteRequest' on the
+-- current route, exactly as for 'isAuthorized'.
+--
+-- Generated dispatch prefixes this onto the handler (see
+-- 'Yesod.Core.yesodRunnerAuth'); it can also be called directly when wiring a
+-- 'RouteAuthorizer' by hand.
+--
+-- @since 1.7.1.0
+dispatchAuthorizationCheck :: Yesod site => RouteAuthorizer site -> HandlerFor site ()
+dispatchAuthorizationCheck auth = do
+    isWrite <- getCurrentRoute >>= maybe defaultWrite isWriteRequest
+    handleAuthResult =<< runRouteAuthorizer auth isWrite
+  where
+    -- No current route should be unreachable here (dispatch always passes the
+    -- matched route), but mirror isWriteRequest's method-based default rather
+    -- than guessing False.
+    defaultWrite = do
+        wai <- waiRequest
+        return $ W.requestMethod wai `notElem`
+            ["GET", "HEAD", "OPTIONS", "TRACE"]
+
+-- | Shared enforcement of an 'AuthResult' — the body of 'authorizationCheck',
+-- factored out so 'dispatchAuthorizationCheck' applies identical semantics.
+handleAuthResult :: Yesod site => AuthResult -> HandlerFor site ()
+handleAuthResult ar =
+    case ar of
+        Authorized -> return ()
+        AuthenticationRequired -> do
+            master <- getYesod
+            case authRoute master of
+                Nothing -> void notAuthenticated
+                Just url' ->
+                  void $ selectRep $ do
+                      provideRepType typeHtml $ do
+                          setUltDestCurrent
+                          void $ redirect url'
+                      provideRepType typeJson $
+                          void notAuthenticated
+        Unauthorized s' -> permissionDenied s'
 
 -- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
 --

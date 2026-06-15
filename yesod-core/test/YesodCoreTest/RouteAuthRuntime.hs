@@ -19,10 +19,10 @@
 --     generated in this same module and @InnerR@ is reached through
 --     'genNestedDispatchClauses'.
 --
--- 'isAuthorized' is overridden to authorize everything, so any 403 below
--- proves the dispatch-supplied authorizer ran in its place — and a 403 on a
--- method-mismatch request proves authorization runs before the 405 is
--- revealed, exactly as 'isAuthorized' does.
+-- 'isAuthorized' is overridden to authorize everything, so any 403 below can
+-- only come from the dispatch-supplied authorizer glued onto the handler —
+-- and a 403 on a method-mismatch request proves the glued check runs before
+-- the 405 is revealed, exactly as 'isAuthorized' does.
 module YesodCoreTest.RouteAuthRuntime
     ( specs
     ) where

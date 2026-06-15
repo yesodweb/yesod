@@ -276,7 +276,6 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheOnError = errHandler
             , rheMaxExpires = maxExpires
             , rheCatchHandlerExceptions = catchHandlerExceptions site
-            , rheRouteAuth = Nothing
             }
         handler'
       errHandler err req = do
@@ -307,21 +306,15 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   _ <- runResourceT $ yapp fakeRequest
   I.readIORef ret
 
-yesodRunner :: forall res site . (ToTypedContent res, Yesod site)
-            => HandlerFor site res
-            -> YesodRunnerEnv site
-            -> Maybe (Route site)
-            -> Application
-yesodRunner = yesodRunnerAuth Nothing
-
--- | Like 'yesodRunner', but threads a dispatch-supplied 'RouteAuthorizer'
--- through to 'authorizationCheck'. When the authorizer is 'Just', it is used
--- in place of the site-wide 'isAuthorized'; when 'Nothing', behavior is
--- identical to 'yesodRunner' (which is @yesodRunnerAuth Nothing@).
+-- | Like 'yesodRunner', but glues a dispatch-supplied 'RouteAuthorizer' onto
+-- the front of the handler. The authorizer runs after the site's
+-- 'yesodMiddleware' (including the site-wide @isAuthorized@ check, which is
+-- unaffected) and immediately before the handler body, denying with the usual
+-- 'AuthResult' semantics. @yesodRunnerAuth Nothing@ is exactly 'yesodRunner'.
 --
--- The authorization check still runs at exactly the same point in the
--- middleware stack as before (inside 'defaultYesodMiddleware'); only the
--- source of the decision changes.
+-- This is what generated dispatch calls when 'setRouteAuthorization' demands
+-- per-route authorizer bindings — the authorizer is baked into the generated
+-- code, so no runtime registration or environment threading exists to forget.
 --
 -- @since 1.7.1.0
 yesodRunnerAuth :: forall res site . (ToTypedContent res, Yesod site)
@@ -330,7 +323,16 @@ yesodRunnerAuth :: forall res site . (ToTypedContent res, Yesod site)
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
-yesodRunnerAuth routeAuth handler' YesodRunnerEnv {..} route req sendResponse = do
+yesodRunnerAuth Nothing handler' = yesodRunner handler'
+yesodRunnerAuth (Just auth) handler' =
+    yesodRunner (dispatchAuthorizationCheck auth >> handler')
+
+yesodRunner :: forall res site . (ToTypedContent res, Yesod site)
+            => HandlerFor site res
+            -> YesodRunnerEnv site
+            -> Maybe (Route site)
+            -> Application
+yesodRunner handler' YesodRunnerEnv {..} route req sendResponse = do
   mmaxLen <- maximumContentLengthIO yreSite route
   case (mmaxLen, requestBodyLength req) of
     (Just maxLen, KnownLength len) | maxLen < len -> sendResponse (tooLargeResponse maxLen len)
@@ -361,7 +363,6 @@ yesodRunnerAuth routeAuth handler' YesodRunnerEnv {..} route req sendResponse = 
               , rheOnError = safeEh log'
               , rheMaxExpires = maxExpires
               , rheCatchHandlerExceptions = catchHandlerExceptions yreSite
-              , rheRouteAuth = routeAuth
               }
           rhe = rheSafe
               { rheOnError = runHandler rheSafe . errorHandler

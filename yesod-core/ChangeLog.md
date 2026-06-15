@@ -5,19 +5,22 @@
 * Decentralized route authorization. Dispatch can now supply a per-route or
   per-subtree authorization check, so authorization can live next to a route's
   `YesodDispatchNested` instance instead of a single site-wide `isAuthorized`.
-    * New `RouteAuthorizer` type and `yesodRunnerAuth`, a variant of
-      `yesodRunner` that threads an authorizer to `authorizationCheck`. The
-      check still runs at the same point in the middleware stack as
-      `isAuthorized`.
+    * New `RouteAuthorizer` type, `dispatchAuthorizationCheck` (enforces a
+      `RouteAuthorizer`'s `AuthResult` with the same semantics as
+      `authorizationCheck`), and `yesodRunnerAuth`, which glues the check onto
+      the front of the handler. The check runs after the site's
+      `yesodMiddleware` and immediately before the handler body; the site-wide
+      `isAuthorized` check is untouched and still runs at its usual position.
     * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
       `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
       set, generated dispatch references an `authorize<Name>` binding that must
       be in scope at the splice — forgetting authorization for a route becomes a
       compile-time error, exactly like forgetting a handler.
-    * Backwards compatible: `RunHandlerEnv` gained an `rheRouteAuth` field
-      defaulting to `Nothing` at every existing construction site, and the
-      default `RouteAuthSpec` is `NoRouteAuth`, so existing sites behave exactly
-      as before (authorization falls back to `isAuthorized`).
+    * Strictly additive: new exports only. No existing type, record, or
+      signature changed (`RouteOpts` gained a field, but its constructor is not
+      exported). `yesodRunnerAuth Nothing` is exactly `yesodRunner`, and the
+      default `RouteAuthSpec` is `NoRouteAuth`, so existing sites behave
+      exactly as before.
 
 ## 1.7.0.0
 

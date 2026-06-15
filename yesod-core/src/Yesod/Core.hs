@@ -43,6 +43,7 @@ module Yesod.Core
     , defaultErrorHandler
     , defaultYesodMiddleware
     , authorizationCheck
+    , dispatchAuthorizationCheck
       -- * Data types
     , AuthResult (..)
     , RouteAuthorizer (..)
