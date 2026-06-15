@@ -30,7 +30,7 @@ module Yesod.Routes.TH
     , SDC(..)
     , mkDispatchInstance
     , mkNestedDispatchInstance
-    , mkNestedSubDispatchInstance
+    , mkNestedDispatchInstanceWith
     , NestedTarget (..)
     , mkMDS
     , mkYesodSubDispatch

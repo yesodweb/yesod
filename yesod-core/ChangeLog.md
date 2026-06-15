@@ -6,6 +6,7 @@
     * Use `setFocusOnNestedRoute` to generate a nested route block's types and dispatch in their own module — for top-level sites, subsites, and parameterized foundations (`data App a`).
     * `setNestedRouteFallthrough` lets a nested parent with no matching child fall through to later sibling routes instead of committing to a 404.
     * Nested route fragments work in `redirect`/`setUrl`: wrap them in `WithParentArgs`, or use the bare constructor when the parent binds no dynamic pieces.
+    * `mkNestedSubDispatchInstance` (for hand-written split subsite modules) takes resources as `[ResourceTree String]` — the `parseRoutes` quasi-quoter's output — and parses the type strings internally. No `map (fmap (parseType . dropBracket))` step, and a malformed type fails the splice with an attributable error.
     * Clearer TH errors for malformed route blocks, subsite/nested-datatype arity mismatches, and missing focus targets.
     * Breaking: modules that splice a nested route block need `MultiParamTypeClasses` (and usually `FlexibleContexts`).
     * Breaking: TH codegen entry points changed (`TyArgs` threading; `mkDispatchClause`, `mkParseRouteInstance`, `mkRouteConsOpts`, `mkDispatchInstance`); `mkRenderRouteClauses` and the `MkRouteOpts` constructor are no longer exported.

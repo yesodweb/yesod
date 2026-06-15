@@ -36,6 +36,7 @@ module Yesod.Core.Internal.TH
     , mkYesodSubDispatch
     , mkYesodSubDispatchInstance
     , mkYesodSubDispatchInstanceOpts
+    , mkNestedSubDispatchInstance
 
     , subTopDispatch
 
@@ -194,10 +195,34 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 -- | Convert the parsed-from-source 'String' route types into real 'Type's at a
 -- splice site. A malformed type or an unclosed @#{…}@ bracket surfaces as an
 -- attributed compile error (via 'fail') rather than a raw 'error' thrown lazily
--- when the resulting tree is forced. The pure 'parseType'\/'dropBracket' are
--- kept for callers (e.g. tests) that supply known-good input.
+-- when the resulting tree is forced. This is the single 'String'-to-'Type'
+-- boundary: callers downstream only ever handle @['ResourceTree' 'Type']@.
 parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
 parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
+
+-- | Generate a @YesodSubDispatchNested@ instance for a nested route within a
+-- subsite, for hand-written split-route modules (see the subsite-splitting
+-- recipe in @docs/split-route-compilation.md@).
+--
+-- Takes the resources as @['ResourceTree' 'String']@ — exactly the form the
+-- @parseRoutes@ quasi-quoter produces — and parses them to 'Type' internally
+-- via 'parseResourceTypes', so the caller never touches the partial
+-- 'parseType'\/'dropBracket'. A malformed type fails the splice with an
+-- attributed error instead.
+--
+-- @since 1.7.0.0
+mkNestedSubDispatchInstance
+    :: RouteOpts
+    -> String                -- ^ target nested route name
+    -> Cxt                   -- ^ instance context
+    -> TyArgs                -- ^ type arguments
+    -> (Exp -> Q Exp)        -- ^ unwrapper
+    -> [ResourceTree String] -- ^ all resources (as parsed from source)
+    -> Q [Dec]
+mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper resS = do
+    res <- parseResourceTypes resS
+    mkNestedDispatchInstanceWith SubsiteNested Nothing
+        routeOpts target cxt tyargs unwrapper res
 
 -- | The resolved foundation type shared by 'mkYesodGeneralOpts' and
 -- 'mkYesodSubDispatchInstanceOpts': the @boundNames@ from the explicitly-written
@@ -438,12 +463,15 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
                     (SubsiteName namestr)
                     (SubsiteArity (tyArgsArity tyArgs))
                     rc
-                -- 'mkNestedSubDispatchInstance' applies 'tyArgs' to the nested
-                -- datatype directly and never consults 'roParameterizedSubroute'
-                -- (it only reads 'roNestedRouteFallthrough'), so passing 'opts'
-                -- through unchanged is correct — forcing 'setParameterizedSubroute'
-                -- here was a no-op.
-                mkNestedSubDispatchInstance
+                -- Call the worker directly with the foundation's
+                -- already-parsed 'Type' resources, rather than re-parsing the
+                -- 'String' resources through the public 'mkNestedSubDispatchInstance'.
+                -- The generator applies 'tyArgs' to the nested datatype directly
+                -- and never consults 'roParameterizedSubroute' (it only reads
+                -- 'roNestedRouteFallthrough'), so passing 'opts' through
+                -- unchanged is correct — forcing 'setParameterizedSubroute' here
+                -- was a no-op.
+                mkNestedDispatchInstanceWith SubsiteNested Nothing
                     opts
                     nestedName appCxt tyArgs return (rfResources foundation)
 

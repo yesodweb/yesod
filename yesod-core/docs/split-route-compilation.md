@@ -151,7 +151,7 @@ module App.SplitSub.NestedR (NestedR (..)) where
 
 import Yesod.Core
 import Yesod.Core.Dispatch
-    (mkNestedSubDispatchInstance, defaultOpts, TyArgs (..), parseType, dropBracket)
+    (mkNestedSubDispatchInstance, defaultOpts, TyArgs (..))
 import App.SplitSub.Data
 
 getNestedHomeR :: SubHandlerFor SplitSub master Text
@@ -166,8 +166,13 @@ $(mkNestedSubDispatchInstance
     []        -- no instance context
     NoTyArgs  -- no type arguments (non-parameterized subsite)
     return    -- handler unwrapper
-    (map (fmap (parseType . dropBracket)) resourcesSplitSub))
+    resourcesSplitSub)  -- the [ResourceTree String] from your routes file
 ```
+
+`mkNestedSubDispatchInstance` takes the resources as `[ResourceTree String]` —
+exactly what the `parseRoutes` quasi-quoter produces — and parses the type
+strings internally, failing the splice with an attributable error on a
+malformed type rather than a deferred runtime `error`.
 
 And the subsite's `YesodSubDispatch` instance delegates automatically, as long
 as the split-out instance is in scope:

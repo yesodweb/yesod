@@ -12,7 +12,7 @@ module Yesod.Routes.TH.Dispatch
     , SDC(..)
     , mkDispatchInstance
     , mkNestedDispatchInstance
-    , mkNestedSubDispatchInstance
+    , mkNestedDispatchInstanceWith
     , NestedTarget (..)
     , SameSpliceNestedInstances (..)
     , mkMDS
@@ -591,7 +591,8 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res =
         routeOpts target cxt tyargs unwrapper res
 
 -- | The shared body of the top-level ('mkNestedDispatchInstance') and subsite
--- ('mkNestedSubDispatchInstance') nested-dispatch instance generators. Both
+-- (@mkNestedSubDispatchInstance@, in "Yesod.Core.Internal.TH") nested-dispatch
+-- instance generators. Both
 -- find the target, build the parent-dynamics pattern, generate the dispatch
 -- clauses via 'genNestedDispatchClauses', emit one
 -- 'nestedTargetClass'\/'nestedTargetFn' instance, and recurse into nested
@@ -758,21 +759,6 @@ mkUrlToDispatchRedirectInstances cxt target targetT master = do
             ]
         ]
 
--- | Generate a 'YesodSubDispatchNested' instance for a nested route within
--- a subsite. Parallel to 'mkNestedDispatchInstance' but for the subsite case.
---
--- @since 1.7.0.0
-mkNestedSubDispatchInstance
-    :: RouteOpts
-    -> String       -- ^ target nested route name
-    -> Cxt          -- ^ instance context
-    -> TyArgs -- ^ type arguments
-    -> (Exp -> Q Exp) -- ^ unwrapper
-    -> [ResourceTree Type] -- ^ all resources
-    -> Q [Dec]
-mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res =
-    mkNestedDispatchInstanceWith SubsiteNested Nothing
-        routeOpts target cxt tyargs unwrapper res
 
 -- | Generate dispatch clauses for nested dispatch instances.
 -- Parameterized by 'NestedTarget' to support both

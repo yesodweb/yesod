@@ -27,7 +27,7 @@ module YesodCoreTest.ParamSubsite.SplitNested () where
 
 import Yesod.Core
 import Yesod.Core.Dispatch
-    (mkNestedSubDispatchInstance, TyArgs(..), parseType, dropBracket)
+    (mkNestedSubDispatchInstance, TyArgs(..))
 import Language.Haskell.TH (Type(..), mkName)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Text (Text)
@@ -62,4 +62,4 @@ $(do
         cxt
         tyargs
         return
-        (map (fmap (parseType . dropBracket)) resourcesPSub))
+        resourcesPSub)
