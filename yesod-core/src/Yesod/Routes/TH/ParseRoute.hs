@@ -25,6 +25,12 @@ import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
 import Yesod.Routes.TH.Internal
 
+-- | The trailing @_ -> Nothing@ clause appended to every generated
+-- @parseRoute@\/@parseRouteNested@: a path matching none of the preceding
+-- clauses fails to parse.
+missingRouteClause :: Clause
+missingRouteClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
+
 mkParseRouteInstance :: TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstance =
     mkParseRouteInstanceOpts defaultOpts
@@ -52,9 +58,8 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
         -- instance with all nested routes inlined, and no 'ParseRouteNested'
         -- instances.
         InlineCompat -> do
-            clausess <- mapM (generateParseRouteClausesInline id) unfocusedRess
-            let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
-                allClauses = concat clausess <> [missingClause]
+            clausess <- mapM (buildInlineParseClauses id) unfocusedRess
+            let allClauses = concat clausess <> [missingRouteClause]
             pure
                 [ instanceD cxt (ConT ''ParseRoute `AppT` typ)
                     [ FunD 'parseRoute allClauses
@@ -65,20 +70,15 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
             existingInstances <- existingNestedInstances ress
             (clauses, childNames) <- flip runStateT mempty $ traverse (generateParseRouteClause existingInstances routeOpts) ress
 
-            childInstances <- fmap join $ forM (Set.toList childNames) $ \childName -> do
-                let targetType =
-                        applyTyArgs (ConT (mkName childName)) origTyargs
-                mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } origTyargs cxt targetType ress
+            childInstances <- fmap join $ forM (Set.toList childNames) $ \childName ->
+                mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } origTyargs cxt (targetTypeFor childName) ress
 
-            let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
-                allClauses = clauses <> [missingClause]
+            let allClauses = clauses <> [missingRouteClause]
 
             let thisInstance =
                     case roFocusOnNestedRoute routeOpts of
-                        Just target -> do
-                            let targetType =
-                                    applyTyArgs (ConT (mkName target)) origTyargs
-                            instanceD cxt (ConT ''ParseRouteNested `AppT` targetType)
+                        Just target ->
+                            instanceD cxt (ConT ''ParseRouteNested `AppT` targetTypeFor target)
                                 [ FunD 'parseRouteNested allClauses
                                 ]
                         Nothing ->
@@ -88,6 +88,9 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
 
             pure $ thisInstance : childInstances
   where
+    -- The route datatype named by @name@, applied to the site's type arguments.
+    targetTypeFor name = applyTyArgs (ConT (mkName name)) origTyargs
+
     -- Narrow to the focused subtree's children via the shared lookup, failing
     -- loudly (matching Dispatch/RenderRoute) when the target is missing rather
     -- than silently producing an always-'Nothing' 'ParseRouteNested' instance.
@@ -207,47 +210,17 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
     liftQ :: Monad n => n a -> StateT (Set.Set String) n a
     liftQ = Trans.lift
 
-    recordName :: MonadState (Set.Set String) n => String -> n ()
-    recordName name =
-        modify (Set.insert name)
-
+    -- Record that @name@ still needs a 'ParseRouteNested' instance generated.
     -- The instance-existence decision is hoisted out (into @existingInstances@,
     -- computed in 'Q' by the caller), so this stays pure.
     recordNameIfNotInstance name =
-        when (not (name `Set.member` existingInstances)) $
-            recordName name
+        unless (name `Set.member` existingInstances) $
+            modify (Set.insert name)
 
--- | Backwards-compatible inline 'parseRoute' clause generation. Instead of
--- delegating nested routes to 'parseRouteNested', this inlines every nested
--- parent directly into the single 'ParseRoute' instance, wrapping each parsed
--- child route in the accumulated parent constructors. This matches the
--- historical (pre nested route discovery) output and emits no
--- 'ParseRouteNested' instances.
---
--- Crucially it preserves 1.6's /commit-on-parent-prefix/ semantics: a parent
--- contributes exactly one top-level clause that matches its path prefix once,
--- then dispatches the remaining path over its children with a 'Nothing'
--- fallback. So a request whose path matches a parent prefix but none of that
--- parent's children resolves to 'Nothing' here — it does /not/ fall through to
--- later top-level routes — which is what the inline @dispatch@ codegen does
--- too (see 'Yesod.Routes.TH.Dispatch.mkDispatchClause'). Matching the prefix
--- once also avoids re-parsing it per descendant leaf.
---
--- The inline path needs no compiler queries (@reify@\/@lookupTypeName@\/
--- @isInstance@), only fresh names, so it is just 'buildInlineParseClauses' run
--- at @m ~ 'Q'@ — production gets hygienic 'newName' binders, while the same
--- code runs at a pure 'Quote' instance (a monotonic counter) under test.
-generateParseRouteClausesInline
-    :: (Exp -> Exp)
-    -- ^ Wrap a child-route expression in the accumulated parent constructors.
-    -> ResourceTree a
-    -> Q [Clause]
-generateParseRouteClausesInline = buildInlineParseClauses
-
--- | The core of 'generateParseRouteClausesInline'. It assembles the
--- @parseRoute@ clauses for the backwards-compatible inline path directly as
--- AST, drawing fresh names from a 'Quote' name supply and building
--- tuples\/applications by hand rather than through quotation brackets
+-- | Backwards-compatible inline @parseRoute@ clause generation. It assembles
+-- the @parseRoute@ clauses for the inline path directly as AST, drawing fresh
+-- names from a 'Quote' name supply and building tuples\/applications by hand
+-- rather than through quotation brackets
 -- (brackets are monomorphic 'Q' before template-haskell 2.17; the one
 -- exception goes through 'unsafeQToQuote').
 --

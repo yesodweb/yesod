@@ -374,9 +374,9 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
                             case mfinalE of
                                 Nothing -> dyns
                                 Just e -> dyns ++ [e]
-                        route' = applyConPieces name dynsMulti
-                        route = foldr AppE route' extraCons
-                        jroute = ConE 'Just `AppE` route
+                        thisRoute = applyConPieces name dynsMulti
+                        fullRoute = foldr AppE thisRoute extraCons
+                        jroute = ConE 'Just `AppE` fullRoute
                         allDyns = extraParams ++ dynsMulti
                         mkRunExp mmethod = do
                             runHandlerE <- mdsRunHandler
@@ -415,14 +415,14 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
                     let allDyns = extraParams ++ dyns
                     sub2 <- mkLambda "sub" $ \sub ->
                         pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) allDyns
-                    route <- mkLambda "sroute" $ \sroute ->
-                        pure $ let route' = applyConPieces name dyns
-                               in foldr AppE (AppE route' $ VarE sroute) extraCons
+                    routeBuilder <- mkLambda "sroute" $ \sroute ->
+                        pure $ let thisRoute = applyConPieces name dyns
+                               in foldr AppE (AppE thisRoute $ VarE sroute) extraCons
                     exp <-
                         [| $(mdsSubDispatcher)
                             $(mdsRunHandler)
                             $(pure sub2)
-                            $(pure route)
+                            $(pure routeBuilder)
                             $(pure envExp)
                             ($(mdsSetPathInfo) $(varE restPath) $(pure reqExp)) |]
                     return (exp, EndRest restPath)
