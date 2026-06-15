@@ -221,6 +221,16 @@ mkNestedSubDispatchInstance
     -> Q [Dec]
 mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper resS = do
     res <- parseResourceTypes resS
+    -- Guard the top target's arity here. 'mkNestedDispatchInstanceWith' only
+    -- arity-checks nested *children*, so without this a hand-written recipe
+    -- pairing a parameterized subsite with an unparameterized target datatype
+    -- would apply the subsite's type args to a kind-'Type' head and surface a
+    -- cryptic kind error from generated code rather than this actionable one.
+    -- A no-op when the datatype is not in scope (unknowable arity) or when the
+    -- arities match.
+    rc <- resolveRouteCon target
+    assertNestedSubArity SubsiteCall (SubsiteName target)
+        (SubsiteArity (tyArgsArity tyargs)) rc
     mkNestedDispatchInstanceWith SubsiteNested Nothing
         routeOpts target cxt tyargs unwrapper res
 
