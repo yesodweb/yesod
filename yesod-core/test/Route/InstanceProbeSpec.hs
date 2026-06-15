@@ -23,7 +23,7 @@
 module Route.InstanceProbeSpec (spec) where
 
 import Test.Hspec
-import Language.Haskell.TH (recover)
+import Language.Haskell.TH (recover, isInstance, Type (ConT, AppT))
 import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon)
 import Route.InstanceProbeTypes
     ( Probe, HasInst, HasInst2, HasInstInt, NoInst, HK, HKInst, Mono
@@ -102,4 +102,30 @@ spec = describe "nestedInstanceExists / fullyApplyType abstract-parameter probe"
             rc <- resolveRouteCon "PolyPartial"
             recover [| error "isInstance crashed on PolyPartial" |] $ do
                 b <- nestedInstanceExists ''ProbePoly rc
+                [| b |]) `shouldBe` False
+
+    -- Why 'nestedInstanceExists' must saturate to the datatype's *full* arity:
+    -- the partial instance @ProbePoly (PolyPartial a)@ matches *any* one-argument
+    -- application of @PolyPartial@. Probing one argument short — at @PolyPartial
+    -- Int@ (kind Type -> Type) — therefore matches it, while the full-arity head
+    -- @PolyPartial a b@ (kind Type, what the probe actually uses) does not. So a
+    -- probe that stopped short would be spuriously fooled by a partial instance;
+    -- saturating fully is what avoids that. These pin that matching boundary by
+    -- calling 'isInstance' directly at hand-built heads.
+    it "isInstance matches the partial instance one argument short (PolyPartial Int)" $
+        $(do
+            recover [| error "isInstance crashed on PolyPartial Int" |] $ do
+                b <- isInstance ''ProbePoly [ConT ''PolyPartial `AppT` ConT ''Int]
+                [| b |]) `shouldBe` True
+
+    it "isInstance does not match the partial instance at the full application (PolyPartial Int Int)" $
+        $(do
+            recover [| error "isInstance crashed on PolyPartial Int Int" |] $ do
+                b <- isInstance ''ProbePoly [ConT ''PolyPartial `AppT` ConT ''Int `AppT` ConT ''Int]
+                [| b |]) `shouldBe` False
+
+    it "isInstance does not match the unapplied-constructor instance once an argument is applied (PolyUnapplied Int)" $
+        $(do
+            recover [| error "isInstance crashed on PolyUnapplied Int" |] $ do
+                b <- isInstance ''ProbePoly [ConT ''PolyUnapplied `AppT` ConT ''Int]
                 [| b |]) `shouldBe` False
