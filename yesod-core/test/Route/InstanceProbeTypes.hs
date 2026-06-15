@@ -47,10 +47,15 @@ instance Probe (HasInst2 a b)
 -- exact matches), so probing the abstract @HasInstInt a@ finds the @Int@
 -- instance and answers 'True'.
 --
--- (An instance at the /unapplied/ constructor — @instance Probe HasInstInt@ —
--- is not a representable case: 'Probe' is 'Type'-kinded exactly like the real
--- nested-discovery classes, so GHC rejects such an instance at its
--- definition site.)
+-- (Instances at an /under-applied/ constructor are not representable, and so
+-- are not tested: the bare @instance Probe HasInstInt@, or an arity-2 datatype
+-- applied to one argument like @instance Probe (HasInst2 a)@. 'Probe' is
+-- 'Type'-kinded, exactly like the real nested-discovery classes, so a head of
+-- kind @Type -> Type@ is kind-rejected at its definition site — GHC says
+-- \"Expecting one more argument to …; Expected a type, but … has kind
+-- @* -> *@\". Only fully-applied heads can carry an instance, whether concrete
+-- (@HasInstInt Int@) or fully abstract (@HasInst2 a b@), both of which /are/
+-- covered.)
 data HasInstInt a = HasInstInt
 instance Probe (HasInstInt Int)
 
