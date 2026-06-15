@@ -276,6 +276,30 @@ buildInlineParseClauses
     -> ResourceTree a
     -> m [Clause]
 buildInlineParseClauses wrap resourceTree =
+    map matchToClause <$> buildInlineParseMatches wrap resourceTree
+  where
+    -- Each parse match is a single @(path, queryParams)@ pattern with a body,
+    -- which is exactly a top-level @parseRoute@ clause. Total by construction —
+    -- 'Match' and 'Clause' carry the same body\/@where@ shape — so no partial
+    -- destructure is needed.
+    matchToClause :: Match -> Clause
+    matchToClause (Match pat body decs) = Clause [pat] body decs
+
+-- | The matching alternatives behind 'buildInlineParseClauses', one per
+-- resource tree. Producing 'Match'es (rather than 'Clause's) is what lets a
+-- parent splice its children straight into a @case@: a leaf is one
+-- @(path, queryParams)@ alternative, and a parent is one alternative that
+-- matches its path prefix then cases the remaining @(path, queryParams)@ over
+-- its children's alternatives, ending in a @_ -> 'Nothing'@ fallback. At top
+-- level 'buildInlineParseClauses' turns each alternative back into its own
+-- @parseRoute@ clause.
+buildInlineParseMatches
+    :: Quote m
+    => (Exp -> Exp)
+    -- ^ Wrap a child-route expression in the accumulated parent constructors.
+    -> ResourceTree a
+    -> m [Match]
+buildInlineParseMatches wrap resourceTree =
     case resourceTree of
         ResourceLeaf (Resource name pieces dispatch _ _check) -> do
             (pats, dyns) <- handlePiecesM pieces
@@ -293,7 +317,7 @@ buildInlineParseClauses wrap resourceTree =
                         jroute = ConE 'Just `AppE` wrap route
                         pathPat = mkPathPat finalTail pats
                         pat = TupP [pathPat, VarP queryParamsName]
-                    pure [Clause [pat] (NormalB jroute) []]
+                    pure [Match pat (NormalB jroute) []]
 
                 Subsite _ _ -> do
                     restName <- newName "rest"
@@ -313,7 +337,7 @@ buildInlineParseClauses wrap resourceTree =
                             (\ $(varP subName) -> $(pure wrapSub) )
                             (parseRoute ( $(varE restName), $(varE queryParamsName) ) )
                         |]
-                    pure [Clause [pat] (NormalB expr) []]
+                    pure [Match pat (NormalB expr) []]
 
         ResourceParent name _check _attrs pieces children -> do
             (pats, dyns) <- handlePiecesM pieces
@@ -323,24 +347,15 @@ buildInlineParseClauses wrap resourceTree =
                     applyConPieces name dyns `AppE` childRoute
                 wrap' = wrap . parentCon
 
-            -- Build each child's matching clause relative to the remaining
-            -- @(rest, queryParams)@ scope, then fold them into the alternatives
-            -- of a single @case@ that commits at this parent: a child miss
-            -- falls to the @_ -> Nothing@ alternative instead of escaping to a
-            -- sibling top-level route.
-            childClauses <- concat <$> mapM (buildInlineParseClauses wrap') children
+            -- Build each child's matching alternative relative to the remaining
+            -- @(rest, queryParams)@ scope, then fold them into a single @case@
+            -- that commits at this parent: a child miss falls to the
+            -- @_ -> Nothing@ alternative instead of escaping to a sibling
+            -- top-level route.
+            childMatches <- concat <$> mapM (buildInlineParseMatches wrap') children
             let restTup = mkTupE [VarE restName, VarE queryParamsName]
-                childMatches = map clauseToMatch childClauses
                 fallbackMatch = Match WildP (NormalB (ConE 'Nothing)) []
                 caseExpr = CaseE restTup (childMatches ++ [fallbackMatch])
                 pathPat = mkPathPat (EndRest restName) pats
                 pat = TupP [pathPat, VarP queryParamsName]
-            pure [Clause [pat] (NormalB caseExpr) []]
-  where
-    -- A child clause matches the @(path, queryParams)@ tuple with no @where@
-    -- bindings, so it converts directly to a @case@ alternative. (Assert the
-    -- shape we rely on rather than silently dropping non-empty @where@ decls.)
-    clauseToMatch :: Clause -> Match
-    clauseToMatch (Clause [pat] body []) = Match pat body []
-    clauseToMatch c =
-        error $ "buildInlineParseClauses: unexpected child clause shape: " <> show c
+            pure [Match pat (NormalB caseExpr) []]

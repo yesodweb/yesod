@@ -88,17 +88,27 @@ data SDC = SDC
     , reqExp :: Exp
     }
 
+-- | Which phase of clause generation we're in, which is the only thing that
+-- decides how a matched result is wrapped (see 'wrapForPhase'). At the top level
+-- the dispatch result is returned unwrapped; inside a parent's inline children
+-- we generate helper clauses whose enclosing parent must tell a match from a
+-- fall-through miss, so the result is wrapped in 'Just'. Generation starts at
+-- 'TopLevelPhase' and flips to 'NestedPhase' on the first descent (and never
+-- back), so the two phases are a single 'local'.
+data DispatchPhase = TopLevelPhase | NestedPhase
+
+-- | How a matched result is wrapped in a given phase. See 'DispatchPhase'.
+wrapForPhase :: DispatchPhase -> Exp -> Exp
+wrapForPhase TopLevelPhase = id
+wrapForPhase NestedPhase = \e -> ConE 'Just `AppE` e
+
 -- | The reader environment threaded through 'mkDispatchClause's clause
 -- generator. 'envSdc' is the accumulated dispatch context (extended via 'local'
--- as we descend into a parent's children); 'envWrap' is how a matched result is
--- wrapped — 'id' for the top-level (unwrapped) dispatch result, and 'Just' for
--- the inline nested helper clauses, where the enclosing parent needs to tell a
--- match from a fall-through miss. The top-level call starts at 'id' and flips
--- to 'Just' on the first descent (and never back), so the two phases are a
--- single 'local' rather than two functions.
+-- as we descend into a parent's children); 'envPhase' selects how a matched
+-- result is wrapped.
 data Env = Env
     { envSdc :: SDC
-    , envWrap :: Exp -> Exp
+    , envPhase :: DispatchPhase
     }
 
 -- | The monad 'mkDispatchClause's clause generator runs in: 'Q' carrying an
@@ -202,13 +212,14 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
             , reqExp = reqE
             }
     -- Generate the dispatch clauses. 'go' runs in @'ReaderT' 'Env' Q@: the
-    -- top-level call starts with @envWrap = id@ so the top-level resources
-    -- produce the final (unwrapped) dispatch result and report which parents
-    -- need a nested-dispatch instance generated. Descending into a parent's
-    -- inline children flips @envWrap@ to 'Just' (via 'local'), so children are
-    -- 'Just'-wrapped helper clauses the enclosing parent can fall through on;
-    -- their reported names are dropped (only top-level parents matter).
-    let topEnv = Env { envSdc = sdc, envWrap = id }
+    -- top-level call starts at @envPhase = TopLevelPhase@ so the top-level
+    -- resources produce the final (unwrapped) dispatch result and report which
+    -- parents need a nested-dispatch instance generated. Descending into a
+    -- parent's inline children flips @envPhase@ to 'NestedPhase' (via 'local'),
+    -- so children are 'Just'-wrapped helper clauses the enclosing parent can
+    -- fall through on; their reported names are dropped (only top-level parents
+    -- matter).
+    let topEnv = Env { envSdc = sdc, envPhase = TopLevelPhase }
     (childNames, clauses) <- mconcat <$> runReaderT (mapM go resources) topEnv
 
     pure
@@ -224,20 +235,13 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
     liftQ :: Q x -> DispatchM x
     liftQ = lift
 
-    -- Apply the current phase's result wrapper, read from the environment: 'id'
-    -- at the top level (unwrapped dispatch result) and 'Just' once inside a
-    -- parent's inline children, where the parent must tell a match from a
-    -- fall-through miss.
-    wrapResult :: Exp -> DispatchM Exp
-    wrapResult e = asks (($ e) . envWrap)
-
-    -- Wrap a result in 'Just' — the nested-phase 'envWrap'.
-    justE :: Exp -> Exp
-    justE e = ConE 'Just `AppE` e
+    -- The current phase's result wrapper (see 'wrapForPhase').
+    askWrap :: DispatchM (Exp -> Exp)
+    askWrap = asks (wrapForPhase . envPhase)
 
     -- Run an action in the scope of a parent's inline children: extend the
     -- accumulated dynamics and parent constructors with this parent's, and flip
-    -- 'envWrap' to 'Just'. This single 'local' — entered once at the top→nested
+    -- to 'NestedPhase'. This single 'local' — entered once at the top→nested
     -- boundary and never undone — is the entire top-vs-nested phase distinction.
     withChildScope :: [Exp] -> Exp -> DispatchM r -> DispatchM r
     withChildScope dyns constr = local $ \e ->
@@ -246,7 +250,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
                  { extraParams = extraParams sdc ++ dyns
                  , extraCons = extraCons sdc ++ [constr]
                  }
-             , envWrap = justE
+             , envPhase = NestedPhase
              }
 
     -- | Generate the dispatch clauses for a resource tree node, plus the
@@ -318,7 +322,8 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
     go (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dyns) <- liftQ $ handlePiecesM pieces
         (chooseMethod, finalPat) <- handleDispatch name dispatch dyns
-        clauseBody <- NormalB <$> wrapResult chooseMethod
+        wrap <- askWrap
+        let clauseBody = NormalB (wrap chooseMethod)
         pure ([], [Clause [mkPathPat finalPat pats] clauseBody []])
 
     -- | Delegate body for a parent that already has a nested-dispatch instance:
@@ -334,10 +339,10 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
     -- | The body of a parent dispatch clause. @helperCall@ runs the parent's
     -- inline helper on the remaining path; per the fallthrough flag we either
     -- fall through on a 'Nothing' (pattern guard) or commit to a 404. The
-    -- matched result is run through the current 'envWrap'.
+    -- matched result is run through the current phase's wrapper.
     parentBody :: Exp -> DispatchM Body
     parentBody helperCall = do
-        wrap <- asks envWrap
+        wrap <- askWrap
         if mdsNestedRouteFallthrough
             then liftQ $ mkGuardedBody helperCall (\match' -> pure (wrap (VarE match')))
             else do
