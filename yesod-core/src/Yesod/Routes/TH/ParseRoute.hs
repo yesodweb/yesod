@@ -47,7 +47,7 @@ mkParseRouteInstanceFor target ress = do
 -- @since 1.7.0.0
 mkParseRouteInstanceOpts :: RouteOpts -> TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
-    case discoveryMode routeOpts (hasTyArgs origTyargs) of
+    case discoveryMode routeOpts origTyargs of
         -- Backwards-compatible default: generate a single 'ParseRoute'
         -- instance with all nested routes inlined, and no 'ParseRouteNested'
         -- instances.

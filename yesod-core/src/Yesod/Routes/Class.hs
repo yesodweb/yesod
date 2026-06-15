@@ -82,6 +82,14 @@ class RenderRoute a => ParseRoute a where
 -- | Like 'RenderRouteNested', this acts as a delegation class for nested
 -- route fragments.
 --
+-- Note that 'parseRouteNested' and 'renderRouteNested' are /not/ inverses, by
+-- design. 'renderRouteNested' consumes the @'ParentArgs' a@ (the parent's
+-- dynamic pieces) to produce a complete path, whereas 'parseRouteNested'
+-- recovers only the fragment @a@ and never the 'ParentArgs' — the parent is
+-- responsible for those. So @'parseRouteNested' p@ followed by
+-- @'renderRouteNested' args@ round-trips the /fragment/ portion of @p@ only,
+-- with @args@ supplied separately by the caller.
+--
 -- @since 1.7.0.0
 class RenderRouteNested a => ParseRouteNested a where
     -- | Parse a route fragment from a path. Like 'parseRoute', but produces

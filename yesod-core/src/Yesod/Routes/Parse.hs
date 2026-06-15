@@ -202,13 +202,13 @@ piecesFromString :: MonadFail m => String -> m ([(CheckOverlap, Piece String)], 
 piecesFromString "" = pure ([], Nothing)
 piecesFromString x = do
     rest <- piecesFromString $ drop 1 z
+    this <- pieceFromString y
     case (this, rest) of
         (Left typ, ([], Nothing)) -> pure ([], Just typ)
         (Left _, _) -> fail "Multipiece must be last piece"
         (Right piece, (pieces, mtyp)) -> pure (piece:pieces, mtyp)
   where
     (y, z) = break (== '/') x
-    this = pieceFromString y
 
 parseType :: String -> Type
 parseType orig =
@@ -293,22 +293,25 @@ isTvar :: String -> Bool
 isTvar (h:_) = isLower h
 isTvar _     = False
 
-pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
-pieceFromString ('#':'!':x) = Right $ (False, Dynamic $ dropBracket x)
-pieceFromString ('!':'#':x) = Right $ (False, Dynamic $ dropBracket x) -- https://github.com/yesodweb/yesod/issues/652
-pieceFromString ('#':x) = Right $ (True, Dynamic $ dropBracket x)
+-- | 'MonadFail' so that an unclosed bracket in a 'Dynamic' piece (via
+-- 'dropBracketM') surfaces as an attributed splice error rather than a raw
+-- 'error' (the pure 'dropBracket' would otherwise bottom out deep in codegen).
+pieceFromString :: MonadFail m => String -> m (Either (CheckOverlap, String) (CheckOverlap, Piece String))
+pieceFromString ('#':'!':x) = Right . (False,) . Dynamic <$> dropBracketM x
+pieceFromString ('!':'#':x) = Right . (False,) . Dynamic <$> dropBracketM x -- https://github.com/yesodweb/yesod/issues/652
+pieceFromString ('#':x) = Right . (True,) . Dynamic <$> dropBracketM x
 
-pieceFromString ('*':'!':x) = Left (False, x)
-pieceFromString ('+':'!':x) = Left (False, x)
+pieceFromString ('*':'!':x) = pure $ Left (False, x)
+pieceFromString ('+':'!':x) = pure $ Left (False, x)
 
-pieceFromString ('!':'*':x) = Left (False, x)
-pieceFromString ('!':'+':x) = Left (False, x)
+pieceFromString ('!':'*':x) = pure $ Left (False, x)
+pieceFromString ('!':'+':x) = pure $ Left (False, x)
 
-pieceFromString ('*':x) = Left (True, x)
-pieceFromString ('+':x) = Left (True, x)
+pieceFromString ('*':x) = pure $ Left (True, x)
+pieceFromString ('+':x) = pure $ Left (True, x)
 
-pieceFromString ('!':x) = Right $ (False, Static x)
-pieceFromString x = Right $ (True, Static x)
+pieceFromString ('!':x) = pure $ Right (False, Static x)
+pieceFromString x = pure $ Right (True, Static x)
 
 dropBracket :: String -> String
 dropBracket str@('{':x) = case break (== '}') x of

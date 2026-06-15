@@ -288,17 +288,13 @@ data DiscoveryMode
       NestedDiscovery
     deriving (Eq, Show)
 
--- | Classify how a route datatype's children should be generated.
---
--- The 'Bool' argument is whether the route datatype has type arguments (i.e.
--- 'hasTyArgs' of its 'TyArgs' — 'False' for a monomorphic site like @App@).
--- Mode and tyargs are kept as separate facts: a monomorphic site is
--- 'NestedDiscovery' even though its 'TyArgs' is 'NoTyArgs', so the path must
--- not be inferred from the absence of type arguments alone.
+-- | Classify how a route datatype's children should be generated, given the
+-- site's route options and its 'TyArgs'.
 --
 -- 'NestedDiscovery' is chosen when any of the following hold:
 --
---   * The site has /no/ type parameters. Subroute datatypes then need no type
+--   * The site has /no/ type parameters ('hasTyArgs' is 'False', e.g. a
+--     monomorphic site like @App@). Subroute datatypes then need no type
 --     variables, so the machinery is always safe, and this preserves the
 --     historical behaviour of monomorphic sites (including splitting nested
 --     routes across modules).
@@ -312,9 +308,9 @@ data DiscoveryMode
 --     ('setFocusOnNestedRoute').
 --
 -- @since 1.7.0.0
-discoveryMode :: RouteOpts -> Bool -> DiscoveryMode
-discoveryMode opts hasArgs
-    | not hasArgs                        = NestedDiscovery
+discoveryMode :: RouteOpts -> TyArgs -> DiscoveryMode
+discoveryMode opts tyargs
+    | not (hasTyArgs tyargs)             = NestedDiscovery
     | roParameterizedSubroute opts       = NestedDiscovery
     | isJust (roFocusOnNestedRoute opts) = NestedDiscovery
     | otherwise                          = InlineCompat
@@ -406,7 +402,7 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
     -- When it is disabled (the backwards-compatible default), child
     -- datatypes are unparameterized (kind 'Type'), matching the historical
     -- output. See 'discoveryMode'. Computed once and reused below.
-    mode = discoveryMode opts (hasTyArgs origTyargs)
+    mode = discoveryMode opts origTyargs
     tyargs =
         case mode of
             NestedDiscovery -> origTyargs
@@ -500,7 +496,7 @@ mkRenderRouteClauses opts origTyargs =
   where
     goList = fmap mconcat . mapM go
 
-    mode = discoveryMode opts (hasTyArgs origTyargs)
+    mode = discoveryMode opts origTyargs
 
     isDynamic Dynamic{} = True
     isDynamic _ = False
@@ -586,8 +582,6 @@ delegatingBody piecesSingle rr childArg = do
     a <- newName "a"
     b <- newName "b"
     let pieces' = foldr consE (VarE a) piecesSingle
---     pure $ LamE [TupP [VarP a, VarP b]] (mkTupE [pieces', VarE b])
---         `AppE` (rr `AppE` childArg)
     [e| ( \ ( $(varP a), $(varP b) ) -> ( $(pure pieces'), $(varE b) ) )
         ( $(pure rr) $(pure childArg) )
         |]
@@ -750,7 +744,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
             -- ToParentRoute instances are only needed by the nested-discovery
             -- machinery; the backwards-compatible default emits none.
             parentRouteInstancesDecs <-
-                case discoveryMode opts (hasTyArgs tyargs) of
+                case discoveryMode opts tyargs of
                     NestedDiscovery -> mkToParentRouteInstances opts cxt tyargs ress
                     InlineCompat    -> pure []
             pure $ mconcat

@@ -82,12 +82,16 @@ class RenderRouteNested a => YesodDispatchNested a where
 instance YesodDispatch site => YesodDispatchNested (Route site) where
     yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
 
--- | Dispatch a request using a value that can be rendered to a route of
--- @site@ (via its 'RedirectUrl' instance). This lets a route fragment or a
--- @(route, params)@ pair be turned directly into a WAI 'W.Application'.
+-- | Build a WAI 'W.Application' for @site@, indexed by a @url@ type that can
+-- be rendered to a route of @site@ (via 'RedirectUrl').
+--
+-- Note that dispatch is purely path-based: the hand-written instances below
+-- discard the @url@ value (@urlToDispatch _ = yesodDispatch@) and route on the
+-- request's @pathInfo@. The @url@ argument exists only to select the instance
+-- and to carry the 'RedirectUrl' constraint — it is not consulted at runtime.
 --
 -- This is equivalent to 'YesodDispatch' but allows us to vary on the
--- @site@ which allows us to demand additional constraints in test
+-- @url@ type, which lets us demand additional constraints in test
 -- contexts.
 --
 -- @since 1.7.0.0

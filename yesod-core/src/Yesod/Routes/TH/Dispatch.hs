@@ -545,7 +545,7 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
         -- would then re-emit). Under 'InlineCompat' no nested instances are
         -- generated, so the flat clause must inline as before.
         usesNestedDiscovery =
-            case discoveryMode routeOpts (hasTyArgs tyargs) of
+            case discoveryMode routeOpts tyargs of
                 NestedDiscovery -> True
                 InlineCompat    -> False
         mdsWithNestedDispatch = mds

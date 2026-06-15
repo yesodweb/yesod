@@ -268,7 +268,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 -- though the other nested-delegation methods resolve.
                 flatAttrs <- mkRouteAttrsInstance appCxt (rfSite foundation) (rfResources foundation)
                 nestedAttrs <-
-                    case discoveryMode opts (hasTyArgs tyArgs) of
+                    case discoveryMode opts tyArgs of
                         NestedDiscovery ->
                             mkRouteAttrsNestedInstances appCxt tyArgs (rfResources foundation)
                         InlineCompat    -> pure []
