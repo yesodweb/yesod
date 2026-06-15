@@ -25,7 +25,6 @@ module Yesod.Routes.TH.RenderRoute
     , roNestedRouteFallthrough
     , setParameterizedSubroute
     , setNestedRouteFallthrough
-    , nullifyWhenNoParam
     , DiscoveryMode(..)
     , discoveryMode
     ) where
@@ -42,10 +41,6 @@ import Data.Foldable
 import Yesod.Routes.TH.Internal
 import Data.Char
 import Yesod.Core.Class.Dispatch.ToParentRoute
-import Yesod.Core.Class.Dispatch
-import Yesod.Core.Handler
-import Data.Proxy
-import Yesod.Core.Class.Yesod
 
 -- | General opts data type for generating yesod.
 --
@@ -264,10 +259,6 @@ setParameterizedSubroute b rdo = rdo { roParameterizedSubroute = b }
 instanceNamesFromOpts :: RouteOpts -> [Name]
 instanceNamesFromOpts MkRouteOpts {..} = prependIf roDerivedEq ''Eq $ prependIf roDerivedShow ''Show $ prependIf roDerivedRead ''Read []
     where prependIf b = if b then (:) else const id
-
--- | Nullify the list unless we are using parameterised subroutes.
-nullifyWhenNoParam :: RouteOpts -> [a] -> [a]
-nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 
 -- | How a route datatype's children are generated.
 --
@@ -745,7 +736,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
             -- machinery; the backwards-compatible default emits none.
             parentRouteInstancesDecs <-
                 case discoveryMode opts tyargs of
-                    NestedDiscovery -> mkToParentRouteInstances opts cxt tyargs ress
+                    NestedDiscovery -> mkToParentRouteInstances cxt tyargs ress
                     InlineCompat    -> pure []
             pure $ mconcat
                 [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
@@ -789,8 +780,8 @@ getDerivesFor opts cxt
 --
 -- > instance ToParentRoute FooR where
 -- >     toParentRoute (a0, a1) = FooR a0 a1
-mkToParentRouteInstances :: RouteOpts -> Cxt -> TyArgs -> [ResourceTree  Type] -> Q [Dec]
-mkToParentRouteInstances routeOpts cxt origTyargs ress = do
+mkToParentRouteInstances :: Cxt -> TyArgs -> [ResourceTree Type] -> Q [Dec]
+mkToParentRouteInstances cxt origTyargs ress = do
     mconcat <$> mapM (go ([], [])) ress
   where
     go _ (ResourceLeaf _) =

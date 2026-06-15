@@ -16,7 +16,7 @@ module Yesod.Core.Class.Dispatch where
 import Data.ByteString.Builder (toLazyByteString, byteString)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
-import Network.HTTP.Types
+import Network.HTTP.Types (status301, status307)
 import Yesod.Core.Class.Dispatch.ToParentRoute
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Content (ToTypedContent (..))

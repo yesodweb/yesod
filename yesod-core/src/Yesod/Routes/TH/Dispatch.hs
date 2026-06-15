@@ -35,7 +35,6 @@ import Yesod.Core.Types hiding (Body)
 import Yesod.Core.Class.Dispatch
 import Prelude hiding (exp)
 import Yesod.Routes.TH.Internal
-import Web.PathPieces
 import Control.Monad
 import Control.Monad.Reader (ReaderT, runReaderT, asks, local, lift)
 import Data.List (foldl')
@@ -440,7 +439,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
 -- (either 'yesodDispatchNested' or 'yesodSubDispatchNested').
 nestedDispatchCall
     :: Name
-    -- ^ The dispatch function to call (e.g., 'yesodDispatchNested or 'yesodSubDispatchNested)
+    -- ^ The dispatch function to call (e.g. 'yesodDispatchNested' or 'yesodSubDispatchNested')
     -> String
     -- ^ The name of the nested route (e.g., "FirstFooR")
     -> [Exp]
