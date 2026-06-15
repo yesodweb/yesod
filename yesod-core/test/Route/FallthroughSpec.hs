@@ -92,6 +92,13 @@ spec = do
                     { pathInfo = []
                     }
                 (Just "HomeR")
+        it "/foo" $ do
+            testRequestIO
+                200
+                defaultRequest
+                    { pathInfo = ["foo"]
+                    }
+                (Just "FooIndexR")
 
 testRequestIO :: HasCallStack => Int -- ^ http status code
             -> Request
