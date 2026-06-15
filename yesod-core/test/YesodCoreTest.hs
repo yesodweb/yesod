@@ -11,6 +11,12 @@ import YesodCoreTest.Links
 import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.SubSub
+import YesodCoreTest.ParameterizedSubData ()
+import YesodCoreTest.ParameterizedSubDispatch ()
+import qualified YesodCoreTest.ParameterizedSubDispatchRuntime as ParameterizedSubDispatchRuntime
+import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
+import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
+import qualified YesodCoreTest.BangSeparatorRuntime as BangSeparatorRuntime
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -72,3 +78,7 @@ specs = do
       breadcrumbTest
       metaTest
       Content.specs
+      ParameterizedSubDispatchRuntime.specs
+      MultiPieceNestedRuntime.specs
+      ZeroPieceShadowRuntime.specs
+      BangSeparatorRuntime.specs
