@@ -26,7 +26,9 @@ import Test.Hspec
 import Language.Haskell.TH (recover)
 import Yesod.Routes.TH.Internal (nestedInstanceExists, resolveRouteCon)
 import Route.InstanceProbeTypes
-    (Probe, HasInst, HasInst2, HasInstInt, NoInst, HK, HKInst, Mono)
+    ( Probe, HasInst, HasInst2, HasInstInt, NoInst, HK, HKInst, Mono
+    , ProbePoly, PolyFull, PolyUnapplied, PolyPartial
+    )
 
 spec :: Spec
 spec = describe "nestedInstanceExists / fullyApplyType abstract-parameter probe" $ do
@@ -78,3 +80,26 @@ spec = describe "nestedInstanceExists / fullyApplyType abstract-parameter probe"
             recover [| error "isInstance crashed on Mono" |] $ do
                 b <- nestedInstanceExists ''Probe rc
                 [| b |]) `shouldBe` True
+
+    -- Poly-kinded class: lets us represent (and so probe) instances whose head
+    -- is not fully applied — the shapes a 'Type'-kinded class rejects outright.
+    it "ProbePoly: returns True for an instance at the fully-applied head" $
+        $(do
+            rc <- resolveRouteCon "PolyFull"
+            recover [| error "isInstance crashed on PolyFull" |] $ do
+                b <- nestedInstanceExists ''ProbePoly rc
+                [| b |]) `shouldBe` True
+
+    it "ProbePoly: returns False when the only instance is at the unapplied constructor (the arity-saturated probe head doesn't match it)" $
+        $(do
+            rc <- resolveRouteCon "PolyUnapplied"
+            recover [| error "isInstance crashed on PolyUnapplied" |] $ do
+                b <- nestedInstanceExists ''ProbePoly rc
+                [| b |]) `shouldBe` False
+
+    it "ProbePoly: returns False when the only instance is at a partially-applied head" $
+        $(do
+            rc <- resolveRouteCon "PolyPartial"
+            recover [| error "isInstance crashed on PolyPartial" |] $ do
+                b <- nestedInstanceExists ''ProbePoly rc
+                [| b |]) `shouldBe` False
