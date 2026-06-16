@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.6.29.1
+version:         1.7.0.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -20,6 +20,7 @@ extra-source-files:
   test/fixtures/routes_with_line_continuations.yesodroutes
   ChangeLog.md
   README.md
+  docs/split-route-compilation.md
 
 library
     default-language: Haskell2010
@@ -56,6 +57,8 @@ library
                    , shakespeare           >= 2.0
                    , template-haskell      >= 2.13
                    , text                  >= 0.7
+                   , th-compat             >= 0.1
+                   , th-lift-instances     >= 0.1
                    , time                  >= 1.5
                    , transformers          >= 0.4
                    , unix-compat
@@ -78,6 +81,7 @@ library
                      Yesod.Core.Types
                      Yesod.Core.Unsafe
                      Yesod.Routes.TH.Types
+                     Yesod.Core.Class.Dispatch.ToParentRoute
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
@@ -104,6 +108,7 @@ library
                      Yesod.Routes.TH.RenderRoute
                      Yesod.Routes.TH.ParseRoute
                      Yesod.Routes.TH.RouteAttrs
+                     Yesod.Routes.TH.Internal
 
     ghc-options:     -Wall
 
@@ -117,6 +122,12 @@ test-suite test-routes
     hs-source-dirs: test, src
 
     other-modules: Hierarchy
+                   Hierarchy.Admin
+                   Hierarchy.ResourceTree
+                   Hierarchy.Nest2.NestInner
+                   Hierarchy.Nest2
+                   Hierarchy.Nest3
+                   Hierarchy.Nest
                    Yesod.Routes.Class
                    Yesod.Routes.Overlap
                    Yesod.Routes.Parse
@@ -126,21 +137,77 @@ test-suite test-routes
                    Yesod.Routes.TH.RenderRoute
                    Yesod.Routes.TH.RouteAttrs
                    Yesod.Routes.TH.Types
+                   Yesod.Routes.TH.Internal
+                   Route.FallthroughSpec
+                   YesodCoreTest.RuntimeHarness
+                   Route.RenderRouteSpec
+                   Route.RouteAttrSpec
+                   Route.DiscoveryModeSpec
+                   Route.SubDispatchAritySpec
+                   Route.DeepAritySpec
+                   Route.DeepArityTypes
+                   Route.InstanceProbeSpec
+                   Route.InstanceProbeTypes
+                   Route.InlineParseClausesSpec
+                   Route.NestedParseClausesSpec
+                   Route.PureQ
+                   Route.FocusLeafConsSpec
+                   Route.MissingFocusTargetSpec
+                   Route.MissingFocusTargetTypes
+                   YesodCoreTest.RenderRouteSpec
+                   YesodCoreTest.RenderRouteSpec.TH
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     other-extensions:      TemplateHaskell
 
     build-depends: base < 5
-                 , hspec
-                 , containers
+                 , HUnit
+                 , aeson
+                 , attoparsec-aeson
+                 , auto-update
+                 , blaze-html
+                 , blaze-markup
                  , bytestring
+                 , hspec-expectations
+                 , case-insensitive
+                 , cereal
+                 , clientsession
+                 , conduit
+                 , conduit-extra
+                 , containers
+                 , cookie
+                 , data-default
+                 , deepseq
                  , encoding
+                 , entropy
+                 , fast-logger
+                 , hspec
+                 , http-types
+                 , memory
+                 , monad-logger
+                 , mtl
+                 , parsec
+                 , path-pieces
+                 , primitive
+                 , random
+                 , resourcet
+                 , shakespeare
                  , template-haskell
                  , text
-                 , random
-                 , path-pieces
-                 , HUnit
                  , th-abstraction
+                 , th-compat
+                 , th-lift-instances
+                 , time
+                 , transformers
+                 , unix-compat
+                 , unliftio
+                 , unordered-containers
+                 , vector
+                 , wai
+                 , wai-extra
+                 , wai-logger
+                 , warp
+                 , word8
 
 test-suite tests
     default-language: Haskell2010
@@ -159,6 +226,8 @@ test-suite tests
                    YesodCoreTest.ErrorHandling
                    YesodCoreTest.ErrorHandling.CustomApp
                    YesodCoreTest.Exceptions
+                   YesodCoreTest.FallthroughDispatch.Runtime
+                   YesodCoreTest.FallthroughDispatch.Resources
                    YesodCoreTest.InternalRequest
                    YesodCoreTest.JsAttributes
                    YesodCoreTest.JsLoader
@@ -169,6 +238,13 @@ test-suite tests
                    YesodCoreTest.Media
                    YesodCoreTest.MediaData
                    YesodCoreTest.Meta
+                   YesodCoreTest.NestedDispatch.Runtime
+                   YesodCoreTest.NestedDispatch.NestR
+                   YesodCoreTest.NestedDispatch.InnerR
+                   YesodCoreTest.NestedDispatch.ParentR
+                   YesodCoreTest.NestedDispatch.Parent0R
+                   YesodCoreTest.NestedDispatch.Parent0R.Child0R
+                   YesodCoreTest.NestedDispatch.Resources
                    YesodCoreTest.NoOverloadedStrings
                    YesodCoreTest.NoOverloadedStringsSub
                    YesodCoreTest.ParameterizedSite
@@ -188,16 +264,42 @@ test-suite tests
                    YesodCoreTest.StubUnsecured
                    YesodCoreTest.SubSub
                    YesodCoreTest.SubSubData
+                   YesodCoreTest.SplitSubsite.Runtime
+                   YesodCoreTest.SplitSubsite.Data
+                   YesodCoreTest.SplitSubsite.NestedR
                    YesodCoreTest.ParameterizedSubData
+                   YesodCoreTest.ParamSubsite.Data
                    YesodCoreTest.ParameterizedSubDispatch
                    YesodCoreTest.ParameterizedSubDispatch.Data
                    YesodCoreTest.ParameterizedSubDispatchRuntime
                    YesodCoreTest.ParameterizedSubDispatchRuntime.Data
+                   YesodCoreTest.ParamSubsite.InstanceRuntime
                    YesodCoreTest.RuntimeHarness
+                   YesodCoreTest.ParamSubsite.SplitNested
+                   YesodCoreTest.ParamSubsite.SplitRuntime
+                   YesodCoreTest.ParamDefaultSplit.Data
+                   YesodCoreTest.ParamDefaultSplit.Runtime
+                   YesodCoreTest.ParamTopLevelRuntime
+                   YesodCoreTest.ParamFocusSplit.Runtime
+                   YesodCoreTest.ParamFocusSplit.Resources
+                   YesodCoreTest.ParamFocusSplit.SubR
+                   YesodCoreTest.ParamNoExplicitArgs
+                   YesodCoreTest.ParamFallthroughRuntime
+                   YesodCoreTest.ParamNoFallthroughRuntime
+                   YesodCoreTest.ParamNestedNoFallthroughRuntime
+                   YesodCoreTest.FallthroughMatrix.Resources
+                   YesodCoreTest.FallthroughMatrix.FirstFoo
+                   YesodCoreTest.FallthroughMatrix.Runtime
                    YesodCoreTest.MultiPieceNestedRuntime
                    YesodCoreTest.ZeroPieceShadowRuntime
                    YesodCoreTest.ZeroPieceShadow.ShadowApp
+                   YesodCoreTest.ZeroPieceShadow.FallApp
                    YesodCoreTest.BangSeparatorRuntime
+                   YesodCoreTest.SubsiteFallthrough.Runtime
+                   YesodCoreTest.SubsiteFallthrough.Data
+                   YesodCoreTest.SubsiteFallthrough.Nested
+                   YesodCoreTest.SubsiteOptsFallthrough.Runtime
+                   YesodCoreTest.SubsiteOptsFallthrough.Data
                    YesodCoreTest.WaiSubsite
                    YesodCoreTest.Widget
                    YesodCoreTest.YesodTest
@@ -213,6 +315,7 @@ test-suite tests
                   , conduit-extra
                   , containers
                   , cookie >= 0.4.1    && < 0.6
+                  , data-default
                   , encoding
                   , hspec >= 1.3
                   , hspec-expectations
@@ -222,13 +325,44 @@ test-suite tests
                   , resourcet
                   , shakespeare
                   , streaming-commons
+                  , template-haskell
                   , text
                   , transformers
                   , unliftio
+                  , unordered-containers
+                  , path-pieces
+                  , mtl
+                  , time
+                  , cereal
+                  , monad-logger
+                  , deepseq
+                  , blaze-html
+                  , aeson
+                  , primitive
+                  , case-insensitive
+                  , wai-logger
+                  , memory
+                  , unix-compat
+                  , auto-update
+                  , vector
+                  , word8
+                  , blaze-markup
+                  , fast-logger
+                  , parsec
                   , wai >= 3.0
+                  , entropy
+                  , attoparsec-aeson
                   , wai-extra
                   , warp
+                  , th-lift-instances
                   , yesod-core
+    -- NB: this behavioral suite depends on the *packaged* yesod-core library
+    -- (no `src` on hs-source-dirs), so it compiles against the real
+    -- exposed/hidden module boundary. That is what catches API-exposure
+    -- regressions (a module that downstream consumers cannot import). The
+    -- pure-codegen suite `test-routes` keeps `src` on hs-source-dirs because it
+    -- legitimately needs internal modules (e.g. Yesod.Routes.TH.RenderRoute,
+    -- Yesod.Routes.Class) for compile-time codegen assertions.
     ghc-options:     -Wall -threaded
     other-extensions: TemplateHaskell
 

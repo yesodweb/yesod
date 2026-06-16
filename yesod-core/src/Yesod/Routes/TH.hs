@@ -1,11 +1,40 @@
 module Yesod.Routes.TH
     ( module Yesod.Routes.TH.Types
       -- * Functions
-    , module Yesod.Routes.TH.RenderRoute
+    , -- ** RenderRoute
+      mkRenderRouteInstanceOpts
+    , mkRouteConsOpts
+    , shouldCreateResources
+
+    , RouteOpts
+    , defaultOpts
+    , setEqDerived
+    , setShowDerived
+    , setReadDerived
+    , setFocusOnNestedRoute
+    , unsetFocusOnNestedRoute
+    , roFocusOnNestedRoute
+    , roNestedRouteFallthrough
+    , setCreateResources
+    , setParameterizedSubroute
+    , setNestedRouteFallthrough
+    , DiscoveryMode(..)
+    , discoveryMode
     , module Yesod.Routes.TH.ParseRoute
     , module Yesod.Routes.TH.RouteAttrs
       -- ** Dispatch
-    , module Yesod.Routes.TH.Dispatch
+    , MkDispatchSettings (..)
+    , mkDispatchClause
+    , defaultGetHandler
+    , SDC(..)
+    , mkDispatchInstance
+    , mkNestedDispatchInstance
+    , mkNestedDispatchInstanceWith
+    , NestedTarget (..)
+    , mkMDS
+    , mkYesodSubDispatch
+    , mkYesodSubDispatchWith
+    , subTopDispatch
     ) where
 
 import Yesod.Routes.TH.Types

@@ -9,9 +9,11 @@ module Yesod.Routes.Parse
     , parseRoutesNoCheck
     , parseRoutesFileNoCheck
     , parseType
+    , parseTypeM
     , parseTypeTree
     , TypeTree (..)
     , dropBracket
+    , dropBracketM
     , nameToType
     , isTvar
     ) where
@@ -33,10 +35,10 @@ parseRoutes :: QuasiQuoter
 parseRoutes = QuasiQuoter { quoteExp = x }
   where
     x s = do
-        let res = resourcesFromString s
+        res <- resourcesFromString s
         case findOverlapNames res of
             [] -> lift res
-            z -> error $ unlines $ "Overlapping routes: " : map show z
+            z -> fail $ unlines $ "Overlapping routes: " : map show z
 
 -- | Same as 'parseRoutes', but uses an external file instead of quasiquotation.
 --
@@ -65,20 +67,24 @@ readUtf8File fp = do
 -- | Same as 'parseRoutes', but performs no overlap checking.
 parseRoutesNoCheck :: QuasiQuoter
 parseRoutesNoCheck = QuasiQuoter
-    { quoteExp = lift . resourcesFromString
+    { quoteExp = \s -> resourcesFromString s >>= lift
     }
 
 -- | Converts a multi-line string to a set of resources. See documentation for
--- the format of this string. This is a partial function which calls 'error' on
--- invalid input.
-resourcesFromString :: String -> [ResourceTree String]
+-- the format of this string. Runs in any 'MonadFail' (e.g. the 'Q' monad of a
+-- splice) and reports malformed input through 'fail', so diagnostics are
+-- attributed to the splice rather than surfacing as a raw 'error' call stack.
+resourcesFromString :: MonadFail m => String -> m [ResourceTree String]
 resourcesFromString =
-    fst . parse 0 . filter (not . all (== ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
+    fmap fst . parse 0 . filter (not . all (== ' ')) . foldr lineContinuations [] . lines . filter (/= '\r')
   where
-    parse _ [] = ([], [])
+    parse _ [] = pure ([], [])
     parse indent (thisLine:otherLines)
-        | length spaces < indent = ([], thisLine : otherLines)
-        | otherwise = (this others, remainder)
+        | length spaces < indent = pure ([], thisLine : otherLines)
+        | otherwise = do
+            (this, otherLines') <- classify
+            (others, remainder) <- parse indent otherLines'
+            pure (this others, remainder)
       where
         parseAttr ('!':x) = Just x
         parseAttr _ = Nothing
@@ -94,58 +100,55 @@ resourcesFromString =
             go front (x:xs) = go (front . (x:)) xs
 
         spaces = takeWhile (== ' ') thisLine
-        (others, remainder) = parse indent otherLines'
-        (this, otherLines') =
-            case takeWhile (not . isPrefixOf "--") $ splitSpaces thisLine of
+        classify = do
+            toks <- splitSpaces thisLine
+            case takeWhile (not . isPrefixOf "--") toks of
                 (pattern:rest0)
                     | Just (constr:rest) <- stripColonLast rest0
-                    , Just attrs <- mapM parseAttr rest ->
-                    let (children, otherLines'') = parse (length spaces + 1) otherLines
-                        children' = addAttrs attrs children
-                        (pieces, check) =
-                            case piecesFromStringCheck pattern of
-                                (p, Nothing, c) -> (p, c)
-                                -- FIXME: Give better error message
-                                _ -> error "Invalid resource line: bad overlap"
-                     in ((ResourceParent constr check pieces children' :), otherLines'')
-                (pattern:constr:rest) ->
-                    let (pieces, mmulti, check) = piecesFromStringCheck pattern
-                        (attrs, rest') = takeAttrs rest
-                        disp = dispatchFromString rest' mmulti
-                     in ((ResourceLeaf (Resource constr pieces disp attrs check):), otherLines)
-                [] -> (id, otherLines)
-                _ -> error $ "Invalid resource line: " ++ thisLine
+                    , Just attrs <- mapM parseAttr rest -> do
+                        (children, otherLines'') <- parse (length spaces + 1) otherLines
+                        let children' = addAttrs attrs children
+                        (pieces, mmulti, check) <- piecesFromStringCheck pattern
+                        case mmulti of
+                            Nothing -> pure ()
+                            Just _ -> fail $ "Parent routes cannot have a multipiece: " ++ pattern
+                        pure ((ResourceParent constr check (Set.fromList attrs) pieces children' :), otherLines'')
+                (pattern:constr:rest) -> do
+                    (pieces, mmulti, check) <- piecesFromStringCheck pattern
+                    let (attrs, rest') = takeAttrs rest
+                    disp <- dispatchFromString rest' mmulti
+                    pure ((ResourceLeaf (Resource constr pieces disp attrs check):), otherLines)
+                [] -> pure (id, otherLines)
+                _ -> fail $ "Invalid resource line: " ++ thisLine
 
 -- | Splits a string by spaces, as long as the spaces are not enclosed by curly brackets (not recursive).
-splitSpaces :: String -> [String]
-splitSpaces "" = []
-splitSpaces str =
-    let (rest, piece) = parse $ dropWhile isSpace str in
-    piece:(splitSpaces rest)
+splitSpaces :: MonadFail m => String -> m [String]
+splitSpaces "" = pure []
+splitSpaces str = do
+    (rest, piece) <- parse $ dropWhile isSpace str
+    rest' <- splitSpaces rest
+    pure (piece : rest')
 
     where
-        parse :: String -> ( String, String)
-        parse ('{':s) = fmap ('{':) $ parseBracket s
-        parse (c:s) | isSpace c = (s, [])
-        parse (c:s) = fmap (c:) $ parse s
-        parse "" = ("", "")
+        parse ('{':s) = do (r, p) <- parseBracket s; pure (r, '{':p)
+        parse (c:s) | isSpace c = pure (s, [])
+        parse (c:s) = do (r, p) <- parse s; pure (r, c:p)
+        parse "" = pure ("", "")
 
-        parseBracket :: String -> ( String, String)
-        parseBracket ('{':_) = error $ "Invalid resource line (nested curly bracket): " ++ str
-        parseBracket ('}':s) = fmap ('}':) $ parse s
-        parseBracket (c:s) = fmap (c:) $ parseBracket s
-        parseBracket "" = error $ "Invalid resource line (unclosed curly bracket): " ++ str
+        parseBracket ('{':_) = fail $ "Invalid resource line (nested curly bracket): " ++ str
+        parseBracket ('}':s) = do (r, p) <- parse s; pure (r, '}':p)
+        parseBracket (c:s) = do (r, p) <- parseBracket s; pure (r, c:p)
+        parseBracket "" = fail $ "Invalid resource line (unclosed curly bracket): " ++ str
 
-piecesFromStringCheck :: String -> ([Piece String], Maybe String, Bool)
-piecesFromStringCheck s0 =
-    (pieces, mmulti, check)
+piecesFromStringCheck :: MonadFail m => String -> m ([Piece String], Maybe String, Bool)
+piecesFromStringCheck s0 = do
+    let (s1, check1) = stripBang s0
+    (pieces', mmulti') <- piecesFromString $ drop1Slash s1
+    let pieces = map snd pieces'
+        mmulti = fmap snd mmulti'
+        check = check1 && all fst pieces' && maybe True fst mmulti'
+    pure (pieces, mmulti, check)
   where
-    (s1, check1) = stripBang s0
-    (pieces', mmulti') = piecesFromString $ drop1Slash s1
-    pieces = map snd pieces'
-    mmulti = fmap snd mmulti'
-    check = check1 && all fst pieces' && maybe True fst mmulti'
-
     stripBang ('!':rest) = (rest, False)
     stripBang x = (x, True)
 
@@ -154,7 +157,7 @@ addAttrs attrs =
     map goTree
   where
     goTree (ResourceLeaf res) = ResourceLeaf (goRes res)
-    goTree (ResourceParent w x y z) = ResourceParent w x y (map goTree z)
+    goTree (ResourceParent v w x y z) = ResourceParent v w x y (map goTree z)
 
     goRes res =
         res { resourceAttrs = noDupes ++ resourceAttrs res }
@@ -181,35 +184,45 @@ takeAttrs =
     go x y (('!':attr):rest) = go (x . (attr:)) y rest
     go x y (z:rest) = go x (y . (z:)) rest
 
-dispatchFromString :: [String] -> Maybe String -> Dispatch String
+dispatchFromString :: MonadFail m => [String] -> Maybe String -> m (Dispatch String)
 dispatchFromString rest mmulti
-    | null rest = Methods mmulti []
-    | all (all isUpper) rest = Methods mmulti rest
+    | null rest = pure $ Methods mmulti []
+    | all (all isUpper) rest = pure $ Methods mmulti rest
 dispatchFromString [subTyp, subFun] Nothing =
-    Subsite subTyp subFun
+    pure $ Subsite subTyp subFun
 dispatchFromString [_, _] Just{} =
-    error "Subsites cannot have a multipiece"
-dispatchFromString rest _ = error $ "Invalid list of methods: " ++ show rest
+    fail "Subsites cannot have a multipiece"
+dispatchFromString rest _ = fail $ "Invalid list of methods: " ++ show rest
 
 drop1Slash :: String -> String
 drop1Slash ('/':x) = x
 drop1Slash x = x
 
-piecesFromString :: String -> ([(CheckOverlap, Piece String)], Maybe (CheckOverlap, String))
-piecesFromString "" = ([], Nothing)
-piecesFromString x =
+piecesFromString :: MonadFail m => String -> m ([(CheckOverlap, Piece String)], Maybe (CheckOverlap, String))
+piecesFromString "" = pure ([], Nothing)
+piecesFromString x = do
+    rest <- piecesFromString $ drop 1 z
+    this <- pieceFromString y
     case (this, rest) of
-        (Left typ, ([], Nothing)) -> ([], Just typ)
-        (Left _, _) -> error "Multipiece must be last piece"
-        (Right piece, (pieces, mtyp)) -> (piece:pieces, mtyp)
+        (Left typ, ([], Nothing)) -> pure ([], Just typ)
+        (Left _, _) -> fail "Multipiece must be last piece"
+        (Right piece, (pieces, mtyp)) -> pure (piece:pieces, mtyp)
   where
     (y, z) = break (== '/') x
-    this = pieceFromString y
-    rest = piecesFromString $ drop 1 z
 
 parseType :: String -> Type
 parseType orig =
     maybe (error $ "Invalid type: " ++ show orig) ttToType $ parseTypeTree orig
+
+-- | 'parseType' in 'MonadFail': a malformed type surfaces via 'fail' instead of
+-- a raw 'error'. Used at the 'Language.Haskell.TH.Q' splice sites so a bad type
+-- in a route definition becomes an attributed compile error. The pure
+-- 'parseType' is retained for callers (e.g. tests) supplying known-good input.
+--
+-- @since 1.7.0.0
+parseTypeM :: MonadFail m => String -> m Type
+parseTypeM orig =
+    maybe (fail $ "Invalid type: " ++ show orig) (pure . ttToType) $ parseTypeTree orig
 
 parseTypeTree :: String -> Maybe TypeTree
 parseTypeTree orig =
@@ -280,28 +293,41 @@ isTvar :: String -> Bool
 isTvar (h:_) = isLower h
 isTvar _     = False
 
-pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
-pieceFromString ('#':'!':x) = Right $ (False, Dynamic $ dropBracket x)
-pieceFromString ('!':'#':x) = Right $ (False, Dynamic $ dropBracket x) -- https://github.com/yesodweb/yesod/issues/652
-pieceFromString ('#':x) = Right $ (True, Dynamic $ dropBracket x)
+-- | 'MonadFail' so that an unclosed bracket in a 'Dynamic' piece (via
+-- 'dropBracketM') surfaces as an attributed splice error rather than a raw
+-- 'error' (the pure 'dropBracket' would otherwise bottom out deep in codegen).
+pieceFromString :: MonadFail m => String -> m (Either (CheckOverlap, String) (CheckOverlap, Piece String))
+pieceFromString ('#':'!':x) = Right . (False,) . Dynamic <$> dropBracketM x
+pieceFromString ('!':'#':x) = Right . (False,) . Dynamic <$> dropBracketM x -- https://github.com/yesodweb/yesod/issues/652
+pieceFromString ('#':x) = Right . (True,) . Dynamic <$> dropBracketM x
 
-pieceFromString ('*':'!':x) = Left (False, x)
-pieceFromString ('+':'!':x) = Left (False, x)
+pieceFromString ('*':'!':x) = pure $ Left (False, x)
+pieceFromString ('+':'!':x) = pure $ Left (False, x)
 
-pieceFromString ('!':'*':x) = Left (False, x)
-pieceFromString ('!':'+':x) = Left (False, x)
+pieceFromString ('!':'*':x) = pure $ Left (False, x)
+pieceFromString ('!':'+':x) = pure $ Left (False, x)
 
-pieceFromString ('*':x) = Left (True, x)
-pieceFromString ('+':x) = Left (True, x)
+pieceFromString ('*':x) = pure $ Left (True, x)
+pieceFromString ('+':x) = pure $ Left (True, x)
 
-pieceFromString ('!':x) = Right $ (False, Static x)
-pieceFromString x = Right $ (True, Static x)
+pieceFromString ('!':x) = pure $ Right (False, Static x)
+pieceFromString x = pure $ Right (True, Static x)
 
 dropBracket :: String -> String
 dropBracket str@('{':x) = case break (== '}') x of
     (s, "}") -> s
     _ -> error $ "Unclosed bracket ('{'): " ++ str
 dropBracket x = x
+
+-- | 'dropBracket' in 'MonadFail': an unclosed @{@ surfaces via 'fail' instead
+-- of a raw 'error', so it becomes an attributed compile error at a splice site.
+--
+-- @since 1.7.0.0
+dropBracketM :: MonadFail m => String -> m String
+dropBracketM str@('{':x) = case break (== '}') x of
+    (s, "}") -> pure s
+    _ -> fail $ "Unclosed bracket ('{'): " ++ str
+dropBracketM x = pure x
 
 -- | If this line ends with a backslash, concatenate it together with the next line.
 --

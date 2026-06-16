@@ -1,5 +1,9 @@
 # ChangeLog for yesod
 
+## 1.6.2.3
+
+* Support `yesod-core` 1.7
+
 ## 1.6.2.2
 
 * Set `base >= 4.11` for less CPP and imports [#1876](https://github.com/yesodweb/yesod/pull/1876)

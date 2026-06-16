@@ -3,6 +3,8 @@
   , OverloadedStrings, StandaloneDeriving, FlexibleInstances, FlexibleContexts
   , ViewPatterns, UndecidableInstances, ConstraintKinds
   #-}
+
+
 module YesodCoreTest.ParameterizedSite.SubRoute where
 
 import Yesod.Core
@@ -46,6 +48,16 @@ data EditorR
   deriving (Eq, Show, Read)
 which clearly doesn't work, as `p` is not in scope.
 -}
+
+-- | Opt-in guard (the counterpart to the backwards-compat guard in
+-- "YesodCoreTest.ParameterizedSubDispatch"). With 'setParameterizedSubroute'
+-- enabled, the nested subroute datatype /does/ carry the parent's type
+-- parameters — here 'EditorR' has kind @Type -> Type -> Type@ — so the
+-- threaded constraints stay well-scoped. This signature only compiles if the
+-- opt-in still parameterizes the subroute, proving the nested-discovery
+-- feature remains available behind the flag.
+_editorRParamGuard :: EditorR p v -> EditorR p v
+_editorRParamGuard = id
 
 instance SiteClass a => Yesod (SubRoute a v)
 

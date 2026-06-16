@@ -20,3 +20,6 @@ extra-deps:
   - crypton-1.0.0
   - crypton-conduit-0.2.3
   - encoding-0.10.2
+  # th-compat entered Stackage after lts-18; needed for the CI legs that
+  # reuse this file with --resolver lts-16 / lts-18
+  - th-compat-0.1.7

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth-oauth
 
+## 1.6.1.1
+
+* Support `yesod-core` 1.7
+
 ## 1.6.1
 
 * Allow newer GHC

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0.1
+
+* Support `yesod-core` 1.7
+
 ## 1.7
 
 * Add support for Feed Categories

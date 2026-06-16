@@ -1,25 +1,170 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Yesod.Core.Class.Dispatch where
 
-import qualified Network.Wai as W
-import Yesod.Core.Types
-import Yesod.Core.Content (ToTypedContent (..))
-import Yesod.Core.Handler (sendWaiApplication)
+import Data.ByteString.Builder (toLazyByteString, byteString)
+import Data.Proxy (Proxy(..))
+import Data.Text (Text)
+import Network.HTTP.Types (status301, status307)
+import Yesod.Core.Class.Dispatch.ToParentRoute
 import Yesod.Core.Class.Yesod
+import Yesod.Core.Content (ToTypedContent (..))
+import Yesod.Core.Handler (sendWaiApplication, RedirectUrl, notFound)
+import Yesod.Core.Internal.Run
+import Yesod.Core.Types
+import Yesod.Routes.Class
+import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as BL
+import qualified Network.Wai as W
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
+-- | This class enables you to dispatch on a route fragment without needing
+-- to know how to dispatch on the entire route structure. This allows you
+-- to break up route generation into multiple files.
+--
+-- For details on use, see 'setFocusOnNestedRoute'.
+--
+-- @since 1.7.0.0
+class RenderRouteNested a => YesodDispatchNested a where
+    -- | Dispatches a request to a nested route fragment.
+    --
+    -- The implementation uses the full WAI 'Request' to determine if the
+    -- remaining path (after the parent route) matches any child routes.
+    -- Returns 'Nothing' if no child routes match (for fallthrough to other
+    -- routes), or 'Just' a continuation that handles the request.
+    --
+    -- The parent depth (number of path pieces consumed by the parent route)
+    -- is statically known during Template Haskell generation and baked into
+    -- the generated instance.
+    --
+    -- @since 1.7.0.0
+    yesodDispatchNested
+        :: (Yesod (ParentSite a))
+        => Proxy a
+        -- ^ Type proxy to resolve ambiguity from non-injective type families
+        -> ParentArgs a
+        -- ^ The dynamic arguments from the parent route
+        -> (a -> Route (ParentSite a))
+        -- ^ Function to wrap the nested route in the parent constructor
+        -> YesodRunnerEnv (ParentSite a)
+        -- ^ The runner environment
+        -> W.Request
+        -- ^ The full WAI request
+        -> Maybe ((W.Response -> IO W.ResponseReceived) -> IO W.ResponseReceived)
+        -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
+        -- that completes the 'Application' type when given a respond callback
+
+-- | 'YesodDispatchNested' is a more flexible class than 'YesodDispatch',
+-- and this instance is the proof. Given a @'Route' site@ we can dispatch
+-- on it as normal, so this code path works. This allows us to create
+-- generalized helpers and reuse them, ensuring that nested and top-level
+-- dispatch remain equivalent. This instance therefore always returns
+-- @'Just'@ — committing to 'yesodDispatch', which itself terminates in
+-- a 404 on a miss — rather than the 'Nothing' that the class haddock
+-- describes for /fragment/ instances. The only intended caller is the
+-- terminal authority 'toWaiAppYreNested', where that 404 is exactly the
+-- right answer; do not rely on this instance to signal fallthrough.
+instance YesodDispatch site => YesodDispatchNested (Route site) where
+    yesodDispatchNested _ _ _ yre req = Just $ yesodDispatch yre req
+
+-- | Build a WAI 'W.Application' for @site@, indexed by a @url@ type that can
+-- be rendered to a route of @site@ (via 'RedirectUrl').
+--
+-- Note that dispatch is purely path-based: the hand-written instances below
+-- discard the @url@ value (@urlToDispatch _ = yesodDispatch@) and route on the
+-- request's @pathInfo@. The @url@ argument exists only to select the instance
+-- and to carry the 'RedirectUrl' constraint — it is not consulted at runtime.
+--
+-- This is equivalent to 'YesodDispatch' but allows us to vary on the
+-- @url@ type, which lets us demand additional constraints in test
+-- contexts.
+--
+-- @since 1.7.0.0
+class RedirectUrl site url => UrlToDispatch url site where
+    -- | @since 1.7.0.0
+    urlToDispatch :: url -> YesodRunnerEnv site -> W.Application
+
+instance YesodDispatch site => UrlToDispatch (Route site) site where
+    urlToDispatch _ = yesodDispatch
+
+instance (YesodDispatch site, RedirectUrl site (Route site, a)) => UrlToDispatch (Route site, a) site where
+    urlToDispatch _ = yesodDispatch
+
+instance YesodDispatch site => UrlToDispatch Text site where
+    urlToDispatch _ = yesodDispatch
+
+instance YesodDispatch site => UrlToDispatch String site where
+    urlToDispatch _ = yesodDispatch
+
+-- | This instance is the pattern upon which 'UrlToDispatch' instances are
+-- generated for subsite fragments. Given the constraints, we are able to
+-- call 'toWaiAppYreNested' at the @route@ type with the correct arguments.
+-- This allows us to create an application for a fragment of a site.
+--
+-- @since 1.7.0.0
+instance
+    ( ParentSite route ~ site
+    , YesodDispatchNested route
+    , RedirectUrl site (WithParentArgs route)
+    , Yesod site
+    , ToParentRoute route
+    )
+  =>
+    UrlToDispatch (WithParentArgs route) site
+  where
+    urlToDispatch (WithParentArgs args _) =
+        toWaiAppYreNested (Proxy :: Proxy route) args
+
 class YesodSubDispatch sub master where
     yesodSubDispatch :: YesodSubRunnerEnv sub master -> W.Application
+
+-- | Like 'YesodDispatchNested', but for subsites. This class enables
+-- class-based delegation for nested routes within subsites, allowing
+-- module separation and symmetry with 'YesodDispatchNested'.
+--
+-- When a 'YesodSubDispatchNested' instance exists for a nested route type,
+-- 'mkYesodSubDispatch' will delegate to it instead of inlining the dispatch.
+-- Use 'mkYesodSubDispatchInstance' to generate both 'YesodSubDispatch' and
+-- 'YesodSubDispatchNested' instances in one splice.
+--
+-- @since 1.7.0.0
+class RenderRouteNested a => YesodSubDispatchNested a where
+    -- | Dispatches a request for a nested route fragment within a subsite.
+    --
+    -- Similar to 'yesodDispatchNested', but works with 'YesodSubRunnerEnv'
+    -- instead of 'YesodRunnerEnv', making it suitable for subsites.
+    -- The @master@ type is universally quantified since it's not determined
+    -- by the nested route type.
+    --
+    -- @since 1.7.0.0
+    yesodSubDispatchNested
+        :: Proxy a
+        -- ^ Type proxy to resolve ambiguity from non-injective type families
+        -> ParentArgs a
+        -- ^ The dynamic arguments from the parent route
+        -> (a -> Route (ParentSite a))
+        -- ^ Function to wrap the nested route in the parent constructor
+        -> YesodSubRunnerEnv (ParentSite a) master
+        -- ^ The subsite runner environment
+        -> W.Request
+        -- ^ The full WAI request
+        -> Maybe ((W.Response -> IO W.ResponseReceived) -> IO W.ResponseReceived)
+        -- ^ Returns 'Nothing' for fallthrough, or 'Just' a continuation
 
 instance YesodSubDispatch WaiSubsite master where
     yesodSubDispatch YesodSubRunnerEnv {..} = app
@@ -51,3 +196,50 @@ subHelper (SubHandlerFor f) YesodSubRunnerEnv {..} mroute =
             , rheRouteToMaster = ysreToParentRoute
             }
        in f hd { handlerEnv = rhe' }
+
+-- | Build a WAI 'W.Application' that dispatches starting at a nested route
+-- fragment @a@ (rather than the whole @'Route' site@), given a
+-- 'YesodRunnerEnv' for the parent site and the parent route's 'ParentArgs'.
+-- Handles @cleanPath@ redirects and a terminal 404 just like 'toWaiAppYre'.
+--
+-- @since 1.7.0.0
+toWaiAppYreNested
+    :: (Yesod (ParentSite a), YesodDispatchNested a, ToParentRoute a)
+    => Proxy a
+    -> ParentArgs a
+    -> YesodRunnerEnv (ParentSite a)
+    -> W.Application
+toWaiAppYreNested proxy parentArgs yre req =
+    case cleanPath site $ W.pathInfo req of
+        Left pieces -> sendRedirect site pieces req
+        Right pieces -> do
+            let mapplication =
+                    yesodDispatchNested proxy parentArgs (toParentRoute parentArgs) yre req
+                        { W.pathInfo = pieces
+                        }
+            case mapplication of
+                Nothing ->
+                    yesodRunner (notFound :: HandlerFor site ()) yre Nothing req
+                Just k ->
+                    k
+  where
+    site = yreSite yre
+    sendRedirect :: Yesod master => master -> [Text] -> W.Application
+    sendRedirect y segments' env sendResponse =
+         sendResponse $ W.responseLBS status
+                [ ("Content-Type", "text/plain")
+                , ("Location", BL.toStrict $ toLazyByteString dest')
+                ] "Redirecting"
+      where
+        -- Ensure that non-GET requests get redirected correctly. See:
+        -- https://github.com/yesodweb/yesod/issues/951
+        status
+            | W.requestMethod env == "GET" = status301
+            | otherwise                    = status307
+
+        dest = joinPath y (resolveApproot y env) segments' []
+        dest' =
+            if S.null (W.rawQueryString env)
+                then dest
+                else dest `mappend`
+                     byteString (W.rawQueryString env)

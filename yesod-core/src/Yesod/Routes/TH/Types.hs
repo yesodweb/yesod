@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveLift #-}
 
 -- | Warning! This module is considered internal and may have breaking changes
@@ -10,6 +12,16 @@ module Yesod.Routes.TH.Types
     , Dispatch (..)
     , CheckOverlap
     , FlatResource (..)
+    , ParentDetails (..)
+      -- * Route datatype type arguments
+    , TyArgs (..)
+    , toTyArgs
+    , tyArgsList
+    , tyArgsTypes
+    , tyArgsBinders
+    , tyArgsArity
+    , hasTyArgs
+    , applyTyArgs
       -- ** Helper functions
     , resourceMulti
     , resourceTreePieces
@@ -18,19 +30,88 @@ module Yesod.Routes.TH.Types
     ) where
 
 import Language.Haskell.TH.Syntax
+import Data.List (foldl')
+import Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Set (Set)
+-- Provides Lift instance for Set in older versions of GHC
+import Instances.TH.Lift ()
+
+-- | The type arguments of a route datatype, paired with the source 'Name' each
+-- was derived from. A monomorphic site like @App@ has 'NoTyArgs'; a
+-- parameterized one like @MySub subsite@ has 'SomeTyArgs'.
+--
+-- Carrying the (non-)emptiness in the type — rather than as a bare list with a
+-- separate @null@ check — keeps \"are there type args?\" and \"what are they?\"
+-- a single fact, so the populated branch hands you the 'NonEmpty' directly.
+--
+-- @since 1.7.0.0
+data TyArgs
+    = NoTyArgs
+    | SomeTyArgs (NonEmpty (Type, Name))
+    deriving (Eq, Show)
+
+-- | Build 'TyArgs' from a list of (type, source-name) pairs.
+--
+-- @since 1.7.0.0
+toTyArgs :: [(Type, Name)] -> TyArgs
+toTyArgs []       = NoTyArgs
+toTyArgs (x : xs) = SomeTyArgs (x :| xs)
+
+-- | The type arguments as a plain list (empty for 'NoTyArgs').
+--
+-- @since 1.7.0.0
+tyArgsList :: TyArgs -> [(Type, Name)]
+tyArgsList NoTyArgs        = []
+tyArgsList (SomeTyArgs ne) = NonEmpty.toList ne
+
+-- | Just the 'Type's of the arguments, in order.
+--
+-- @since 1.7.0.0
+tyArgsTypes :: TyArgs -> [Type]
+tyArgsTypes = map fst . tyArgsList
+
+-- | Just the source 'Name's of the arguments, in order.
+--
+-- @since 1.7.0.0
+tyArgsBinders :: TyArgs -> [Name]
+tyArgsBinders = map snd . tyArgsList
+
+-- | How many type arguments there are.
+--
+-- @since 1.7.0.0
+tyArgsArity :: TyArgs -> Int
+tyArgsArity NoTyArgs        = 0
+tyArgsArity (SomeTyArgs ne) = NonEmpty.length ne
+
+-- | Whether there are any type arguments (i.e. the site is parameterized).
+--
+-- @since 1.7.0.0
+hasTyArgs :: TyArgs -> Bool
+hasTyArgs NoTyArgs      = False
+hasTyArgs SomeTyArgs {} = True
+
+-- | Apply the type arguments to a head type (e.g. a route\/subroute type
+-- constructor), left to right. This replaces the ad-hoc
+-- @'foldl'' 'AppT' con ('fst' '<$>' tyargs)@ that recurred across the
+-- generators.
+--
+-- @since 1.7.0.0
+applyTyArgs :: Type -> TyArgs -> Type
+applyTyArgs t = foldl' AppT t . tyArgsTypes
 
 data ResourceTree typ
     = ResourceLeaf (Resource typ)
-    | ResourceParent String CheckOverlap [Piece typ] [ResourceTree typ]
-    deriving (Lift, Show, Functor)
+    | ResourceParent String CheckOverlap (Set String) [Piece typ] [ResourceTree typ]
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
-resourceTreePieces (ResourceParent _ _ x _) = x
+resourceTreePieces (ResourceParent _ _ _ x _) = x
 
 resourceTreeName :: ResourceTree typ -> String
 resourceTreeName (ResourceLeaf r) = resourceName r
-resourceTreeName (ResourceParent x _ _ _) = x
+resourceTreeName (ResourceParent x _ _ _ _) = x
 
 data Resource typ = Resource
     { resourceName :: String
@@ -39,16 +120,12 @@ data Resource typ = Resource
     , resourceAttrs :: [String]
     , resourceCheck :: CheckOverlap
     }
-    deriving (Lift, Show, Functor)
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 type CheckOverlap = Bool
 
 data Piece typ = Static String | Dynamic typ
-    deriving (Lift, Show)
-
-instance Functor Piece where
-    fmap _ (Static s)  = Static s
-    fmap f (Dynamic t) = Dynamic (f t)
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 data Dispatch typ =
     Methods
@@ -59,18 +136,25 @@ data Dispatch typ =
         { subsiteType :: typ
         , subsiteFunc :: String
         }
-    deriving (Lift, Show)
-
-instance Functor Dispatch where
-    fmap f (Methods a b) = Methods (fmap f a) b
-    fmap f (Subsite a b) = Subsite (f a) b
+    deriving (Lift, Show, Functor, Foldable, Traversable)
 
 resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
 
+-- | The details of a 'ResourceParent' gathered for a flattened resource: the
+-- parent's name, its path pieces, and the route attributes it contributes to
+-- its descendants.
+--
+-- @since 1.7.0.0
+data ParentDetails a = ParentDetails
+    { pdName :: String
+    , pdPieces :: [Piece a]
+    , pdAttrs :: Set String
+    } deriving (Show)
+
 data FlatResource a = FlatResource
-    { frParentPieces :: [(String, [Piece a])]
+    { frParentDetails :: [ParentDetails a]
     , frName :: String
     , frPieces :: [Piece a]
     , frDispatch :: Dispatch a
@@ -81,6 +165,7 @@ flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
     concatMap (go id True)
   where
-    go front check' (ResourceLeaf (Resource a b c _ check)) = [FlatResource (front []) a b c (check' && check)]
-    go front check' (ResourceParent name check pieces children) =
-        concatMap (go (front . ((name, pieces):)) (check && check')) children
+    go front check' (ResourceLeaf (Resource a b c _ check)) =
+        [FlatResource (front []) a b c (check' && check)]
+    go front check' (ResourceParent name check attrs pieces children) =
+        concatMap (go (front . ((ParentDetails name pieces attrs):)) (check && check')) children

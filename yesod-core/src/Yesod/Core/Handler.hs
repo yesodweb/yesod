@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -263,6 +264,8 @@ import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
 import           Control.Monad.Logger (MonadLogger, logWarnS)
+import Yesod.Routes.Class (WithParentArgs(..), ParentSite(..))
+import Yesod.Core.Class.Dispatch.ToParentRoute (ToParentRoute(..))
 
 type HandlerT site (m :: Type -> Type) = HandlerFor site
 {-# DEPRECATED HandlerT "Use HandlerFor directly" #-}
@@ -1031,6 +1034,17 @@ instance RedirectUrl master (Route master) where
     toTextUrl url = do
         r <- getUrlRender
         return $ r url
+
+instance
+    ( RedirectUrl master (Route master)
+    , ParentSite url ~ master
+    , ToParentRoute url
+    )
+  =>
+    RedirectUrl master (WithParentArgs url)
+  where
+    toTextUrl (WithParentArgs args url) =
+        toTextUrl (toParentRoute args url)
 
 instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, [(key, val)]) where
     toTextUrl (url, params) = do

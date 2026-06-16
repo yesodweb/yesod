@@ -1,4 +1,6 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -22,6 +24,21 @@ module Yesod.Core.Dispatch
     , mkYesodDispatch
     , mkYesodDispatchOpts
     , mkYesodSubDispatch
+    , mkYesodSubDispatchInstance
+    , mkYesodSubDispatchInstanceOpts
+      -- *** Splitting a subsite's nested routes across modules
+      --
+      -- | These re-exports let a separately-compiled module generate a
+      -- subsite's @YesodSubDispatchNested@ instance by hand (see the
+      -- subsite-route-splitting recipe in @docs/split-route-compilation.md@).
+      -- 'mkNestedSubDispatchInstance' takes the resources as
+      -- @['ResourceTree' 'String']@ (the 'parseRoutes' quasi-quoter's output)
+      -- and parses them internally, so no manual type-parsing is needed.
+
+      -- | @since 1.7.0.0
+    , mkNestedSubDispatchInstance
+      -- | @since 1.7.0.0
+    , TyArgs (..)
       -- *** Route generation options
     , RouteOpts
     , defaultOpts
@@ -29,7 +46,10 @@ module Yesod.Core.Dispatch
     , setShowDerived
     , setReadDerived
     , setCreateResources
+    , setFocusOnNestedRoute
+    , unsetFocusOnNestedRoute
     , setParameterizedSubroute
+    , setNestedRouteFallthrough
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires
@@ -40,12 +60,18 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , UrlToDispatch(..)
+    , mkYesodRunnerEnv
+    , toWaiAppPlainNested
     , toWaiAppYre
+    , toWaiAppYreNested
     , warp
     , warpDebug
     , warpEnv
     , mkDefaultMiddlewares
     , defaultMiddlewaresNoLogging
+      -- * Subsite nested dispatch
+    , YesodSubDispatchNested (..)
       -- * WAI subsites
     , WaiSubsite (..)
     , WaiSubsiteWithAuth (..)
@@ -54,6 +80,8 @@ module Yesod.Core.Dispatch
 import Prelude hiding (exp)
 import Yesod.Core.Internal.TH
 import Language.Haskell.TH.Syntax (qLocation)
+import Data.Proxy
+import Yesod.Routes.Class
 
 import Web.PathPieces
 
@@ -64,23 +92,21 @@ import Data.ByteString.Lazy.Char8 ()
 import Data.Bits ((.|.), finiteBitSize, shiftL)
 import Data.Text (Text)
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as S8
-import Data.ByteString.Builder (byteString, toLazyByteString)
 #if !MIN_VERSION_wai_extra(3,1,14)
 import Data.Default (def)
 #endif
-import Network.HTTP.Types (status301, status307)
 import Yesod.Routes.Parse
+import Yesod.Routes.TH (TyArgs (..))
 import Yesod.Core.Types
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
-import Yesod.Core.Internal.Run
 import Text.Read (readMaybe)
 import System.Environment (getEnvironment)
 import System.Entropy (getEntropy)
 import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
+import Yesod.Core.Class.Dispatch.ToParentRoute
 
 import Network.Wai.Middleware.Autohead
 import Network.Wai.Middleware.AcceptOverride
@@ -105,16 +131,51 @@ import Data.Version (showVersion)
 -- used middlewares, please use 'toWaiApp'.
 toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain site = do
+    yre <- mkYesodRunnerEnv site
+    return $ toWaiAppYre yre
+
+-- | Construct a 'YesodRunnerEnv' for a site, initializing its logger, session
+-- backend, and other runtime state. This is the environment threaded through
+-- dispatch; 'toWaiAppPlain' and friends build one for you, but it is exposed so
+-- callers can construct and reuse a runner environment directly.
+--
+-- @since 1.7.0.0
+mkYesodRunnerEnv :: Yesod site => site -> IO (YesodRunnerEnv site)
+mkYesodRunnerEnv site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
     getMaxExpires <- getGetMaxExpires
-    return $ toWaiAppYre YesodRunnerEnv
-            { yreLogger = logger
-            , yreSite = site
-            , yreSessionBackend = sb
-            , yreGen = defaultGen
-            , yreGetMaxExpires = getMaxExpires
-            }
+    pure YesodRunnerEnv
+        { yreLogger = logger
+        , yreSite = site
+        , yreSessionBackend = sb
+        , yreGen = defaultGen
+        , yreGetMaxExpires = getMaxExpires
+        }
+
+-- | Convert the given argument into a WAI application, executable with any WAI
+-- handler. This function will provide no middlewares; if you want commonly
+-- used middlewares, please use 'toWaiApp'.
+--
+-- This function allows you to create an 'Application' that only responds
+-- to a subset of the 'site' routes. This is really only useful for writing
+-- tests, but it does allow you to write tests that only depend on a subset
+-- of the handlers instead of all handlers.
+--
+-- @since 1.7.0.0
+toWaiAppPlainNested
+    :: ( site ~ ParentSite route
+        , Yesod site
+        , YesodDispatchNested route
+        , ToParentRoute route
+        )
+    => Proxy route
+    -> ParentArgs route
+    -> site
+    -> IO W.Application
+toWaiAppPlainNested proxy parentArgs site = do
+    yre <- mkYesodRunnerEnv site
+    return $ toWaiAppYreNested proxy parentArgs yre
 
 -- | Generate a random number uniformly distributed in the full range
 -- of 'Int'.
@@ -138,33 +199,7 @@ defaultGen = bsToInt <$> getEntropy bytes
 --
 -- @since 1.4.29
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
-toWaiAppYre yre req =
-    case cleanPath site $ W.pathInfo req of
-        Left pieces -> sendRedirect site pieces req
-        Right pieces -> yesodDispatch yre req
-            { W.pathInfo = pieces
-            }
-  where
-    site = yreSite yre
-    sendRedirect :: Yesod master => master -> [Text] -> W.Application
-    sendRedirect y segments' env sendResponse =
-         sendResponse $ W.responseLBS status
-                [ ("Content-Type", "text/plain")
-                , ("Location", BL.toStrict $ toLazyByteString dest')
-                ] "Redirecting"
-      where
-        -- Ensure that non-GET requests get redirected correctly. See:
-        -- https://github.com/yesodweb/yesod/issues/951
-        status
-            | W.requestMethod env == "GET" = status301
-            | otherwise                    = status307
-
-        dest = joinPath y (resolveApproot y env) segments' []
-        dest' =
-            if S.null (W.rawQueryString env)
-                then dest
-                else dest `mappend`
-                     byteString (W.rawQueryString env)
+toWaiAppYre = toWaiAppYreNested (Proxy :: Proxy (Route site)) ()
 
 -- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
 -- set may change with future releases, but currently covers:
