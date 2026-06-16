@@ -13,7 +13,7 @@ data Content
     -- into memory by default in order to catch imprecise exceptions
     -- before beginning to respond. If you are confident you don't have
     -- imprecise exceptions, you may disable this by wrapping the
-    -- `ToContent` data in `DontFullyEvaluate`.-
+    -- `ToContent` data in `DontFullyEvaluate`.
     | ContentSource !(ConduitT () (Flush BB.Builder) (ResourceT IO) ())
     | ContentFile !FilePath !(Maybe FilePart)
     | ContentDontEvaluate !Content

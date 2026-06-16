@@ -8,9 +8,10 @@
 {-# LANGUAGE ViewPatterns #-}
 
 -- | A zero-piece nested parent (pattern @\/@) followed by a sibling, built with
--- 'defaultOpts'. The parent's match pattern is unconditional,
--- so @\/sibling@ is shadowed: it is swallowed by the parent and 404s.
--- Pinned by "YesodCoreTest.ZeroPieceShadowRuntime".
+-- the default @fallthrough = False@. The parent's match pattern is @WildP@
+-- (unconditional), so @\/sibling@ is shadowed: it is swallowed by the parent
+-- and 404s. See "YesodCoreTest.ZeroPieceShadow.FallApp" for the fallthrough
+-- counterpart. Pinned by "YesodCoreTest.ZeroPieceShadowRuntime".
 module YesodCoreTest.ZeroPieceShadow.ShadowApp
     ( ShadowApp (..)
     ) where

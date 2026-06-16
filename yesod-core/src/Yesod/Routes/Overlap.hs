@@ -24,7 +24,7 @@ flatten =
         , fHasSuffix = hasSuffix $ ResourceLeaf r
         , fCheck = check && resourceCheck r
         }
-    go names pieces check (ResourceParent newname check' newpieces children) =
+    go names pieces check (ResourceParent newname check' _attrs newpieces children) =
         concatMap (go names' pieces' (check && check')) children
       where
         names' = names . (newname:)
@@ -57,10 +57,18 @@ overlaps (pieceX:xs) (pieceY:ys) suffixX suffixY =
     piecesOverlap pieceX pieceY && overlaps xs ys suffixX suffixY
 
 piecesOverlap :: Piece t -> Piece t -> Bool
--- Statics only match if they equal. Dynamics match with anything
+-- Statics only match if they are equal. A dynamic piece is treated as
+-- overlapping with anything: although at runtime a typed dynamic (e.g. an
+-- 'Int') only matches inputs that parse to its type, the overlap check is
+-- intentionally conservative and never inspects the dynamic-piece type — it is
+-- parametric in @t@ (see 'findOverlapNames'). Reporting a possible overlap that
+-- cannot actually occur is harmless; missing a real one would not be.
 piecesOverlap (Static x) (Static y) = x == y
 piecesOverlap _ _ = True
 
+-- | The overlap check never inspects the dynamic-piece type, so this is
+-- parametric in it (the reported names come from 'resourceName', always a
+-- 'String').
 findOverlapNames :: [ResourceTree t] -> [(String, String)]
 findOverlapNames =
     map go . findOverlapsF . filter fCheck . concatMap Yesod.Routes.Overlap.flatten

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-auth
 
+## 1.6.12.1
+
+* Support `yesod-core` 1.7
+
 ## 1.6.12.0
 
 * Add `afterPasswordRouteHandler` [#1863](https://github.com/yesodweb/yesod/pull/1863)

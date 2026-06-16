@@ -11,12 +11,26 @@ import YesodCoreTest.Links
 import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.SubSub
+import YesodCoreTest.SplitSubsite.Runtime (splitSubsiteSpec)
 import YesodCoreTest.ParameterizedSubData ()
+import YesodCoreTest.ParamSubsite.Data ()
 import YesodCoreTest.ParameterizedSubDispatch ()
 import qualified YesodCoreTest.ParameterizedSubDispatchRuntime as ParameterizedSubDispatchRuntime
+import qualified YesodCoreTest.ParamSubsite.InstanceRuntime as ParamSubsiteInstanceRuntime
+import qualified YesodCoreTest.ParamSubsite.SplitRuntime as ParamSubsiteSplitRuntime
+import qualified YesodCoreTest.ParamDefaultSplit.Runtime as ParamDefaultSplitRuntime
+import qualified YesodCoreTest.ParamTopLevelRuntime as ParamTopLevelRuntime
+import qualified YesodCoreTest.ParamFocusSplit.Runtime as ParamFocusSplit
+import qualified YesodCoreTest.ParamNoExplicitArgs as ParamNoExplicitArgs
+import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
+import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
+import qualified YesodCoreTest.ParamNestedNoFallthroughRuntime as ParamNestedNoFallthroughRuntime
+import qualified YesodCoreTest.FallthroughMatrix.Runtime as FallthroughMatrixRuntime
 import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
 import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
 import qualified YesodCoreTest.BangSeparatorRuntime as BangSeparatorRuntime
+import qualified YesodCoreTest.SubsiteFallthrough.Runtime as SubsiteFallthrough
+import qualified YesodCoreTest.SubsiteOptsFallthrough.Runtime as SubsiteOptsFallthrough
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
@@ -29,6 +43,8 @@ import qualified YesodCoreTest.JsLoader as JsLoader
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
 import qualified YesodCoreTest.Content as Content
+import qualified YesodCoreTest.NestedDispatch.Runtime as NestedDispatch
+import qualified YesodCoreTest.FallthroughDispatch.Runtime as FallthroughDispatch
 
 -- Skip on Windows, see https://github.com/yesodweb/yesod/issues/1523#issuecomment-398278450
 #ifndef WINDOWS
@@ -54,6 +70,7 @@ specs = do
       linksTest
       noOverloadedTest
       subSubTest
+      splitSubsiteSpec
       internalRequestTest
       errorHandlingTest
       cacheTest
@@ -78,7 +95,23 @@ specs = do
       breadcrumbTest
       metaTest
       Content.specs
+      describe "NestedDispatch" $ do
+          NestedDispatch.specs
       ParameterizedSubDispatchRuntime.specs
+      ParamSubsiteInstanceRuntime.specs
+      ParamSubsiteSplitRuntime.specs
+      ParamDefaultSplitRuntime.specs
+      ParamTopLevelRuntime.specs
+      ParamFocusSplit.specs
+      ParamNoExplicitArgs.specs
+      ParamFallthroughRuntime.specs
+      ParamNoFallthroughRuntime.specs
+      ParamNestedNoFallthroughRuntime.specs
+      FallthroughMatrixRuntime.specs
       MultiPieceNestedRuntime.specs
       ZeroPieceShadowRuntime.specs
       BangSeparatorRuntime.specs
+      SubsiteFallthrough.specs
+      SubsiteOptsFallthrough.specs
+      describe "FallthroughDispatch" $ do
+          FallthroughDispatch.spec

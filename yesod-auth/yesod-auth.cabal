@@ -1,6 +1,6 @@
 cabal-version:   >=1.10
 name:            yesod-auth
-version:         1.6.12.0
+version:         1.6.12.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -57,7 +57,7 @@ library
                    , unliftio-core
                    , unordered-containers
                    , wai                     >= 1.4
-                   , yesod-core              >= 1.6       && < 1.7
+                   , yesod-core              >= 1.6       && < 1.8
                    , yesod-form              >= 1.6       && < 1.8
                    , yesod-persistent        >= 1.6
 
