@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Pins the answer to: /can 'isInstance' fail if the route datatype's
@@ -46,12 +47,31 @@ spec = describe "nestedInstanceExists / fullyApplyType abstract-parameter probe"
                 b <- nestedInstanceExists ''Probe rc
                 [| b |]) `shouldBe` True
 
+    -- Whether probing the abstract head @HasInstInt a@ finds the concrete
+    -- @instance Probe (HasInstInt Int)@ depends on the GHC version: GHC 9.0+
+    -- 'reifyInstances' returns unifiers (so a bare type variable in the query
+    -- unifies with @Int@ and the probe reports 'True'), whereas GHC < 9.0 does
+    -- not return the concrete-argument instance for a type-variable query head
+    -- (so it reports 'False'). This concrete-argument shape never arises in real
+    -- codegen — nested-discovery instances are always emitted at fully-abstract
+    -- parameters (the 'HasInst' case above), which every supported GHC resolves
+    -- identically — so this case only pins the observed 'reifyInstances'
+    -- divergence, not a behaviour the codegen relies on.
+#if __GLASGOW_HASKELL__ >= 900
     it "returns True when the only instance is at a concrete argument (a unifier counts as could-match)" $
         $(do
             rc <- resolveRouteCon "HasInstInt"
             recover [| error "isInstance crashed on HasInstInt" |] $ do
                 b <- nestedInstanceExists ''Probe rc
                 [| b |]) `shouldBe` True
+#else
+    it "returns False when the only instance is at a concrete argument (GHC < 9.0 reifyInstances does not unify a type-variable query head)" $
+        $(do
+            rc <- resolveRouteCon "HasInstInt"
+            recover [| error "isInstance crashed on HasInstInt" |] $ do
+                b <- nestedInstanceExists ''Probe rc
+                [| b |]) `shouldBe` False
+#endif
 
     it "returns False for an arity-1 datatype with no instance" $
         $(do

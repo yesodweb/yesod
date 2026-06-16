@@ -49,9 +49,13 @@ data HasInst2 a b = HasInst2
 instance Probe (HasInst2 a b)
 
 -- | Arity-1 whose only instance is at a /concrete/ argument. The probe asks
--- \"could any instance match\" ('reifyInstances' returns unifiers, not just
--- exact matches), so probing the abstract @HasInstInt a@ finds the @Int@
--- instance and answers 'True'.
+-- \"could any instance match\". On GHC 9.0+ 'reifyInstances' returns unifiers
+-- (not just exact matches), so probing the abstract @HasInstInt a@ finds the
+-- @Int@ instance and answers 'True'; on GHC < 9.0 'reifyInstances' does not
+-- unify a bare type-variable query head against the concrete instance, so it
+-- answers 'False'. (Real codegen never emits instances at concrete arguments,
+-- so this divergence does not affect nested discovery; see the matching test in
+-- "Route.InstanceProbeSpec".)
 --
 -- (Instances at an /under-applied/ constructor — the bare @instance Probe
 -- HasInstInt@, or an arity-2 datatype applied to one argument like
