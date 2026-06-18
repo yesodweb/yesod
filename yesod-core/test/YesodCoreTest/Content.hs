@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module YesodCoreTest.Content (specs) where
 
@@ -9,11 +10,15 @@ import Data.Text (Text, pack)
 import Data.Text.Encoding (encodeUtf8)
 import Data.ByteString (ByteString)
 
+-- The 'encoding' package is unavailable on Windows (see yesod-core.cabal), so
+-- the CJK charset cases below are compiled only when WITH_DATA_ENCODING is set.
+#ifdef WITH_DATA_ENCODING
 import qualified Data.Encoding as Enc
 import qualified Data.Encoding.GB18030 as Enc
 import qualified Data.Encoding.CP1251 as Enc
 import qualified Data.Encoding.ShiftJIS as Enc
 import qualified Data.Encoding.CP932 as Enc
+#endif
 
 fakeContent :: (String -> ByteString) -> String -> String -> TypedContent
 fakeContent encode contentTypeString contentString =
@@ -24,6 +29,7 @@ fakeContent encode contentTypeString contentString =
 fakeUtf8Content :: String -> String -> TypedContent
 fakeUtf8Content = fakeContent (encodeUtf8 . pack)
 
+#ifdef WITH_DATA_ENCODING
 fakeGB18030Content :: String -> String -> TypedContent
 fakeGB18030Content = fakeContent $ Enc.encodeStrictByteString Enc.GB18030
 
@@ -35,6 +41,7 @@ fakeShiftJISContent = fakeContent $ Enc.encodeStrictByteString Enc.ShiftJIS
 
 fakeCP932Content :: String -> String -> TypedContent
 fakeCP932Content = fakeContent $ Enc.encodeStrictByteString Enc.CP932
+#endif
 
 specs :: Spec
 specs = describe "typedContentToSnippet" $ do
@@ -62,6 +69,7 @@ specs = describe "typedContentToSnippet" $ do
       let content = fakeUtf8Content "application/json; charset=utf-8" "[1,2,3]"
       (typedContentToSnippet content 2) `shouldBe` (Just "[1...+ 5")
 
+#ifdef WITH_DATA_ENCODING
     it "serializes GB18030 text" $ do
       let content = fakeGB18030Content "application/json; charset=GB18030" "[1,2,3]"
       (typedContentToSnippet content 100) `shouldBe` (Just "[1,2,3]")
@@ -77,3 +85,4 @@ specs = describe "typedContentToSnippet" $ do
     it "serializes CP932 text" $ do
       let content = fakeCP932Content "application/json; charset=Windows-31J" "[1,2,3]"
       (typedContentToSnippet content 100) `shouldBe` (Just "[1,2,3]")
+#endif

@@ -11,6 +11,7 @@
     * Breaking: modules that splice a nested route block need `MultiParamTypeClasses` (and usually `FlexibleContexts`).
     * Breaking: TH codegen entry points changed (`TyArgs` threading; `mkDispatchClause`, `mkParseRouteInstance`, `mkRouteConsOpts`, `mkDispatchInstance`); `mkRenderRouteClauses` and the `MkRouteOpts` constructor are no longer exported.
 * `ResourceParent` records the parent's own route attributes; `frParentDetails` replaces `frParentPieces`. [#1911](https://github.com/yesodweb/yesod/pull/1911)
+* The `encoding` dependency (used by `typedContentToSnippet` to decode GB18030/windows-1251/Shift_JIS/Windows-31J content snippets) is now gated off Windows, where it fails to build. On Windows those charsets fall back to utf-8-lenient decoding; behavior is unchanged on other platforms.
 
 ## 1.6.29.1
 
