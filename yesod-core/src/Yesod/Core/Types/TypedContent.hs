@@ -27,20 +27,10 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as LE (decodeUtf8With, decodeLatin1)
 import qualified Data.Text.Encoding.Error as EE (lenientDecode)
 
--- The 'encoding' package does not build on Windows (see yesod-core.cabal), so
--- it is gated behind WITH_DATA_ENCODING. Where it is unavailable the CJK
--- charsets below fall back to utf-8-lenient decoding via the 'otherwise' branch.
-#ifdef WITH_DATA_ENCODING
-import qualified Data.Encoding as Enc
-import qualified Data.Encoding.GB18030 as Enc
-import qualified Data.Encoding.CP1251 as Enc
-import qualified Data.Encoding.ShiftJIS as Enc
-import qualified Data.Encoding.CP932 as Enc
-#endif
-
 import qualified Network.Wai.Parse as NWP
 
 import Yesod.Core.Types.Content (Content (..))
+import Yesod.Core.Internal.ContentCharset (lookupExtraCharsetDecoder)
 
 type ContentType = B.ByteString -- FIXME Text?
 data TypedContent = TypedContent !ContentType !Content
@@ -57,16 +47,10 @@ decoderForCharset (Just encodingSymbol)
 #endif
   | encodingSymbol == "latin1" =
       LE.decodeLatin1
-#ifdef WITH_DATA_ENCODING
-  | encodingSymbol == "GB18030" =
-      TL.pack . Enc.decodeLazyByteString Enc.GB18030
-  | encodingSymbol == "windows-1251" =
-      TL.pack . Enc.decodeLazyByteString Enc.CP1251
-  | encodingSymbol == "Shift_JIS" =
-      TL.pack . Enc.decodeLazyByteString Enc.ShiftJIS
-  | encodingSymbol == "Windows-31J" =
-      TL.pack . Enc.decodeLazyByteString Enc.CP932
-#endif
+  -- CJK charsets that need the 'encoding' package (absent on Windows);
+  -- 'lookupExtraCharsetDecoder' returns Nothing there and we fall back below.
+  | Just decoder <- lookupExtraCharsetDecoder encodingSymbol =
+      decoder
   | otherwise =
       LE.decodeUtf8With EE.lenientDecode
 decoderForCharset Nothing = LE.decodeUtf8With EE.lenientDecode

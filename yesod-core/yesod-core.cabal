@@ -70,12 +70,12 @@ library
                    , warp                  >= 3.0.2
                    , word8
 
-    -- The 'encoding' package (used for CJK charset decoding in
-    -- Yesod.Core.Types.TypedContent) does not build on Windows: it drags in
-    -- regex-compat -> regex-posix (needs POSIX regex.h) and itself needs
-    -- system_encoding.h, neither reliably present in the Windows toolchain.
-    -- Gate it off Windows; the matching -DWITH_DATA_ENCODING drives a
-    -- utf-8-lenient fallback for those charsets there. See also tests below.
+    -- The 'encoding' package (used for CJK charset decoding) does not build on
+    -- Windows: it drags in regex-compat -> regex-posix (needs POSIX regex.h)
+    -- and itself needs system_encoding.h, neither reliably present in the
+    -- Windows toolchain. Gate it off Windows; the matching -DWITH_DATA_ENCODING
+    -- drives a utf-8-lenient fallback there. All of this CPP is confined to the
+    -- single module Yesod.Core.Internal.ContentCharset.
     if !os(windows)
         build-depends: encoding
         cpp-options:   -DWITH_DATA_ENCODING
@@ -99,6 +99,7 @@ library
                      Yesod.Core.Internal.Run
                      Yesod.Core.Internal.TH
                      Yesod.Core.Internal.LiteApp
+                     Yesod.Core.Internal.ContentCharset
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
@@ -217,8 +218,9 @@ test-suite test-routes
                  , warp
                  , word8
 
-    -- See note in the library stanza: 'encoding' is gated off Windows.
-    -- This suite recompiles src/ (incl. TypedContent), so it needs the same gate.
+    -- See note in the library stanza: 'encoding' is gated off Windows. This
+    -- suite recompiles src/ (incl. Yesod.Core.Internal.ContentCharset), so it
+    -- needs the same gate and cpp flag.
     if !os(windows)
         build-depends: encoding
         cpp-options:   -DWITH_DATA_ENCODING
@@ -369,11 +371,6 @@ test-suite tests
                   , warp
                   , th-lift-instances
                   , yesod-core
-    -- See note in the library stanza: 'encoding' is gated off Windows. The CJK
-    -- test cases in YesodCoreTest.Content are compiled only when it is present.
-    if !os(windows)
-        build-depends: encoding
-        cpp-options:   -DWITH_DATA_ENCODING
     -- NB: this behavioral suite depends on the *packaged* yesod-core library
     -- (no `src` on hs-source-dirs), so it compiles against the real
     -- exposed/hidden module boundary. That is what catches API-exposure
