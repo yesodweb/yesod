@@ -30,7 +30,7 @@ import qualified Data.Text.Encoding.Error as EE (lenientDecode)
 import qualified Network.Wai.Parse as NWP
 
 import Yesod.Core.Types.Content (Content (..))
-import Yesod.Core.Internal.ContentCharset (lookupExtraCharsetDecoder)
+import Yesod.Core.Internal.ContentCharset (extraCharsetDecoder)
 
 type ContentType = B.ByteString -- FIXME Text?
 data TypedContent = TypedContent !ContentType !Content
@@ -47,12 +47,10 @@ decoderForCharset (Just encodingSymbol)
 #endif
   | encodingSymbol == "latin1" =
       LE.decodeLatin1
-  -- CJK charsets that need the 'encoding' package (absent on Windows);
-  -- 'lookupExtraCharsetDecoder' returns Nothing there and we fall back below.
-  | Just decoder <- lookupExtraCharsetDecoder encodingSymbol =
-      decoder
+  -- CJK charsets (via the 'encoding' package, absent on Windows) and the
+  -- utf-8-lenient fallback for anything else.
   | otherwise =
-      LE.decodeUtf8With EE.lenientDecode
+      extraCharsetDecoder encodingSymbol
 decoderForCharset Nothing = LE.decodeUtf8With EE.lenientDecode
 
 decodeForContentType :: ContentType -> L.ByteString -> Maybe TL.Text
