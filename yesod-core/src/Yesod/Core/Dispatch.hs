@@ -104,7 +104,6 @@ import Yesod.Core.Class.Dispatch
 import Text.Read (readMaybe)
 import System.Environment (getEnvironment)
 import System.Entropy (getEntropy)
-import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
 import Yesod.Core.Class.Dispatch.ToParentRoute
 
@@ -340,9 +339,14 @@ warpEnv site = do
 -- | Default constructor for 'yreGetMaxExpires' field. Low level
 -- function for simple manual construction of 'YesodRunnerEnv'.
 --
+-- The returned action recomputes the value (a far-future RFC1123
+-- timestamp) on each call. It previously cached the value behind a
+-- @mkAutoUpdate@ worker thread on a 24-hour refresh cycle; that thread,
+-- once started, would linger for up to a day after its last use, so
+-- constructing a 'YesodRunnerEnv' per request (as test harnesses do) could
+-- pile up dormant worker threads. Recomputing is a single 'formatTime' and
+-- avoids the thread entirely; 'runFakeHandler' already does this.
+--
 -- @since 1.4.29
 getGetMaxExpires :: IO (IO Text)
-getGetMaxExpires = mkAutoUpdate defaultUpdateSettings
-  { updateAction = getCurrentMaxExpiresRFC1123
-  , updateFreq = 24 * 60 * 60 * 1000000 -- Update once per day
-  }
+getGetMaxExpires = pure getCurrentMaxExpiresRFC1123

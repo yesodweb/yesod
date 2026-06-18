@@ -1,5 +1,14 @@
 # ChangeLog for yesod-core
 
+## 1.7.0.1
+
+* `getGetMaxExpires` now recomputes the max-expires timestamp on each call
+  instead of caching it behind a `mkAutoUpdate` worker on a 24-hour refresh
+  cycle. The worker, once started, lingered for up to a day after its last
+  use, so building a `YesodRunnerEnv` per request (as test harnesses do)
+  could pile up dormant worker threads. The value is a single `formatTime`,
+  so recomputing is cheap and thread-free. No API changes.
+
 ## 1.7.0.0
 
 * Split route compilation ([#1887](https://github.com/yesodweb/yesod/pull/1887), [guide](https://github.com/yesodweb/yesod/blob/master/yesod-core/docs/split-route-compilation.md)):
