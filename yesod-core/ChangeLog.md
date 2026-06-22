@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.7.0.1
+
+* The `encoding` dependency (used by `typedContentToSnippet` to decode GB18030/windows-1251/Shift_JIS/Windows-31J content snippets) is now gated off Windows, where it fails to build. On Windows those charsets fall back to utf-8-lenient decoding; behavior is unchanged on other platforms. [#1924](https://github.com/yesodweb/yesod/pull/1924)
+
 ## 1.7.0.0
 
 * Split route compilation ([#1887](https://github.com/yesodweb/yesod/pull/1887), [guide](https://github.com/yesodweb/yesod/blob/master/yesod-core/docs/split-route-compilation.md)):

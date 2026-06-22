@@ -27,15 +27,10 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as LE (decodeUtf8With, decodeLatin1)
 import qualified Data.Text.Encoding.Error as EE (lenientDecode)
 
-import qualified Data.Encoding as Enc
-import qualified Data.Encoding.GB18030 as Enc
-import qualified Data.Encoding.CP1251 as Enc
-import qualified Data.Encoding.ShiftJIS as Enc
-import qualified Data.Encoding.CP932 as Enc
-
 import qualified Network.Wai.Parse as NWP
 
 import Yesod.Core.Types.Content (Content (..))
+import Yesod.Core.Internal.ContentCharset (extraCharsetDecoder)
 
 type ContentType = B.ByteString -- FIXME Text?
 data TypedContent = TypedContent !ContentType !Content
@@ -52,16 +47,10 @@ decoderForCharset (Just encodingSymbol)
 #endif
   | encodingSymbol == "latin1" =
       LE.decodeLatin1
-  | encodingSymbol == "GB18030" =
-      TL.pack . Enc.decodeLazyByteString Enc.GB18030
-  | encodingSymbol == "windows-1251" =
-      TL.pack . Enc.decodeLazyByteString Enc.CP1251
-  | encodingSymbol == "Shift_JIS" =
-      TL.pack . Enc.decodeLazyByteString Enc.ShiftJIS
-  | encodingSymbol == "Windows-31J" =
-      TL.pack . Enc.decodeLazyByteString Enc.CP932
+  -- CJK charsets (via the 'encoding' package, absent on Windows) and the
+  -- utf-8-lenient fallback for anything else.
   | otherwise =
-      LE.decodeUtf8With EE.lenientDecode
+      extraCharsetDecoder encodingSymbol
 decoderForCharset Nothing = LE.decodeUtf8With EE.lenientDecode
 
 decodeForContentType :: ContentType -> L.ByteString -> Maybe TL.Text

@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.7.0.0
+version:         1.7.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -42,7 +42,6 @@ library
                    , cookie                >= 0.4.3    && < 0.6
                    , data-default
                    , deepseq               >= 1.3
-                   , encoding
                    , entropy
                    , fast-logger           >= 2.2
                    , http-types            >= 0.7
@@ -71,6 +70,16 @@ library
                    , warp                  >= 3.0.2
                    , word8
 
+    -- The 'encoding' package (used for CJK charset decoding) does not build on
+    -- Windows: it drags in regex-compat -> regex-posix (needs POSIX regex.h)
+    -- and itself needs system_encoding.h, neither reliably present in the
+    -- Windows toolchain. Gate it off Windows; the matching -DWITH_DATA_ENCODING
+    -- drives a utf-8-lenient fallback there. All of this CPP is confined to the
+    -- single module Yesod.Core.Internal.ContentCharset.
+    if !os(windows)
+        build-depends: encoding
+        cpp-options:   -DWITH_DATA_ENCODING
+
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
                      Yesod.Core.Dispatch
@@ -90,6 +99,7 @@ library
                      Yesod.Core.Internal.Run
                      Yesod.Core.Internal.TH
                      Yesod.Core.Internal.LiteApp
+                     Yesod.Core.Internal.ContentCharset
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
@@ -178,7 +188,6 @@ test-suite test-routes
                  , cookie
                  , data-default
                  , deepseq
-                 , encoding
                  , entropy
                  , fast-logger
                  , hspec
@@ -208,6 +217,13 @@ test-suite test-routes
                  , wai-logger
                  , warp
                  , word8
+
+    -- See note in the library stanza: 'encoding' is gated off Windows. This
+    -- suite recompiles src/ (incl. Yesod.Core.Internal.ContentCharset), so it
+    -- needs the same gate and cpp flag.
+    if !os(windows)
+        build-depends: encoding
+        cpp-options:   -DWITH_DATA_ENCODING
 
 test-suite tests
     default-language: Haskell2010
@@ -316,7 +332,6 @@ test-suite tests
                   , containers
                   , cookie >= 0.4.1    && < 0.6
                   , data-default
-                  , encoding
                   , hspec >= 1.3
                   , hspec-expectations
                   , http-types
