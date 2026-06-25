@@ -19,6 +19,7 @@ extra-deps:
   - attoparsec-aeson-2.1.0.0
   - crypton-1.0.0
   - crypton-conduit-0.2.3
+  - ram-0.22.0
   - encoding-0.10.2
   # th-compat entered Stackage after lts-18; needed for the CI legs that
   # reuse this file with --resolver lts-16 / lts-18
