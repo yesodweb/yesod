@@ -108,6 +108,7 @@ test-suite tests
                    , hjsmin
                    , http-types
                    , memory
+                   , ram
                    , mime-types
                    , process
                    , template-haskell
