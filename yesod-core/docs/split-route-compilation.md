@@ -190,6 +190,33 @@ like `data MySub a`), `mkYesodSubDispatchInstance "(MyClass a) => MySub a"
 resourcesMySub` generates the `YesodSubDispatch` and nested instances in one
 splice.
 
+## When the subsite split is required, not optional
+
+Everything above presents the Data/Dispatch split as an organizational choice.
+It stops being optional once a *parameterized* subsite mounts a *different*
+subsite inside its own route tree — a subsite leaf nested under a
+`ResourceParent`, not just a further nested route group of the same subsite.
+
+`mkYesodSubData` generates the subsite's route datatype and its `resources*` value
+(a `[ResourceTree String]`) in one splice. Turning that value into dispatch
+code — `mkYesodSubDispatch`, `mkNestedSubDispatchInstance` — is a *second*
+splice. GHC's stage restriction won't let a top-level splice consume a name
+that a different splice produced earlier in the same module; that name has to
+come from an already-compiled module instead. `mkYesodSubDispatchInstance`
+gets around this by generating the `YesodSubDispatch` and nested instances in
+one splice, which is why it can keep a parameterized subsite's own dispatch in
+a single module —
+but it only covers that one subsite's own nested route groups. A mounted child
+subsite needs its own `mkYesodSubData` and its own `YesodSubDispatch`
+instance, and the parent's `resources*` value then has to cross a module
+boundary to reach the splice that dispatches into it.
+
+`yesod-core`'s test suite has a worked example of exactly this shape:
+`YesodCoreTest.ParameterizedSubDispatchRuntime.Data` generates a parameterized
+subsite (`BigSub a`) that mounts a second, unparameterized subsite (`ChildSub`)
+as a leaf, and `YesodCoreTest.ParameterizedSubDispatchRuntime` is the separate,
+already-compiled module that dispatches both.
+
 ## Linking to nested routes
 
 A nested fragment constructor isn't a `Route App` on its own — its parent may
@@ -254,3 +281,12 @@ fallthrough.
   `OVERLAPPABLE`, so a *more specific* hand-written instance wins, but a
   hand-written instance with the identical head is still a duplicate-instance
   error.
+* **`GHC stage restriction: 'resourcesFoo' is used in a top-level splice,
+  quasi-quote, or annotation, and must be imported, not defined locally`** —
+  a `mkYesodSubData`-generated `resources*` value is being consumed by another
+  splice (`mkYesodSubDispatch`, `mkNestedSubDispatchInstance`) in the same
+  module. Move the consuming splice to a separate, already-compiled module
+  that imports the `resources*` binding (see [When the subsite split is
+  required, not optional](#when-the-subsite-split-is-required-not-optional)),
+  or, if the subsite mounts no child subsite, replace both splices with a
+  single `mkYesodSubDispatchInstance` call.
