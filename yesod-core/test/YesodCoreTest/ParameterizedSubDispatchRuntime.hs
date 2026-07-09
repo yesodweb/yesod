@@ -49,8 +49,18 @@ instance ParamSubsiteClass ConcreteSub App where
     type AssocType ConcreteSub = Text
     getSubsiteValue _ _ = "concrete"
 
--- | parseRoutes can only embed a single-token subsite type, so we alias the
--- fully-applied subsites here.
+-- | 'parseRoutes' can embed a subsite type directly via the @{...}@ brace
+-- syntax, and a brace token isn't limited to a single identifier: it accepts
+-- any fully-applied type expression, e.g. @{ParamSubsite ConcreteSub}@ —
+-- 'parseTypeTree' (in "Yesod.Routes.Parse") parses what's inside the braces
+-- the same way it parses any other route-piece type. So 'ConcreteParamSub'
+-- below isn't strictly needed; it's kept because the alias is reused in
+-- several type signatures further down, which reads better than repeating
+-- the braced application everywhere. 'ConcreteBigSub', on the other hand,
+-- *is* needed: its underlying type is the bare unit type @()@, and
+-- 'parseTypeTree' can't parse @()@ as a token on its own (it has no leading
+-- identifier to anchor on), so it has to be hidden behind an alias before it
+-- can appear in a route.
 type ConcreteParamSub = ParamSubsite ConcreteSub
 type ConcreteBigSub = BigSub ()
 
