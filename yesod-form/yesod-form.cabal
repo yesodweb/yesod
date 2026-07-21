@@ -1,6 +1,6 @@
 cabal-version:   >= 1.10
 name:            yesod-form
-version:         1.7.9.3
+version:         1.7.10
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -77,11 +77,18 @@ test-suite test
     type: exitcode-stdio-1.0
     main-is: main.hs
     hs-source-dirs: test
+    other-modules: PRGSpec
     build-depends:          base
                           , yesod-form
                           , time
                           , hspec
                           , text
+                          , bytestring
+                          , clientsession
+                          , containers
+                          , wai-extra
+                          , yesod-core            >= 1.6
+                          , yesod-test            >= 1.6
 
 source-repository head
   type:     git

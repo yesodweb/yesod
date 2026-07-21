@@ -1,5 +1,12 @@
 # ChangeLog for yesod-form
 
+## 1.7.10
+
+* Add `runFormPRG`, a `runFormPost` variant for the
+  Post/Redirect/Get pattern: failed submissions are stashed in the session
+  and replayed (input and validation errors) by the next GET.
+  [#1927](https://github.com/yesodweb/yesod/pull/1927)
+
 ## 1.7.9.3
 
 * Support `yesod-core` 1.7
