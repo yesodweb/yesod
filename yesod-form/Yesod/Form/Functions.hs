@@ -32,6 +32,8 @@ module Yesod.Form.Functions
     , runFormPost
     , runFormPostNoToken
     , runFormGet
+      -- ** Post\/Redirect\/Get
+    , runFormPRG
       -- * Generate a blank form
     , generateFormPost
     , generateFormGet'
@@ -67,16 +69,19 @@ import Control.Arrow (second)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local, mapRWST)
 import Control.Monad.Trans.Writer (runWriterT, writer)
-import Control.Monad (liftM, join)
+import Control.Monad (liftM, join, when)
+import qualified Data.Aeson as A
 import Data.Byteable (constEqBytes)
+import qualified Data.ByteString.Lazy as BL
 import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
 import Yesod.Core
-import Network.Wai (requestMethod)
+import Network.Wai (Request, requestMethod, rawPathInfo)
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TEE
 import Control.Arrow (first)
 
 -- | Get a unique identifier.
@@ -356,6 +361,146 @@ generateFormPost
     => (Html -> MForm m (FormResult a, xml))
     -> m (xml, Enctype)
 generateFormPost form = first snd `liftM` postHelper form Nothing
+
+-- | Run a form for the Post\/Redirect\/Get pattern, so that invalid input
+-- and its validation errors survive a redirect.
+--
+-- Use this in /both/ the GET and POST handlers of a route, exactly as you
+-- would 'runFormPost':
+--
+-- * On a POST request this behaves exactly like 'runFormPost' (including
+--   CSRF protection). Additionally, on 'FormFailure' the submitted
+--   parameters are stashed in the user session so that your handler can
+--   simply 'redirect' back to the GET route instead of re-rendering. On
+--   'FormSuccess' any previously stashed parameters for this route are
+--   cleared. On 'FormMissing' (another 'identifyForm'-wrapped form on the
+--   page was the one submitted) the stash is left untouched.
+--
+-- * On a GET request, if stashed parameters exist for the current path,
+--   they are removed from the session and the form is run against them:
+--   the fields re-render with the user's input and validation errors, just
+--   as a non-redirecting handler would have rendered them. A fresh CSRF
+--   token is rendered into the form (the stashed token is discarded, and
+--   no token check is performed on a replay). If nothing is stashed, this
+--   behaves like 'generateFormPost' (the result is 'FormMissing').
+--
+-- > getRegisterR :: Handler Html
+-- > getRegisterR = do
+-- >     ((_res, widget), enctype) <- runFormPRG personForm
+-- >     defaultLayout
+-- >         [whamlet|
+-- >             <form method=post action=@{RegisterR} enctype=#{enctype}>
+-- >                 ^{widget}
+-- >         |]
+-- >
+-- > postRegisterR :: Handler Html
+-- > postRegisterR = do
+-- >     ((res, _widget), _enctype) <- runFormPRG personForm
+-- >     case res of
+-- >         FormSuccess person -> do
+-- >             -- insert into the database, etc.
+-- >             setMessage "Registered!"
+-- >             redirect RegisterR
+-- >         _ -> redirect RegisterR
+--
+-- Notes and caveats:
+--
+-- * The stash is keyed by request path, so the GET and POST handlers must
+--   share a route (the common Yesod pattern). Form pages on different
+--   routes do not interfere with each other; two tabs on the /same/ path
+--   share one stash (the last failed submission wins).
+--
+-- * Multiple forms on one page work when wrapped with 'identifyForm': on
+--   replay, only the form that was actually submitted re-renders with
+--   values and errors; the others return 'FormMissing' and render blank.
+--   (The stash is popped once per request and shared between calls via
+--   the per-request cache, so every form in the handler sees it.)
+--
+-- * Uploaded files are not stashed; file fields re-render empty after the
+--   redirect.
+--
+-- * The stashed parameters live in the user session. With the default
+--   client-session backend the whole session must fit in a cookie
+--   (roughly 4KB), so this is unsuitable for very large forms. If the
+--   stash fails to decode, it is discarded and a blank form is generated.
+--
+-- * If the application has no session backend, stashing is a no-op and
+--   this degrades to 'runFormPost'\/'generateFormPost' semantics (input
+--   will not survive the redirect).
+--
+-- * If your POST handler re-renders on failure instead of redirecting, do
+--   not use this function: the stash would be consumed by an unrelated
+--   later GET of the same path.
+--
+-- * On a replay the form may even produce 'FormSuccess' (e.g. a 'checkM'
+--   validation whose outcome depends on external state); the result is
+--   returned as-is. GET handlers normally use only the widget.
+--
+-- * A HEAD request reads the stash without consuming it, so that
+--   middleware such as @autoHead@ does not eat the replay meant for the
+--   subsequent GET.
+--
+-- @since 1.7.10
+runFormPRG
+    :: (RenderMessage (HandlerSite m) FormMessage, MonadResource m, MonadHandler m)
+    => (Html -> MForm m (FormResult a, xml))
+    -> m ((FormResult a, xml), Enctype)
+runFormPRG form = do
+    req <- getRequest
+    let method = requestMethod $ reqWaiRequest req
+        key = prgSessionKey $ reqWaiRequest req
+    if method == "GET" || method == "HEAD"
+        then do
+            -- The per-request cache lets several calls in one handler
+            -- (multiple forms on a page) all see the stash, even though it
+            -- is deleted from the session on first read.
+            PRGStash menv <- cachedBy (TE.encodeUtf8 key) $ do
+                mbs <- lookupSessionBS key
+                when (method /= "HEAD") $ deleteSession key
+                return $ PRGStash $ mbs >>= A.decodeStrict
+            case menv of
+                Nothing -> postHelper form Nothing
+                Just env -> replayHelper form env
+        else do
+            env <- postEnv
+            res@((formRes, _), _) <- postHelper form env
+            case (formRes, env) of
+                (FormSuccess{}, _) -> deleteSession key
+                (FormFailure{}, Just (params, _)) -> setSessionBS key $
+                    BL.toStrict $ A.encode $
+                    Map.delete defaultCsrfParamName params
+                -- FormMissing means another identified form on this page
+                -- was the one submitted; leave its stash alone.
+                _ -> return ()
+            return res
+
+-- | Per-request cache wrapper for the Post\/Redirect\/Get stash; see
+-- 'runFormPRG'.
+newtype PRGStash = PRGStash (Maybe Env)
+
+-- | Like 'postHelper', but runs the form against a supplied 'Env' (with an
+-- empty 'FileEnv') instead of the current request body. A fresh CSRF token
+-- fragment is rendered into the form, and no token check is performed: the
+-- replayed submission was already checked by 'postHelper' when it was
+-- stashed, and this run is a re-render, not a submission.
+replayHelper :: MonadHandler m
+             => (Html -> MForm m a)
+             -> Env
+             -> m (a, Enctype)
+replayHelper form env = do
+    req <- getRequest
+    let token =
+            case reqToken req of
+                Nothing -> mempty
+                Just n -> [shamlet|<input type=hidden name=#{defaultCsrfParamName} value=#{n}>|]
+    m <- getYesod
+    langs <- languages
+    runFormGeneric (form token) m langs (Just (env, Map.empty))
+
+-- | Session key for the Post\/Redirect\/Get stash, namespaced by request
+-- path so that form pages on different routes do not interfere.
+prgSessionKey :: Request -> Text
+prgSessionKey req = "_PRG:" <> TE.decodeUtf8With TEE.lenientDecode (rawPathInfo req)
 
 postEnv :: MonadHandler m => m (Maybe (Env, FileEnv))
 postEnv = do
