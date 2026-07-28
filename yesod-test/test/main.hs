@@ -48,6 +48,8 @@ import qualified Data.ByteString.Char8 as B8
 import Yesod.Test.Internal (contentTypeHeaderIsUtf8)
 import Data.Foldable (traverse_)
 
+import qualified PRGSpec
+
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
 
@@ -69,6 +71,7 @@ mkYesod "RoutedApp" [parseRoutes|
 
 main :: IO ()
 main = hspec $ do
+    PRGSpec.spec
     describe "CSS selector parsing" $ do
         it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [ByTagName "strong"]]]
         it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [ByTagName "strong"], DirectChildren [ByTagName "i"]]]

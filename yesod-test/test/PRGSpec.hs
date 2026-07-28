@@ -6,7 +6,12 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ViewPatterns          #-}
 
--- | Integration tests for 'runFormPRG'.
+-- | Integration tests for yesod-form's 'runFormPRG'.
+--
+-- These live in yesod-test rather than yesod-form: a yesod-test
+-- dependency in yesod-form's test suite creates a package-level
+-- dependency cycle that Stackage's build planner rejects, see
+-- <https://github.com/yesodweb/yesod/issues/1928>.
 module PRGSpec (spec) where
 
 import qualified Data.ByteString.Lazy as BL

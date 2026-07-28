@@ -1,5 +1,13 @@
 # ChangeLog for yesod-form
 
+## 1.7.10.1
+
+* Move the `runFormPRG` integration tests to yesod-test's test suite,
+  removing yesod-form's test-suite dependency on yesod-test. That
+  dependency created a package-level cycle
+  (yesod-test → yesod-form → yesod-test) which broke the Stackage
+  build plan. [#1928](https://github.com/yesodweb/yesod/issues/1928)
+
 ## 1.7.10
 
 * Add `runFormPRG`, a `runFormPost` variant for the
