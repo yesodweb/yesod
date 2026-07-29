@@ -32,6 +32,8 @@ mkYesod "App" [parseRoutes|
 /two TwoR GET POST
 /corrupt CorruptR GET
 /stale StaleR GET
+/pair PairR GET POST
+/pair-rerender PairRerenderR GET POST
 |]
 
 instance Yesod App where
@@ -77,6 +79,73 @@ numForm name csrf = do
                 <p .error>#{name}: #{err}
             |]
     return (res, widget)
+
+-- | A composite field rendering two inputs under one name. Its view
+-- restores both raw values via 'lookupRawFieldInput'; the @Either@
+-- argument alone could only restore the first.
+pairField :: Field Handler (Text, Text)
+pairField = Field
+    { fieldParse = \vals _files -> return $ case vals of
+        [a, b]
+            | T.null a && T.null b -> Right Nothing
+            | any ("!" `T.isPrefixOf`) [a, b] ->
+                Left $ SomeMessage ("no exclamations" :: Text)
+            | otherwise -> Right $ Just (a, b)
+        _ -> Right Nothing
+    , fieldView = \theId name _attrs eval isReq -> do
+        raws <- lookupRawFieldInput name
+        let (v1, v2) = case eval of
+                Right (a, b) -> (a, b)
+                Left _ -> case raws of
+                    [a, b] -> (a, b)
+                    _ -> ("", "")
+        [whamlet|
+            <input id=#{theId} name=#{name} value=#{v1} :isReq:required>
+            <input name=#{name} value=#{v2} :isReq:required>
+        |]
+    , fieldEnctype = UrlEncoded
+    }
+
+pairForm :: Html -> MForm Handler (FormResult (Text, Text), Widget)
+pairForm csrf = do
+    (res, view) <- mreq pairField (fs "pair") Nothing
+    let widget = [whamlet|
+            #{csrf}
+            ^{fvInput view}
+            $maybe err <- fvErrors view
+                <p .error>#{err}
+            |]
+    return (res, widget)
+
+getPairR :: Handler Html
+getPairR = do
+    ((_res, widget), enctype) <- runFormPRG pairForm
+    defaultLayout [whamlet|
+        <form method=post action=@{PairR} enctype=#{enctype}>
+            ^{widget}
+            <button>go
+    |]
+
+postPairR :: Handler Html
+postPairR = do
+    ((res, _widget), _enctype) <- runFormPRG pairForm
+    case res of
+        FormSuccess _ -> setMessage "paired" >> redirect PairR
+        _ -> redirect PairR
+
+-- | The non-redirecting counterpart: on failure the POST response
+-- itself re-renders the form, values restored from the live request.
+getPairRerenderR :: Handler Html
+getPairRerenderR = do
+    ((_res, widget), enctype) <- runFormPost pairForm
+    defaultLayout [whamlet|
+        <form method=post action=@{PairRerenderR} enctype=#{enctype}>
+            ^{widget}
+            <button>go
+    |]
+
+postPairRerenderR :: Handler Html
+postPairRerenderR = getPairRerenderR
 
 getFormR :: Handler Html
 getFormR = do
@@ -234,6 +303,31 @@ spec = yesodSpec App $
             get FormR
             statusIs 200
             bodyContains "name=\"name\""
+
+        yit "restores multi-input raw values after a replay (lookupRawFieldInput)" $ do
+            get PairR
+            token <- extractToken
+            postParams PairR token [("pair", "hello"), ("pair", "!bad")]
+            statusIs 303
+            get PairR
+            statusIs 200
+            bodyContains "value=\"hello\""
+            bodyContains "value=\"!bad\""
+            bodyContains "no exclamations"
+
+        yit "restores multi-input raw values on a plain re-render (lookupRawFieldInput)" $ do
+            get PairRerenderR
+            token <- extractToken
+            postParams PairRerenderR token [("pair", "hello"), ("pair", "!bad")]
+            statusIs 200
+            bodyContains "value=\"hello\""
+            bodyContains "value=\"!bad\""
+
+        yit "records nothing for a fresh GET (lookupRawFieldInput)" $ do
+            get PairR
+            statusIs 200
+            bodyContains "value=\"\""
+            bodyNotContains "hello"
 
         yit "keys the stash by path" $ do
             get FormR

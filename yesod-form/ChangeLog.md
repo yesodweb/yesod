@@ -1,5 +1,15 @@
 # ChangeLog for yesod-form
 
+## 1.7.11
+
+* Add `lookupRawFieldInput`, giving field views access to all raw
+  parameter values the named field was run against — whether from a
+  direct submission or a `runFormPRG` replay. The `Either Text a`
+  argument a view receives only carries the first submitted value, so
+  fields rendering several inputs under one name (e.g. a composite
+  amount-plus-currency field) previously could not restore the user's
+  input after a failed submission.
+
 ## 1.7.10.1
 
 * Move the `runFormPRG` integration tests to yesod-test's test suite,
