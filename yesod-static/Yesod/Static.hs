@@ -7,6 +7,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PackageImports #-}
 ---------------------------------------------------------
 --
 -- | Serve static files from a Yesod app.
@@ -79,7 +80,11 @@ import Crypto.Hash.Conduit (hashFile, sinkHash)
 import Crypto.Hash (MD5, Digest)
 import Control.Monad.Trans.State
 
-import qualified Data.ByteArray as ByteArray
+#if MIN_VERSION_crypton(1,1,0)
+import qualified "ram" Data.ByteArray as ByteArray
+#else
+import qualified "memory" Data.ByteArray as ByteArray
+#endif
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
