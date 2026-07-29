@@ -60,6 +60,7 @@ module Yesod.Form.Functions
     , convertField
     , addClass
     , removeClass
+    , lookupRawFieldInput
     ) where
 
 import Yesod.Form.Types
@@ -70,6 +71,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local, mapRWST)
 import Control.Monad.Trans.Writer (runWriterT, writer)
 import Control.Monad (liftM, join, when)
+import Data.IORef (IORef, newIORef, modifyIORef', readIORef)
 import qualified Data.Aeson as A
 import Data.Byteable (constEqBytes)
 import qualified Data.ByteString.Lazy as BL
@@ -227,6 +229,34 @@ mopt :: (site ~ HandlerSite m, MonadHandler m)
      -> MForm m (FormResult (Maybe a), FieldView site)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
+-- | Per-request store of the raw parameter values each field was run
+-- against, keyed by field name; see 'lookupRawFieldInput'.
+newtype RawFieldInput = RawFieldInput (IORef (Map.Map Text [Text]))
+
+rawFieldInputRef :: MonadHandler m => m (IORef (Map.Map Text [Text]))
+rawFieldInputRef = do
+    RawFieldInput ref <- cachedBy "yesod-form-raw-field-input" $
+        fmap RawFieldInput $ liftIO $ newIORef Map.empty
+    return ref
+
+-- | The raw parameter values the named field was run against in this
+-- request, whether from a direct submission or a Post\/Redirect\/Get
+-- replay ('runFormPRG'). Empty if no form containing the field has run
+-- with a submission in this request (e.g. 'generateFormPost', or an
+-- 'identifyForm'-wrapped form that was not the one submitted).
+--
+-- This lets the view of a field rendering several inputs under one name
+-- restore all of the user's raw input after a failed submission: the
+-- @Either Text a@ argument a view receives can only carry the first
+-- submitted value. Only fields run through 'mreq'\/'mopt' (and the
+-- applicative\/widget helpers built on them) record their values here.
+--
+-- @since 1.7.11
+lookupRawFieldInput :: MonadHandler m => Text -> m [Text]
+lookupRawFieldInput name = do
+    ref <- rawFieldInputRef
+    Map.findWithDefault [] name `liftM` liftIO (readIORef ref)
+
 mhelper :: (site ~ HandlerSite m, MonadHandler m)
         => Field m a
         -> FieldSettings site
@@ -250,6 +280,9 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
                 mfs <- askFiles
                 let mvals = fromMaybe [] $ Map.lookup name p
                     files = fromMaybe [] $ mfs >>= Map.lookup name
+                lift $ do
+                    ref <- rawFieldInputRef
+                    liftIO $ modifyIORef' ref $ Map.insert name mvals
                 emx <- lift $ fieldParse mvals files
                 return $ case emx of
                     Left (SomeMessage e) -> (FormFailure [renderMessage site langs e], maybe (Left "") Left (listToMaybe mvals))
