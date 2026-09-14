@@ -41,9 +41,11 @@ unchanged; splitting is opt-in and per-parent.
 Three modules: a shared route table, the split-out fragment, and the main site.
 
 First, put the route definitions in their own module so both sides can see
-them — along with your project's `RouteOpts`. Every splice that touches the
-route table should use the same options, so define them once (see
-[Fallthrough](#fallthrough) for why fallthrough should be on):
+them — along with your project's `RouteOpts`. Derive every splice's options
+from this shared value so route types and fallthrough stay consistent (see
+[Fallthrough](#fallthrough) for why fallthrough should be on). Focus and
+authorization options may differ by splice; subsite dispatch must clear the
+site-only authorization options described below:
 
 ```haskell
 module App.Routes.Resources where
@@ -255,8 +257,10 @@ instance for a fragment alongside its dispatch, and use `authRouteOpts` in its
 focused splice. Generated dispatch passes that fragment's type to the hook,
 so GHC resolves only that fragment's authorization instance. The foundation's
 `instance Yesod App` needs no imports of those instances. A parent dispatch
-that delegates to a separately compiled fragment uses the wrapper selected by
-the fragment's splice.
+that delegates to a separately compiled fragment uses the wrapper and named
+authorization policy selected by the fragment's splice. Neither option is
+inherited from the parent, and the parent cannot check which policy an opaque
+existing instance used. Configure each fragment's dispatch explicitly.
 
 Derive these options from the shared `appRouteOpts` so fallthrough and route
 type settings stay consistent. If the shared options already include a
@@ -273,15 +277,34 @@ for compatibility instead of using nested dispatch.
 The wrapper runs inside the site's middleware, immediately before the matched
 handler. It also wraps the 405 handler for a matched path with an unsupported
 method, allowing authorization to fail before the 405 is reported. Unmatched
-paths do not invoke it. Subsite handlers continue to use the parent runner's
-authorization policy.
-Subsite dispatch splices reject `setRouteHandlerWrapper` and named route
-authorization options instead of silently ignoring them. Configure named
-authorization on the parent site's subsite mount, and clear the wrapper and
-use `setRouteAuthorization NoRouteAuth` when deriving subsite options.
-Named mount checks also run for a subsite 404. A raw `WaiSubsite` bypasses the
-parent runner; use `WaiSubsiteWithAuth` to apply the parent's middleware and
-authorization to a WAI application.
+paths do not invoke it. The wrapper does not wrap subsite mounts or handlers
+inside a mounted subsite. A splice with a wrapper and a mount must also enable
+`setRouteAuthorization RouteAuthPerResource` or `RouteAuthSubtree` and provide
+`authorize<MountName>` with the ancestor and mount captures. TH rejects
+wrapper-only mounts. The named mount policy runs through the parent runner,
+including on a subsite 404, where there is no subsite route value to supply to
+the wrapper.
+
+Subsite dispatch splices reject both authorization options. Derive their
+options from the shared value:
+
+```haskell
+subsiteRouteOpts :: RouteOpts
+subsiteRouteOpts = setRouteAuthorization NoRouteAuth $
+    unsetRouteHandlerWrapper appRouteOpts
+```
+
+`WaiSubsite` and `EmbeddedStatic` bypass the parent runner, so dispatch
+generation rejects named mount policies for those types. Use
+`WaiSubsiteWithAuth` to apply the parent's middleware and authorization to a
+WAI application. Custom subsite instances must call `ysreParentRunner`; TH
+cannot verify arbitrary instance bodies.
+
+When a subsite route matches, the named check calls the site's `isWriteRequest`
+override. On a subsite 404, there is no route to pass to that method, so the
+default method policy applies: GET, HEAD, OPTIONS, and TRACE are reads; other
+methods are writes. The legacy `isAuthorized` check skips these misses while
+the named mount policy still runs.
 
 The existing `Yesod.isAuthorized` still runs through `defaultYesodMiddleware`.
 Leave its default implementation when moving authorization into fragments.
@@ -293,10 +316,15 @@ Without `setRouteHandlerWrapper`, generation and authorization behave as before.
 The hook also composes with the named `setRouteAuthorization` policies: those
 checks run before the wrapped handler.
 
-`RouteAuthSubtree` demands `authorize<SubtreeName> parentCaptures fragment` in
-both nested and inline compatibility dispatch. Top-level leaves and subsite
-mounts use `authorize<ResourceName> captures` instead; mount authorizers receive
-the ancestor and mount captures, not a child subsite route.
+`RouteAuthSubtree` demands `authorize<SubtreeName> parentCaptures fragment` for
+the nearest enclosing parent of each method-based leaf, in both nested and
+inline compatibility dispatch. Ancestor policies do not compose automatically.
+For `/org/#Int OrgR: /account/#Text AccountR: /item/#Int ItemR GET`, only
+`authorizeAccountR org account (ItemR item)` runs; put any organization access
+check there or call a shared helper from it. A parent containing only other
+parents or mounts needs no subtree binding. Top-level leaves and subsite
+mounts use `authorize<ResourceName> captures`; mount authorizers receive the
+ancestor and mount captures, not a child subsite route.
 
 ## Linking to nested routes
 
@@ -343,8 +371,10 @@ whose subtree has no match falls through to the routes after it.
 Fallthrough is decided per splice: each module containing a parent route
 decides for its own parents. Mixing modules spliced with different options
 gives confusingly inconsistent dispatch, which is why the recipe above defines
-`appRouteOpts`/`appRouteOptsFor` once and uses them everywhere — don't reach
-for `defaultOpts` directly in individual modules.
+`appRouteOpts`/`appRouteOptsFor` once and derives each splice's options from
+them. Keep route-shape and fallthrough settings shared; change focus and
+authorization at the owning splice as described above, and clear the site-only
+authorization options for subsite dispatch.
 
 Related gotcha: a nested parent with *no* leading static path piece matches
 unconditionally, so siblings declared after it are unreachable unless

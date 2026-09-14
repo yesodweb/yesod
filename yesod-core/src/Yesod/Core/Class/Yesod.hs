@@ -462,12 +462,17 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- | Run a dispatch-supplied 'RouteAuthorizer', enforcing its 'AuthResult' with
 -- the same semantics as 'authorizationCheck' ('Authorized' continues,
 -- 'AuthenticationRequired' redirects to 'authRoute' or denies, 'Unauthorized'
--- is a 403). The @isWrite@ flag is computed via 'isWriteRequest' on the
--- current route, exactly as for 'isAuthorized'.
+-- is a 403). With a current route, the @isWrite@ flag is computed via
+-- 'isWriteRequest'. Without one (for example, on a subsite 404 under an
+-- authorized mount), it uses the default method policy: GET, HEAD, OPTIONS,
+-- and TRACE are reads; other methods are writes. A site override cannot be
+-- called without a route. The legacy 'isAuthorized' check skips such misses,
+-- but the supplied mount authorizer still runs.
 --
--- Generated dispatch prefixes this onto the handler (see
--- 'Yesod.Core.yesodRunnerAuth'); it can also be called directly when wiring a
--- 'RouteAuthorizer' by hand.
+-- Generated dispatch prefixes this action onto the handler while preserving
+-- its runner. It can also be called directly when wiring a 'RouteAuthorizer'
+-- by hand. When 'defaultYesodMiddleware' also performs legacy authorization,
+-- the two checks evaluate 'isWriteRequest' separately.
 --
 -- @since 1.7.1.0
 dispatchAuthorizationCheck :: Yesod site => RouteAuthorizer site -> HandlerFor site ()

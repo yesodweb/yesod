@@ -57,9 +57,13 @@ mkYesodOpts
 /sub/#Int SubR:
     /inner  InnerR  GET POST
     /mount/#Int NestedMountR AuthSub getNestedAuthSub
+/static StaticR:
+    /leaf StaticLeafR GET POST
 |]
 
 instance YesodSubDispatch AuthSub AuthApp where
+    -- The locally generated resourcesAuthSub cannot be used in this splice
+    -- because of TH's stage restriction.
     yesodSubDispatch = $(mkYesodSubDispatch [parseRoutes|
 /page PageR GET
 |])
@@ -115,6 +119,13 @@ getInnerR _ = record "handler" >> pure "InnerR"
 postInnerR :: Int -> HandlerFor AuthApp String
 postInnerR _ = record "handler" >> pure "InnerR-post"
 
+getStaticLeafR, postStaticLeafR :: HandlerFor AuthApp String
+getStaticLeafR = record "handler" >> pure "static"
+postStaticLeafR = record "handler" >> pure "static-post"
+
+authorizeStaticLeafR :: RouteAuthorizer AuthApp
+authorizeStaticLeafR = authorizeSecretR
+
 -- Authorizers demanded by dispatch. Reads are allowed; writes are denied, so a
 -- write yields 'permissionDenied' (403).
 authorizeOpenR :: RouteAuthorizer AuthApp
@@ -163,6 +174,11 @@ specs = describe "dispatch-supplied route authorization (RouteAuthPerResource)" 
 
     it "denies a write on a nested leaf with 403" $
         assertRequest app "POST" 403 ["sub", "1", "inner"] Nothing
+
+    it "authorizes a leaf under a parent with no dynamic arguments" $ do
+        assertRequest app "GET" 200 ["static", "leaf"] (Just "static")
+        forM_ ["POST", "DELETE"] $ \method ->
+            assertRequest app method 403 ["static", "leaf"] Nothing
 
     it "404s an unmatched path without consulting authorization" $
         assertRequest app "GET" 404 ["nope"] Nothing

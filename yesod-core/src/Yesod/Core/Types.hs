@@ -167,12 +167,13 @@ data AuthResult = Authorized | AuthenticationRequired | Unauthorized !Text
 
 -- | A route-scoped authorization check, supplied by generated dispatch code
 -- rather than the site-wide 'Yesod.Core.isAuthorized'. The 'Bool' is the
--- @isWrite@ flag (computed from the request method, exactly as for
--- 'isAuthorized').
+-- @isWrite@ flag; see 'Yesod.Core.Class.Yesod.dispatchAuthorizationCheck' for
+-- the site's method policy and the fallback when no route matches.
 --
 -- Generated dispatch glues the authorizer onto the handler (see
--- 'Yesod.Core.yesodRunnerAuth'), so it runs inside the site's 'yesodMiddleware'
--- and immediately before the handler body. The site-wide 'isAuthorized' check
+-- 'Yesod.Core.Class.Yesod.dispatchAuthorizationCheck'), so it runs inside the
+-- site's 'Yesod.Core.Class.Yesod.yesodMiddleware' and immediately before the
+-- handler body. The site-wide 'Yesod.Core.Class.Yesod.isAuthorized' check
 -- in 'Yesod.Core.Class.Yesod.authorizationCheck' still runs at its usual
 -- middleware position and is unaffected.
 --

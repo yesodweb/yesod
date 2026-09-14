@@ -118,10 +118,7 @@ mkYesodData = mkYesodDataOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
-mkYesodDataOpts opts name resS =
-    -- Data generation must not run a callback that belongs to dispatch (and
-    -- may reify authorization instances unavailable in this module).
-    fst <$> mkYesodWithParserOpts (unsetRouteHandlerWrapper opts) name False return resS
+mkYesodDataOpts opts = mkYesodDataOnly opts False
 
 
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
@@ -131,8 +128,14 @@ mkYesodSubData = mkYesodSubDataOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
-mkYesodSubDataOpts opts name resS =
-    fst <$> mkYesodWithParserOpts (unsetRouteHandlerWrapper opts) name True return resS
+mkYesodSubDataOpts opts = mkYesodDataOnly opts True
+
+-- Data splices share route-shape options, but must never validate dispatch
+-- policies, invoke handler callbacks, or probe for dispatch instances.
+mkYesodDataOnly :: RouteOpts -> Bool -> String -> [ResourceTree String] -> Q [Dec]
+mkYesodDataOnly opts isSub name resources = do
+    (name', args, cxt) <- parseYesodNameQ name
+    fst <$> mkYesodGeneralOptsWith SkipDispatch opts cxt name' args isSub pure resources
 
 
 -- | Run 'parseYesodName' in 'Q', failing the splice with the parse error
@@ -292,7 +295,14 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> (Exp -> Q Exp)            -- ^ unwrap handler
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
-mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
+mkYesodGeneralOpts = mkYesodGeneralOptsWith GenerateDispatch
+
+data DispatchGeneration = GenerateDispatch | SkipDispatch
+
+mkYesodGeneralOptsWith
+    :: DispatchGeneration -> RouteOpts -> [[String]] -> String -> [String]
+    -> Bool -> (Exp -> Q Exp) -> [ResourceTree String] -> Q ([Dec], [Dec])
+mkYesodGeneralOptsWith generation opts appCxt' namestr mtys isSub f resS = do
     appCxt <- buildAppCxt appCxt'
     foundation <- resolveFoundation namestr mtys resS
     -- The explicitly-written args plus the fresh vars filling the reified
@@ -335,8 +345,10 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                     target
                     (rfResources foundation)
 
-    dispatchDec <-
-        mkDispatchInstance opts (rfSite foundation) appCxt tyArgs f (rfResources foundation)
+    dispatchDec <- case generation of
+        GenerateDispatch ->
+            mkDispatchInstance opts (rfSite foundation) appCxt tyArgs f (rfResources foundation)
+        SkipDispatch -> pure []
     parseRouteDec <-
         mkParseRouteInstanceOpts opts tyArgs appCxt (rfSite foundation) (rfResources foundation)
     let rname = mkName $ "resources" ++ namestr

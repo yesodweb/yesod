@@ -23,6 +23,8 @@ data InlineApp a = InlineApp
 
 mkYesodOpts (setRouteAuthorization RouteAuthSubtree defaultOpts) "InlineApp a" [parseRoutes|
 /open OpenR GET
+/static StaticR:
+    /leaf StaticLeafR GET POST
 /org/#Int OrgR:
     / OuterR GET
     /account/#Int AccountR:
@@ -37,6 +39,14 @@ instance Yesod (InlineApp a) where
 
 getOpenR :: HandlerFor (InlineApp a) Text
 getOpenR = pure "open"
+
+getStaticLeafR, postStaticLeafR :: HandlerFor (InlineApp a) Text
+getStaticLeafR = pure "static"
+postStaticLeafR = pure "static-post"
+
+authorizeStaticR :: StaticR -> RouteAuthorizer (InlineApp a)
+authorizeStaticR StaticLeafR = RouteAuthorizer $ \isWrite ->
+    pure $ if isWrite then Unauthorized "static write" else Authorized
 
 getOuterR :: Int -> HandlerFor (InlineApp a) Text
 getOuterR _ = pure "outer"
@@ -74,6 +84,10 @@ authorizeMountR org account mount = RouteAuthorizer $ \_ ->
 specs :: Spec
 specs = describe "subtree authorization in inline compatibility dispatch" $ do
     let request = assertRequest (toWaiApp (InlineApp :: InlineApp ()))
+    it "passes a fragment with no parent captures to its subtree authorizer" $ do
+        request "GET" 200 ["static", "leaf"] (Just "static")
+        forM_ ["POST", "DELETE"] $ \method ->
+            request method 403 ["static", "leaf"] Nothing
     it "authorizes top-level leaves and single-capture subtrees" $ do
         request "GET" 200 ["open"] (Just "open")
         request "GET" 200 ["org", "1"] (Just "outer")

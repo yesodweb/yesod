@@ -11,13 +11,47 @@ module Route.AuthorizationSpec (spec) where
 import Data.IORef
 import Language.Haskell.TH
 import Test.Hspec (Spec, describe, it, shouldBe, shouldReturn)
+import qualified Route.AuthCleared as Cleared
 import Yesod.Core
 import Yesod.Core.Types (YesodRunnerEnv)
 import Yesod.Routes.TH.Dispatch
     ( MkDispatchSettings(..), mkMDS, mkDispatchClause, mkDispatchInstance, mkYesodSubDispatchWith )
-import Yesod.Routes.TH.RenderRoute (roRouteAuth)
 import Yesod.Routes.TH.Types
 import YesodCoreTest.RuntimeHarness (assertRequest)
+
+type RawSubsite = WaiSubsite
+type SubsiteAlias a = a
+
+$(pure [])
+
+mountOptionFailures :: [[[Bool]]]
+mountOptionFailures = $(do
+    let mount sub = ResourceLeaf (Resource "MountR" [] (Subsite sub "getSub") [] True)
+        resources sub = [ResourceParent "MountParentR" True mempty [] [mount sub]]
+        generate opts sub =
+            [ mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure [mount sub]
+            , mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure (resources sub)
+            , mkDispatchInstance (setFocusOnNestedRoute "MountParentR" opts)
+                (ConT ''()) [] NoTyArgs pure (resources sub)
+            , let arg = mkName "a" in mkDispatchInstance opts (ConT ''()) []
+                (toTyArgs [(VarT arg, arg)]) pure (resources sub)
+            ]
+        options =
+            [ defaultOpts
+            , setRouteHandlerWrapper (\handler _ -> handler) defaultOpts
+            , setRouteAuthorization RouteAuthPerResource defaultOpts
+            , setRouteAuthorization RouteAuthSubtree defaultOpts
+            , setRouteHandlerWrapper (\handler _ -> handler) $
+                setRouteAuthorization RouteAuthPerResource defaultOpts
+            ]
+        types =
+            [ ConT ''WaiSubsite
+            , ConT ''RawSubsite
+            , ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite
+            , ConT ''WaiSubsiteWithAuth
+            ]
+        rejected action = recover [| True |] (action >> [| False |])
+    listE [listE [listE (map rejected (generate opts sub)) | opts <- options] | sub <- types])
 
 -- Exercise all public subsite dispatch entry points. The default-options
 -- control must succeed, so an unrelated generator failure cannot satisfy the
@@ -55,19 +89,26 @@ callbackCount = $(do
 
 dataOnlySkipsWrapper :: Bool
 dataOnlySkipsWrapper = $(recover [| False |] $ do
-    let opts = setRouteHandlerWrapper (\_ _ -> fail "dispatch callback ran in a data splice") defaultOpts
-    _ <- mkYesodDataOpts opts "OnlyData" [parseRoutes| / DataR GET |]
-    _ <- mkYesodSubDataOpts opts "OnlySubData" [parseRoutes| / DataR GET |]
+    let opts = setRouteHandlerWrapper (\_ _ -> fail "dispatch callback ran in a data splice") $
+            setRouteAuthorization RouteAuthPerResource defaultOpts
+        resources = [parseRoutes|
+/ DataR GET
+/mount MountR WaiSubsite getSub
+|]
+    _ <- mkYesodDataOpts opts "OnlyData" resources
+    _ <- mkYesodSubDataOpts opts "OnlySubData" resources
     [| True |])
 
-clearedWrapperKeepsPolicy :: Bool
-clearedWrapperKeepsPolicy = $(recover [| False |] $ do
-    let opts = unsetRouteHandlerWrapper $
-            setRouteHandlerWrapper (\_ _ -> fail "cleared wrapper ran") $
-            setRouteAuthorization RouteAuthPerResource defaultOpts
-    _ <- mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure
-        [ResourceLeaf (Resource "ClearedR" [] (Methods Nothing ["GET"]) [] True)]
-    if roRouteAuth opts == RouteAuthPerResource then [| True |] else [| False |])
+namedRunnerCount :: Int
+namedRunnerCount = $(do
+    ref <- runIO $ newIORef (0 :: Int)
+    let settings = (mkMDS pure
+            (runIO (modifyIORef' ref (+ 1)) >> [| yesodRunner |])
+            [| error "no subsites" |]) { mdsRouteAuth = RouteAuthPerResource }
+    _ <- mkDispatchClause NoTyArgs settings
+        [ResourceLeaf (Resource "ManyR" [] (Methods Nothing ["GET", "POST", "PUT", "DELETE"]) [] True)]
+    count <- runIO $ readIORef ref
+    litE $ IntegerL $ fromIntegral count)
 
 data CustomApp = CustomApp (IORef [String])
 
@@ -108,12 +149,23 @@ spec = describe "authorization code generation" $ do
     it "keeps default subsite dispatch and rejects unsupported authorization options" $
         subsiteOptionFailures `shouldBe`
             [replicate 3 False, replicate 3 True, replicate 3 True, replicate 3 True]
+    it "rejects unguarded mounts through flat, inline, and nested dispatch, including aliases" $
+        mountOptionFailures `shouldBe`
+            [ replicate 4 False : replicate 4 (replicate 4 True)
+            , replicate 4 False : replicate 4 (replicate 4 True)
+            , replicate 4 False : replicate 4 (replicate 4 True)
+            , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
+            ]
     it "invokes the wrapper once per resource rather than per method or 405" $
         callbackCount `shouldBe` 2
-    it "does not run dispatch callbacks in data-only splices" $
+    it "does not run dispatch callbacks or mount validation in data-only splices" $
         dataOnlySkipsWrapper `shouldBe` True
-    it "can clear a shared wrapper while retaining named authorization" $
-        clearedWrapperKeepsPolicy `shouldBe` True
+    it "generates one runner per named leaf and one for 404, regardless of method count" $
+        namedRunnerCount `shouldBe` 2
+    it "can clear a shared wrapper and serve an authorized read" $
+        assertRequest Cleared.app "GET" 200 [] (Just "cleared")
+    it "retains named authorization after clearing a wrapper, including a 405" $
+        assertRequest Cleared.app "POST" 403 [] Nothing
     it "retains a custom runner when authorization succeeds" $ do
         ref <- newIORef []
         assertRequest (toWaiApp (CustomApp ref)) "GET" 200 [] (Just "custom")

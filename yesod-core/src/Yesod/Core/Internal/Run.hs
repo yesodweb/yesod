@@ -18,7 +18,6 @@ module Yesod.Core.Internal.Run
   , safeEh
   , runFakeHandler
   , yesodRunner
-  , yesodRunnerAuth
   , yesodRender
   , resolveApproot
   )
@@ -305,29 +304,6 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           }
   _ <- runResourceT $ yapp fakeRequest
   I.readIORef ret
-
--- | Like 'yesodRunner', but glues a dispatch-supplied 'RouteAuthorizer' onto
--- the front of the handler. The authorizer runs inside the site's
--- 'yesodMiddleware', after the site-wide @isAuthorized@ check in
--- 'defaultYesodMiddleware' and immediately before the handler body, denying
--- with the usual
--- 'AuthResult' semantics. @yesodRunnerAuth Nothing@ is exactly 'yesodRunner'.
---
--- Generated dispatch uses the same handler prefix when 'setRouteAuthorization'
--- demands per-route authorizer bindings, preserving any custom runner. The
--- authorizer is baked into the generated code, so there is no runtime
--- registration or environment threading to configure.
---
--- @since 1.7.1.0
-yesodRunnerAuth :: forall res site . (ToTypedContent res, Yesod site)
-            => Maybe (RouteAuthorizer site)
-            -> HandlerFor site res
-            -> YesodRunnerEnv site
-            -> Maybe (Route site)
-            -> Application
-yesodRunnerAuth Nothing handler' = yesodRunner handler'
-yesodRunnerAuth (Just auth) handler' =
-    yesodRunner (dispatchAuthorizationCheck auth >> handler')
 
 yesodRunner :: forall res site . (ToTypedContent res, Yesod site)
             => HandlerFor site res

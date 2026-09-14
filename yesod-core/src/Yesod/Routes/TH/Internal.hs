@@ -26,6 +26,18 @@ conPCompat n pats = ConP n
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
 
+-- | A type-variable binder's name, independent of the flag introduced in
+-- template-haskell 2.17.
+#if MIN_VERSION_template_haskell(2,17,0)
+tyVarBndrName :: TyVarBndr flag -> Name
+tyVarBndrName (PlainTV name _) = name
+tyVarBndrName (KindedTV name _ _) = name
+#else
+tyVarBndrName :: TyVarBndr -> Name
+tyVarBndrName (PlainTV name) = name
+tyVarBndrName (KindedTV name _) = name
+#endif
+
 mkTupE :: [Exp] -> Exp
 mkTupE =
     TupE

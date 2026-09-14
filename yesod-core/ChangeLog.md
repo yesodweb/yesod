@@ -7,17 +7,22 @@
   `YesodDispatchNested` instance instead of a single site-wide `isAuthorized`.
     * New `RouteAuthorizer` type, `dispatchAuthorizationCheck` (enforces a
       `RouteAuthorizer`'s `AuthResult` with the same semantics as
-      `authorizationCheck`), and `yesodRunnerAuth`, which glues the check onto
-      the front of the handler. The check runs inside the site's
+      `authorizationCheck`). Generated dispatch prefixes this action onto the
+      handler while preserving its runner. The check runs inside the site's
       `yesodMiddleware` and immediately before the handler body; the site-wide
       `isAuthorized` check is untouched and still runs at its usual position.
     * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
       `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
       set, generated dispatch references an `authorize<Name>` binding that must
-      be in scope at the splice — forgetting authorization for a route becomes a
-      compile-time error, exactly like forgetting a handler. This includes
-      subsite mounts, authorized on the parent site. Subsite dispatch splices
-      reject these options instead of silently ignoring them.
+      be in scope for each leaf emitted by that splice. Delegated fragments
+      use their own splice's policy; parent options do not propagate into an
+      existing dispatch instance. `RouteAuthSubtree` selects only the nearest
+      enclosing parent of a method-based leaf, without composing ancestor
+      policies. Top-level leaves and subsite mounts require their own binding.
+      Subsite dispatch splices reject these options instead of ignoring them.
+      Named checks on `WaiSubsite` and `EmbeddedStatic` mounts are rejected
+      because these instances bypass the parent runner. Use `WaiSubsiteWithAuth`
+      for WAI applications; custom subsite instances must honor the parent runner.
     * New opt-in `setRouteHandlerWrapper` on `RouteOpts` accepts a TH hook receiving
       the handler and `WithParentArgs fragment` expressions, allowing a
       user-defined class method to check access, throw on failure, and run the
@@ -27,11 +32,15 @@
       The wrapped handler has type `HandlerFor site TypedContent` in both
       flat and nested dispatch, including 405s. `unsetRouteHandlerWrapper`
       clears a wrapper while preserving other shared route options.
+      Wrappers do not cover subsite mounts; a splice using wrappers and mounts
+      must enable a named mount policy, which also handles subsite 404s.
+      Data-only splices skip dispatch generation, including its validation and
+      callbacks. Named checks without a current route use the default request
+      method classification; the legacy check skips these unmatched routes.
     * Strictly additive: new exports only. No existing type, record, or
       signature changed (`RouteOpts` gained a field, but its constructor is not
-      exported). `yesodRunnerAuth Nothing` is exactly `yesodRunner`, and the
-      default `RouteAuthSpec` is `NoRouteAuth`, so existing sites behave
-      exactly as before.
+      exported). The default `RouteAuthSpec` is `NoRouteAuth` and no wrapper
+      is installed, so existing sites behave exactly as before.
 
 ## 1.7.0.1
 
