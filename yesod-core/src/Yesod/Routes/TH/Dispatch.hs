@@ -401,7 +401,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                         handlerFor mmethod = do
                             handlerE' <- mdsGetHandler mmethod name
                             mdsUnwrapper $ foldl' AppE handlerE' allDyns
-                        runHandler handlerE = do
+                        runHandlerExp handlerE = do
                             runHandlerE <- leafRunnerExp mdsRunHandler mauth
                             pure $ runHandlerE
                                 `AppE` handlerE
@@ -423,7 +423,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                         Nothing ->
                             -- Preserve the legacy runner/handler types when
                             -- no wrapper was requested.
-                            chooseMethod (handlerFor >=> runHandler) (mds405 >>= runHandler)
+                            chooseMethod (handlerFor >=> runHandlerExp) (mds405 >>= runHandlerExp)
                         Just _ -> do
                             -- All arms have one type before calling the user's
                             -- Q action, so it runs once per resource, including
@@ -432,7 +432,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                                 (\method -> [| fmap toTypedContent $(handlerFor method) |])
                                 [| fmap toTypedContent $(mds405) |]
                             wrapped <- wrapRouteHandler handlerWrapper (pure handlerChoice) [] fullRoute
-                            runHandler wrapped
+                            runHandlerExp wrapped
 
                     return (func, finalPat)
 

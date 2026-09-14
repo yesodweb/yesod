@@ -34,8 +34,8 @@ getItemR _ _ _ = pure "item"
 postItemR _ _ _ = pure "posted"
 
 getSub :: NestedApp -> Int -> Int -> Int -> WaiSubsiteWithAuth
-getSub _ _ _ _ = WaiSubsiteWithAuth $ \_ respond ->
-    respond $ responseLBS H.status200 [] "subsite"
+getSub _ _ _ _ = WaiSubsiteWithAuth $ \_ replyToRequest ->
+    replyToRequest $ responseLBS H.status200 [] "subsite"
 
 authorizeAccountR :: Int -> Int -> AccountR -> RouteAuthorizer NestedApp
 authorizeAccountR org account fragment = RouteAuthorizer $ \isWrite ->

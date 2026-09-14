@@ -49,8 +49,8 @@ getFilesR :: Int -> Int -> [Text] -> HandlerFor (InlineApp a) Text
 getFilesR _ _ _ = pure "files"
 
 getSub :: InlineApp a -> Int -> Int -> Int -> WaiSubsiteWithAuth
-getSub _ _ _ _ = WaiSubsiteWithAuth $ \_ respond ->
-    respond $ responseLBS H.status200 [] "subsite"
+getSub _ _ _ _ = WaiSubsiteWithAuth $ \_ replyToRequest ->
+    replyToRequest $ responseLBS H.status200 [] "subsite"
 
 authorizeOpenR :: RouteAuthorizer (InlineApp a)
 authorizeOpenR = RouteAuthorizer $ \_ -> pure Authorized
