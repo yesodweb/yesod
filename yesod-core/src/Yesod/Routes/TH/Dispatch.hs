@@ -12,7 +12,7 @@ module Yesod.Routes.TH.Dispatch
     , SDC(..)
     , mkDispatchInstance
     , mkNestedDispatchInstance
-    , mkNestedSubDispatchInstance
+    , mkNestedDispatchInstanceWith
     , NestedTarget (..)
     , SameSpliceNestedInstances (..)
     , mkMDS
@@ -35,7 +35,6 @@ import Yesod.Core.Types hiding (Body)
 import Yesod.Core.Class.Dispatch
 import Prelude hiding (exp)
 import Yesod.Routes.TH.Internal
-import Web.PathPieces
 import Control.Monad
 import Control.Monad.Reader (ReaderT, runReaderT, asks, local, lift)
 import Data.List (foldl')
@@ -95,17 +94,27 @@ data SDC = SDC
     , reqExp :: Exp
     }
 
+-- | Which phase of clause generation we're in, which is the only thing that
+-- decides how a matched result is wrapped (see 'wrapForPhase'). At the top level
+-- the dispatch result is returned unwrapped; inside a parent's inline children
+-- we generate helper clauses whose enclosing parent must tell a match from a
+-- fall-through miss, so the result is wrapped in 'Just'. Generation starts at
+-- 'TopLevelPhase' and flips to 'NestedPhase' on the first descent (and never
+-- back), so the two phases are a single 'local'.
+data DispatchPhase = TopLevelPhase | NestedPhase
+
+-- | How a matched result is wrapped in a given phase. See 'DispatchPhase'.
+wrapForPhase :: DispatchPhase -> Exp -> Exp
+wrapForPhase TopLevelPhase = id
+wrapForPhase NestedPhase = \e -> ConE 'Just `AppE` e
+
 -- | The reader environment threaded through 'mkDispatchClause's clause
 -- generator. 'envSdc' is the accumulated dispatch context (extended via 'local'
--- as we descend into a parent's children); 'envWrap' is how a matched result is
--- wrapped — 'id' for the top-level (unwrapped) dispatch result, and 'Just' for
--- the inline nested helper clauses, where the enclosing parent needs to tell a
--- match from a fall-through miss. The top-level call starts at 'id' and flips
--- to 'Just' on the first descent (and never back), so the two phases are a
--- single 'local' rather than two functions.
+-- as we descend into a parent's children); 'envPhase' selects how a matched
+-- result is wrapped.
 data Env = Env
     { envSdc :: SDC
-    , envWrap :: Exp -> Exp
+    , envPhase :: DispatchPhase
     }
 
 -- | The monad 'mkDispatchClause's clause generator runs in: 'Q' carrying an
@@ -216,13 +225,14 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
             , reqExp = reqE
             }
     -- Generate the dispatch clauses. 'go' runs in @'ReaderT' 'Env' Q@: the
-    -- top-level call starts with @envWrap = id@ so the top-level resources
-    -- produce the final (unwrapped) dispatch result and report which parents
-    -- need a nested-dispatch instance generated. Descending into a parent's
-    -- inline children flips @envWrap@ to 'Just' (via 'local'), so children are
-    -- 'Just'-wrapped helper clauses the enclosing parent can fall through on;
-    -- their reported names are dropped (only top-level parents matter).
-    let topEnv = Env { envSdc = sdc, envWrap = id }
+    -- top-level call starts at @envPhase = TopLevelPhase@ so the top-level
+    -- resources produce the final (unwrapped) dispatch result and report which
+    -- parents need a nested-dispatch instance generated. Descending into a
+    -- parent's inline children flips @envPhase@ to 'NestedPhase' (via 'local'),
+    -- so children are 'Just'-wrapped helper clauses the enclosing parent can
+    -- fall through on; their reported names are dropped (only top-level parents
+    -- matter).
+    let topEnv = Env { envSdc = sdc, envPhase = TopLevelPhase }
     (childNames, clauses) <- mconcat <$> runReaderT (mapM go resources) topEnv
 
     pure
@@ -238,20 +248,13 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
     liftQ :: Q x -> DispatchM x
     liftQ = lift
 
-    -- Apply the current phase's result wrapper, read from the environment: 'id'
-    -- at the top level (unwrapped dispatch result) and 'Just' once inside a
-    -- parent's inline children, where the parent must tell a match from a
-    -- fall-through miss.
-    wrapResult :: Exp -> DispatchM Exp
-    wrapResult e = asks (($ e) . envWrap)
-
-    -- Wrap a result in 'Just' — the nested-phase 'envWrap'.
-    justE :: Exp -> Exp
-    justE e = ConE 'Just `AppE` e
+    -- The current phase's result wrapper (see 'wrapForPhase').
+    askWrap :: DispatchM (Exp -> Exp)
+    askWrap = asks (wrapForPhase . envPhase)
 
     -- Run an action in the scope of a parent's inline children: extend the
     -- accumulated dynamics and parent constructors with this parent's, and flip
-    -- 'envWrap' to 'Just'. This single 'local' — entered once at the top→nested
+    -- to 'NestedPhase'. This single 'local' — entered once at the top→nested
     -- boundary and never undone — is the entire top-vs-nested phase distinction.
     withChildScope :: [Exp] -> Exp -> DispatchM r -> DispatchM r
     withChildScope dyns constr = local $ \e ->
@@ -260,7 +263,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                  { extraParams = extraParams sdc ++ dyns
                  , extraCons = extraCons sdc ++ [constr]
                  }
-             , envWrap = justE
+             , envPhase = NestedPhase
              }
 
     -- | Generate the dispatch clauses for a resource tree node, plus the
@@ -332,7 +335,8 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
     go (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dyns) <- liftQ $ handlePiecesM pieces
         (chooseMethod, finalPat) <- handleDispatch name dispatch dyns
-        clauseBody <- NormalB <$> wrapResult chooseMethod
+        wrap <- askWrap
+        let clauseBody = NormalB (wrap chooseMethod)
         pure ([], [Clause [mkPathPat finalPat pats] clauseBody []])
 
     -- | Delegate body for a parent that already has a nested-dispatch instance:
@@ -348,10 +352,10 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
     -- | The body of a parent dispatch clause. @helperCall@ runs the parent's
     -- inline helper on the remaining path; per the fallthrough flag we either
     -- fall through on a 'Nothing' (pattern guard) or commit to a 404. The
-    -- matched result is run through the current 'envWrap'.
+    -- matched result is run through the current phase's wrapper.
     parentBody :: Exp -> DispatchM Body
     parentBody helperCall = do
-        wrap <- asks envWrap
+        wrap <- askWrap
         if mdsNestedRouteFallthrough
             then liftQ $ mkGuardedBody helperCall (\match' -> pure (wrap (VarE match')))
             else do
@@ -384,9 +388,9 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                             case mfinalE of
                                 Nothing -> dyns
                                 Just e -> dyns ++ [e]
-                        route' = applyConPieces name dynsMulti
-                        route = foldr AppE route' extraCons
-                        jroute = ConE 'Just `AppE` route
+                        thisRoute = applyConPieces name dynsMulti
+                        fullRoute = foldr AppE thisRoute extraCons
+                        jroute = ConE 'Just `AppE` fullRoute
                         allDyns = extraParams ++ dynsMulti
                     -- Share the check across method arms, including the 405.
                     let mauth = routeAuthorizerExp mdsRouteAuth name allDyns Nothing
@@ -397,7 +401,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                             runHandlerE <- pickRunner
                             handlerE' <- mdsGetHandler mmethod name
                             unwrapped <- mdsUnwrapper $ foldl' AppE handlerE' allDyns
-                            handlerE <- wrapRouteHandler handlerWrapper (pure unwrapped) [] route
+                            handlerE <- wrapRouteHandler handlerWrapper (pure unwrapped) [] fullRoute
                             return $ runHandlerE
                                 `AppE` handlerE
                                 `AppE` envExp
@@ -415,7 +419,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                                     return $ Match (LitP $ StringL method) (NormalB exp) []
                                 match405 <- do
                                     runHandlerE <- pickRunner
-                                    handlerE <- wrapRouteHandler handlerWrapper mds405 [] route
+                                    handlerE <- wrapRouteHandler handlerWrapper mds405 [] fullRoute
                                     let exp = runHandlerE
                                             `AppE` handlerE
                                             `AppE` envExp
@@ -431,14 +435,14 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                     let allDyns = extraParams ++ dyns
                     sub2 <- mkLambda "sub" $ \sub ->
                         pure $ foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) allDyns
-                    route <- mkLambda "sroute" $ \sroute ->
-                        pure $ let route' = applyConPieces name dyns
-                               in foldr AppE (AppE route' $ VarE sroute) extraCons
+                    routeBuilder <- mkLambda "sroute" $ \sroute ->
+                        pure $ let thisRoute = applyConPieces name dyns
+                               in foldr AppE (AppE thisRoute $ VarE sroute) extraCons
                     exp <-
                         [| $(mdsSubDispatcher)
                             $(mdsRunHandler)
                             $(pure sub2)
-                            $(pure route)
+                            $(pure routeBuilder)
                             $(pure envExp)
                             ($(mdsSetPathInfo) $(varE restPath) $(pure reqExp)) |]
                     return (exp, EndRest restPath)
@@ -455,7 +459,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
 -- (either 'yesodDispatchNested' or 'yesodSubDispatchNested').
 nestedDispatchCall
     :: Name
-    -- ^ The dispatch function to call (e.g., 'yesodDispatchNested or 'yesodSubDispatchNested)
+    -- ^ The dispatch function to call (e.g. 'yesodDispatchNested' or 'yesodSubDispatchNested')
     -> String
     -- ^ The name of the nested route (e.g., "FirstFooR")
     -> [Exp]
@@ -615,7 +619,7 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
         -- would then re-emit). Under 'InlineCompat' no nested instances are
         -- generated, so the flat clause must inline as before.
         usesNestedDiscovery =
-            case discoveryMode routeOpts (hasTyArgs tyargs) of
+            case discoveryMode routeOpts tyargs of
                 NestedDiscovery -> True
                 InlineCompat    -> False
         mdsWithNestedDispatch = mds
@@ -663,7 +667,8 @@ mkNestedDispatchInstance routeOpts target master cxt tyargs unwrapper res =
         routeOpts target cxt tyargs unwrapper res
 
 -- | The shared body of the top-level ('mkNestedDispatchInstance') and subsite
--- ('mkNestedSubDispatchInstance') nested-dispatch instance generators. Both
+-- (@mkNestedSubDispatchInstance@, in "Yesod.Core.Internal.TH") nested-dispatch
+-- instance generators. Both
 -- find the target, build the parent-dynamics pattern, generate the dispatch
 -- clauses via 'genNestedDispatchClauses', emit one
 -- 'nestedTargetClass'\/'nestedTargetFn' instance, and recurse into nested
@@ -831,21 +836,6 @@ mkUrlToDispatchRedirectInstances cxt target targetT master = do
             ]
         ]
 
--- | Generate a 'YesodSubDispatchNested' instance for a nested route within
--- a subsite. Parallel to 'mkNestedDispatchInstance' but for the subsite case.
---
--- @since 1.7.0.0
-mkNestedSubDispatchInstance
-    :: RouteOpts
-    -> String       -- ^ target nested route name
-    -> Cxt          -- ^ instance context
-    -> TyArgs -- ^ type arguments
-    -> (Exp -> Q Exp) -- ^ unwrapper
-    -> [ResourceTree Type] -- ^ all resources
-    -> Q [Dec]
-mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper res =
-    mkNestedDispatchInstanceWith SubsiteNested Nothing
-        routeOpts target cxt tyargs unwrapper res
 
 -- | Generate dispatch clauses for nested dispatch instances.
 -- Parameterized by 'NestedTarget' to support both

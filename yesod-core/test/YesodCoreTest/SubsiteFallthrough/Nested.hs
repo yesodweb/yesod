@@ -21,7 +21,7 @@ module YesodCoreTest.SubsiteFallthrough.Nested () where
 
 import Yesod.Core
 import Yesod.Core.Dispatch
-    (mkNestedSubDispatchInstance, TyArgs(..), parseType, dropBracket)
+    (mkNestedSubDispatchInstance, TyArgs(..))
 import Data.Text (Text)
 
 import YesodCoreTest.SubsiteFallthrough.Data
@@ -40,7 +40,7 @@ $(mkNestedSubDispatchInstance
     []
     NoTyArgs
     return
-    (map (fmap (parseType . dropBracket)) resourcesFallOnSub))
+    resourcesFallOnSub)
 
 -- Fallthrough DISABLED subsite (default opts) ------------------------------
 
@@ -56,4 +56,4 @@ $(mkNestedSubDispatchInstance
     []
     NoTyArgs
     return
-    (map (fmap (parseType . dropBracket)) resourcesFallOffSub))
+    resourcesFallOffSub)

@@ -1,18 +1,27 @@
 {-# LANGUAGE TemplateHaskell #-}
+-- | This module pins the constructor set of the generated @FocusNestR@
+-- datatype exactly, so escalate an incomplete 'describeFocus' to an error.
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 
 -- | Regression test for 'mkRouteConsOpts' in focus (module-split) mode.
 --
 -- Previously the focused branch dropped every 'ResourceLeaf' among the
 -- target's children (returning @([], [])@ for leaves), so the focused
 -- datatype was generated without its leaf constructors. Here we splice a
--- datatype built directly from 'mkRouteConsOpts'' focused output and then
--- /reference each leaf constructor by name/, so the test fails to compile if
--- any leaf constructor is missing from the generated datatype.
+-- datatype built directly from 'mkRouteConsOpts'' focused output, then assert
+-- its constructor set is /exactly/ what we expect via a total 'case':
+--
+--   * a /missing/ constructor fails the pattern reference (a name that isn't
+--     in scope), and
+--   * an /extra/ constructor makes 'describeFocus' non-exhaustive, which
+--     @-Werror=incomplete-patterns@ (set above) turns into a compile error.
+--
+-- So this module fails to build unless @FocusNestR@ has precisely the two leaf
+-- constructors @FocusIndexR@ and @FocusShowR Int@.
 module Route.FocusLeafConsSpec (spec) where
 
 import Test.Hspec
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax (lift)
 import Yesod.Routes.TH.Types
 import Yesod.Routes.TH.RenderRoute
     ( mkRouteConsOpts
@@ -44,30 +53,21 @@ $(do
             NoTyArgs
             (ConT ''App)
             routes
-    -- Also bind @focusNestConNames :: [String]@ to the names of exactly the
-    -- constructors 'mkRouteConsOpts' returned, so the spec can assert the
-    -- complete constructor set — nothing missing, and nothing extra. (Built in
-    -- the same splice because a later splice cannot 'reify' a datatype this
-    -- one declares — the same-module limitation the probe/arity Types modules
-    -- exist to work around.)
-    let conName con = case con of
-            NormalC n _ -> pure (nameBase n)
-            RecC n _ -> pure (nameBase n)
-            _ -> fail $ "FocusLeafConsSpec: unexpected constructor shape: " <> show con
-    namesE <- lift =<< traverse conName cons
-    let namesName = mkName "focusNestConNames"
-    pure
-        [ DataD [] (mkName "FocusNestR") [] Nothing cons [DerivClause Nothing [ConT ''Show]]
-        , SigD namesName (AppT ListT (ConT ''String))
-        , ValD (VarP namesName) (NormalB namesE) []
-        ])
+    pure [DataD [] (mkName "FocusNestR") [] Nothing cons [DerivClause Nothing [ConT ''Show]]])
+
+-- | Total over every constructor of the generated @FocusNestR@. Naming each
+-- constructor exactly once is what makes this a complete-set assertion: see
+-- the module header for how missing/extra constructors are each rejected at
+-- compile time.
+describeFocus :: FocusNestR -> String
+describeFocus r = case r of
+    FocusIndexR  -> "FocusIndexR"
+    FocusShowR n -> "FocusShowR " ++ show n
 
 spec :: Spec
-spec = describe "mkRouteConsOpts (focus mode)" $ do
-    it "keeps the focused route's leaf constructors" $ do
-        -- These references only typecheck if the constructors exist on the
-        -- generated datatype; the leaf-drop bug omitted them entirely.
-        show FocusIndexR `shouldBe` "FocusIndexR"
-        show (FocusShowR 7) `shouldBe` "FocusShowR 7"
-    it "generates exactly the two leaf constructors and nothing else" $
-        focusNestConNames `shouldBe` ["FocusIndexR", "FocusShowR"]
+spec = describe "mkRouteConsOpts (focus mode)" $
+    it "generates exactly the focused route's leaf constructors" $ do
+        -- The real assertion is at compile time (see 'describeFocus'); these
+        -- just exercise the generated constructors.
+        describeFocus FocusIndexR    `shouldBe` "FocusIndexR"
+        describeFocus (FocusShowR 7) `shouldBe` "FocusShowR 7"

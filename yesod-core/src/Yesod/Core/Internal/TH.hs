@@ -36,6 +36,7 @@ module Yesod.Core.Internal.TH
     , mkYesodSubDispatch
     , mkYesodSubDispatchInstance
     , mkYesodSubDispatchInstanceOpts
+    , mkNestedSubDispatchInstance
 
     , subTopDispatch
 
@@ -129,6 +130,15 @@ mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name True return resS
 
 
+-- | Run 'parseYesodName' in 'Q', failing the splice with the parse error
+-- instead of returning an 'Either'. Shared by the @mkYesod@ and
+-- @mkYesodSubDispatch@ entry points.
+parseYesodNameQ :: String -> Q (String, [String], [[String]])
+parseYesodNameQ name =
+    case parseYesodName name of
+        Left err -> fail err
+        Right a  -> pure a
+
 -- | Parses contexts and type arguments out of name before generating TH.
 mkYesodWithParser :: String                    -- ^ foundation type
                   -> Bool                      -- ^ is this a subsite
@@ -147,9 +157,7 @@ mkYesodWithParserOpts :: RouteOpts                 -- ^ Additional route options
                       -> [ResourceTree String]
                       -> Q([Dec],[Dec])
 mkYesodWithParserOpts opts name isSub f resS = do
-    (name', rest, cxt) <- case parseYesodName name of
-            Left err -> fail err
-            Right a -> pure a
+    (name', rest, cxt) <- parseYesodNameQ name
 
     mkYesodGeneralOpts opts cxt name' rest isSub f resS
 
@@ -198,10 +206,44 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 -- | Convert the parsed-from-source 'String' route types into real 'Type's at a
 -- splice site. A malformed type or an unclosed @#{…}@ bracket surfaces as an
 -- attributed compile error (via 'fail') rather than a raw 'error' thrown lazily
--- when the resulting tree is forced. The pure 'parseType'\/'dropBracket' are
--- kept for callers (e.g. tests) that supply known-good input.
+-- when the resulting tree is forced. This is the single 'String'-to-'Type'
+-- boundary: callers downstream only ever handle @['ResourceTree' 'Type']@.
 parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
 parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
+
+-- | Generate a @YesodSubDispatchNested@ instance for a nested route within a
+-- subsite, for hand-written split-route modules (see the subsite-splitting
+-- recipe in @docs/split-route-compilation.md@).
+--
+-- Takes the resources as @['ResourceTree' 'String']@ — exactly the form the
+-- @parseRoutes@ quasi-quoter produces — and parses them to 'Type' internally
+-- via 'parseResourceTypes', so the caller never touches the partial
+-- 'parseType'\/'dropBracket'. A malformed type fails the splice with an
+-- attributed error instead.
+--
+-- @since 1.7.0.0
+mkNestedSubDispatchInstance
+    :: RouteOpts
+    -> String                -- ^ target nested route name
+    -> Cxt                   -- ^ instance context
+    -> TyArgs                -- ^ type arguments
+    -> (Exp -> Q Exp)        -- ^ unwrapper
+    -> [ResourceTree String] -- ^ all resources (as parsed from source)
+    -> Q [Dec]
+mkNestedSubDispatchInstance routeOpts target cxt tyargs unwrapper resS = do
+    res <- parseResourceTypes resS
+    -- Guard the top target's arity here. 'mkNestedDispatchInstanceWith' only
+    -- arity-checks nested *children*, so without this a hand-written recipe
+    -- pairing a parameterized subsite with an unparameterized target datatype
+    -- would apply the subsite's type args to a kind-'Type' head and surface a
+    -- cryptic kind error from generated code rather than this actionable one.
+    -- A no-op when the datatype is not in scope (unknowable arity) or when the
+    -- arities match.
+    rc <- resolveRouteCon target
+    assertNestedSubArity SubsiteCall (SubsiteName target)
+        (SubsiteArity (tyArgsArity tyargs)) rc
+    mkNestedDispatchInstanceWith SubsiteNested Nothing
+        routeOpts target cxt tyargs unwrapper res
 
 -- | The resolved foundation type shared by 'mkYesodGeneralOpts' and
 -- 'mkYesodSubDispatchInstanceOpts': the @boundNames@ from the explicitly-written
@@ -272,7 +314,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                 -- though the other nested-delegation methods resolve.
                 flatAttrs <- mkRouteAttrsInstance appCxt (rfSite foundation) (rfResources foundation)
                 nestedAttrs <-
-                    case discoveryMode opts (hasTyArgs tyArgs) of
+                    case discoveryMode opts tyArgs of
                         NestedDiscovery ->
                             mkRouteAttrsNestedInstances appCxt tyArgs (rfResources foundation)
                         InlineCompat    -> pure []
@@ -290,7 +332,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
 
     dispatchDec <-
         mkDispatchInstance opts (rfSite foundation) appCxt tyArgs f (rfResources foundation)
-    parseRoute <-
+    parseRouteDec <-
         mkParseRouteInstanceOpts opts tyArgs appCxt (rfSite foundation) (rfResources foundation)
     let rname = mkName $ "resources" ++ namestr
     resourcesDec <-
@@ -304,7 +346,7 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
             else do
                 pure []
     let dataDec = concat
-            [ parseRoute
+            [ parseRouteDec
             , renderRouteDec
             , routeAttrsDec
             , if isJust (roFocusOnNestedRoute opts) then [] else resourcesDec
@@ -362,9 +404,7 @@ mkYesodSubDispatchInstanceOpts
 mkYesodSubDispatchInstanceOpts opts nameStr resS = do
     -- Parse the name string to extract context, type name, and type args
     -- (the same parser the top-level mkYesod entry points use).
-    (namestr, mtys, appCxt') <- case parseYesodName nameStr of
-        Left err -> fail err
-        Right a -> pure a
+    (namestr, mtys, appCxt') <- parseYesodNameQ nameStr
 
     appCxt <- buildAppCxt appCxt'
 
@@ -406,12 +446,9 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
                 [ Clause [] (NormalB subDispatchBody) [] ]
             ]
 
-    -- Find nested routes and generate YesodSubDispatchNested instances
-    let findNested :: [ResourceTree a] -> [String]
-        findNested [] = []
-        findNested (ResourceParent n _ _ _ _ : rest) = n : findNested rest
-        findNested (_ : rest) = findNested rest
-        nestedNames = findNested (rfResources foundation)
+    -- The top-level nested parents, each of which gets a
+    -- YesodSubDispatchNested instance generated below.
+    let nestedNames = [ n | ResourceParent n _ _ _ _ <- rfResources foundation ]
 
     nestedInstances <- fmap mconcat $ forM nestedNames $ \nestedName -> do
         -- Resolve the nested datatype once and reuse it for both the
@@ -442,12 +479,15 @@ mkYesodSubDispatchInstanceOpts opts nameStr resS = do
                     (SubsiteName namestr)
                     (SubsiteArity (tyArgsArity tyArgs))
                     rc
-                -- 'mkNestedSubDispatchInstance' applies 'tyArgs' to the nested
-                -- datatype directly and never consults 'roParameterizedSubroute'
-                -- (it only reads 'roNestedRouteFallthrough'), so passing 'opts'
-                -- through unchanged is correct — forcing 'setParameterizedSubroute'
-                -- here was a no-op.
-                mkNestedSubDispatchInstance
+                -- Call the worker directly with the foundation's
+                -- already-parsed 'Type' resources, rather than re-parsing the
+                -- 'String' resources through the public 'mkNestedSubDispatchInstance'.
+                -- The generator applies 'tyArgs' to the nested datatype directly
+                -- and never consults 'roParameterizedSubroute' (it only reads
+                -- 'roNestedRouteFallthrough'), so passing 'opts' through
+                -- unchanged is correct — forcing 'setParameterizedSubroute' here
+                -- was a no-op.
+                mkNestedDispatchInstanceWith SubsiteNested Nothing
                     opts
                     nestedName appCxt tyArgs return (rfResources foundation)
 

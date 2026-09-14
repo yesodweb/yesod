@@ -25,6 +25,12 @@ import Yesod.Routes.TH.RenderRoute
 import Control.Monad.State.Strict
 import Yesod.Routes.TH.Internal
 
+-- | The trailing @_ -> Nothing@ clause appended to every generated
+-- @parseRoute@\/@parseRouteNested@: a path matching none of the preceding
+-- clauses fails to parse.
+missingRouteClause :: Clause
+missingRouteClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
+
 mkParseRouteInstance :: TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstance =
     mkParseRouteInstanceOpts defaultOpts
@@ -47,14 +53,13 @@ mkParseRouteInstanceFor target ress = do
 -- @since 1.7.0.0
 mkParseRouteInstanceOpts :: RouteOpts -> TyArgs -> Cxt -> Type -> [ResourceTree a] -> Q [Dec]
 mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
-    case discoveryMode routeOpts (hasTyArgs origTyargs) of
+    case discoveryMode routeOpts origTyargs of
         -- Backwards-compatible default: generate a single 'ParseRoute'
         -- instance with all nested routes inlined, and no 'ParseRouteNested'
         -- instances.
         InlineCompat -> do
-            clausess <- mapM (generateParseRouteClausesInline id) unfocusedRess
-            let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
-                allClauses = concat clausess <> [missingClause]
+            clausess <- mapM (buildInlineParseClauses id) unfocusedRess
+            let allClauses = concat clausess <> [missingRouteClause]
             pure
                 [ instanceD cxt (ConT ''ParseRoute `AppT` typ)
                     [ FunD 'parseRoute allClauses
@@ -65,20 +70,15 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
             existingInstances <- existingNestedInstances ress
             (clauses, childNames) <- flip runStateT mempty $ traverse (generateParseRouteClause existingInstances routeOpts) ress
 
-            childInstances <- fmap join $ forM (Set.toList childNames) $ \childName -> do
-                let targetType =
-                        applyTyArgs (ConT (mkName childName)) origTyargs
-                mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } origTyargs cxt targetType ress
+            childInstances <- fmap join $ forM (Set.toList childNames) $ \childName ->
+                mkParseRouteInstanceOpts routeOpts { roFocusOnNestedRoute = Just childName } origTyargs cxt (targetTypeFor childName) ress
 
-            let missingClause = Clause [WildP] (NormalB (ConE 'Nothing)) []
-                allClauses = clauses <> [missingClause]
+            let allClauses = clauses <> [missingRouteClause]
 
             let thisInstance =
                     case roFocusOnNestedRoute routeOpts of
-                        Just target -> do
-                            let targetType =
-                                    applyTyArgs (ConT (mkName target)) origTyargs
-                            instanceD cxt (ConT ''ParseRouteNested `AppT` targetType)
+                        Just target ->
+                            instanceD cxt (ConT ''ParseRouteNested `AppT` targetTypeFor target)
                                 [ FunD 'parseRouteNested allClauses
                                 ]
                         Nothing ->
@@ -88,6 +88,9 @@ mkParseRouteInstanceOpts routeOpts origTyargs cxt typ unfocusedRess =
 
             pure $ thisInstance : childInstances
   where
+    -- The route datatype named by @name@, applied to the site's type arguments.
+    targetTypeFor name = applyTyArgs (ConT (mkName name)) origTyargs
+
     -- Narrow to the focused subtree's children via the shared lookup, failing
     -- loudly (matching Dispatch/RenderRoute) when the target is missing rather
     -- than silently producing an always-'Nothing' 'ParseRouteNested' instance.
@@ -207,47 +210,17 @@ generateParseRouteClause existingInstances routeOpts resourceTree =
     liftQ :: Monad n => n a -> StateT (Set.Set String) n a
     liftQ = Trans.lift
 
-    recordName :: MonadState (Set.Set String) n => String -> n ()
-    recordName name =
-        modify (Set.insert name)
-
+    -- Record that @name@ still needs a 'ParseRouteNested' instance generated.
     -- The instance-existence decision is hoisted out (into @existingInstances@,
     -- computed in 'Q' by the caller), so this stays pure.
     recordNameIfNotInstance name =
-        when (not (name `Set.member` existingInstances)) $
-            recordName name
+        unless (name `Set.member` existingInstances) $
+            modify (Set.insert name)
 
--- | Backwards-compatible inline 'parseRoute' clause generation. Instead of
--- delegating nested routes to 'parseRouteNested', this inlines every nested
--- parent directly into the single 'ParseRoute' instance, wrapping each parsed
--- child route in the accumulated parent constructors. This matches the
--- historical (pre nested route discovery) output and emits no
--- 'ParseRouteNested' instances.
---
--- Crucially it preserves 1.6's /commit-on-parent-prefix/ semantics: a parent
--- contributes exactly one top-level clause that matches its path prefix once,
--- then dispatches the remaining path over its children with a 'Nothing'
--- fallback. So a request whose path matches a parent prefix but none of that
--- parent's children resolves to 'Nothing' here — it does /not/ fall through to
--- later top-level routes — which is what the inline @dispatch@ codegen does
--- too (see 'Yesod.Routes.TH.Dispatch.mkDispatchClause'). Matching the prefix
--- once also avoids re-parsing it per descendant leaf.
---
--- The inline path needs no compiler queries (@reify@\/@lookupTypeName@\/
--- @isInstance@), only fresh names, so it is just 'buildInlineParseClauses' run
--- at @m ~ 'Q'@ — production gets hygienic 'newName' binders, while the same
--- code runs at a pure 'Quote' instance (a monotonic counter) under test.
-generateParseRouteClausesInline
-    :: (Exp -> Exp)
-    -- ^ Wrap a child-route expression in the accumulated parent constructors.
-    -> ResourceTree a
-    -> Q [Clause]
-generateParseRouteClausesInline = buildInlineParseClauses
-
--- | The core of 'generateParseRouteClausesInline'. It assembles the
--- @parseRoute@ clauses for the backwards-compatible inline path directly as
--- AST, drawing fresh names from a 'Quote' name supply and building
--- tuples\/applications by hand rather than through quotation brackets
+-- | Backwards-compatible inline @parseRoute@ clause generation. It assembles
+-- the @parseRoute@ clauses for the inline path directly as AST, drawing fresh
+-- names from a 'Quote' name supply and building tuples\/applications by hand
+-- rather than through quotation brackets
 -- (brackets are monomorphic 'Q' before template-haskell 2.17; the one
 -- exception goes through 'unsafeQToQuote').
 --
@@ -276,6 +249,30 @@ buildInlineParseClauses
     -> ResourceTree a
     -> m [Clause]
 buildInlineParseClauses wrap resourceTree =
+    map matchToClause <$> buildInlineParseMatches wrap resourceTree
+  where
+    -- Each parse match is a single @(path, queryParams)@ pattern with a body,
+    -- which is exactly a top-level @parseRoute@ clause. Total by construction —
+    -- 'Match' and 'Clause' carry the same body\/@where@ shape — so no partial
+    -- destructure is needed.
+    matchToClause :: Match -> Clause
+    matchToClause (Match pat body decs) = Clause [pat] body decs
+
+-- | The matching alternatives behind 'buildInlineParseClauses', one per
+-- resource tree. Producing 'Match'es (rather than 'Clause's) is what lets a
+-- parent splice its children straight into a @case@: a leaf is one
+-- @(path, queryParams)@ alternative, and a parent is one alternative that
+-- matches its path prefix then cases the remaining @(path, queryParams)@ over
+-- its children's alternatives, ending in a @_ -> 'Nothing'@ fallback. At top
+-- level 'buildInlineParseClauses' turns each alternative back into its own
+-- @parseRoute@ clause.
+buildInlineParseMatches
+    :: Quote m
+    => (Exp -> Exp)
+    -- ^ Wrap a child-route expression in the accumulated parent constructors.
+    -> ResourceTree a
+    -> m [Match]
+buildInlineParseMatches wrap resourceTree =
     case resourceTree of
         ResourceLeaf (Resource name pieces dispatch _ _check) -> do
             (pats, dyns) <- handlePiecesM pieces
@@ -293,7 +290,7 @@ buildInlineParseClauses wrap resourceTree =
                         jroute = ConE 'Just `AppE` wrap route
                         pathPat = mkPathPat finalTail pats
                         pat = TupP [pathPat, VarP queryParamsName]
-                    pure [Clause [pat] (NormalB jroute) []]
+                    pure [Match pat (NormalB jroute) []]
 
                 Subsite _ _ -> do
                     restName <- newName "rest"
@@ -313,7 +310,7 @@ buildInlineParseClauses wrap resourceTree =
                             (\ $(varP subName) -> $(pure wrapSub) )
                             (parseRoute ( $(varE restName), $(varE queryParamsName) ) )
                         |]
-                    pure [Clause [pat] (NormalB expr) []]
+                    pure [Match pat (NormalB expr) []]
 
         ResourceParent name _check _attrs pieces children -> do
             (pats, dyns) <- handlePiecesM pieces
@@ -323,24 +320,15 @@ buildInlineParseClauses wrap resourceTree =
                     applyConPieces name dyns `AppE` childRoute
                 wrap' = wrap . parentCon
 
-            -- Build each child's matching clause relative to the remaining
-            -- @(rest, queryParams)@ scope, then fold them into the alternatives
-            -- of a single @case@ that commits at this parent: a child miss
-            -- falls to the @_ -> Nothing@ alternative instead of escaping to a
-            -- sibling top-level route.
-            childClauses <- concat <$> mapM (buildInlineParseClauses wrap') children
+            -- Build each child's matching alternative relative to the remaining
+            -- @(rest, queryParams)@ scope, then fold them into a single @case@
+            -- that commits at this parent: a child miss falls to the
+            -- @_ -> Nothing@ alternative instead of escaping to a sibling
+            -- top-level route.
+            childMatches <- concat <$> mapM (buildInlineParseMatches wrap') children
             let restTup = mkTupE [VarE restName, VarE queryParamsName]
-                childMatches = map clauseToMatch childClauses
                 fallbackMatch = Match WildP (NormalB (ConE 'Nothing)) []
                 caseExpr = CaseE restTup (childMatches ++ [fallbackMatch])
                 pathPat = mkPathPat (EndRest restName) pats
                 pat = TupP [pathPat, VarP queryParamsName]
-            pure [Clause [pat] (NormalB caseExpr) []]
-  where
-    -- A child clause matches the @(path, queryParams)@ tuple with no @where@
-    -- bindings, so it converts directly to a @case@ alternative. (Assert the
-    -- shape we rely on rather than silently dropping non-empty @where@ decls.)
-    clauseToMatch :: Clause -> Match
-    clauseToMatch (Clause [pat] body []) = Match pat body []
-    clauseToMatch c =
-        error $ "buildInlineParseClauses: unexpected child clause shape: " <> show c
+            pure [Match pat (NormalB caseExpr) []]

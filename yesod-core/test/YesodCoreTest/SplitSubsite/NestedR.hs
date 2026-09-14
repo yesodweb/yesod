@@ -20,7 +20,7 @@ module YesodCoreTest.SplitSubsite.NestedR (NestedR(..)) where
 
 import Yesod.Core
 import Yesod.Core.Dispatch
-    (mkNestedSubDispatchInstance, defaultOpts, TyArgs(..), parseType, dropBracket)
+    (mkNestedSubDispatchInstance, defaultOpts, TyArgs(..))
 import Data.Text (Text, pack)
 
 import YesodCoreTest.SplitSubsite.Data
@@ -39,4 +39,4 @@ $(mkNestedSubDispatchInstance
     []        -- no instance context
     NoTyArgs  -- no type arguments (non-parameterized subsite)
     return    -- handler unwrapper
-    (map (fmap (parseType . dropBracket)) resourcesSplitSub))
+    resourcesSplitSub)

@@ -22,7 +22,6 @@ module Yesod.Routes.TH
     , roRouteAuth
     , setRouteAuthorization
     , setRouteHandlerWrapper
-    , nullifyWhenNoParam
     , DiscoveryMode(..)
     , discoveryMode
     , module Yesod.Routes.TH.ParseRoute
@@ -34,7 +33,7 @@ module Yesod.Routes.TH
     , SDC(..)
     , mkDispatchInstance
     , mkNestedDispatchInstance
-    , mkNestedSubDispatchInstance
+    , mkNestedDispatchInstanceWith
     , NestedTarget (..)
     , mkMDS
     , mkYesodSubDispatch

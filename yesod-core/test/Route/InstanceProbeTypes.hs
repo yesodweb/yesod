@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
 
 -- | Datatypes and a stand-in probe class for "Route.InstanceProbeSpec", in
 -- their own module so the spec's compile-time splices can 'reify' them — a
@@ -22,6 +23,11 @@ module Route.InstanceProbeTypes
     , HK (..)
     , HKInst (..)
     , Mono (..)
+      -- * Poly-kinded probe (under-applied instance heads)
+    , ProbePoly
+    , PolyFull (..)
+    , PolyUnapplied (..)
+    , PolyPartial (..)
     ) where
 
 import Data.Kind (Type)
@@ -43,14 +49,21 @@ data HasInst2 a b = HasInst2
 instance Probe (HasInst2 a b)
 
 -- | Arity-1 whose only instance is at a /concrete/ argument. The probe asks
--- \"could any instance match\" ('reifyInstances' returns unifiers, not just
--- exact matches), so probing the abstract @HasInstInt a@ finds the @Int@
--- instance and answers 'True'.
+-- \"could any instance match\". On GHC 9.0+ 'reifyInstances' returns unifiers
+-- (not just exact matches), so probing the abstract @HasInstInt a@ finds the
+-- @Int@ instance and answers 'True'; on GHC < 9.0 'reifyInstances' does not
+-- unify a bare type-variable query head against the concrete instance, so it
+-- answers 'False'. (Real codegen never emits instances at concrete arguments,
+-- so this divergence does not affect nested discovery; see the matching test in
+-- "Route.InstanceProbeSpec".)
 --
--- (An instance at the /unapplied/ constructor — @instance Probe HasInstInt@ —
--- is not a representable case: 'Probe' is 'Type'-kinded exactly like the real
--- nested-discovery classes, so GHC rejects such an instance at its
--- definition site.)
+-- (Instances at an /under-applied/ constructor — the bare @instance Probe
+-- HasInstInt@, or an arity-2 datatype applied to one argument like
+-- @instance Probe (HasInst2 a)@ — can't be written against this 'Type'-kinded
+-- 'Probe': a head of kind @Type -> Type@ is kind-rejected at its definition
+-- site (GHC: \"Expecting one more argument to …; Expected a type, but … has
+-- kind @* -> *@\"). To probe those shapes at all they must be made
+-- representable by a /poly-kinded/ class; see 'ProbePoly' below.)
 data HasInstInt a = HasInstInt
 instance Probe (HasInstInt Int)
 
@@ -74,3 +87,30 @@ instance Probe (HKInst f)
 -- probe answers 'True'.
 data Mono = Mono
 instance Probe Mono
+
+-- | A /poly-kinded/ probe class. Unlike 'Probe' (kind @Type -> Constraint@),
+-- @ProbePoly@ accepts a head of any kind, which makes the under-applied
+-- instance shapes that 'Probe' rejects at their definition site representable —
+-- so we can pin down what 'nestedInstanceExists' does when the only instance is
+-- at such a head. The probe always saturates the datatype to its /own/ arity
+-- (a kind-'Type' head; see 'fullyApplyType'), so these cases also confirm it
+-- queries at the fully-applied head specifically.
+class ProbePoly (a :: k)
+
+-- | Poly-kinded class, instance at the /fully-applied/ head (kind 'Type').
+-- Positive control: the probe saturates @PolyFull@ to @PolyFull a@ and matches.
+data PolyFull a = PolyFull
+instance ProbePoly (PolyFull a)
+
+-- | Instance at the /unapplied/ arity-1 constructor (head kind @Type -> Type@),
+-- representable only because 'ProbePoly' is poly-kinded. The probe saturates to
+-- @PolyUnapplied a@ before querying, so the instance at the bare constructor is
+-- a different head.
+data PolyUnapplied a = PolyUnapplied
+instance ProbePoly PolyUnapplied
+
+-- | Instance at a /partially-applied/ arity-2 constructor (head kind
+-- @Type -> Type@). As 'PolyUnapplied', the full-arity probe head
+-- @PolyPartial a b@ is a different head from the partial instance @PolyPartial a@.
+data PolyPartial a b = PolyPartial
+instance ProbePoly (PolyPartial a)
