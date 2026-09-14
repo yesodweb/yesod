@@ -8,20 +8,25 @@
     * New `RouteAuthorizer` type, `dispatchAuthorizationCheck` (enforces a
       `RouteAuthorizer`'s `AuthResult` with the same semantics as
       `authorizationCheck`), and `yesodRunnerAuth`, which glues the check onto
-      the front of the handler. The check runs after the site's
+      the front of the handler. The check runs inside the site's
       `yesodMiddleware` and immediately before the handler body; the site-wide
       `isAuthorized` check is untouched and still runs at its usual position.
     * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
       `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
       set, generated dispatch references an `authorize<Name>` binding that must
       be in scope at the splice — forgetting authorization for a route becomes a
-      compile-time error, exactly like forgetting a handler.
+      compile-time error, exactly like forgetting a handler. This includes
+      subsite mounts, authorized on the parent site. Subsite dispatch splices
+      reject these options instead of silently ignoring them.
     * New opt-in `setRouteHandlerWrapper` on `RouteOpts` accepts a TH hook receiving
       the handler and `WithParentArgs fragment` expressions, allowing a
       user-defined class method to check access, throw on failure, and run the
       handler on success. Its return type is application-defined, and each
       fragment's dispatch resolves only its own authorization instance. Existing
       `isAuthorized` and named authorization policies keep their behavior.
+      The wrapped handler has type `HandlerFor site TypedContent` in both
+      flat and nested dispatch, including 405s. `unsetRouteHandlerWrapper`
+      clears a wrapper while preserving other shared route options.
     * Strictly additive: new exports only. No existing type, record, or
       signature changed (`RouteOpts` gained a field, but its constructor is not
       exported). `yesodRunnerAuth Nothing` is exactly `yesodRunner`, and the

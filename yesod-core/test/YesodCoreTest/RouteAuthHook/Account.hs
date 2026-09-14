@@ -31,9 +31,7 @@ instance AuthorizeRoute AccountR where
             _ -> Denied "account access denied"
 
 mkYesodDispatchOpts
-    (setFocusOnNestedRoute "AccountR" $
-        setRouteHandlerWrapper
-            (\handler route -> [| requireAuthorized $route >> $handler |]) defaultOpts)
+    (setFocusOnNestedRoute "AccountR" hookRouteOpts)
     "HookApp"
     resourcesHookApp
 

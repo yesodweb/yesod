@@ -164,6 +164,7 @@ test-suite test-routes
                    Route.FocusLeafConsSpec
                    Route.MissingFocusTargetSpec
                    Route.MissingFocusTargetTypes
+                   Route.AuthorizationSpec
                    YesodCoreTest.RenderRouteSpec
                    YesodCoreTest.RenderRouteSpec.TH
 
@@ -304,6 +305,8 @@ test-suite tests
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
                    YesodCoreTest.RouteAuthRuntime
+                   YesodCoreTest.RouteAuthSubtree.Inline
+                   YesodCoreTest.RouteAuthSubtree.Nested
                    YesodCoreTest.RouteAuthHook.Foundation
                    YesodCoreTest.RouteAuthHook.Account
                    YesodCoreTest.RouteAuthHook.Runtime

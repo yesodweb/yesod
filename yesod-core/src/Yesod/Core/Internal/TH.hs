@@ -54,6 +54,7 @@ module Yesod.Core.Internal.TH
     , roRouteAuth
     , setRouteAuthorization
     , setRouteHandlerWrapper
+    , unsetRouteHandlerWrapper
     )
  where
 
@@ -117,7 +118,10 @@ mkYesodData = mkYesodDataOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
-mkYesodDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name False return resS
+mkYesodDataOpts opts name resS =
+    -- Data generation must not run a callback that belongs to dispatch (and
+    -- may reify authorization instances unavailable in this module).
+    fst <$> mkYesodWithParserOpts (unsetRouteHandlerWrapper opts) name False return resS
 
 
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
@@ -127,7 +131,8 @@ mkYesodSubData = mkYesodSubDataOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
-mkYesodSubDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name True return resS
+mkYesodSubDataOpts opts name resS =
+    fst <$> mkYesodWithParserOpts (unsetRouteHandlerWrapper opts) name True return resS
 
 
 -- | Run 'parseYesodName' in 'Q', failing the splice with the parse error

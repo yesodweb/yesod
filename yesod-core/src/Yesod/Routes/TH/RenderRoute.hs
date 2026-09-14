@@ -30,6 +30,7 @@ module Yesod.Routes.TH.RenderRoute
     , setRouteAuthorization
     , roRouteHandlerWrapper
     , setRouteHandlerWrapper
+    , unsetRouteHandlerWrapper
     , DiscoveryMode(..)
     , discoveryMode
     ) where
@@ -90,9 +91,14 @@ data RouteOpts = MkRouteOpts
 -- authorization in the module that owns the handler, so the site's @Yesod@
 -- instance need not import authorizers.
 --
--- The check runs after the site's middleware, immediately before the handler.
+-- The check runs inside the site's middleware, immediately before the handler.
 -- The site's @isAuthorized@ method still runs in 'defaultYesodMiddleware';
 -- applications can leave its default implementation when using this hook.
+-- Subsite mounts demand an authorizer on the parent site. Subsite dispatch
+-- splices reject these options; subsite-local authorization is not supported.
+-- Mount checks run through the parent runner, including subsite 404s. Raw
+-- @WaiSubsite@ bypasses that runner; use @WaiSubsiteWithAuth@ for WAI apps
+-- that should participate in the parent's middleware and authorization.
 --
 -- @since 1.7.1.0
 data RouteAuthSpec
@@ -108,12 +114,17 @@ data RouteAuthSpec
     -- Intended as the migration ramp: one function covers a whole subtree
     -- (e.g. reusing an existing @\<subtree\>IsAuthorized@ that cases over the
     -- fragment).
+    -- Inline compatibility dispatch uses the same binding for the enclosing
+    -- subtree. Top-level leaves and subsite mounts instead demand their own
+    -- @authorize\<ResourceName\>@ binding, applied to that resource's captures.
     | RouteAuthPerResource
     -- ^ Demand one @authorize\<ResourceName\>@ binding per leaf resource,
     -- applied to the same argument spine as the handler:
     -- @authorize\<ResourceName\> dyn1 .. dynN :: 'Yesod.Core.Types.RouteAuthorizer' site@.
     -- The enforced end state: no case expression exists that a wildcard could
     -- defeat.
+    -- This includes subsite mounts, whose authorizers take the mount's
+    -- ancestor and local captures (not the child subsite's route).
     deriving (Eq, Show)
 
 -- | Default options for generating routes.
@@ -130,6 +141,7 @@ data RouteAuthSpec
 --   * 'setNestedRouteFallthrough': 'False' — a nested route that fails to
 --     match throws 'notFound' instead of falling through.
 --   * 'setRouteHandlerWrapper': unset — leave handler expressions unchanged.
+--   * 'setRouteAuthorization': 'NoRouteAuth' — use the site's existing policy.
 --
 -- Use the @set*@ functions to override individual fields.
 --
@@ -245,11 +257,11 @@ setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
 
 -- | Wrap each matched handler expression (first argument), given an expression
 -- of type @WithParentArgs fragment@ (second argument). The result must have
--- the same handler type as the first argument. For example:
+-- type @HandlerFor site TypedContent@, as does the first argument. For example:
 --
 -- @
 -- setRouteHandlerWrapper
---     (\handler route -> [| requireAuthorized $route >> $handler |])
+--     (\\handler route -> [| requireAuthorized $route >> $handler |])
 --     defaultOpts
 -- @
 --
@@ -262,17 +274,27 @@ setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
 -- dispatch supplies @WithParentArgs () fullRoute@, including when nested
 -- routes are inlined for compatibility. This option applies to site handlers;
 -- subsite handlers continue to use their parent runner's authorization policy.
+-- Subsite dispatch splices reject this option; clear it with
+-- 'unsetRouteHandlerWrapper' when deriving subsite options from shared options.
 --
 -- The wrapper runs inside the site's middleware, immediately before the
 -- handler, and also wraps method-mismatch handlers (405). Unmatched paths do
 -- not invoke it. Existing @isAuthorized@ checks and any 'setRouteAuthorization'
 -- policy still run before the wrapped handler.
+-- The TH callback runs once per generated leaf handler, not once per method,
+-- and is not run by data-only splices such as 'mkYesodDataOpts'.
 --
 -- Default: no wrapper. Existing dispatch and authorization are unchanged.
 --
 -- @since 1.7.1.0
 setRouteHandlerWrapper :: (Q Exp -> Q Exp -> Q Exp) -> RouteOpts -> RouteOpts
 setRouteHandlerWrapper wrap rdo = rdo { roRouteHandlerWrapper = Just wrap }
+
+-- | Clear a handler wrapper while retaining all other shared route options.
+--
+-- @since 1.7.1.0
+unsetRouteHandlerWrapper :: RouteOpts -> RouteOpts
+unsetRouteHandlerWrapper rdo = rdo { roRouteHandlerWrapper = Nothing }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --

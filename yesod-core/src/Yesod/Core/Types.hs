@@ -171,7 +171,7 @@ data AuthResult = Authorized | AuthenticationRequired | Unauthorized !Text
 -- 'isAuthorized').
 --
 -- Generated dispatch glues the authorizer onto the handler (see
--- 'Yesod.Core.yesodRunnerAuth'), so it runs after the site's 'yesodMiddleware'
+-- 'Yesod.Core.yesodRunnerAuth'), so it runs inside the site's 'yesodMiddleware'
 -- and immediately before the handler body. The site-wide 'isAuthorized' check
 -- in 'Yesod.Core.Class.Yesod.authorizationCheck' still runs at its usual
 -- middleware position and is unaffected.

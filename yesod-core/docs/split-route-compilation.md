@@ -233,7 +233,10 @@ authRouteOpts = setRouteHandlerWrapper
 function, inspect an application-defined `AuthorizationResult a`, and throw
 `permissionDenied` or `notAuthenticated` on failure. The hook does not require
 Yesod's `AuthResult` or impose a type on the callback's successful result.
-The returned expression must have the same handler type as `handler`.
+The handler expression and returned expression both have type
+`HandlerFor site TypedContent`, including for method-mismatch handlers. The TH
+callback runs once per generated leaf handler and is skipped by data-only
+splices such as `mkYesodDataOpts`.
 
 For class dispatch, your library can define its own `isAuthorized` method and
 use it both from `requireAuthorized` and directly in other handlers:
@@ -255,6 +258,11 @@ so GHC resolves only that fragment's authorization instance. The foundation's
 that delegates to a separately compiled fragment uses the wrapper selected by
 the fragment's splice.
 
+Derive these options from the shared `appRouteOpts` so fallthrough and route
+type settings stay consistent. If the shared options already include a
+wrapper, `unsetRouteHandlerWrapper appRouteOpts` removes it for a splice that
+needs different authorization without resetting the other options.
+
 `WithParentArgs` contains all ancestor captures and the matched fragment,
 including its leaf captures and trailing multipieces. For example,
 `/org/#Int OrgR: /account/#Text AccountR: /item/#Int ItemR GET` supplies
@@ -267,6 +275,13 @@ handler. It also wraps the 405 handler for a matched path with an unsupported
 method, allowing authorization to fail before the 405 is reported. Unmatched
 paths do not invoke it. Subsite handlers continue to use the parent runner's
 authorization policy.
+Subsite dispatch splices reject `setRouteHandlerWrapper` and named route
+authorization options instead of silently ignoring them. Configure named
+authorization on the parent site's subsite mount, and clear the wrapper and
+use `setRouteAuthorization NoRouteAuth` when deriving subsite options.
+Named mount checks also run for a subsite 404. A raw `WaiSubsite` bypasses the
+parent runner; use `WaiSubsiteWithAuth` to apply the parent's middleware and
+authorization to a WAI application.
 
 The existing `Yesod.isAuthorized` still runs through `defaultYesodMiddleware`.
 Leave its default implementation when moving authorization into fragments.
@@ -277,6 +292,11 @@ the legacy `Yesod.isAuthorized` method.
 Without `setRouteHandlerWrapper`, generation and authorization behave as before.
 The hook also composes with the named `setRouteAuthorization` policies: those
 checks run before the wrapped handler.
+
+`RouteAuthSubtree` demands `authorize<SubtreeName> parentCaptures fragment` in
+both nested and inline compatibility dispatch. Top-level leaves and subsite
+mounts use `authorize<ResourceName> captures` instead; mount authorizers receive
+the ancestor and mount captures, not a child subsite route.
 
 ## Linking to nested routes
 

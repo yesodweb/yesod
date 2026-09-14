@@ -307,14 +307,16 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   I.readIORef ret
 
 -- | Like 'yesodRunner', but glues a dispatch-supplied 'RouteAuthorizer' onto
--- the front of the handler. The authorizer runs after the site's
--- 'yesodMiddleware' (including the site-wide @isAuthorized@ check, which is
--- unaffected) and immediately before the handler body, denying with the usual
+-- the front of the handler. The authorizer runs inside the site's
+-- 'yesodMiddleware', after the site-wide @isAuthorized@ check in
+-- 'defaultYesodMiddleware' and immediately before the handler body, denying
+-- with the usual
 -- 'AuthResult' semantics. @yesodRunnerAuth Nothing@ is exactly 'yesodRunner'.
 --
--- This is what generated dispatch calls when 'setRouteAuthorization' demands
--- per-route authorizer bindings — the authorizer is baked into the generated
--- code, so no runtime registration or environment threading exists to forget.
+-- Generated dispatch uses the same handler prefix when 'setRouteAuthorization'
+-- demands per-route authorizer bindings, preserving any custom runner. The
+-- authorizer is baked into the generated code, so there is no runtime
+-- registration or environment threading to configure.
 --
 -- @since 1.7.1.0
 yesodRunnerAuth :: forall res site . (ToTypedContent res, Yesod site)

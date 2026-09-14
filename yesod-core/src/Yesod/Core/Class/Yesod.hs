@@ -140,10 +140,7 @@ class RenderRoute site => Yesod site where
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
     isWriteRequest :: Route site -> HandlerFor site Bool
-    isWriteRequest _ = do
-        wai <- waiRequest
-        return $ W.requestMethod wai `notElem`
-            ["GET", "HEAD", "OPTIONS", "TRACE"]
+    isWriteRequest _ = defaultIsWriteRequest
 
     -- | The default route for authentication.
     --
@@ -475,16 +472,15 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- @since 1.7.1.0
 dispatchAuthorizationCheck :: Yesod site => RouteAuthorizer site -> HandlerFor site ()
 dispatchAuthorizationCheck auth = do
-    isWrite <- getCurrentRoute >>= maybe defaultWrite isWriteRequest
+    isWrite <- getCurrentRoute >>= maybe defaultIsWriteRequest isWriteRequest
     handleAuthResult =<< runRouteAuthorizer auth isWrite
-  where
-    -- No current route should be unreachable here (dispatch always passes the
-    -- matched route), but mirror isWriteRequest's method-based default rather
-    -- than guessing False.
-    defaultWrite = do
-        wai <- waiRequest
-        return $ W.requestMethod wai `notElem`
-            ["GET", "HEAD", "OPTIONS", "TRACE"]
+
+-- Also used when a manually supplied authorizer or a subsite mount runs
+-- without a matched route, so that case follows the class's default policy.
+defaultIsWriteRequest :: HandlerFor site Bool
+defaultIsWriteRequest = do
+    wai <- waiRequest
+    return $ W.requestMethod wai `notElem` ["GET", "HEAD", "OPTIONS", "TRACE"]
 
 -- | Shared enforcement of an 'AuthResult' — the body of 'authorizationCheck',
 -- factored out so 'dispatchAuthorizationCheck' applies identical semantics.

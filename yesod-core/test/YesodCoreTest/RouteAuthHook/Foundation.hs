@@ -22,6 +22,7 @@ mkYesodData "HookApp" [parseRoutes|
 /any AnyR
 /login LoginR GET
 /other-route OtherRouteR GET
+/mixed MixedR GET POST
 /org/#Int OrgR:
     /fallback FallbackR GET
     /account/#Text AccountR:
@@ -50,6 +51,18 @@ requireAuthorized route = do
         Allowed value -> pure value
         Denied message -> permissionDenied message
         NeedsLogin -> notAuthenticated
+
+-- A concrete result type works for flat and nested handlers, including 405s.
+withAuthorization
+    :: AuthorizeRoute route
+    => WithParentArgs route
+    -> HandlerFor (ParentSite route) TypedContent
+    -> HandlerFor (ParentSite route) TypedContent
+withAuthorization route handler = requireAuthorized route >> handler
+
+hookRouteOpts :: RouteOpts
+hookRouteOpts = setRouteHandlerWrapper
+    (\handler route -> [| withAuthorization $route $handler |]) defaultOpts
 
 recordEvent :: String -> HandlerFor HookApp ()
 recordEvent event = do

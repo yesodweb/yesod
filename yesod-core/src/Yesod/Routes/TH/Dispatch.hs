@@ -44,7 +44,7 @@ import Data.Char (toLower)
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
 import Yesod.Core.Class.Dispatch.ToParentRoute (ToParentRoute(..))
-import Yesod.Core.Class.Yesod (Yesod)
+import Yesod.Core.Class.Yesod (Yesod, dispatchAuthorizationCheck)
 
 -- | This datatype describes how to create the dispatch clause for a route
 -- path.
@@ -115,6 +115,7 @@ wrapForPhase NestedPhase = \e -> ConE 'Just `AppE` e
 data Env = Env
     { envSdc :: SDC
     , envPhase :: DispatchPhase
+    , envSubtree :: Maybe String
     }
 
 -- | The monad 'mkDispatchClause's clause generator runs in: 'Q' carrying an
@@ -206,6 +207,7 @@ mkDispatchClauseWithWrapper
     :: forall a b site c. Maybe (Q Exp -> Q Exp -> Q Exp)
     -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
 mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resources = do
+    validateAuthorizationTarget mdsNestedTarget mdsRouteAuth handlerWrapper
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -232,7 +234,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
     -- so children are 'Just'-wrapped helper clauses the enclosing parent can
     -- fall through on; their reported names are dropped (only top-level parents
     -- matter).
-    let topEnv = Env { envSdc = sdc, envPhase = TopLevelPhase }
+    let topEnv = Env { envSdc = sdc, envPhase = TopLevelPhase, envSubtree = Nothing }
     (childNames, clauses) <- mconcat <$> runReaderT (mapM go resources) topEnv
 
     pure
@@ -256,14 +258,15 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
     -- accumulated dynamics and parent constructors with this parent's, and flip
     -- to 'NestedPhase'. This single 'local' — entered once at the top→nested
     -- boundary and never undone — is the entire top-vs-nested phase distinction.
-    withChildScope :: [Exp] -> Exp -> DispatchM r -> DispatchM r
-    withChildScope dyns constr = local $ \e ->
+    withChildScope :: String -> [Exp] -> Exp -> DispatchM r -> DispatchM r
+    withChildScope name dyns constr = local $ \e ->
         let sdc = envSdc e
         in e { envSdc = sdc
                  { extraParams = extraParams sdc ++ dyns
                  , extraCons = extraCons sdc ++ [constr]
                  }
              , envPhase = NestedPhase
+             , envSubtree = Just name
              }
 
     -- | Generate the dispatch clauses for a resource tree node, plus the
@@ -313,7 +316,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                     -- extended scope and 'Just' wrapping; their reported names
                     -- are dropped (only top-level parents matter).
                     childClauses <-
-                        concatMap snd <$> withChildScope dyns constr (mapM go children)
+                        concatMap snd <$> withChildScope name dyns constr (mapM go children)
                     pure $ childClauses ++ [Clause [WildP] (NormalB (ConE 'Nothing)) []]
 
         body <- parentBody helperCall
@@ -375,6 +378,7 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
     handleDispatch :: String -> Dispatch a -> [Exp] -> DispatchM (Exp, PathTail)
     handleDispatch name dispatch' dyns = do
         SDC {..} <- asks envSdc
+        subtree <- asks envSubtree
         liftQ $ case dispatch' of
                 Methods multi methods -> do
                     (finalPat, mfinalE) <-
@@ -392,41 +396,43 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                         fullRoute = foldr AppE thisRoute extraCons
                         jroute = ConE 'Just `AppE` fullRoute
                         allDyns = extraParams ++ dynsMulti
-                    -- Share the check across method arms, including the 405.
-                    let mauth = routeAuthorizerExp mdsRouteAuth name allDyns Nothing
-                        pickRunner = case mauth of
-                            Nothing -> mdsRunHandler
-                            Just _  -> pure (leafRunnerExp 'yesodRunner mauth)
-                        mkRunExp mmethod = do
-                            runHandlerE <- pickRunner
+                    let mauth = routeAuthorizerExp mdsRouteAuth name allDyns
+                            (fmap (\subName -> (subName, extraParams, thisRoute)) subtree)
+                        handlerFor mmethod = do
                             handlerE' <- mdsGetHandler mmethod name
-                            unwrapped <- mdsUnwrapper $ foldl' AppE handlerE' allDyns
-                            handlerE <- wrapRouteHandler handlerWrapper (pure unwrapped) [] fullRoute
-                            return $ runHandlerE
+                            mdsUnwrapper $ foldl' AppE handlerE' allDyns
+                        runHandler handlerE = do
+                            runHandlerE <- leafRunnerExp mdsRunHandler mauth
+                            pure $ runHandlerE
                                 `AppE` handlerE
                                 `AppE` envExp
                                 `AppE` jroute
                                 `AppE` reqExp
 
-                    func <-
-                        case methods of
-                            [] -> mkRunExp Nothing
-                            _ -> do
+                        chooseMethod handlerCase badMethodCase =
+                            if null methods then handlerCase Nothing else do
                                 getMethod <- mdsMethod
                                 let methodE = getMethod `AppE` reqExp
                                 matches <- forM methods $ \method -> do
-                                    exp <- mkRunExp (Just method)
+                                    exp <- handlerCase (Just method)
                                     return $ Match (LitP $ StringL method) (NormalB exp) []
-                                match405 <- do
-                                    runHandlerE <- pickRunner
-                                    handlerE <- wrapRouteHandler handlerWrapper mds405 [] fullRoute
-                                    let exp = runHandlerE
-                                            `AppE` handlerE
-                                            `AppE` envExp
-                                            `AppE` jroute
-                                            `AppE` reqExp
-                                    return $ Match WildP (NormalB exp) []
+                                badMethodExp <- badMethodCase
+                                let match405 = Match WildP (NormalB badMethodExp) []
                                 return $ CaseE methodE $ matches ++ [match405]
+                    func <- case handlerWrapper of
+                        Nothing ->
+                            -- Preserve the legacy runner/handler types when
+                            -- no wrapper was requested.
+                            chooseMethod (handlerFor >=> runHandler) (mds405 >>= runHandler)
+                        Just _ -> do
+                            -- All arms have one type before calling the user's
+                            -- Q action, so it runs once per resource, including
+                            -- the method-mismatch arm.
+                            handlerChoice <- chooseMethod
+                                (\method -> [| fmap toTypedContent $(handlerFor method) |])
+                                [| fmap toTypedContent $(mds405) |]
+                            wrapped <- wrapRouteHandler handlerWrapper (pure handlerChoice) [] fullRoute
+                            runHandler wrapped
 
                     return (func, finalPat)
 
@@ -440,7 +446,8 @@ mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resour
                                in foldr AppE (AppE thisRoute $ VarE sroute) extraCons
                     exp <-
                         [| $(mdsSubDispatcher)
-                            $(mdsRunHandler)
+                            $(leafRunnerExp mdsRunHandler
+                                (routeAuthorizerExp mdsRouteAuth name allDyns Nothing))
                             $(pure sub2)
                             $(pure routeBuilder)
                             $(pure envExp)
@@ -523,8 +530,7 @@ authorizerName name = mkName ("authorize" ++ name)
 --   argument spine.
 -- * 'RouteAuthSubtree': @authorize\<SubtreeName\>@ applied to the parent
 --   dynamics and the route fragment, when an enclosing subtree is known; at a
---   flat top-level leaf (no enclosing subtree) it degrades to per-resource so
---   those leaves are still covered.
+--   top-level leaf or subsite mount it uses the resource's own binding.
 --
 -- @since 1.7.1.0
 routeAuthorizerExp
@@ -551,15 +557,24 @@ wrapRouteHandler (Just wrap) handler parentDyns fragment =
     wrap handler [| WithParentArgs $(pure $ parentArgsExprFromExps parentDyns) $(pure fragment) |]
 wrapRouteHandler Nothing handler _ _ = handler
 
--- | The runner expression for a leaf dispatch clause. With an authorizer it is
--- @'yesodRunnerAuth' ('Just' authExp)@; without one it is the plain
--- @baseRunner@ (e.g. @yesodRunner@), preserving the legacy behavior exactly.
+-- | Prefix authorization while retaining the caller's runner. In particular,
+-- a custom 'mdsRunHandler' must not be replaced by 'yesodRunner'.
 --
 -- @since 1.7.1.0
-leafRunnerExp :: Name -> Maybe Exp -> Exp
-leafRunnerExp baseRunner Nothing = VarE baseRunner
-leafRunnerExp _ (Just authExp) =
-    VarE 'yesodRunnerAuth `AppE` (ConE 'Just `AppE` authExp)
+leafRunnerExp :: Q Exp -> Maybe Exp -> Q Exp
+leafRunnerExp baseRunner Nothing = baseRunner
+leafRunnerExp baseRunner (Just authExp) =
+    [| \handler -> $(baseRunner) (dispatchAuthorizationCheck $(pure authExp) >> handler) |]
+
+-- Subsite handlers have a different monad and no site-owned fragment policy.
+-- Reject unsupported options instead of silently generating unguarded routes.
+validateAuthorizationTarget :: NestedTarget -> RouteAuthSpec -> Maybe (Q Exp -> Q Exp -> Q Exp) -> Q ()
+validateAuthorizationTarget SubsiteNested auth wrapper = do
+    when (auth /= NoRouteAuth) $
+        fail "setRouteAuthorization is not supported by subsite dispatch splices; configure authorization on the parent site's subsite mount."
+    when (isJust wrapper) $
+        fail "setRouteHandlerWrapper is not supported by subsite dispatch splices; use unsetRouteHandlerWrapper and configure authorization on the parent site."
+validateAuthorizationTarget TopLevelNested _ _ = pure ()
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
 -- control of the types, contexts etc. using this combinator. You will
@@ -688,6 +703,7 @@ mkNestedDispatchInstanceWith
     -> [ResourceTree Type]
     -> Q [Dec]
 mkNestedDispatchInstanceWith nestedTarget mmaster routeOpts target cxt tyargs unwrapper res = do
+    validateAuthorizationTarget nestedTarget (roRouteAuth routeOpts) (roRouteHandlerWrapper routeOpts)
     -- Resolve the target subtree from the root exactly once. The recursion into
     -- nested children below threads the already-resolved @(prePieces, subres)@
     -- straight through ('go'), rather than re-passing the full root and walking
@@ -911,7 +927,7 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                                 allDynExps
                                 (Just (curTarget, map VarE parentDynVars, fragmentExp))
                         SubsiteNested -> Nothing
-                    runnerE = leafRunnerExp (nestedTargetRunner nestedTarget) mauth
+                runnerE <- leafRunnerExp (varE $ nestedTargetRunner nestedTarget) mauth
                 body <-
                     [| Just ($(pure runnerE)
                                 $(pure handlerExp)
@@ -932,7 +948,8 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                         -- Top-level: construct YesodSubRunnerEnv directly
                         [| Just (yesodSubDispatch
                             YesodSubRunnerEnv
-                                { ysreParentRunner = yesodRunner
+                                { ysreParentRunner = $(leafRunnerExp [| yesodRunner |]
+                                    (routeAuthorizerExp (roRouteAuth routeOpts) name (map VarE allDynVars) Nothing))
                                 , ysreGetSub = $(pure sub2)
                                 , ysreToParentRoute = $(pure routeLam)
                                 , ysreParentEnv = $(pure yreE)
@@ -1047,6 +1064,7 @@ mkYesodSubDispatchWith = mkYesodSubDispatchWithDelegate NoSameSpliceNestedInstan
 mkYesodSubDispatchWithDelegate
     :: SameSpliceNestedInstances -> RouteOpts -> [ResourceTree a] -> Q Exp
 mkYesodSubDispatchWithDelegate sameSplice routeOpts res = do
+    validateAuthorizationTarget SubsiteNested (roRouteAuth routeOpts) (roRouteHandlerWrapper routeOpts)
     let mds = (mkMDS
                 return
                 [|subHelper|]
