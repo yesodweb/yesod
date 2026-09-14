@@ -7,7 +7,7 @@ import Yesod.Form.Fields (parseTime)
 import Yesod.Form.Types
 
 main :: IO ()
-main = hspec $
+main = hspec $ do
     describe "parseTime" $ mapM_ (\(s, e) -> it s $ parseTime (pack s) `shouldBe` e)
         [ ("01:00:00", Right $ TimeOfDay 1 0 0)
         , ("1:00", Right $ TimeOfDay 1 0 0)

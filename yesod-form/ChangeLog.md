@@ -1,5 +1,30 @@
 # ChangeLog for yesod-form
 
+## 1.7.11
+
+* Add `lookupRawFieldInput`, giving field views access to all raw
+  parameter values the named field was run against — whether from a
+  direct submission or a `runFormPRG` replay. The `Either Text a`
+  argument a view receives only carries the first submitted value, so
+  fields rendering several inputs under one name (e.g. a composite
+  amount-plus-currency field) previously could not restore the user's
+  input after a failed submission.
+
+## 1.7.10.1
+
+* Move the `runFormPRG` integration tests to yesod-test's test suite,
+  removing yesod-form's test-suite dependency on yesod-test. That
+  dependency created a package-level cycle
+  (yesod-test → yesod-form → yesod-test) which broke the Stackage
+  build plan. [#1928](https://github.com/yesodweb/yesod/issues/1928)
+
+## 1.7.10
+
+* Add `runFormPRG`, a `runFormPost` variant for the
+  Post/Redirect/Get pattern: failed submissions are stashed in the session
+  and replayed (input and validation errors) by the next GET.
+  [#1927](https://github.com/yesodweb/yesod/pull/1927)
+
 ## 1.7.9.3
 
 * Support `yesod-core` 1.7

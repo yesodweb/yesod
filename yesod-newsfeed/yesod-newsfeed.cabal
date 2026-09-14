@@ -7,7 +7,7 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Helper functions and data types for producing News feeds.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.8
+cabal-version:   >= 1.10
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     API docs and the README are available at <http://www.stackage.org/package/yesod-newsfeed>
@@ -30,6 +30,7 @@ library
                    , Yesod.Feed
     other-modules:   Yesod.FeedTypes
     ghc-options:     -Wall
+    default-language: Haskell2010
 
 source-repository head
   type:     git

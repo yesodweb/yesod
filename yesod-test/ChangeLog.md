@@ -1,5 +1,12 @@
 # ChangeLog for yesod-test
 
+## 1.7.0.3
+
+* Adopt the `runFormPRG` integration tests from yesod-form's test
+  suite, whose yesod-test dependency created a package-level cycle
+  that broke the Stackage build plan. No library changes.
+  [#1928](https://github.com/yesodweb/yesod/issues/1928)
+
 ## 1.7.0.2
 
 * Support `yesod-core` 1.7

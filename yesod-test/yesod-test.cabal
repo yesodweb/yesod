@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.7.0.2
+version:            1.7.0.3
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -66,9 +66,11 @@ test-suite test
   type:             exitcode-stdio-1.0
   main-is:          main.hs
   hs-source-dirs:   test
+  other-modules:    PRGSpec
   build-depends:
       base
     , bytestring
+    , clientsession
     , containers
     , cookie
     , hspec
