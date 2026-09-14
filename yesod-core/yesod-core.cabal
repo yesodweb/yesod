@@ -288,6 +288,9 @@ test-suite tests
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
                    YesodCoreTest.RouteAuthRuntime
+                   YesodCoreTest.RouteAuthHook.Foundation
+                   YesodCoreTest.RouteAuthHook.Account
+                   YesodCoreTest.RouteAuthHook.Runtime
                    YesodCoreTest.FallthroughMatrix.Resources
                    YesodCoreTest.FallthroughMatrix.FirstFoo
                    YesodCoreTest.FallthroughMatrix.Runtime

@@ -53,6 +53,7 @@ module Yesod.Core.Dispatch
     , setNestedRouteFallthrough
     , RouteAuthSpec(..)
     , setRouteAuthorization
+    , setRouteHandlerWrapper
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires

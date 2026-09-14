@@ -40,6 +40,7 @@ import Control.Monad
 import Control.Monad.Reader (ReaderT, runReaderT, asks, local, lift)
 import Data.List (foldl')
 import Yesod.Routes.TH.Types
+import Yesod.Routes.Class (WithParentArgs(..))
 import Data.Char (toLower)
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
@@ -188,7 +189,14 @@ nestedTargetCallSite SubsiteNested  = SubsiteCall
 -- @since 1.7.0.0 — the leading @[Name]@\/@[Exp]@ parameters were dropped and the
 -- result type changed from @Clause@ to @Q ([String], Clause)@.
 mkDispatchClause :: forall a b site c. TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause tyargs MkDispatchSettings {..} resources = do
+mkDispatchClause = mkDispatchClauseWithWrapper Nothing
+
+-- Keep the existing entry point and settings record unchanged. Only callers
+-- with RouteOpts opt into wrapping matched site handlers.
+mkDispatchClauseWithWrapper
+    :: forall a b site c. Maybe (Q Exp -> Q Exp -> Q Exp)
+    -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
+mkDispatchClauseWithWrapper handlerWrapper tyargs MkDispatchSettings {..} resources = do
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -380,21 +388,16 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
                         route = foldr AppE route' extraCons
                         jroute = ConE 'Just `AppE` route
                         allDyns = extraParams ++ dynsMulti
-                        -- Per-resource authorizer for this leaf (if demanded by
-                        -- 'mdsRouteAuth'); shared by every method arm and the
-                        -- 405 arm so auth runs before a method-mismatch 405 is
-                        -- revealed, exactly as 'isAuthorized' does today. A
-                        -- non-'NoRouteAuth' spec only ever reaches this flat
-                        -- path for the top-level site, whose runner is
-                        -- 'yesodRunner'.
-                        mauth = routeAuthorizerExp mdsRouteAuth name allDyns Nothing
+                    -- Share the check across method arms, including the 405.
+                    let mauth = routeAuthorizerExp mdsRouteAuth name allDyns Nothing
                         pickRunner = case mauth of
                             Nothing -> mdsRunHandler
                             Just _  -> pure (leafRunnerExp 'yesodRunner mauth)
                         mkRunExp mmethod = do
                             runHandlerE <- pickRunner
                             handlerE' <- mdsGetHandler mmethod name
-                            handlerE <- mdsUnwrapper $ foldl' AppE handlerE' allDyns
+                            unwrapped <- mdsUnwrapper $ foldl' AppE handlerE' allDyns
+                            handlerE <- wrapRouteHandler handlerWrapper (pure unwrapped) [] route
                             return $ runHandlerE
                                 `AppE` handlerE
                                 `AppE` envExp
@@ -412,7 +415,7 @@ mkDispatchClause tyargs MkDispatchSettings {..} resources = do
                                     return $ Match (LitP $ StringL method) (NormalB exp) []
                                 match405 <- do
                                     runHandlerE <- pickRunner
-                                    handlerE <- mds405
+                                    handlerE <- wrapRouteHandler handlerWrapper mds405 [] route
                                     let exp = runHandlerE
                                             `AppE` handlerE
                                             `AppE` envExp
@@ -536,6 +539,14 @@ routeAuthorizerExp RouteAuthSubtree name args msubtree =
         Nothing ->
             Just $ foldl' AppE (VarE (authorizerName name)) args
 
+-- | Give the application the actual handler and a typed route value. Keeping
+-- the fragment intact lets a class method resolve in this dispatch module,
+-- without demanding authorization for any other fragment in the foundation.
+wrapRouteHandler :: Maybe (Q Exp -> Q Exp -> Q Exp) -> Q Exp -> [Exp] -> Exp -> Q Exp
+wrapRouteHandler (Just wrap) handler parentDyns fragment =
+    wrap handler [| WithParentArgs $(pure $ parentArgsExprFromExps parentDyns) $(pure fragment) |]
+wrapRouteHandler Nothing handler _ _ = handler
+
 -- | The runner expression for a leaf dispatch clause. With an authorizer it is
 -- @'yesodRunnerAuth' ('Just' authExp)@; without one it is the plain
 -- @baseRunner@ (e.g. @yesodRunner@), preserving the legacy behavior exactly.
@@ -615,7 +626,8 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
                     else NoSameSpliceNestedInstances
             , mdsRouteAuth = roRouteAuth routeOpts
             }
-    (childNames, clause') <- mkDispatchClause tyargs mdsWithNestedDispatch res
+    (childNames, clause') <- mkDispatchClauseWithWrapper
+        (roRouteHandlerWrapper routeOpts) tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
         -- Only generate 'YesodDispatchNested' instances for children when this
         -- site uses nested discovery. A parameterized site that has not opted
@@ -893,7 +905,10 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                     fragmentExp = applyConPieces name dynExpsMulti
                     routeExp = toParentE `AppE` fragmentExp
                     allDynExps = map VarE parentDynVars ++ dynExpsMulti
-                handlerExp <- genHandlerCase name methods allDynExps
+                handlerExp <- case nestedTarget of
+                    TopLevelNested -> wrapRouteHandler (roRouteHandlerWrapper routeOpts)
+                        (genHandlerCase name methods allDynExps) (map VarE parentDynVars) fragmentExp
+                    SubsiteNested -> genHandlerCase name methods allDynExps
                 -- Inject a dispatch-supplied authorizer for the top-level
                 -- nested case (the @YesodDispatchNested@ instances generated
                 -- per @Application.Dispatch.<X>@ module). The subsite case

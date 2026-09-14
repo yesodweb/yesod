@@ -185,6 +185,67 @@ like `data MySub a`), `mkYesodSubDispatchInstance "(MyClass a) => MySub a"
 resourcesMySub` generates the `YesodSubDispatch` and nested instances in one
 splice.
 
+## Authorization in a fragment
+
+`setRouteHandlerWrapper` gives your library an opt-in TH hook with the handler expression first
+and a `WithParentArgs fragment` expression second:
+
+```haskell
+authRouteOpts :: RouteOpts
+authRouteOpts = setRouteHandlerWrapper
+    (\handler route -> [| requireAuthorized $route >> $handler |])
+    appRouteOpts
+```
+
+`requireAuthorized` runs before the handler. It can call your own authorization
+function, inspect an application-defined `AuthorizationResult a`, and throw
+`permissionDenied` or `notAuthenticated` on failure. The hook does not require
+Yesod's `AuthResult` or impose a type on the callback's successful result.
+The returned expression must have the same handler type as `handler`.
+
+For class dispatch, your library can define its own `isAuthorized` method and
+use it both from `requireAuthorized` and directly in other handlers:
+
+```haskell
+import Yesod.Core hiding (isAuthorized)
+
+class RenderRouteNested route => AuthorizeRoute route where
+    isAuthorized
+        :: WithParentArgs route
+        -> HandlerFor (ParentSite route) (AuthorizationResult ())
+```
+
+Here `AuthorizationResult` is your library's type. Put the `AuthorizeRoute`
+instance for a fragment alongside its dispatch, and use `authRouteOpts` in its
+focused splice. Generated dispatch passes that fragment's type to the hook,
+so GHC resolves only that fragment's authorization instance. The foundation's
+`instance Yesod App` needs no imports of those instances. A parent dispatch
+that delegates to a separately compiled fragment uses the wrapper selected by
+the fragment's splice.
+
+`WithParentArgs` contains all ancestor captures and the matched fragment,
+including its leaf captures and trailing multipieces. For example,
+`/org/#Int OrgR: /account/#Text AccountR: /item/#Int ItemR GET` supplies
+`WithParentArgs (orgId, accountName) (ItemR itemId)` to `AccountR`'s wrapper.
+Top-level leaves receive `WithParentArgs () fullRoute`; so do leaves inlined
+for compatibility instead of using nested dispatch.
+
+The wrapper runs inside the site's middleware, immediately before the matched
+handler. It also wraps the 405 handler for a matched path with an unsupported
+method, allowing authorization to fail before the 405 is reported. Unmatched
+paths do not invoke it. Subsite handlers continue to use the parent runner's
+authorization policy.
+
+The existing `Yesod.isAuthorized` still runs through `defaultYesodMiddleware`.
+Leave its default implementation when moving authorization into fragments.
+Calling your library's `isAuthorized` directly checks another fragment without
+requiring a site-wide authorizer; Yesod's `maybeAuthorized` continues to use
+the legacy `Yesod.isAuthorized` method.
+
+Without `setRouteHandlerWrapper`, generation and authorization behave as before.
+The hook also composes with the named `setRouteAuthorization` policies: those
+checks run before the wrapped handler.
+
 ## Linking to nested routes
 
 A nested fragment constructor isn't a `Route App` on its own — its parent may

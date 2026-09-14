@@ -52,6 +52,7 @@ module Yesod.Core.Internal.TH
     , RouteAuthSpec(..)
     , roRouteAuth
     , setRouteAuthorization
+    , setRouteHandlerWrapper
     )
  where
 

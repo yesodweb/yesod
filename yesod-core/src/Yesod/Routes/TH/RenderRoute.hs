@@ -28,6 +28,8 @@ module Yesod.Routes.TH.RenderRoute
     , RouteAuthSpec(..)
     , roRouteAuth
     , setRouteAuthorization
+    , roRouteHandlerWrapper
+    , setRouteHandlerWrapper
     , nullifyWhenNoParam
     , DiscoveryMode(..)
     , discoveryMode
@@ -83,17 +85,19 @@ data RouteOpts = MkRouteOpts
     -- authorizer binding (see 'RouteAuthSpec'). Default: 'NoRouteAuth'.
     --
     -- @since 1.7.1.0
+    , roRouteHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
+    -- ^ An optional handler wrapper. See 'setRouteHandlerWrapper'.
+    --
+    -- @since 1.7.1.0
     }
 
--- | How dispatch should obtain a 'Yesod.Core.Types.RouteAuthorizer' for each
--- generated leaf. This is the mechanism behind decentralized authorization:
--- rather than every request consulting the site-wide @isAuthorized@, the
--- generated dispatch references an authorizer that must be in scope at the
--- splice — so forgetting authorization for a route is a compile-time
--- \"variable not in scope\" error, exactly like forgetting a handler.
+-- | How dispatch should authorize each generated leaf. Dispatch resolves
+-- authorization in the module that owns the handler, so the site's @Yesod@
+-- instance need not import authorizers.
 --
--- The authorizer runs at the same point in the middleware stack as
--- @isAuthorized@ (see 'Yesod.Core.yesodRunnerAuth').
+-- The check runs after the site's middleware, immediately before the handler.
+-- The site's @isAuthorized@ method still runs in 'defaultYesodMiddleware';
+-- applications can leave its default implementation when using this hook.
 --
 -- @since 1.7.1.0
 data RouteAuthSpec
@@ -130,6 +134,7 @@ data RouteAuthSpec
 --     rather than focusing on a single nested route.
 --   * 'setNestedRouteFallthrough': 'False' — a nested route that fails to
 --     match throws 'notFound' instead of falling through.
+--   * 'setRouteHandlerWrapper': unset — leave handler expressions unchanged.
 --
 -- Use the @set*@ functions to override individual fields.
 --
@@ -144,6 +149,7 @@ defaultOpts = MkRouteOpts
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
     , roRouteAuth = NoRouteAuth
+    , roRouteHandlerWrapper = Nothing
     }
 
 -- | If you set this with @routeName@, then the code generation will
@@ -241,6 +247,37 @@ setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
 -- @since 1.7.1.0
 setRouteAuthorization :: RouteAuthSpec -> RouteOpts -> RouteOpts
 setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
+
+-- | Wrap each matched handler expression (first argument), given an expression
+-- of type @WithParentArgs fragment@ (second argument). The result must have
+-- the same handler type as the first argument. For example:
+--
+-- @
+-- setRouteHandlerWrapper
+--     (\handler route -> [| requireAuthorized $route >> $handler |])
+--     defaultOpts
+-- @
+--
+-- @requireAuthorized@ can call a type class method with an application-owned
+-- result type and throw on failure. Each nested dispatch instance needs only
+-- the authorization instance for its own fragment type. No site-wide
+-- authorizer needs to be imported by the site's @Yesod@ instance.
+--
+-- Nested dispatch supplies the fragment and all ancestor captures. Flat
+-- dispatch supplies @WithParentArgs () fullRoute@, including when nested
+-- routes are inlined for compatibility. This option applies to site handlers;
+-- subsite handlers continue to use their parent runner's authorization policy.
+--
+-- The wrapper runs inside the site's middleware, immediately before the
+-- handler, and also wraps method-mismatch handlers (405). Unmatched paths do
+-- not invoke it. Existing @isAuthorized@ checks and any 'setRouteAuthorization'
+-- policy still run before the wrapped handler.
+--
+-- Default: no wrapper. Existing dispatch and authorization are unchanged.
+--
+-- @since 1.7.1.0
+setRouteHandlerWrapper :: (Q Exp -> Q Exp -> Q Exp) -> RouteOpts -> RouteOpts
+setRouteHandlerWrapper wrap rdo = rdo { roRouteHandlerWrapper = Just wrap }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --

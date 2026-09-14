@@ -21,6 +21,7 @@ module Yesod.Routes.TH
     , RouteAuthSpec(..)
     , roRouteAuth
     , setRouteAuthorization
+    , setRouteHandlerWrapper
     , nullifyWhenNoParam
     , DiscoveryMode(..)
     , discoveryMode

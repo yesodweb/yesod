@@ -16,6 +16,12 @@
       set, generated dispatch references an `authorize<Name>` binding that must
       be in scope at the splice — forgetting authorization for a route becomes a
       compile-time error, exactly like forgetting a handler.
+    * New opt-in `setRouteHandlerWrapper` on `RouteOpts` accepts a TH hook receiving
+      the handler and `WithParentArgs fragment` expressions, allowing a
+      user-defined class method to check access, throw on failure, and run the
+      handler on success. Its return type is application-defined, and each
+      fragment's dispatch resolves only its own authorization instance. Existing
+      `isAuthorized` and named authorization policies keep their behavior.
     * Strictly additive: new exports only. No existing type, record, or
       signature changed (`RouteOpts` gained a field, but its constructor is not
       exported). `yesodRunnerAuth Nothing` is exactly `yesodRunner`, and the
