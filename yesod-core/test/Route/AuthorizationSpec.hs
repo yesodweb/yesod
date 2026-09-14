@@ -48,7 +48,9 @@ mountOptionFailures = $(do
             [ ConT ''WaiSubsite
             , ConT ''RawSubsite
             , ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite
+            , ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite)
             , ConT ''WaiSubsiteWithAuth
+            , ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsiteWithAuth)
             ]
         rejected action = recover [| True |] (action >> [| False |])
     listE [listE [listE (map rejected (generate opts sub)) | opts <- options] | sub <- types])
@@ -154,6 +156,8 @@ spec = describe "authorization code generation" $ do
             [ replicate 4 False : replicate 4 (replicate 4 True)
             , replicate 4 False : replicate 4 (replicate 4 True)
             , replicate 4 False : replicate 4 (replicate 4 True)
+            , replicate 4 False : replicate 4 (replicate 4 True)
+            , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
             , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
             ]
     it "invokes the wrapper once per resource rather than per method or 405" $

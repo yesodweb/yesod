@@ -598,19 +598,21 @@ validateMountWrapper _ _ _ = pure ()
 validateMountType :: RouteAuthSpec -> String -> Type -> Q ()
 validateMountType NoRouteAuth _ _ = pure ()
 validateMountType _ resource subsite = do
-    bypass <- runnerBypass [] [] subsite []
+    bypass <- runnerBypass [] subsite []
     forM_ bypass $ \name -> fail $
         "Subsite mount '" ++ resource ++ "' uses " ++ name ++
         ", whose YesodSubDispatch instance bypasses ysreParentRunner, so its " ++
         "named authorizer would never run. Use WaiSubsiteWithAuth for a WAI " ++
         "application, or a subsite instance that honors the parent runner."
   where
-    runnerBypass seen bindings typ args = case typ of
-        AppT f arg -> runnerBypass seen bindings f (arg : args)
-        SigT t _ -> runnerBypass seen bindings t args
-        ParensT t -> runnerBypass seen bindings t args
+    -- GHC rejects recursive type synonyms. A legal alias can still appear
+    -- repeatedly with different arguments, so do not stop at a seen name.
+    runnerBypass bindings typ args = case typ of
+        AppT f arg -> runnerBypass bindings f (arg : args)
+        SigT t _ -> runnerBypass bindings t args
+        ParensT t -> runnerBypass bindings t args
         VarT name -> maybe (pure Nothing)
-            (\t -> runnerBypass seen bindings t args) (lookup name bindings)
+            (\t -> runnerBypass bindings t args) (lookup name bindings)
         ConT unresolved -> do
             name <- fromMaybe unresolved <$> lookupTypeName (show unresolved)
             if name == ''WaiSubsite
@@ -618,16 +620,13 @@ validateMountType _ resource subsite = do
                 else if nameBase name == "EmbeddedStatic" &&
                         nameModule name == Just "Yesod.EmbeddedStatic.Internal"
                     then pure (Just "EmbeddedStatic")
-                    else if name `elem` seen
-                        then pure Nothing
-                        else recover (pure Nothing) $ do
-                            info <- reify name
-                            case info of
-                                TyConI (TySynD _ vars rhs) ->
-                                    runnerBypass (name : seen)
-                                        (zip (map tyVarBndrName vars) args ++ bindings)
-                                        rhs (drop (length vars) args)
-                                _ -> pure Nothing
+                    else recover (pure Nothing) $ do
+                        info <- reify name
+                        case info of
+                            TyConI (TySynD _ vars rhs) ->
+                                runnerBypass (zip (map tyVarBndrName vars) args ++ bindings)
+                                    rhs (drop (length vars) args)
+                            _ -> pure Nothing
         _ -> pure Nothing
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
