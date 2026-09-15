@@ -477,7 +477,7 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- its runner. It can also be called directly when wiring a 'RouteAuthorizer'
 -- by hand. When 'defaultYesodMiddleware' also performs legacy authorization,
 -- the two checks evaluate 'isWriteRequest' separately.
--- See 'Yesod.Core.Dispatch.RouteAuthSpec' for generated check ordering.
+-- See <Yesod-Core-Dispatch.html#t:RouteAuthSpec RouteAuthSpec> for generated check ordering.
 --
 -- @since 1.7.1.0
 dispatchAuthorizationCheck :: Yesod site => RouteAuthorizer site -> HandlerFor site ()

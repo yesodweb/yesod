@@ -170,7 +170,7 @@ data AuthResult = Authorized | AuthenticationRequired | Unauthorized !Text
 -- @isWrite@ flag; see 'Yesod.Core.dispatchAuthorizationCheck' for
 -- the site's method policy and the fallback when no route matches.
 --
--- See 'Yesod.Core.Dispatch.RouteAuthSpec' for generated authorization's scope,
+-- See <Yesod-Core-Dispatch.html#t:RouteAuthSpec RouteAuthSpec> for generated authorization's scope,
 -- runner requirements, and order relative to middleware and handler wrappers.
 --
 -- @since 1.7.1.0
