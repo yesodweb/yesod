@@ -551,7 +551,7 @@ routeAuthorizerExp RouteAuthSubtree name args msubtree =
         Just (subName, parentDyns, fragment) ->
             Just $ foldl' AppE (VarE (authorizerName subName)) (parentDyns ++ [fragment])
         Nothing ->
-            Just $ foldl' AppE (VarE (authorizerName name)) args
+            routeAuthorizerExp RouteAuthPerResource name args Nothing
 
 -- | Give the application the actual handler and a typed route value. Keeping
 -- the fragment intact lets a class method resolve in this dispatch module,
@@ -575,9 +575,10 @@ leafRunnerExp baseRunner (Just authExp) =
 validateAuthorizationTarget :: NestedTarget -> RouteAuthSpec -> Maybe (Q Exp -> Q Exp -> Q Exp) -> Q ()
 validateAuthorizationTarget SubsiteNested auth wrapper =
     forM_ (siteAuthorizationOption (SiteAuthorization auth wrapper)) $ \optionName -> fail $
-        optionName ++ " is not supported by subsite dispatch splices; derive " ++
-        "subsite options with subsiteRouteOpts and configure authorization " ++
-        "on the parent site's subsite mount."
+        optionName ++ " is not supported by subsite dispatch. Configure " ++
+        "authorization on the parent site's subsite mount. For RouteOpts, " ++
+        "derive subsite options with subsiteRouteOpts. For MkDispatchSettings, " ++
+        "keep mdsRouteAuth = NoRouteAuth and mdsHandlerWrapper = Nothing."
 validateAuthorizationTarget TopLevelNested _ _ = pure ()
 
 -- A mount has no fragment value on a subsite 404, so the handler wrapper
@@ -1119,8 +1120,8 @@ mkYesodSubDispatch = mkYesodSubDispatchWith defaultOpts
 -- | Like 'mkYesodSubDispatch', but threads a 'RouteOpts' into the generated
 -- @yesodSubDispatch@ body. 'roNestedRouteFallthrough' controls whether a
 -- subsite's top-level parent clause falls through to a later sibling on an
--- inner miss (mirroring
--- 'mkTopLevelDispatchInstance'). 'mkYesodSubDispatch' keeps the opts-less
+-- inner miss (mirroring 'mkTopLevelDispatchInstance').
+-- 'mkYesodSubDispatch' keeps the opts-less
 -- signature for backwards compatibility.
 -- Authorization options are rejected: configure named checks at the parent
 -- site's mounts, and derive subsite options with 'subsiteRouteOpts'.
