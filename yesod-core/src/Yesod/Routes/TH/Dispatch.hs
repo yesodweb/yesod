@@ -573,11 +573,11 @@ leafRunnerExp baseRunner (Just authExp) =
 -- Subsite handlers have a different monad and no site-owned fragment policy.
 -- Reject unsupported options instead of silently generating unguarded routes.
 validateAuthorizationTarget :: NestedTarget -> RouteAuthSpec -> Maybe (Q Exp -> Q Exp -> Q Exp) -> Q ()
-validateAuthorizationTarget SubsiteNested auth wrapper = do
-    when (auth /= NoRouteAuth) $
-        fail "setRouteAuthorization is not supported by subsite dispatch splices; derive subsite options with subsiteRouteOpts and configure authorization on the parent site's subsite mount."
-    when (isJust wrapper) $
-        fail "setRouteHandlerWrapper is not supported by subsite dispatch splices; derive subsite options with subsiteRouteOpts and configure authorization on the parent site."
+validateAuthorizationTarget SubsiteNested auth wrapper =
+    forM_ (siteAuthorizationOption (SiteAuthorization auth wrapper)) $ \optionName -> fail $
+        optionName ++ " is not supported by subsite dispatch splices; derive " ++
+        "subsite options with subsiteRouteOpts and configure authorization " ++
+        "on the parent site's subsite mount."
 validateAuthorizationTarget TopLevelNested _ _ = pure ()
 
 -- A mount has no fragment value on a subsite 404, so the handler wrapper

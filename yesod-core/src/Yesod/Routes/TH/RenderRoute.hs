@@ -29,6 +29,8 @@ module Yesod.Routes.TH.RenderRoute
     , roRouteAuth
     , setRouteAuthorization
     , roRouteHandlerWrapper
+    , SiteAuthorization(..)
+    , siteAuthorizationOption
     , setRouteHandlerWrapper
     , unsetRouteHandlerWrapper
     , subsiteRouteOpts
@@ -77,16 +79,32 @@ data RouteOpts = MkRouteOpts
     -- Default: 'False'.
     --
     -- @since 1.7.0.0
-    , roRouteAuth :: RouteAuthSpec
-    -- ^ Whether generated dispatch demands a per-route\/per-subtree
-    -- authorizer binding (see 'RouteAuthSpec'). Default: 'NoRouteAuth'.
-    --
-    -- @since 1.7.1.0
-    , roRouteHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
-    -- ^ An optional handler wrapper. See 'setRouteHandlerWrapper'.
-    --
-    -- @since 1.7.1.0
+    , roSiteAuthorization :: SiteAuthorization
     }
+
+-- Keep site-only options together: subsiteRouteOpts clears this whole value,
+-- and the exhaustive positional patterns in siteAuthorizationOption require
+-- an explicit rejection decision whenever a new field is added.
+data SiteAuthorization = SiteAuthorization
+    { saRouteAuth :: RouteAuthSpec
+    , saHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
+    }
+
+defaultSiteAuthorization :: SiteAuthorization
+defaultSiteAuthorization = SiteAuthorization NoRouteAuth Nothing
+
+siteAuthorizationOption :: SiteAuthorization -> Maybe String
+siteAuthorizationOption (SiteAuthorization NoRouteAuth Nothing) = Nothing
+siteAuthorizationOption (SiteAuthorization NoRouteAuth (Just _)) = Just "setRouteHandlerWrapper"
+siteAuthorizationOption (SiteAuthorization _ _) = Just "setRouteAuthorization"
+
+-- | The policy for leaves emitted by this splice; see 'RouteAuthSpec'.
+roRouteAuth :: RouteOpts -> RouteAuthSpec
+roRouteAuth = saRouteAuth . roSiteAuthorization
+
+-- | The optional site handler wrapper; see 'setRouteHandlerWrapper'.
+roRouteHandlerWrapper :: RouteOpts -> Maybe (Q Exp -> Q Exp -> Q Exp)
+roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
 
 -- | How dispatch should authorize each generated leaf. Dispatch resolves
 -- authorization in the module that owns the handler, so the site's @Yesod@
@@ -171,8 +189,7 @@ defaultOpts = MkRouteOpts
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
-    , roRouteAuth = NoRouteAuth
-    , roRouteHandlerWrapper = Nothing
+    , roSiteAuthorization = defaultSiteAuthorization
     }
 
 -- | If you set this with @routeName@, then the code generation will
@@ -269,7 +286,8 @@ setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
 --
 -- @since 1.7.1.0
 setRouteAuthorization :: RouteAuthSpec -> RouteOpts -> RouteOpts
-setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
+setRouteAuthorization spec rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saRouteAuth = spec } }
 
 -- | Wrap each matched handler expression (first argument), given an expression
 -- of type @WithParentArgs fragment@ (second argument). The result must have
@@ -310,13 +328,15 @@ setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
 --
 -- @since 1.7.1.0
 setRouteHandlerWrapper :: (Q Exp -> Q Exp -> Q Exp) -> RouteOpts -> RouteOpts
-setRouteHandlerWrapper wrap rdo = rdo { roRouteHandlerWrapper = Just wrap }
+setRouteHandlerWrapper wrap rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saHandlerWrapper = Just wrap } }
 
 -- | Clear a handler wrapper while retaining all other shared route options.
 --
 -- @since 1.7.1.0
 unsetRouteHandlerWrapper :: RouteOpts -> RouteOpts
-unsetRouteHandlerWrapper rdo = rdo { roRouteHandlerWrapper = Nothing }
+unsetRouteHandlerWrapper rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saHandlerWrapper = Nothing } }
 
 -- | Derive options for a subsite dispatch splice from shared site options.
 -- Clears the named authorization policy and handler wrapper, retaining route
@@ -326,10 +346,7 @@ unsetRouteHandlerWrapper rdo = rdo { roRouteHandlerWrapper = Nothing }
 --
 -- @since 1.7.1.0
 subsiteRouteOpts :: RouteOpts -> RouteOpts
-subsiteRouteOpts rdo = rdo
-    { roRouteAuth = NoRouteAuth
-    , roRouteHandlerWrapper = Nothing
-    }
+subsiteRouteOpts rdo = rdo { roSiteAuthorization = defaultSiteAuthorization }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --
