@@ -9,6 +9,7 @@
 module Route.AuthorizationSpec (spec) where
 
 import Data.IORef
+import Control.Monad (forM_)
 import Language.Haskell.TH
 import Test.Hspec (Spec, describe, it, shouldBe, shouldReturn)
 import qualified Route.AuthCleared as Cleared
@@ -17,6 +18,7 @@ import Yesod.Core.Types (YesodRunnerEnv)
 import Yesod.Routes.TH.Dispatch
     ( MkDispatchSettings(..), mkMDS, mkDispatchClause, mkDispatchInstance, mkYesodSubDispatchWith )
 import Yesod.Routes.TH.Types
+import Yesod.Routes.TH.RenderRoute (roSiteAuthorization)
 import YesodCoreTest.RuntimeHarness (assertRequest)
 
 type RawSubsite = WaiSubsite
@@ -32,40 +34,53 @@ type FamilyAlias = RawFamily ()
 
 $(pure [])
 
-mountOptionFailures :: [[[Bool]]]
+mountOptionFailures :: [(String, [(String, Bool, Bool)])]
 mountOptionFailures = $(do
     let mount sub = ResourceLeaf (Resource "MountR" [] (Subsite sub "getSub") [] True)
         resources sub = [ResourceParent "MountParentR" True mempty [] [mount sub]]
+        generate :: RouteOpts -> Type -> [(String, DecsQ)]
         generate opts sub =
-            [ mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure [mount sub]
-            , mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure (resources sub)
-            , mkDispatchInstance (setFocusOnNestedRoute "MountParentR" opts)
-                (ConT ''()) [] NoTyArgs pure (resources sub)
-            , let arg = mkName "a" in mkDispatchInstance opts (ConT ''()) []
-                (toTyArgs [(VarT arg, arg)]) pure (resources sub)
+            [ ("flat", mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure [mount sub])
+            , ("nested", mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure (resources sub))
+            , ("focused", mkDispatchInstance (setFocusOnNestedRoute "MountParentR" opts)
+                (ConT ''()) [] NoTyArgs pure (resources sub))
+            , ("inline", let arg = mkName "a" in mkDispatchInstance opts (ConT ''()) []
+                (toTyArgs [(VarT arg, arg)]) pure (resources sub))
             ]
-        options =
-            [ defaultOpts
-            , setRouteHandlerWrapper (\handler _ -> handler) defaultOpts
-            , setRouteAuthorization RouteAuthPerResource defaultOpts
-            , setRouteAuthorization RouteAuthSubtree defaultOpts
-            , setRouteHandlerWrapper (\handler _ -> handler) $
-                setRouteAuthorization RouteAuthPerResource defaultOpts
+        options :: Bool -> [(String, RouteOpts, Bool)]
+        options rejectsNamed =
+            [ ("defaults", defaultOpts, False)
+            , ("wrapper only", setRouteHandlerWrapper (\handler _ -> handler) defaultOpts, True)
+            , ("per resource", setRouteAuthorization RouteAuthPerResource defaultOpts, rejectsNamed)
+            , ("subtree", setRouteAuthorization RouteAuthSubtree defaultOpts, rejectsNamed)
+            , ("named and wrapper", setRouteHandlerWrapper (\handler _ -> handler) $
+                setRouteAuthorization RouteAuthPerResource defaultOpts, rejectsNamed)
             ]
+        -- The two concrete types exercise every generator path. Alias/name/
+        -- family cases test the shared validator once per option, with defaults
+        -- as controls. Keep the expected result beside its type and label.
+        types :: [(String, Type, Bool, Bool)]
         types =
-            [ ConT ''WaiSubsite
-            , ConT ''RawSubsite
-            , ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite
-            , ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite)
-            , ConT ''WaiSubsiteWithAuth
-            , ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsiteWithAuth)
-            , ConT (mkName "Missing.WaiSubsite")
-            , ConT ''FamilyAlias
-            , ConT ''NullaryRawFamily
-            , ConT ''SafeFamily `AppT` ConT ''()
+            [ ("raw WAI", ConT ''WaiSubsite, True, True)
+            , ("ordinary raw alias", ConT ''RawSubsite, True, False)
+            , ("applied raw alias", ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite, True, False)
+            , ("repeated raw alias", ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite), True, False)
+            , ("WAI with auth", ConT ''WaiSubsiteWithAuth, False, True)
+            , ("repeated safe alias", ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsiteWithAuth), False, False)
+            , ("unresolved bare name", ConT (mkName "NotImportedSub"), True, False)
+            , ("unresolved qualified name", ConT (mkName "Missing.WaiSubsite"), True, False)
+            , ("type variable", VarT (mkName "sub"), True, False)
+            , ("family alias", ConT ''FamilyAlias, True, False)
+            , ("nullary family", ConT ''NullaryRawFamily, True, False)
+            , ("safe family", ConT ''SafeFamily `AppT` ConT ''(), True, False)
             ]
         rejected action = recover [| True |] (action >> [| False |])
-    listE [listE [listE (map rejected (generate opts sub)) | opts <- options] | sub <- types])
+    listE [ [| (label, $(listE
+        [ [| (option ++ "/" ++ path, $(rejected action), expected) |]
+        | (option, opts, expected) <- options rejectsNamed
+        , (path, action) <- (if allPaths then id else take 1) (generate opts sub)
+        ])) |]
+        | (label, sub, rejectsNamed, allPaths) <- types ])
 
 -- Exercise all public subsite dispatch entry points. The default-options
 -- control must succeed, so an unrelated generator failure cannot satisfy the
@@ -120,7 +135,8 @@ namedRunnerCount = $(do
     ref <- runIO $ newIORef (0 :: Int)
     let settings = (mkMDS pure
             (runIO (modifyIORef' ref (+ 1)) >> [| yesodRunner |])
-            [| error "no subsites" |]) { mdsRouteAuth = RouteAuthPerResource }
+            [| error "no subsites" |])
+            { mdsSiteAuthorization = roSiteAuthorization $ setRouteAuthorization RouteAuthPerResource defaultOpts }
     _ <- mkDispatchClause NoTyArgs settings
         [ResourceLeaf (Resource "ManyR" [] (Methods Nothing ["GET", "POST", "PUT", "DELETE"]) [] True)]
     count <- runIO $ readIORef ref
@@ -129,7 +145,8 @@ namedRunnerCount = $(do
 untypedMountFailures :: [Bool]
 untypedMountFailures = $(do
     let generate policy = mkDispatchClause NoTyArgs
-            ((mkMDS pure [| yesodRunner |] [| error "unused" |]) { mdsRouteAuth = policy })
+            ((mkMDS pure [| yesodRunner |] [| error "unused" |])
+                { mdsSiteAuthorization = roSiteAuthorization $ setRouteAuthorization policy defaultOpts })
             [ResourceLeaf (Resource "MountR" [] (Subsite "WaiSubsite" "getSub") [] True)]
     listE [recover [| True |] (generate policy >> [| False |])
         | policy <- [NoRouteAuth, RouteAuthPerResource, RouteAuthSubtree]])
@@ -154,7 +171,7 @@ customRunner handler = yesodRunner (record "runner" >> handler)
 
 do
     let settings = (mkMDS pure [| customRunner |] [| error "no subsites in this fixture" |])
-            { mdsRouteAuth = RouteAuthPerResource }
+            { mdsSiteAuthorization = roSiteAuthorization $ setRouteAuthorization RouteAuthPerResource defaultOpts }
     (_, clause) <- mkDispatchClause NoTyArgs settings
         [ResourceLeaf (Resource "CustomR" [] (Methods Nothing ["GET"]) [] True)]
     pure [InstanceD Nothing [] (ConT ''YesodDispatch `AppT` ConT ''CustomApp)
@@ -173,19 +190,10 @@ spec = describe "authorization code generation" $ do
     it "keeps default subsite dispatch and rejects unsupported authorization options" $
         subsiteOptionFailures `shouldBe`
             [replicate 3 False, replicate 3 True, replicate 3 True, replicate 3 True, replicate 3 False]
-    it "rejects unguarded mounts through flat, inline, and nested dispatch, including aliases" $
-        mountOptionFailures `shouldBe`
-            [ replicate 4 False : replicate 4 (replicate 4 True)
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
-            , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            , replicate 4 False : replicate 4 (replicate 4 True)
-            ]
+    forM_ mountOptionFailures $ \(label, results) ->
+        describe ("mount: " ++ label) $
+            forM_ results $ \(scenario, actual, expected) ->
+                it scenario $ actual `shouldBe` expected
     it "rejects named mounts when the generic generator cannot validate their types" $
         untypedMountFailures `shouldBe` [False, True, True]
     it "invokes the wrapper once per resource rather than per method or 405" $

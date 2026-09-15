@@ -260,8 +260,7 @@ so GHC resolves only that fragment's authorization instance. The foundation's
 that delegates to a separately compiled fragment uses the wrapper and named
 authorization policy selected by the fragment's splice. Neither option is
 inherited from the parent, and the parent cannot check which policy an opaque
-existing instance used. A named policy warns when delegating to an existing
-instance. Configure and test each fragment's dispatch explicitly.
+existing instance used. Configure and test each fragment's dispatch explicitly.
 
 Derive these options from the shared `appRouteOpts` so fallthrough and route
 type settings stay consistent. If the shared options already include a
@@ -284,10 +283,12 @@ inside a mounted subsite. A splice with a wrapper and a mount must also enable
 `authorize<MountName>` with the ancestor and mount captures. TH rejects
 wrapper-only mounts. Enabling a named policy requires bindings for every
 leaf emitted by that splice, even those already guarded by the wrapper.
-To keep other leaves wrapper-only, place the mount in its own focused dispatch
-splice. The named mount policy runs through the parent runner,
-including on a subsite 404, where there is no subsite route value to supply to
-the wrapper.
+To keep other leaves wrapper-only, place the mount alone under a parent route
+and focus a named dispatch splice on that parent. A mount leaf cannot itself
+be a focus target; focusing an existing parent also emits its other leaves,
+which would need named bindings. The named mount policy runs through the parent
+runner, including on a subsite 404, where there is no subsite route value to
+supply to the wrapper.
 
 Subsite dispatch splices reject both authorization options. Derive their
 options from the shared value:
@@ -299,8 +300,8 @@ appSubsiteOpts = subsiteRouteOpts authRouteOpts
 
 `WaiSubsite` and `EmbeddedStatic` bypass the parent runner. Dispatch generation
 rejects direct named mounts of these types, along with unresolved type names
-and type families. Import the concrete subsite type in the dispatch module;
-ordinary type synonyms are supported. Use `WaiSubsiteWithAuth` to apply the
+and type variables or type families. Import the concrete subsite type in the
+dispatch module; ordinary type synonyms are supported. Use `WaiSubsiteWithAuth` to apply the
 parent's middleware and authorization to a WAI application.
 
 This runner requirement applies at every level: mounting a `WaiSubsite` or

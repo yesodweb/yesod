@@ -16,8 +16,7 @@
       set, generated dispatch references an `authorize<Name>` binding that must
       be in scope for each leaf emitted by that splice. Delegated fragments
       use their own splice's policy; parent options do not propagate into an
-      existing dispatch instance, and delegation under a named policy warns
-      about that boundary. `RouteAuthSubtree` selects only the nearest
+      existing dispatch instance. `RouteAuthSubtree` selects only the nearest
       enclosing parent of a method-based leaf, without composing ancestor
       policies. Top-level leaves and subsite mounts require their own binding.
       Subsite dispatch splices reject these options instead of ignoring them.
@@ -25,8 +24,8 @@
       because these instances bypass the parent runner. Use `WaiSubsiteWithAuth`
       for WAI applications at every level: all transitive subsite dispatch must
       honor the parent runner, which TH cannot verify. Unresolved mount type
-      names and type families are rejected; import concrete types or ordinary
-      aliases in the dispatch module.
+      names, type variables, and type families are rejected; import concrete
+      types or ordinary aliases in the dispatch module.
     * New opt-in `setRouteHandlerWrapper` on `RouteOpts` accepts a TH hook receiving
       the handler and `WithParentArgs fragment` expressions, allowing a
       user-defined class method to check access, throw on failure, and run the

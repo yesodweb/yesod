@@ -31,6 +31,7 @@ import qualified YesodCoreTest.RouteAuthLogin as RouteAuthLogin
 import qualified YesodCoreTest.RouteAuthSubtree.Inline as RouteAuthSubtreeInline
 import qualified YesodCoreTest.RouteAuthSubtree.Nested as RouteAuthSubtreeNested
 import qualified YesodCoreTest.RouteAuthHook.Runtime as RouteAuthHook
+import qualified YesodCoreTest.RouteAuthSplit.Runtime as RouteAuthSplit
 import qualified YesodCoreTest.FallthroughMatrix.Runtime as FallthroughMatrixRuntime
 import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
 import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
@@ -119,6 +120,7 @@ specs = do
       RouteAuthSubtreeInline.specs
       RouteAuthSubtreeNested.specs
       RouteAuthHook.specs
+      RouteAuthSplit.specs
       FallthroughMatrixRuntime.specs
       MultiPieceNestedRuntime.specs
       ZeroPieceShadowRuntime.specs

@@ -313,6 +313,9 @@ test-suite tests
                    YesodCoreTest.RouteAuthHook.Foundation
                    YesodCoreTest.RouteAuthHook.Account
                    YesodCoreTest.RouteAuthHook.Runtime
+                   YesodCoreTest.RouteAuthSplit.Foundation
+                   YesodCoreTest.RouteAuthSplit.Admin
+                   YesodCoreTest.RouteAuthSplit.Runtime
                    YesodCoreTest.FallthroughMatrix.Resources
                    YesodCoreTest.FallthroughMatrix.FirstFoo
                    YesodCoreTest.FallthroughMatrix.Runtime

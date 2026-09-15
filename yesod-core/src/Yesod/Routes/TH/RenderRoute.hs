@@ -30,6 +30,10 @@ module Yesod.Routes.TH.RenderRoute
     , setRouteAuthorization
     , roRouteHandlerWrapper
     , SiteAuthorization(..)
+    , roSiteAuthorization
+    , defaultSiteAuthorization
+    , SiteAuthorizationMode(..)
+    , siteAuthorizationMode
     , siteAuthorizationOption
     , setRouteHandlerWrapper
     , unsetRouteHandlerWrapper
@@ -80,29 +84,70 @@ data RouteOpts = MkRouteOpts
     --
     -- @since 1.7.0.0
     , roSiteAuthorization :: SiteAuthorization
+    -- ^ Site-only authorization settings, shared with dispatch generation.
+    --
+    -- @since 1.7.1.0
     }
 
--- Keep site-only options together: subsiteRouteOpts clears this whole value,
--- and the exhaustive positional patterns in siteAuthorizationOption require
--- an explicit rejection decision whenever a new field is added.
+-- | Site-only options passed as one value through route and dispatch settings.
+-- 'subsiteRouteOpts' clears the whole value. The positional patterns in
+-- 'siteAuthorizationMode' require a validation decision for every new field.
+--
+-- @since 1.7.1.0
 data SiteAuthorization = SiteAuthorization
     { saRouteAuth :: RouteAuthSpec
+    -- ^ Named authorization policy for emitted leaves.
+    --
+    -- @since 1.7.1.0
     , saHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
+    -- ^ Optional site handler wrapper; see 'setRouteHandlerWrapper'.
+    --
+    -- @since 1.7.1.0
     }
 
+-- | No named policy or handler wrapper.
+--
+-- @since 1.7.1.0
 defaultSiteAuthorization :: SiteAuthorization
 defaultSiteAuthorization = SiteAuthorization NoRouteAuth Nothing
 
+-- | Authorization configurations distinguished by subsite and mount validation.
+--
+-- @since 1.7.1.0
+data SiteAuthorizationMode
+    = Unconfigured
+    -- ^ Neither authorization option is enabled.
+    | WrapperOnly
+    -- ^ A handler wrapper is enabled without a named policy.
+    | Named RouteAuthSpec
+    -- ^ A named policy is enabled, possibly with a handler wrapper.
+
+-- | Classify the complete site authorization settings for validation.
+--
+-- @since 1.7.1.0
+siteAuthorizationMode :: SiteAuthorization -> SiteAuthorizationMode
+siteAuthorizationMode (SiteAuthorization NoRouteAuth Nothing) = Unconfigured
+siteAuthorizationMode (SiteAuthorization NoRouteAuth (Just _)) = WrapperOnly
+siteAuthorizationMode (SiteAuthorization policy _) = Named policy
+
+-- | Name an enabled site-only option for an unsupported-subsite diagnostic.
+--
+-- @since 1.7.1.0
 siteAuthorizationOption :: SiteAuthorization -> Maybe String
-siteAuthorizationOption (SiteAuthorization NoRouteAuth Nothing) = Nothing
-siteAuthorizationOption (SiteAuthorization NoRouteAuth (Just _)) = Just "setRouteHandlerWrapper"
-siteAuthorizationOption (SiteAuthorization _ _) = Just "setRouteAuthorization"
+siteAuthorizationOption authorization = case siteAuthorizationMode authorization of
+    Unconfigured -> Nothing
+    WrapperOnly -> Just "setRouteHandlerWrapper"
+    Named _ -> Just "setRouteAuthorization"
 
 -- | The policy for leaves emitted by this splice; see 'RouteAuthSpec'.
+--
+-- @since 1.7.1.0
 roRouteAuth :: RouteOpts -> RouteAuthSpec
 roRouteAuth = saRouteAuth . roSiteAuthorization
 
 -- | The optional site handler wrapper; see 'setRouteHandlerWrapper'.
+--
+-- @since 1.7.1.0
 roRouteHandlerWrapper :: RouteOpts -> Maybe (Q Exp -> Q Exp -> Q Exp)
 roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
 
@@ -111,9 +156,8 @@ roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
 -- instance need not import authorizers.
 -- The policy applies only to dispatch emitted by this splice. Delegation to
 -- an existing nested instance uses that instance's policy; it cannot inherit
--- or validate the delegating splice's authorization options. A named policy
--- warns when delegating to an existing instance. Configure each fragment's
--- dispatch splice explicitly, deriving from shared route options.
+-- or validate the delegating splice's authorization options. Configure each
+-- fragment's dispatch splice explicitly, deriving from shared route options.
 --
 -- With 'Yesod.Core.defaultYesodMiddleware', execution proceeds through the
 -- site-wide 'Yesod.Core.isAuthorized' check, the named authorization check,
@@ -130,8 +174,8 @@ roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
 -- subsite. A transitive @WaiSubsite@ or @EmbeddedStatic@ bypasses the outer
 -- mount check. Use @WaiSubsiteWithAuth@ for WAI apps at every level.
 -- TH rejects direct mounts of the known runner-bypassing types, unresolved
--- type names, and type families under a named policy. It cannot inspect the
--- dispatch implementation or transitive mounts of an arbitrary subsite type;
+-- type names, type variables, and type families under a named policy. It cannot
+-- inspect the dispatch implementation or transitive mounts of an arbitrary subsite type;
 -- a generated outer subsite alone does not establish runner compatibility.
 --
 -- @since 1.7.1.0
@@ -312,7 +356,8 @@ setRouteAuthorization spec rdo = rdo
 -- and supply a named mount authorizer; wrapper-only mounts are rejected.
 -- That named policy demands bindings for every leaf emitted by the splice,
 -- even if a wrapper already guards its handler. To keep other leaves
--- wrapper-only, put the mount in its own focused dispatch splice.
+-- wrapper-only, place the mount alone under a parent route and focus a named
+-- dispatch splice on that parent. A mount leaf itself cannot be a focus target.
 -- See 'RouteAuthSpec' for the mount runner contract and ordering. Subsite
 -- dispatch splices reject this option; use 'subsiteRouteOpts' when deriving
 -- their options from shared options.
