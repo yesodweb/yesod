@@ -11,6 +11,11 @@
       handler while preserving its runner. The check runs inside the site's
       `yesodMiddleware`, before any handler wrapper and the handler body; the site-wide
       `isAuthorized` check is untouched and still runs at its usual position.
+    * New `defaultYesodMiddlewareNoAuthCheck` retains the default response
+      headers while skipping legacy `isAuthorized` and its `isWriteRequest`
+      call. Applications authorizing in dispatch can select it as
+      `yesodMiddleware`; named checks and handler wrappers continue to run.
+      `defaultYesodMiddleware` retains its existing behavior.
     * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
       `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
       set, generated dispatch references an `authorize<Name>` binding that must

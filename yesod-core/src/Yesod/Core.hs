@@ -42,6 +42,7 @@ module Yesod.Core
       -- * Defaults
     , defaultErrorHandler
     , defaultYesodMiddleware
+    , defaultYesodMiddlewareNoAuthCheck
     , authorizationCheck
     , dispatchAuthorizationCheck
       -- * Data types

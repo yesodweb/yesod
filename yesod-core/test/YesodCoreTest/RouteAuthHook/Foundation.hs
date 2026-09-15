@@ -73,9 +73,12 @@ instance Yesod HookApp where
     messageLoggerSource = mempty
     makeSessionBackend _ = pure Nothing
     authRoute _ = Just LoginR
+    -- Wrapper-only authorization does not need legacy method classification.
+    -- Every request's event trace must omit this event.
+    isWriteRequest _ = recordEvent "legacy write" >> pure False
     yesodMiddleware handler = do
         recordEvent "before"
-        defaultYesodMiddleware $ do
+        defaultYesodMiddlewareNoAuthCheck $ do
             recordEvent "middleware"
             handler
     errorHandler err = do

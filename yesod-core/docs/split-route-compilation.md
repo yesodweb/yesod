@@ -320,7 +320,19 @@ route matches. For a method policy shared by hits and misses, the mount
 authorizer can inspect `waiRequest` directly.
 
 The existing `Yesod.isAuthorized` still runs through `defaultYesodMiddleware`.
-Leave its default implementation when moving authorization into fragments.
+When authorization lives entirely in dispatch, select the default headers
+without the legacy middleware check:
+
+```haskell
+instance Yesod App where
+    yesodMiddleware = defaultYesodMiddlewareNoAuthCheck
+```
+
+This skips the legacy `isAuthorized` call and its `isWriteRequest` computation.
+Named dispatch checks and handler wrappers still run; named checks still use
+`isWriteRequest` for matched routes. Each fragment must configure its own
+authorization options as described above. Keeping `defaultYesodMiddleware`
+and the default, permissive `isAuthorized` implementation also works.
 Calling your library's `isAuthorized` directly checks another fragment without
 requiring a site-wide authorizer; Yesod's `maybeAuthorized` continues to use
 the legacy `Yesod.isAuthorized` method.

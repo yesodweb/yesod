@@ -20,10 +20,10 @@
 --     generated in this same module and @InnerR@ is reached through
 --     'genNestedDispatchClauses'.
 --
--- 'isAuthorized' is overridden to authorize everything, so any 403 below can
--- only come from the dispatch-supplied authorizer glued onto the handler —
--- and a 403 on a method-mismatch request proves the glued check runs before
--- the 405 is revealed, exactly as 'isAuthorized' does.
+-- Unless explicitly denied by a request header, 'isAuthorized' allows
+-- everything. Named denials therefore come from generated dispatch, including
+-- before 405s. The foundation can also select middleware without the legacy
+-- check, exercising the same dispatch through both middleware variants.
 module YesodCoreTest.RouteAuthRuntime
     ( specs
     ) where
@@ -45,7 +45,7 @@ mkYesodSubData "AuthSub" [parseRoutes|
 /writable WritableR GET DELETE
 |]
 
-data AuthApp = AuthApp (IORef [String])
+data AuthApp = AuthApp (IORef [String]) Bool
 
 mkYesodOpts
     (setRouteHandlerWrapper (\handler _ -> [| wrapper $handler |]) $
@@ -78,7 +78,7 @@ getNestedAuthSub _ _ _ = AuthSub
 
 record :: String -> HandlerFor AuthApp ()
 record event = do
-    AuthApp ref <- getYesod
+    AuthApp ref _ <- getYesod
     liftIO $ modifyIORef' ref (++ [event])
 
 getPageR :: SubHandlerFor AuthSub AuthApp Text
@@ -98,18 +98,22 @@ wrapper handler = do
 
 instance Yesod AuthApp where
     messageLoggerSource = mempty
-    -- Deliberately permissive: if authorization ran through here instead of the
-    -- dispatch-supplied authorizers, every request below would be authorized
-    -- and the 403 expectations would fail.
-    isAuthorized _ _ = record "legacy" >> pure Authorized
+    isAuthorized _ _ = do
+        record "legacy"
+        deny <- lookupHeader "X-Deny-Legacy"
+        pure $ if deny == Just "yes" then Unauthorized "legacy denied" else Authorized
     isWriteRequest _ = do
+        record "write"
         forceRead <- lookupHeader "X-Treat-As-Read"
         method <- W.requestMethod <$> waiRequest
         pure $ forceRead /= Just "yes" && method `notElem` ["GET", "HEAD", "OPTIONS", "TRACE"]
     makeSessionBackend _ = pure Nothing
     yesodMiddleware handler = do
         record "before"
-        result <- defaultYesodMiddleware handler
+        AuthApp _ legacyCheck <- getYesod
+        result <- if legacyCheck
+            then defaultYesodMiddleware handler
+            else defaultYesodMiddlewareNoAuthCheck handler
         record "after"
         pure result
     errorHandler err = record "error" >> defaultErrorHandler err
@@ -161,7 +165,7 @@ authorizeNestedMountR parent mount = RouteAuthorizer $ \isWrite -> do
         then Authorized else Unauthorized "private subsite"
 
 app :: IO Application
-app = newIORef [] >>= toWaiApp . AuthApp
+app = newIORef [] >>= \ref -> toWaiApp (AuthApp ref True)
 
 specs :: Spec
 specs = describe "dispatch-supplied route authorization (RouteAuthPerResource)" $ do
@@ -193,35 +197,37 @@ specs = describe "dispatch-supplied route authorization (RouteAuthPerResource)" 
     it "404s an unmatched path without consulting authorization" $
         assertRequest app "GET" 404 ["nope"] Nothing
 
-    let check method path headers status events = do
+    let checkWithMiddleware legacyCheck method path headers status events = do
             ref <- newIORef []
-            assertRequestRaw (toWaiApp (AuthApp ref)) WT.defaultRequest
+            assertRequestRaw (toWaiApp (AuthApp ref legacyCheck)) WT.defaultRequest
                 { W.requestMethod = method, W.pathInfo = path, W.requestHeaders = headers }
                 status Nothing
             readIORef ref `shouldReturn` events
+        check = checkWithMiddleware True
+        checkDispatchOnly = checkWithMiddleware False
 
     it "runs legacy auth, named auth, and the wrapper inside middleware in order" $
         forM_ [["secret"], ["sub", "1", "inner"]] $ \path ->
-            check "GET" path [] 200 ["before", "legacy", "named", "wrapper", "handler", "after"]
+            check "GET" path [] 200 ["before", "write", "legacy", "write", "named", "wrapper", "handler", "after"]
 
     it "stops at named auth when both checks would deny, including 405s" $
         forM_ [(method, path) | method <- ["POST", "DELETE"], path <- [["secret"], ["sub", "1", "inner"]]] $ \(method, path) ->
-            check method path [("X-Deny-Wrapper", "yes")] 403 ["before", "legacy", "named", "error"]
+            check method path [("X-Deny-Wrapper", "yes")] 403 ["before", "write", "legacy", "write", "named", "error"]
 
     it "can deny in the wrapper after named auth succeeds" $
         check "GET" ["secret"] [("X-Deny-Wrapper", "yes")] 401
-            ["before", "legacy", "named", "wrapper", "error"]
+            ["before", "write", "legacy", "write", "named", "wrapper", "error"]
 
     it "authorizes flat and nested subsite mounts before their handlers" $
         forM_ [["mount", "2", "page"], ["sub", "1", "mount", "2", "page"]] $ \path ->
-            check "GET" path [] 200 ["before", "legacy", "named", "handler", "after"]
+            check "GET" path [] 200 ["before", "write", "legacy", "write", "named", "handler", "after"]
 
     it "denies subsite mounts using ancestor and mount captures" $
         forM_ [["mount", "3", "page"], ["sub", "9", "mount", "2", "page"], ["sub", "1", "mount", "3", "page"]] $ \path ->
-            check "GET" path [] 403 ["before", "legacy", "named", "error"]
+            check "GET" path [] 403 ["before", "write", "legacy", "write", "named", "error"]
 
     it "authorizes subsite method mismatches and unmatched subsite paths" $ do
-        check "DELETE" ["mount", "2", "page"] [] 403 ["before", "legacy", "named", "error"]
+        check "DELETE" ["mount", "2", "page"] [] 403 ["before", "write", "legacy", "write", "named", "error"]
         check "GET" ["mount", "3", "missing"] [] 403 ["before", "named", "error"]
         check "GET" ["mount", "2", "missing"] [] 404 ["before", "named", "error"]
         check "DELETE" ["mount", "2", "missing"] [] 403 ["before", "named", "error"]
@@ -229,6 +235,52 @@ specs = describe "dispatch-supplied route authorization (RouteAuthPerResource)" 
     it "uses a site's read override on mount hits and the default on misses" $
         forM_ [["mount", "2"], ["sub", "1", "mount", "2"]] $ \prefix -> do
             check "DELETE" (prefix ++ ["writable"]) [("X-Treat-As-Read", "yes")] 200
-                ["before", "legacy", "named", "handler", "after"]
+                ["before", "write", "legacy", "write", "named", "handler", "after"]
             check "DELETE" (prefix ++ ["missing"]) [("X-Treat-As-Read", "yes")] 403
                 ["before", "named", "error"]
+
+    it "retains legacy denials in defaultYesodMiddleware" $
+        forM_ [["secret"], ["sub", "1", "inner"]] $ \path ->
+            check "GET" path [("X-Deny-Legacy", "yes")] 403
+                ["before", "write", "legacy", "error"]
+
+    it "skips the legacy policy and its method classification with NoAuthCheck" $
+        forM_ [["secret"], ["sub", "1", "inner"]] $ \path ->
+            checkDispatchOnly "GET" path [("X-Deny-Legacy", "yes")] 200
+                ["before", "write", "named", "wrapper", "handler", "after"]
+
+    it "retains named denials before handlers and 405s with NoAuthCheck" $
+        forM_ [(method, path) | method <- ["POST", "DELETE"], path <- [["secret"], ["sub", "1", "inner"]]] $ \(method, path) ->
+            checkDispatchOnly method path [] 403 ["before", "write", "named", "error"]
+
+    it "retains wrapper denials with NoAuthCheck" $
+        forM_ [["secret"], ["sub", "1", "inner"]] $ \path ->
+            checkDispatchOnly "GET" path [("X-Deny-Wrapper", "yes")] 401
+                ["before", "write", "named", "wrapper", "error"]
+
+    it "still applies the site's method override once for named checks with NoAuthCheck" $
+        forM_ [["secret"], ["sub", "1", "inner"]] $ \path ->
+            checkDispatchOnly "POST" path [("X-Treat-As-Read", "yes")] 200
+                ["before", "write", "named", "wrapper", "handler", "after"]
+
+    it "retains named mount authorization on hits and misses with NoAuthCheck" $
+        forM_ [["mount", "2"], ["sub", "1", "mount", "2"]] $ \prefix -> do
+            checkDispatchOnly "GET" (prefix ++ ["page"]) [] 200
+                ["before", "write", "named", "handler", "after"]
+            checkDispatchOnly "DELETE" (prefix ++ ["page"]) [] 403
+                ["before", "write", "named", "error"]
+            checkDispatchOnly "GET" (prefix ++ ["missing"]) [] 404
+                ["before", "named", "error"]
+            checkDispatchOnly "DELETE" (prefix ++ ["missing"]) [] 403
+                ["before", "named", "error"]
+
+    it "preserves the default headers on allowed and denied responses with either middleware" $
+        forM_ [True, False] $ \legacyCheck -> do
+            ref <- newIORef []
+            application <- toWaiAppPlain (AuthApp ref legacyCheck)
+            WT.runSession (forM_ [("GET", 200), ("POST", 403)] $ \(method, status) -> do
+                response <- WT.request WT.defaultRequest
+                    { W.requestMethod = method, W.pathInfo = ["secret"] }
+                WT.assertStatus status response
+                WT.assertHeader "Vary" "Accept, Accept-Language" response
+                WT.assertHeader "X-XSS-Protection" "1; mode=block" response) application

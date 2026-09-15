@@ -377,10 +377,20 @@ defaultShouldLogIO _ level = return $ level >= LevelInfo
 --
 -- Since 1.2.0
 defaultYesodMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
-defaultYesodMiddleware handler = do
+defaultYesodMiddleware handler =
+    defaultYesodMiddlewareNoAuthCheck (authorizationCheck >> handler)
+
+-- | Add the default response headers without the legacy 'authorizationCheck'.
+-- Use as 'yesodMiddleware' when authorization is handled by generated dispatch
+-- or another handler wrapper. This skips 'isAuthorized' and the middleware's
+-- call to 'isWriteRequest'; dispatch-supplied named checks and handler wrappers
+-- still run, including any method classification performed by those checks.
+--
+-- @since 1.7.1.0
+defaultYesodMiddlewareNoAuthCheck :: HandlerFor site res -> HandlerFor site res
+defaultYesodMiddlewareNoAuthCheck handler = do
     addHeader "Vary" "Accept, Accept-Language"
     addHeader "X-XSS-Protection" "1; mode=block"
-    authorizationCheck
     handler
 
 -- | Defends against session hijacking by setting the secure bit on session
