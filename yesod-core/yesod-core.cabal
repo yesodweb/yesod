@@ -306,6 +306,7 @@ test-suite tests
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
                    YesodCoreTest.RouteAuthRuntime
+                   YesodCoreTest.RouteAuthInlineResource
                    YesodCoreTest.RouteAuthLogin
                    YesodCoreTest.RouteAuthSubtree.Inline
                    YesodCoreTest.RouteAuthSubtree.Nested

@@ -467,12 +467,17 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- authorized mount), it uses the default method policy: GET, HEAD, OPTIONS,
 -- and TRACE are reads; other methods are writes. A site override cannot be
 -- called without a route. The legacy 'isAuthorized' check skips such misses,
--- but the supplied mount authorizer still runs.
+-- but the supplied mount authorizer still runs. An 'AuthenticationRequired'
+-- result can therefore replace a subsite 404 with a login redirect or 401;
+-- without a current route, it does not change the saved ultimate destination.
+-- A mount authorizer can inspect 'waiRequest' directly for a policy that must
+-- classify matched and unmatched paths identically.
 --
 -- Generated dispatch prefixes this action onto the handler while preserving
 -- its runner. It can also be called directly when wiring a 'RouteAuthorizer'
 -- by hand. When 'defaultYesodMiddleware' also performs legacy authorization,
 -- the two checks evaluate 'isWriteRequest' separately.
+-- See 'Yesod.Core.Dispatch.RouteAuthSpec' for generated check ordering.
 --
 -- @since 1.7.1.0
 dispatchAuthorizationCheck :: Yesod site => RouteAuthorizer site -> HandlerFor site ()

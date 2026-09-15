@@ -31,6 +31,7 @@ module Yesod.Routes.TH.RenderRoute
     , roRouteHandlerWrapper
     , setRouteHandlerWrapper
     , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     , DiscoveryMode(..)
     , discoveryMode
     ) where
@@ -92,20 +93,28 @@ data RouteOpts = MkRouteOpts
 -- instance need not import authorizers.
 -- The policy applies only to dispatch emitted by this splice. Delegation to
 -- an existing nested instance uses that instance's policy; it cannot inherit
--- or validate the delegating splice's authorization options. Configure each
--- fragment's dispatch splice explicitly, deriving from shared route options.
+-- or validate the delegating splice's authorization options. A named policy
+-- warns when delegating to an existing instance. Configure each fragment's
+-- dispatch splice explicitly, deriving from shared route options.
 --
--- The check runs inside the site's middleware, immediately before the handler.
--- The site's @isAuthorized@ method still runs in
--- 'Yesod.Core.Class.Yesod.defaultYesodMiddleware';
--- applications can leave its default implementation when using this hook.
+-- With 'Yesod.Core.defaultYesodMiddleware', execution proceeds through the
+-- site-wide 'Yesod.Core.isAuthorized' check, the named authorization check,
+-- any 'setRouteHandlerWrapper' hook, and finally the handler body. The named
+-- check and wrapper execute inside the middleware. Custom middleware controls
+-- whether and where the site-wide check runs; applications using these hooks
+-- can leave the default @isAuthorized@ implementation.
 -- Subsite mounts demand an authorizer on the parent site. Subsite dispatch
 -- splices reject these options; subsite-local authorization is not supported.
--- Mount checks run through the parent runner, including subsite 404s.
--- Dispatch generation rejects named authorization on @WaiSubsite@ and
--- @EmbeddedStatic@, which bypass that runner. Use @WaiSubsiteWithAuth@ for
--- WAI apps. Custom subsite instances must honor @ysreParentRunner@ for mount
--- checks to execute; TH cannot inspect arbitrary instance implementations.
+-- Mount checks run through the parent runner, including subsite 404s; see
+-- 'Yesod.Core.dispatchAuthorizationCheck' for the no-route method fallback
+-- and authentication response. Every subsite on a request's dispatch path
+-- must honor @ysreParentRunner@, including subsites mounted inside a generated
+-- subsite. A transitive @WaiSubsite@ or @EmbeddedStatic@ bypasses the outer
+-- mount check. Use @WaiSubsiteWithAuth@ for WAI apps at every level.
+-- TH rejects direct mounts of the known runner-bypassing types, unresolved
+-- type names, and type families under a named policy. It cannot inspect the
+-- dispatch implementation or transitive mounts of an arbitrary subsite type;
+-- a generated outer subsite alone does not establish runner compatibility.
 --
 -- @since 1.7.1.0
 data RouteAuthSpec
@@ -283,17 +292,17 @@ setRouteAuthorization spec rdo = rdo { roRouteAuth = spec }
 -- handlers only, not subsite mounts or handlers inside a mounted subsite.
 -- A splice with a wrapper and a mount must also enable 'setRouteAuthorization'
 -- and supply a named mount authorizer; wrapper-only mounts are rejected.
--- The mount policy runs through the parent runner even on subsite 404s, where
--- no matched subsite route exists to build the wrapper's fragment value.
--- Subsite dispatch splices reject this option; clear it with
--- 'unsetRouteHandlerWrapper' when deriving subsite options from shared options.
+-- That named policy demands bindings for every leaf emitted by the splice,
+-- even if a wrapper already guards its handler. To keep other leaves
+-- wrapper-only, put the mount in its own focused dispatch splice.
+-- See 'RouteAuthSpec' for the mount runner contract and ordering. Subsite
+-- dispatch splices reject this option; use 'subsiteRouteOpts' when deriving
+-- their options from shared options.
 -- Delegated fragments use the options of the splice that generated their
 -- dispatch, independently of the parent's wrapper or named policy.
 --
--- The wrapper runs inside the site's middleware, immediately before the
--- handler, and also wraps method-mismatch handlers (405). Unmatched paths do
--- not invoke it. Existing @isAuthorized@ checks and any 'setRouteAuthorization'
--- policy still run before the wrapped handler.
+-- The hook also wraps method-mismatch handlers (405). Unmatched paths do not
+-- invoke it. See 'RouteAuthSpec' for its order relative to other checks.
 -- The TH callback runs once per generated leaf handler, not once per method,
 -- and is not run by data-only splices such as 'Yesod.Core.Dispatch.mkYesodDataOpts'.
 --
@@ -308,6 +317,19 @@ setRouteHandlerWrapper wrap rdo = rdo { roRouteHandlerWrapper = Just wrap }
 -- @since 1.7.1.0
 unsetRouteHandlerWrapper :: RouteOpts -> RouteOpts
 unsetRouteHandlerWrapper rdo = rdo { roRouteHandlerWrapper = Nothing }
+
+-- | Derive options for a subsite dispatch splice from shared site options.
+-- Clears the named authorization policy and handler wrapper, retaining route
+-- shape, focus, and fallthrough settings. Subsite dispatch splices reject
+-- site authorization options unless explicitly cleared; configure checks on
+-- the parent site's mounts instead. See 'RouteAuthSpec'.
+--
+-- @since 1.7.1.0
+subsiteRouteOpts :: RouteOpts -> RouteOpts
+subsiteRouteOpts rdo = rdo
+    { roRouteAuth = NoRouteAuth
+    , roRouteHandlerWrapper = Nothing
+    }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --

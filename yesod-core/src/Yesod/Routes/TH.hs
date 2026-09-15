@@ -23,6 +23,7 @@ module Yesod.Routes.TH
     , setRouteAuthorization
     , setRouteHandlerWrapper
     , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     , DiscoveryMode(..)
     , discoveryMode
     , module Yesod.Routes.TH.ParseRoute

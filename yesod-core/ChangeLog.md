@@ -2,27 +2,31 @@
 
 ## 1.7.1.0
 
-* Decentralized route authorization. Dispatch can now supply a per-route or
+* Decentralized route authorization ([#1931](https://github.com/yesodweb/yesod/pull/1931)). Dispatch can now supply a per-route or
   per-subtree authorization check, so authorization can live next to a route's
   `YesodDispatchNested` instance instead of a single site-wide `isAuthorized`.
     * New `RouteAuthorizer` type, `dispatchAuthorizationCheck` (enforces a
       `RouteAuthorizer`'s `AuthResult` with the same semantics as
       `authorizationCheck`). Generated dispatch prefixes this action onto the
       handler while preserving its runner. The check runs inside the site's
-      `yesodMiddleware` and immediately before the handler body; the site-wide
+      `yesodMiddleware`, before any handler wrapper and the handler body; the site-wide
       `isAuthorized` check is untouched and still runs at its usual position.
     * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
       `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
       set, generated dispatch references an `authorize<Name>` binding that must
       be in scope for each leaf emitted by that splice. Delegated fragments
       use their own splice's policy; parent options do not propagate into an
-      existing dispatch instance. `RouteAuthSubtree` selects only the nearest
+      existing dispatch instance, and delegation under a named policy warns
+      about that boundary. `RouteAuthSubtree` selects only the nearest
       enclosing parent of a method-based leaf, without composing ancestor
       policies. Top-level leaves and subsite mounts require their own binding.
       Subsite dispatch splices reject these options instead of ignoring them.
-      Named checks on `WaiSubsite` and `EmbeddedStatic` mounts are rejected
+      Named checks on direct `WaiSubsite` and `EmbeddedStatic` mounts are rejected
       because these instances bypass the parent runner. Use `WaiSubsiteWithAuth`
-      for WAI applications; custom subsite instances must honor the parent runner.
+      for WAI applications at every level: all transitive subsite dispatch must
+      honor the parent runner, which TH cannot verify. Unresolved mount type
+      names and type families are rejected; import concrete types or ordinary
+      aliases in the dispatch module.
     * New opt-in `setRouteHandlerWrapper` on `RouteOpts` accepts a TH hook receiving
       the handler and `WithParentArgs fragment` expressions, allowing a
       user-defined class method to check access, throw on failure, and run the
@@ -32,15 +36,17 @@
       The wrapped handler has type `HandlerFor site TypedContent` in both
       flat and nested dispatch, including 405s. `unsetRouteHandlerWrapper`
       clears a wrapper while preserving other shared route options.
+      `subsiteRouteOpts` clears both site authorization options when deriving
+      subsite dispatch options from shared configuration.
       Wrappers do not cover subsite mounts; a splice using wrappers and mounts
       must enable a named mount policy, which also handles subsite 404s.
       Data-only splices skip dispatch generation, including its validation and
       callbacks. Named checks without a current route use the default request
       method classification; the legacy check skips these unmatched routes.
-    * Strictly additive: new exports only. No existing type, record, or
-      signature changed (`RouteOpts` gained a field, but its constructor is not
-      exported). The default `RouteAuthSpec` is `NoRouteAuth` and no wrapper
-      is installed, so existing sites behave exactly as before.
+    * Existing public TH signatures and runtime environment records are
+      unchanged, and `RouteOpts` remains abstract. The default `RouteAuthSpec`
+      is `NoRouteAuth` and no wrapper is installed, so existing sites retain
+      their dispatch and authorization behavior.
 
 ## 1.7.0.1
 

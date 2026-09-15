@@ -42,6 +42,7 @@ data AuthSub = AuthSub
 
 mkYesodSubData "AuthSub" [parseRoutes|
 /page PageR GET
+/writable WritableR GET DELETE
 |]
 
 data AuthApp = AuthApp (IORef [String])
@@ -66,6 +67,7 @@ instance YesodSubDispatch AuthSub AuthApp where
     -- because of TH's stage restriction.
     yesodSubDispatch = $(mkYesodSubDispatch [parseRoutes|
 /page PageR GET
+/writable WritableR GET DELETE
 |])
 
 getAuthSub :: AuthApp -> Int -> AuthSub
@@ -82,6 +84,10 @@ record event = do
 getPageR :: SubHandlerFor AuthSub AuthApp Text
 getPageR = liftHandler $ record "handler" >> pure "subsite"
 
+getWritableR, deleteWritableR :: SubHandlerFor AuthSub AuthApp Text
+getWritableR = getPageR
+deleteWritableR = getPageR
+
 wrapper :: HandlerFor AuthApp TypedContent -> HandlerFor AuthApp TypedContent
 wrapper handler = do
     record "wrapper"
@@ -96,6 +102,10 @@ instance Yesod AuthApp where
     -- dispatch-supplied authorizers, every request below would be authorized
     -- and the 403 expectations would fail.
     isAuthorized _ _ = record "legacy" >> pure Authorized
+    isWriteRequest _ = do
+        forceRead <- lookupHeader "X-Treat-As-Read"
+        method <- W.requestMethod <$> waiRequest
+        pure $ forceRead /= Just "yes" && method `notElem` ["GET", "HEAD", "OPTIONS", "TRACE"]
     makeSessionBackend _ = pure Nothing
     yesodMiddleware handler = do
         record "before"
@@ -215,3 +225,10 @@ specs = describe "dispatch-supplied route authorization (RouteAuthPerResource)" 
         check "GET" ["mount", "3", "missing"] [] 403 ["before", "named", "error"]
         check "GET" ["mount", "2", "missing"] [] 404 ["before", "named", "error"]
         check "DELETE" ["mount", "2", "missing"] [] 403 ["before", "named", "error"]
+
+    it "uses a site's read override on mount hits and the default on misses" $
+        forM_ [["mount", "2"], ["sub", "1", "mount", "2"]] $ \prefix -> do
+            check "DELETE" (prefix ++ ["writable"]) [("X-Treat-As-Read", "yes")] 200
+                ["before", "legacy", "named", "handler", "after"]
+            check "DELETE" (prefix ++ ["missing"]) [("X-Treat-As-Read", "yes")] 403
+                ["before", "named", "error"]

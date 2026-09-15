@@ -22,6 +22,14 @@ import YesodCoreTest.RuntimeHarness (assertRequest)
 type RawSubsite = WaiSubsite
 type SubsiteAlias a = a
 
+type family RawFamily a where
+    RawFamily () = WaiSubsite
+type family NullaryRawFamily where
+    NullaryRawFamily = WaiSubsite
+type family SafeFamily a where
+    SafeFamily () = WaiSubsiteWithAuth
+type FamilyAlias = RawFamily ()
+
 $(pure [])
 
 mountOptionFailures :: [[[Bool]]]
@@ -51,6 +59,10 @@ mountOptionFailures = $(do
             , ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsite)
             , ConT ''WaiSubsiteWithAuth
             , ConT ''SubsiteAlias `AppT` (ConT ''SubsiteAlias `AppT` ConT ''WaiSubsiteWithAuth)
+            , ConT (mkName "Missing.WaiSubsite")
+            , ConT ''FamilyAlias
+            , ConT ''NullaryRawFamily
+            , ConT ''SafeFamily `AppT` ConT ''()
             ]
         rejected action = recover [| True |] (action >> [| False |])
     listE [listE [listE (map rejected (generate opts sub)) | opts <- options] | sub <- types])
@@ -72,6 +84,8 @@ subsiteOptionFailures = $(do
             , setRouteAuthorization RouteAuthPerResource defaultOpts
             , setRouteAuthorization RouteAuthSubtree defaultOpts
             , setRouteHandlerWrapper (\handler _ -> handler) defaultOpts
+            , subsiteRouteOpts $ setRouteHandlerWrapper (\_ _ -> fail "cleared callback ran") $
+                setRouteAuthorization RouteAuthPerResource defaultOpts
             ]
         rejected action = recover [| True |] (action >> [| False |])
     listE [listE (map rejected (generate opts)) | opts <- options])
@@ -112,6 +126,14 @@ namedRunnerCount = $(do
     count <- runIO $ readIORef ref
     litE $ IntegerL $ fromIntegral count)
 
+untypedMountFailures :: [Bool]
+untypedMountFailures = $(do
+    let generate policy = mkDispatchClause NoTyArgs
+            ((mkMDS pure [| yesodRunner |] [| error "unused" |]) { mdsRouteAuth = policy })
+            [ResourceLeaf (Resource "MountR" [] (Subsite "WaiSubsite" "getSub") [] True)]
+    listE [recover [| True |] (generate policy >> [| False |])
+        | policy <- [NoRouteAuth, RouteAuthPerResource, RouteAuthSubtree]])
+
 data CustomApp = CustomApp (IORef [String])
 
 mkYesodData "CustomApp" [parseRoutes| / CustomR GET |]
@@ -150,7 +172,7 @@ spec :: Spec
 spec = describe "authorization code generation" $ do
     it "keeps default subsite dispatch and rejects unsupported authorization options" $
         subsiteOptionFailures `shouldBe`
-            [replicate 3 False, replicate 3 True, replicate 3 True, replicate 3 True]
+            [replicate 3 False, replicate 3 True, replicate 3 True, replicate 3 True, replicate 3 False]
     it "rejects unguarded mounts through flat, inline, and nested dispatch, including aliases" $
         mountOptionFailures `shouldBe`
             [ replicate 4 False : replicate 4 (replicate 4 True)
@@ -159,7 +181,13 @@ spec = describe "authorization code generation" $ do
             , replicate 4 False : replicate 4 (replicate 4 True)
             , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
             , [replicate 4 False, replicate 4 True, replicate 4 False, replicate 4 False, replicate 4 False]
+            , replicate 4 False : replicate 4 (replicate 4 True)
+            , replicate 4 False : replicate 4 (replicate 4 True)
+            , replicate 4 False : replicate 4 (replicate 4 True)
+            , replicate 4 False : replicate 4 (replicate 4 True)
             ]
+    it "rejects named mounts when the generic generator cannot validate their types" $
+        untypedMountFailures `shouldBe` [False, True, True]
     it "invokes the wrapper once per resource rather than per method or 405" $
         callbackCount `shouldBe` 2
     it "does not run dispatch callbacks or mount validation in data-only splices" $

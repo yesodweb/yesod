@@ -54,6 +54,7 @@ module Yesod.Core.Dispatch
     , setRouteAuthorization
     , setRouteHandlerWrapper
     , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
       -- *** Helpers
     , defaultGen
     , getGetMaxExpires

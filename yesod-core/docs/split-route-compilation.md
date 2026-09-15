@@ -260,7 +260,8 @@ so GHC resolves only that fragment's authorization instance. The foundation's
 that delegates to a separately compiled fragment uses the wrapper and named
 authorization policy selected by the fragment's splice. Neither option is
 inherited from the parent, and the parent cannot check which policy an opaque
-existing instance used. Configure each fragment's dispatch explicitly.
+existing instance used. A named policy warns when delegating to an existing
+instance. Configure and test each fragment's dispatch explicitly.
 
 Derive these options from the shared `appRouteOpts` so fallthrough and route
 type settings stay consistent. If the shared options already include a
@@ -274,14 +275,17 @@ including its leaf captures and trailing multipieces. For example,
 Top-level leaves receive `WithParentArgs () fullRoute`; so do leaves inlined
 for compatibility instead of using nested dispatch.
 
-The wrapper runs inside the site's middleware, immediately before the matched
-handler. It also wraps the 405 handler for a matched path with an unsupported
+The wrapper runs inside the site's middleware, after any named authorization
+check. It also wraps the 405 handler for a matched path with an unsupported
 method, allowing authorization to fail before the 405 is reported. Unmatched
 paths do not invoke it. The wrapper does not wrap subsite mounts or handlers
 inside a mounted subsite. A splice with a wrapper and a mount must also enable
 `setRouteAuthorization RouteAuthPerResource` or `RouteAuthSubtree` and provide
 `authorize<MountName>` with the ancestor and mount captures. TH rejects
-wrapper-only mounts. The named mount policy runs through the parent runner,
+wrapper-only mounts. Enabling a named policy requires bindings for every
+leaf emitted by that splice, even those already guarded by the wrapper.
+To keep other leaves wrapper-only, place the mount in its own focused dispatch
+splice. The named mount policy runs through the parent runner,
 including on a subsite 404, where there is no subsite route value to supply to
 the wrapper.
 
@@ -289,22 +293,30 @@ Subsite dispatch splices reject both authorization options. Derive their
 options from the shared value:
 
 ```haskell
-subsiteRouteOpts :: RouteOpts
-subsiteRouteOpts = setRouteAuthorization NoRouteAuth $
-    unsetRouteHandlerWrapper appRouteOpts
+appSubsiteOpts :: RouteOpts
+appSubsiteOpts = subsiteRouteOpts authRouteOpts
 ```
 
-`WaiSubsite` and `EmbeddedStatic` bypass the parent runner, so dispatch
-generation rejects named mount policies for those types. Use
-`WaiSubsiteWithAuth` to apply the parent's middleware and authorization to a
-WAI application. Custom subsite instances must call `ysreParentRunner`; TH
-cannot verify arbitrary instance bodies.
+`WaiSubsite` and `EmbeddedStatic` bypass the parent runner. Dispatch generation
+rejects direct named mounts of these types, along with unresolved type names
+and type families. Import the concrete subsite type in the dispatch module;
+ordinary type synonyms are supported. Use `WaiSubsiteWithAuth` to apply the
+parent's middleware and authorization to a WAI application.
+
+This runner requirement applies at every level: mounting a `WaiSubsite` or
+`EmbeddedStatic` inside a generated subsite still bypasses the outer named
+mount authorizer. Replace raw WAI subsites with `WaiSubsiteWithAuth` throughout
+the dispatch path. TH cannot inspect transitive mounts or arbitrary instance
+bodies; a generated outer subsite alone does not guarantee protection.
 
 When a subsite route matches, the named check calls the site's `isWriteRequest`
 override. On a subsite 404, there is no route to pass to that method, so the
 default method policy applies: GET, HEAD, OPTIONS, and TRACE are reads; other
 methods are writes. The legacy `isAuthorized` check skips these misses while
-the named mount policy still runs.
+the named mount policy still runs. An `AuthenticationRequired` result can
+replace the 404 with a login redirect or 401, without changing `_ULT` when no
+route matches. For a method policy shared by hits and misses, the mount
+authorizer can inspect `waiRequest` directly.
 
 The existing `Yesod.isAuthorized` still runs through `defaultYesodMiddleware`.
 Leave its default implementation when moving authorization into fragments.
@@ -313,8 +325,9 @@ requiring a site-wide authorizer; Yesod's `maybeAuthorized` continues to use
 the legacy `Yesod.isAuthorized` method.
 
 Without `setRouteHandlerWrapper`, generation and authorization behave as before.
-The hook also composes with the named `setRouteAuthorization` policies: those
-checks run before the wrapped handler.
+The hook also composes with the named `setRouteAuthorization` policies. See
+the `RouteAuthSpec` Haddock for the ordering contract: default middleware's
+site-wide check, named check, wrapper, and handler body.
 
 `RouteAuthSubtree` demands `authorize<SubtreeName> parentCaptures fragment` for
 the nearest enclosing parent of each method-based leaf, in both nested and

@@ -55,6 +55,7 @@ module Yesod.Core.Internal.TH
     , setRouteAuthorization
     , setRouteHandlerWrapper
     , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     )
  where
 
@@ -124,7 +125,8 @@ mkYesodDataOpts opts = mkYesodDataOnly opts False
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubData = mkYesodSubDataOpts defaultOpts
 
--- |
+-- | Generate subsite route data with custom options. Authorization options
+-- and handler callbacks are skipped in this data-only splice; see 'RouteAuthSpec'.
 --
 -- @since 1.6.25.0
 mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
@@ -228,6 +230,8 @@ parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
 -- via 'parseResourceTypes', so the caller never touches the partial
 -- 'parseType'\/'dropBracket'. A malformed type fails the splice with an
 -- attributed error instead.
+-- Site authorization options are rejected; use 'subsiteRouteOpts'. See
+-- 'RouteAuthSpec' for configuring authorization on the parent mount.
 --
 -- @since 1.7.0.0
 mkNestedSubDispatchInstance
@@ -411,6 +415,8 @@ mkYesodSubDispatchInstance = mkYesodSubDispatchInstanceOpts defaultOpts
 -- flag is threaded into both the @yesodSubDispatch@ body (so the subsite's own
 -- top-level parent clauses fall through to later siblings on an inner miss) and
 -- the generated @YesodSubDispatchNested@ fragment instances.
+-- Site authorization options are rejected; derive these options with
+-- 'subsiteRouteOpts' and configure the parent mount as described by 'RouteAuthSpec'.
 --
 -- @since 1.7.0.0
 mkYesodSubDispatchInstanceOpts

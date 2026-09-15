@@ -50,6 +50,8 @@ import Yesod.Core.Class.Yesod (Yesod, dispatchAuthorizationCheck)
 -- path.
 data MkDispatchSettings b site c = MkDispatchSettings
     { mdsRunHandler :: Q Exp
+    -- ^ Method handlers are normalized with 'toTypedContent' before being
+    -- passed to this runner; the 404 handler retains the type of 'mds404'.
     , mdsSubDispatcher :: Q Exp
     , mdsGetPathInfo :: Q Exp
     , mdsSetPathInfo :: Q Exp
@@ -86,6 +88,8 @@ data MkDispatchSettings b site c = MkDispatchSettings
     -- 'RouteAuthSpec'. 'mkMDS' defaults to 'NoRouteAuth'.
     --
     -- @since 1.7.1.0
+    , mdsHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
+    -- ^ Optional site handler wrapper; see 'setRouteHandlerWrapper'.
     }
 
 data SDC = SDC
@@ -100,23 +104,22 @@ data SDC = SDC
 -- the dispatch result is returned unwrapped; inside a parent's inline children
 -- we generate helper clauses whose enclosing parent must tell a match from a
 -- fall-through miss, so the result is wrapped in 'Just'. Generation starts at
--- 'TopLevelPhase' and flips to 'NestedPhase' on the first descent (and never
--- back), so the two phases are a single 'local'.
-data DispatchPhase = TopLevelPhase | NestedPhase
+-- 'TopLevelPhase'; each descent records the nearest enclosing parent in
+-- 'NestedPhase', which also selects its subtree authorizer.
+data DispatchPhase = TopLevelPhase | NestedPhase String
 
 -- | How a matched result is wrapped in a given phase. See 'DispatchPhase'.
 wrapForPhase :: DispatchPhase -> Exp -> Exp
 wrapForPhase TopLevelPhase = id
-wrapForPhase NestedPhase = \e -> ConE 'Just `AppE` e
+wrapForPhase (NestedPhase _) = \e -> ConE 'Just `AppE` e
 
 -- | The reader environment threaded through 'mkDispatchClause's clause
 -- generator. 'envSdc' is the accumulated dispatch context (extended via 'local'
 -- as we descend into a parent's children); 'envPhase' selects how a matched
--- result is wrapped.
+-- result is wrapped and identifies its nearest enclosing subtree.
 data Env = Env
     { envSdc :: SDC
     , envPhase :: DispatchPhase
-    , envSubtree :: Maybe String
     }
 
 -- | The monad 'mkDispatchClause's clause generator runs in: 'Q' carrying an
@@ -200,17 +203,19 @@ nestedTargetCallSite SubsiteNested  = SubsiteCall
 -- @since 1.7.0.0 — the leading @[Name]@\/@[Exp]@ parameters were dropped and the
 -- result type changed from @Clause@ to @Q ([String], Clause)@.
 mkDispatchClause :: forall a b site c. TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClause = mkDispatchClauseWithWrapper Nothing (\_ _ -> pure ())
+mkDispatchClause tyargs settings = mkDispatchClauseWith checkMountType tyargs settings
+  where
+    checkMountType name _ = when (mdsRouteAuth settings /= NoRouteAuth) $ fail $
+        "mkDispatchClause cannot validate the type of named subsite mount '" ++ name ++
+        "'. Use mkDispatchInstance with typed resources and RouteOpts."
 
--- Callers with RouteOpts can wrap matched site handlers. The typed site
--- generator also validates mount types; generic internal callers cannot
--- inspect the resource's type parameter.
-mkDispatchClauseWithWrapper
-    :: forall a b site c. Maybe (Q Exp -> Q Exp -> Q Exp)
-    -> (String -> a -> Q ())
+-- The typed site generator validates mount types; generic internal callers
+-- reject named mounts because they cannot inspect the resource's type.
+mkDispatchClauseWith
+    :: forall a b site c. (String -> a -> Q ())
     -> TyArgs -> MkDispatchSettings b site c -> [ResourceTree a] -> Q ([String], Clause)
-mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSettings {..} resources = do
-    validateAuthorizationTarget mdsNestedTarget mdsRouteAuth handlerWrapper
+mkDispatchClauseWith checkMountType tyargs MkDispatchSettings {..} resources = do
+    validateAuthorizationTarget mdsNestedTarget mdsRouteAuth mdsHandlerWrapper
     envName <- newName "env"
     reqName <- newName "req"
     helperName <- newName "dispatchHelper"
@@ -237,7 +242,7 @@ mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSetti
     -- so children are 'Just'-wrapped helper clauses the enclosing parent can
     -- fall through on; their reported names are dropped (only top-level parents
     -- matter).
-    let topEnv = Env { envSdc = sdc, envPhase = TopLevelPhase, envSubtree = Nothing }
+    let topEnv = Env { envSdc = sdc, envPhase = TopLevelPhase }
     (childNames, clauses) <- mconcat <$> runReaderT (mapM go resources) topEnv
 
     pure
@@ -259,8 +264,7 @@ mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSetti
 
     -- Run an action in the scope of a parent's inline children: extend the
     -- accumulated dynamics and parent constructors with this parent's, and flip
-    -- to 'NestedPhase'. This single 'local' — entered once at the top→nested
-    -- boundary and never undone — is the entire top-vs-nested phase distinction.
+    -- to 'NestedPhase', recording the nearest parent at every descent.
     withChildScope :: String -> [Exp] -> Exp -> DispatchM r -> DispatchM r
     withChildScope name dyns constr = local $ \e ->
         let sdc = envSdc e
@@ -268,8 +272,7 @@ mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSetti
                  { extraParams = extraParams sdc ++ dyns
                  , extraCons = extraCons sdc ++ [constr]
                  }
-             , envPhase = NestedPhase
-             , envSubtree = Just name
+             , envPhase = NestedPhase name
              }
 
     -- | Generate the dispatch clauses for a resource tree node, plus the
@@ -291,6 +294,7 @@ mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSetti
         -- the splice (see its haddock).
         instanceExists <-
             liftQ (nestedInstanceExists (nestedTargetClass mdsNestedTarget) =<< resolveRouteCon name)
+        when instanceExists $ liftQ $ warnDelegatedAuthorization mdsRouteAuth name
 
         -- Delegate to the nested-dispatch instance either when one already
         -- exists (cross-module split) or when the caller will generate it in
@@ -381,7 +385,9 @@ mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSetti
     handleDispatch :: String -> Dispatch a -> [Exp] -> DispatchM (Exp, PathTail)
     handleDispatch name dispatch' dyns = do
         SDC {..} <- asks envSdc
-        subtree <- asks envSubtree
+        subtree <- asks $ \e -> case envPhase e of
+            TopLevelPhase -> Nothing
+            NestedPhase name' -> Just name'
         liftQ $ case dispatch' of
                 Methods multi methods -> do
                     (finalPat, mfinalE) <-
@@ -422,26 +428,18 @@ mkDispatchClauseWithWrapper handlerWrapper checkMountType tyargs MkDispatchSetti
                                 badMethodExp <- badMethodCase
                                 let match405 = Match WildP (NormalB badMethodExp) []
                                 return $ CaseE methodE $ matches ++ [match405]
-                    func <- case (mdsRouteAuth, handlerWrapper) of
-                        (NoRouteAuth, Nothing) ->
-                            -- Preserve the legacy runner/handler types when
-                            -- neither authorization option was requested.
-                            chooseMethod (handlerFor >=> runHandlerExp) (mds405 >>= runHandlerExp)
-                        _ -> do
-                            -- All arms share one type, so the named runner and
-                            -- optional wrapper are generated once per resource,
-                            -- including the method-mismatch arm.
-                            handlerChoice <- chooseMethod
-                                (\method -> [| fmap toTypedContent $(handlerFor method) |])
-                                [| fmap toTypedContent $(mds405) |]
-                            wrapped <- wrapRouteHandler handlerWrapper (pure handlerChoice) [] fullRoute
-                            runHandlerExp wrapped
+                    -- All arms share one type, so the runner and optional
+                    -- wrapper are generated once per resource, including 405s.
+                    handlerChoice <- chooseMethod
+                        (\method -> [| fmap toTypedContent $(handlerFor method) |])
+                        [| fmap toTypedContent $(mds405) |]
+                    wrapped <- wrapRouteHandler mdsHandlerWrapper (pure handlerChoice) [] fullRoute
+                    func <- runHandlerExp wrapped
 
                     return (func, finalPat)
 
                 Subsite subsite getSub -> do
-                    validateMountWrapper mdsRouteAuth handlerWrapper name
-                    checkMountType name subsite
+                    validateMount mdsRouteAuth mdsHandlerWrapper checkMountType name subsite
                     restPath <- newName "restPath"
                     let allDyns = extraParams ++ dyns
                     sub2 <- mkLambda "sub" $ \sub ->
@@ -520,8 +518,9 @@ defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method 
 
 -- | The conventional authorizer binding name for a resource or subtree:
 -- @authorize\<Name\>@. Like 'defaultGetHandler', this is resolved via 'mkName',
--- so a missing binding is a \"variable not in scope\" error at the splice —
--- the compile-time guarantee that authorization cannot be forgotten.
+-- so a missing binding for a leaf emitted by this splice is a \"variable not
+-- in scope\" error. Delegated instances own their policy; this guarantee does
+-- not extend to their leaves or to ancestor subtree bindings.
 --
 -- @since 1.7.1.0
 authorizerName :: String -> Name
@@ -576,25 +575,41 @@ leafRunnerExp baseRunner (Just authExp) =
 validateAuthorizationTarget :: NestedTarget -> RouteAuthSpec -> Maybe (Q Exp -> Q Exp -> Q Exp) -> Q ()
 validateAuthorizationTarget SubsiteNested auth wrapper = do
     when (auth /= NoRouteAuth) $
-        fail "setRouteAuthorization is not supported by subsite dispatch splices; configure authorization on the parent site's subsite mount."
+        fail "setRouteAuthorization is not supported by subsite dispatch splices; derive subsite options with subsiteRouteOpts and configure authorization on the parent site's subsite mount."
     when (isJust wrapper) $
-        fail "setRouteHandlerWrapper is not supported by subsite dispatch splices; use unsetRouteHandlerWrapper and configure authorization on the parent site."
+        fail "setRouteHandlerWrapper is not supported by subsite dispatch splices; derive subsite options with subsiteRouteOpts and configure authorization on the parent site."
 validateAuthorizationTarget TopLevelNested _ _ = pure ()
 
 -- A mount has no fragment value on a subsite 404, so the handler wrapper
 -- cannot guard its whole path space. Require a separate named mount policy
 -- when a splice opts into wrappers, rather than silently leaving it open.
-validateMountWrapper :: RouteAuthSpec -> Maybe (Q Exp -> Q Exp -> Q Exp) -> String -> Q ()
-validateMountWrapper NoRouteAuth (Just _) name = fail $
-    "setRouteHandlerWrapper does not wrap subsite mount '" ++ name ++ "'. " ++
-    "Enable setRouteAuthorization RouteAuthPerResource or RouteAuthSubtree " ++
-    "and define authorize" ++ name ++ " for the mount, including subsite 404s."
-validateMountWrapper _ _ _ = pure ()
+validateMount :: RouteAuthSpec -> Maybe (Q Exp -> Q Exp -> Q Exp)
+    -> (String -> a -> Q ()) -> String -> a -> Q ()
+validateMount auth wrapper checkType name subsite = do
+    when (auth == NoRouteAuth && isJust wrapper) $ fail $
+        "setRouteHandlerWrapper does not wrap subsite mount '" ++ name ++ "'. " ++
+        "Enable setRouteAuthorization RouteAuthPerResource or RouteAuthSubtree " ++
+        "and define authorize" ++ name ++ " for the mount, including subsite 404s. " ++
+        "The named policy also requires bindings for every other leaf emitted " ++
+        "by this splice. To keep other leaves wrapper-only, generate the mount " ++
+        "in its own focused dispatch splice."
+    checkType name subsite
+
+-- An existing fragment is opaque to this splice, including any wrapper-based
+-- authorization it uses. Warn rather than requiring a marker that would couple
+-- independently compiled fragments to the parent's choice of policy.
+warnDelegatedAuthorization :: RouteAuthSpec -> String -> Q ()
+warnDelegatedAuthorization NoRouteAuth _ = pure ()
+warnDelegatedAuthorization _ name = reportWarning $
+    "Named route authorization does not propagate into the existing dispatch " ++
+    "instance for '" ++ name ++ "'. That fragment keeps the authorization " ++
+    "options of its own splice; configure and test its policy there."
 
 -- These existing instances return a raw WAI application and never invoke the
 -- supplied parent runner. Do not demand a binding that will never be called.
--- Resolve type aliases, but make no claim about arbitrary user-written
--- YesodSubDispatch instances: those must honor ysreParentRunner themselves.
+-- Resolve ordinary type aliases, rejecting unresolved types and families.
+-- Arbitrary implementations and transitive mounts cannot be inspected here;
+-- every instance on the dispatch path must honor ysreParentRunner.
 validateMountType :: RouteAuthSpec -> String -> Type -> Q ()
 validateMountType NoRouteAuth _ _ = pure ()
 validateMountType _ resource subsite = do
@@ -611,23 +626,38 @@ validateMountType _ resource subsite = do
         AppT f arg -> runnerBypass bindings f (arg : args)
         SigT t _ -> runnerBypass bindings t args
         ParensT t -> runnerBypass bindings t args
-        VarT name -> maybe (pure Nothing)
+        VarT name -> maybe (cannotInspect typ)
             (\t -> runnerBypass bindings t args) (lookup name bindings)
         ConT unresolved -> do
-            name <- fromMaybe unresolved <$> lookupTypeName (show unresolved)
+            resolved <- lookupTypeName (show unresolved)
+            name <- case resolved of
+                Just name -> pure name
+                Nothing | isJust (nameModule unresolved) -> pure unresolved
+                Nothing -> fail $ "Cannot resolve the type '" ++ show unresolved ++
+                    "' of named subsite mount '" ++ resource ++
+                    "'. Import the subsite type in the dispatch module so its " ++
+                    "parent-runner compatibility can be checked."
             if name == ''WaiSubsite
                 then pure (Just "WaiSubsite")
                 else if nameBase name == "EmbeddedStatic" &&
                         nameModule name == Just "Yesod.EmbeddedStatic.Internal"
                     then pure (Just "EmbeddedStatic")
-                    else recover (pure Nothing) $ do
-                        info <- reify name
+                    else do
+                        info <- recover (cannotInspect typ) (reify name)
                         case info of
                             TyConI (TySynD _ vars rhs) ->
                                 runnerBypass (zip (map tyVarBndrName vars) args ++ bindings)
                                     rhs (drop (length vars) args)
-                            _ -> pure Nothing
-        _ -> pure Nothing
+                            TyConI DataD{} -> pure Nothing
+                            TyConI NewtypeD{} -> pure Nothing
+                            _ -> cannotInspect typ
+        _ -> cannotInspect typ
+
+    cannotInspect typ = fail $ "Cannot validate the type '" ++ pprint typ ++
+        "' of named subsite mount '" ++ resource ++
+        "'. Type families and abstract subsite types are not supported by " ++
+        "named mount validation; use a concrete type or ordinary type synonym " ++
+        "whose subsite dispatch honors ysreParentRunner."
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
 -- control of the types, contexts etc. using this combinator. You will
@@ -697,9 +727,9 @@ mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
                     then GeneratesNestedInstances
                     else NoSameSpliceNestedInstances
             , mdsRouteAuth = roRouteAuth routeOpts
+            , mdsHandlerWrapper = roRouteHandlerWrapper routeOpts
             }
-    (childNames, clause') <- mkDispatchClauseWithWrapper
-        (roRouteHandlerWrapper routeOpts)
+    (childNames, clause') <- mkDispatchClauseWith
         (validateMountType (roRouteAuth routeOpts)) tyargs mdsWithNestedDispatch res
     let thisDispatch = FunD 'yesodDispatch [clause']
         -- Only generate 'YesodDispatchNested' instances for children when this
@@ -824,7 +854,7 @@ mkNestedDispatchInstanceWith nestedTarget mmaster routeOpts target cxt tyargs un
                     rc <- resolveRouteCon name
                     instanceExists <- nestedInstanceExists (nestedTargetClass nestedTarget) rc
                     if instanceExists
-                        then pure []
+                        then warnDelegatedAuthorization (roRouteAuth routeOpts) name >> pure []
                         else do
                             -- Run the same arity guard the top-level
                             -- 'mkYesodSubDispatchInstance' applies, so a
@@ -982,8 +1012,8 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                 return [Match (mkPathPat finalPat pats) (NormalB body) []]
 
             Subsite subsite getSub -> do
-                validateMountWrapper (roRouteAuth routeOpts) (roRouteHandlerWrapper routeOpts) name
-                validateMountType (roRouteAuth routeOpts) name subsite
+                validateMount (roRouteAuth routeOpts) (roRouteHandlerWrapper routeOpts)
+                    (validateMountType (roRouteAuth routeOpts)) name subsite
                 restPath <- newName "restPath"
                 sub2 <- mkLambda "sub" $ \sub ->
                     pure $ foldl' AppE (VarE (mkName getSub) `AppE` VarE sub) (map VarE allDynVars)
@@ -1080,18 +1110,20 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                 scrutinee <- [| W.requestMethod $(pure reqE) |]
                 return $ CaseE scrutinee (methodMatches ++ [badMethodMatch])
 
+-- | Generate a subsite dispatch body with default options. Site authorization
+-- is configured on the parent mount; see 'RouteAuthSpec' for the runner
+-- contract, which also applies to subsites mounted inside this subsite.
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch = mkYesodSubDispatchWith defaultOpts
 
 -- | Like 'mkYesodSubDispatch', but threads a 'RouteOpts' into the generated
 -- @yesodSubDispatch@ body. 'roNestedRouteFallthrough' controls whether a
--- subsite's top-level
--- parent clause falls through to a later sibling on an inner miss (mirroring
+-- subsite's top-level parent clause falls through to a later sibling on an
+-- inner miss (mirroring
 -- 'mkTopLevelDispatchInstance'). 'mkYesodSubDispatch' keeps the opts-less
 -- signature for backwards compatibility.
 -- Authorization options are rejected: configure named checks at the parent
--- site's mounts, and derive subsite options with 'unsetRouteHandlerWrapper'
--- and @setRouteAuthorization NoRouteAuth@.
+-- site's mounts, and derive subsite options with 'subsiteRouteOpts'.
 --
 -- This standalone entry point never delegates a parent's dispatch to a
 -- same-splice 'YesodSubDispatchNested' instance: when called on its own there
@@ -1122,11 +1154,10 @@ mkYesodSubDispatchWithDelegate sameSplice routeOpts res = do
                 , mdsNestedRouteFallthrough = roNestedRouteFallthrough routeOpts
                 , mdsSameSpliceNestedInstances = sameSplice
                 , mdsRouteAuth = roRouteAuth routeOpts
+                , mdsHandlerWrapper = roRouteHandlerWrapper routeOpts
                 }
     (_childNames, clause') <-
-        mkDispatchClauseWithWrapper
-            (roRouteHandlerWrapper routeOpts)
-            (\_ _ -> pure ())
+        mkDispatchClause
             NoTyArgs
             mds
             res
@@ -1179,6 +1210,7 @@ mkMDS unwrapper runHandlerE subDispatcher = MkDispatchSettings
     , mdsNestedTarget = TopLevelNested
     , mdsSameSpliceNestedInstances = NoSameSpliceNestedInstances
     , mdsRouteAuth = NoRouteAuth
+    , mdsHandlerWrapper = Nothing
     }
 
 -- | Parse the foundation-type string given to @mkYesod@ into its components:
