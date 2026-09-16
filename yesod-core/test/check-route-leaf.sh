@@ -5,7 +5,7 @@ repo_dir=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$repo_dir"
 probe_dir=$(mktemp -d)
 trap 'rm -rf "$probe_dir"' EXIT
-ghc_args=(-Wall -Werror=incomplete-patterns -package yesod-core -package wai-extra -package http-types -iyesod-core/test)
+ghc_args=(-Wall -Werror=incomplete-patterns -Werror=unused-type-patterns -package yesod-core -package wai-extra -package http-types -iyesod-core/test)
 fixture_dir=yesod-core/test/RouteLeafCompile
 
 stack exec -- ghc "${ghc_args[@]}" -outputdir "$probe_dir/isolated" \

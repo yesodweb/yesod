@@ -30,7 +30,7 @@ mkRouteLeafData context tyargs site focus resources = do
             if null owners
                 then fail "setRouteLeafViews: the route tree must contain an endpoint."
                 else pure ()
-            fragmentVar <- newName "fragment"
+            fragmentVar <- newName "_fragment"
             constraint <- newName "constraint"
             clauses <- projectClauses rootLabel id [] trees
             let witness fragmentType = ConT ''RouteFragmentWitness `AppT` root `AppT` fragmentType
