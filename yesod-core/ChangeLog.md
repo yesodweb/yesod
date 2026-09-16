@@ -1,5 +1,20 @@
 # ChangeLog for yesod-core
 
+## 1.7.1.0
+
+* Prototype opt-in leaf route views for authorization in ordinary middleware:
+  `setRouteLeafViews` generates `RouteLeaves` endpoint views and a generic
+  `RouteFragmentDict` instance using `Data.Constraint.Dict`. The new
+  `Yesod.Core.RouteLeaf` module visits the matched leaf with a caller-selected
+  constraint, without adding authorization callbacks to dispatch.
+* `getCurrentRouteLeaves` returns the current endpoint in its owning level's
+  `RouteLeaves` view, packaged existentially.
+  `withRouteLeaves @c` recovers that fragment's dictionary and executes a rank-n
+  handler callback; `withRouteLeavesWithParentArgs` also supplies its ancestor
+  captures. Pure visitors remain available as `withRouteLeaf` and `withSomeRouteLeaf`.
+* Enforcement retains the existing runner contract: raw WAI applications can
+  bypass parent middleware, and subsite misses can lack a parent route.
+
 ## 1.7.0.1
 
 * The `encoding` dependency (used by `typedContentToSnippet` to decode GB18030/windows-1251/Shift_JIS/Windows-31J content snippets) is now gated off Windows, where it fails to build. On Windows those charsets fall back to utf-8-lenient decoding; behavior is unchanged on other platforms. [#1924](https://github.com/yesodweb/yesod/pull/1924)

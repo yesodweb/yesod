@@ -1,0 +1,110 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+-- | Structural views of the endpoints directly owned by a route fragment.
+-- Experimental: generated with @setRouteLeafViews True@.
+module Yesod.Routes.Class.Leaf
+    ( HasRouteLeaves (..)
+    , fillInNested
+    , RouteLeafSelection (..)
+    , SomeRouteLeaf (..)
+    , RouteFragmentWitness
+    , RouteFragmentDict (..)
+    , Dict (..)
+    , withRouteLeaf
+    , withSomeRouteLeaf
+    ) where
+
+import Data.Constraint (Dict (..))
+import Data.Kind (Constraint, Type)
+import Yesod.Routes.Class
+
+-- | A fragment's direct endpoints, excluding delegation constructors.
+-- Purely delegating fragments do not need this instance.
+class RenderRouteNested fragment => HasRouteLeaves fragment where
+    -- | Direct endpoint constructors and their captures, with delegation
+    -- constructors omitted. Generated constructor names start with @Leaf@.
+    data RouteLeaves fragment :: Type
+    -- | A shallow projection. 'Nothing' means a delegation constructor.
+    projectRouteLeaves :: fragment -> Maybe (RouteLeaves fragment)
+    -- | Embed a local endpoint back into its original fragment.
+    -- Projecting this result must return the original leaf value.
+    fromRouteLeaves :: RouteLeaves fragment -> fragment
+
+-- | Adapt a local-endpoint callback to an interface accepting a whole fragment.
+-- Only the chosen branch is evaluated. This does not recurse into children.
+fillInNested
+    :: HasRouteLeaves fragment
+    => (RouteLeaves fragment -> result)
+    -> result
+    -> fragment
+    -> result
+fillInNested onLeaf onNested = maybe onNested onLeaf . projectRouteLeaves
+
+-- | Evidence that @fragment@ owns endpoints within @wholeRoute@, the full
+-- route type (usually @Route site@). This identifies the fragment's type;
+-- the actual endpoint and captures are carried separately by 'SomeRouteLeaf'.
+--
+-- For example, @FragmentAccountR :: RouteFragmentWitness (Route App) AccountR@.
+-- A fragment can also be @Route App@ itself when the site has root endpoints.
+-- No witness is generated for a fragment that only delegates.
+data family RouteFragmentWitness wholeRoute fragment :: Type
+
+-- | Generated once, polymorphic in @constraint@, with one constraint in its
+-- context per endpoint-owning fragment. Concrete dictionaries are required
+-- where this instance is used, not where route data is generated.
+class RouteFragmentDict (constraint :: Type -> Constraint) wholeRoute where
+    -- | Recover the chosen constraint for the fragment identified by a witness.
+    getRouteFragmentDict :: RouteFragmentWitness wholeRoute fragment -> Dict (constraint fragment)
+
+-- | The selected endpoint, including captures consumed by every ancestor.
+data SomeRouteLeaf site where
+    SomeRouteLeaf
+        :: (HasRouteLeaves fragment, ParentSite fragment ~ site)
+        => RouteFragmentWitness (Route site) fragment
+        -> ParentArgs fragment
+        -> RouteLeaves fragment
+        -> SomeRouteLeaf site
+
+-- | Project a route to its endpoint value in the owning fragment's local view.
+-- Subsite mounts are leaves in the parent site; projection stops at the mount.
+-- Generated instances satisfy the round-trip law: selecting @SomeRouteLeaf _
+-- args leaf@ from @route@ and evaluating @toParentRoute args (fromRouteLeaves
+-- leaf)@ reconstructs @route@. Custom 'HasRouteLeaves' instances must project
+-- every direct endpoint to 'Just' its corresponding leaf.
+class RenderRoute site => RouteLeafSelection site where
+    selectRouteLeaf :: Route site -> SomeRouteLeaf site
+
+-- | Visit the selected endpoint with a caller-chosen constraint. The callback
+-- runs only for that endpoint, without visiting ancestors or falling back.
+withRouteLeaf
+    :: forall constraint site result.
+       (RouteLeafSelection site, RouteFragmentDict constraint (Route site))
+    => Route site
+    -> (forall fragment.
+           (HasRouteLeaves fragment, ParentSite fragment ~ site, constraint fragment)
+           => ParentArgs fragment -> RouteLeaves fragment -> result)
+    -> result
+withRouteLeaf matched = withSomeRouteLeaf @constraint (selectRouteLeaf matched)
+
+-- | Eliminate an already selected existential leaf with a caller-chosen
+-- constraint. This is pure and does not require a route-selection instance.
+withSomeRouteLeaf
+    :: forall constraint site result.
+       RouteFragmentDict constraint (Route site)
+    => SomeRouteLeaf site
+    -> (forall fragment.
+           (HasRouteLeaves fragment, ParentSite fragment ~ site, constraint fragment)
+           => ParentArgs fragment -> RouteLeaves fragment -> result)
+    -> result
+withSomeRouteLeaf (SomeRouteLeaf witness args leaves) callback =
+    case getRouteFragmentDict @constraint witness of
+        Dict -> callback args leaves
