@@ -8,4 +8,4 @@ import YesodCoreTest.RouteLeaf.Policy
 -- No concrete authorizers are imported. The generic dictionary must demand
 -- all endpoint-owner instances when it is instantiated here.
 bad :: HandlerFor LeafApp (Maybe ())
-bad = withRouteLeaves @AuthorizeRoute (const ())
+bad = withRouteLeaves @AuthorizeRoute (const $ pure ())

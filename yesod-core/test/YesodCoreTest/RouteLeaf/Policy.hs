@@ -28,5 +28,5 @@ authorizationMiddleware
     => HandlerFor site a -> HandlerFor site a
 authorizationMiddleware handler = defaultYesodMiddleware $ do
     authorization <- withRouteLeavesWithParentArgs @AuthorizeRoute isAuthorized
-    forM_ authorization $ \check -> enforceAuthorization =<< check
+    forM_ authorization enforceAuthorization
     handler -- explicit policy: skip authorization when there is no current route

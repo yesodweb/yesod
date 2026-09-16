@@ -2,7 +2,7 @@
 
 This branch prototypes the middleware alternative to dispatch authorization
 hooks. TH generates structural views and dictionary selection; ordinary
-`yesodMiddleware` selects and runs the application-owned policy. The generated
+`isAuthorized` or `yesodMiddleware` selects and runs the application-owned policy. The generated
 dispatcher receives no authorization callback.
 
 The branch targets master directly and is independent of the dispatch-hook
@@ -18,7 +18,14 @@ Import `Yesod.Core.RouteLeaf` for the runtime API. Data splice modules need
 `ConstraintKinds`, `GADTs`, `FlexibleContexts`, `FlexibleInstances`,
 `MultiParamTypeClasses`, `TypeFamilies`, and `UndecidableInstances`, in addition
 to the extensions needed by their existing routing declarations. Parameterized
-nested routes must enable `setParameterizedSubroute True` too.
+nested routes must enable `setParameterizedSubroute True` too. `GADTs` supports
+the type-indexed fragment witnesses. `UndecidableInstances` permits the generated
+dictionary context, including `c (Route site)` when the root owns endpoints.
+
+Policy modules must enable `-Werror=incomplete-patterns` to make omitted endpoint
+cases build failures. Without it, a missing case can fail at runtime. Wildcard
+patterns opt out of this check; the leaf view excludes delegation constructors
+but does not prove that a policy enforces every required check.
 
 ## What is generated
 
@@ -87,7 +94,9 @@ instance (c (Route Site), c OrgR, c AccountR, ...)
 Only endpoint-owning fragments appear in that context. Pure grouping fragments
 require no policy instance. Focused data splices generate local views; a later
 full-site splice reuses those instances and constructs the site-wide table.
-Neither step looks for authorization instances.
+Neither step looks for authorization instances. Fragment modules may hide their
+`Leaf*` constructors from the root splice: selection uses `projectRouteLeaves`.
+Only modules that pattern-match a leaf view need its constructors exported.
 
 `getRouteFragmentDict` returns the upstream `Data.Constraint.Dict` from the
 `constraints` package, re-exported by `Yesod.Core.RouteLeaf`.
@@ -118,35 +127,67 @@ witness identifying the hidden `a`. `RouteLeaves a` still contains only that
 level's endpoints; the existential packages whichever level the request chose.
 Fetching the package needs no authorization instances.
 
-`withRouteLeaves @c` recovers the chosen constraint for that hidden fragment and
-passes its local leaves to a rank-n callback:
+For authorization returning `AuthResult`, prefer the existing `Yesod.isAuthorized`
+entry point. Supply its implementation through the foundation, and assemble its
+policy dictionaries alongside dispatch:
+
+```haskell
+-- Foundation module: no concrete policy imports.
+data App = App
+    { appAuthorization :: Route App -> Bool -> HandlerFor App AuthResult
+    -- other fields
+    }
+
+instance Yesod App where
+    isAuthorized route isWrite = do
+        app <- getYesod
+        appAuthorization app route isWrite
+
+-- Application assembly: import every endpoint owner's policy instance.
+-- Policy.isAuthorized is the application-owned class method above.
+authorizeRoute :: Route App -> Bool -> HandlerFor App AuthResult
+authorizeRoute route _isWrite =
+    withRouteLeaf @AuthorizeRoute route Policy.isAuthorized
+```
+
+Construct `App` with `appAuthorization = authorizeRoute`. The normal
+`defaultYesodMiddleware` calls it with an existing route and retains Yesod's
+401/403 responses and `authRoute` redirects. No current-route lookup or `Nothing`
+branch is needed in this callback. If policies need `isWrite`, the application
+can include it in its class API; the example does not use it.
+
+The pure `withRouteLeaf @c` helper selects a leaf and recovers its dictionary;
+`withSomeRouteLeaf @c` visits an already fetched existential. Their callback can
+return any value, including a handler action that is returned directly above.
+They do not themselves execute effects.
+
+For middleware that needs the current route, `withRouteLeaves @c` executes a
+handler callback using the chosen constraint:
 
 ```haskell
 withRouteLeaves
     :: (RouteLeafSelection site, RouteFragmentDict c (Route site))
     => (forall a.
            (HasRouteLeaves a, ParentSite a ~ site, c a)
-           => RouteLeaves a -> r)
+           => RouteLeaves a -> HandlerFor site r)
     -> HandlerFor site (Maybe r)
 
--- For example, returns the selected fragment's local route name:
-withRouteLeaves @Show (show . fromRouteLeaves)
+-- Returns the selected fragment's local route name:
+withRouteLeaves @Show (pure . show . fromRouteLeaves)
 ```
 
-Selection and dictionary elimination are pure; the handler wrappers only read
-`getCurrentRoute`. `Nothing` means no matched route, not a missing dictionary or
-a different fragment. Dictionary coverage is checked at compile time.
+The callback runs once before the helper returns, even when its result is
+ignored. `Nothing` means no matched route, not a missing dictionary or a
+different fragment; no callback runs in that case. Dictionary coverage is
+checked at compile time. `withRouteLeavesWithParentArgs` also passes ancestor
+captures and has the same execution behavior.
 
-Authorization can use `withRouteLeavesWithParentArgs`, which also supplies the
-ancestor captures. The callback result is returned as a value: when `r` is a
-handler action, middleware explicitly runs it.
+For example, custom middleware can choose its own denial responses:
 
 ```haskell
-import Control.Monad (forM_)
-
 authorizationMiddleware handler = defaultYesodMiddleware $ do
-    authorization <- withRouteLeavesWithParentArgs @AuthorizeRoute isAuthorized
-    forM_ authorization $ \check -> enforceAuthorization =<< check
+    _ <- withRouteLeavesWithParentArgs @AuthorizeRoute $ \args leaf ->
+        enforceAuthorization =<< Policy.isAuthorized args leaf
     handler -- explicit policy: skip authorization when there is no current route
 
 -- Application-owned response policy; choose redirects here if desired.
@@ -156,37 +197,17 @@ enforceAuthorization AuthenticationRequired = notAuthenticated
 enforceAuthorization (Unauthorized message) = permissionDenied message
 ```
 
+When this custom middleware is the enforcement point, set the legacy
+`Yesod.isAuthorized _ _ = pure Authorized` to avoid a second policy check.
+`defaultYesodMiddleware` still calls `isWriteRequest` for matched routes.
+Assemble the custom middleware where its policy instances are imported, then
+supply it to the foundation as a value, for example through a
+`forall a. HandlerFor App a -> HandlerFor App a` field.
+
 Only the selected policy runs; no ancestor authorizers run and there is no
-fallback after denial. The pure `withSomeRouteLeaf @c` helper interprets an
-already fetched existential, while `withRouteLeaf @c` also performs pure route
-selection. These helpers and the handler visitors share dictionary elimination.
-
-Using the full-site dictionary requires every policy listed in its context.
-Assemble this middleware in the application construction module, then inject it
-through a foundation field:
-
-```haskell
-data App = App
-    { requestMiddleware :: forall a. HandlerFor App a -> HandlerFor App a
-    -- other fields
-    }
-
-instance Yesod App where
-    isAuthorized _ _ = pure Authorized
-    yesodMiddleware handler = do
-        app <- getYesod
-        requestMiddleware app handler
-```
-
-The foundation imports no authorizers. The application construction module
-imports them and supplies the middleware value. This changes the application's
-own foundation constructor, not a Yesod runtime environment record.
-
-The legacy `Yesod.isAuthorized` is a no-op because the supplied middleware
-enforces the leaf policy. `defaultYesodMiddleware` still supplies the normal
-headers and calls `isWriteRequest` for matched routes. The example's policy
-interpreter returns 401 when authentication is required; applications can
-supply their own login redirect or other response behavior.
+fallback after denial. Missing endpoint cases still require the exhaustive
+pattern flag described above. The types restrict the policy's input shape;
+they do not prevent a policy from reading or reconstructing the whole route.
 
 A focused test must avoid constructing the full-site dictionary if it wants to
 exclude sibling policies. It can fetch `getCurrentRouteLeaves`, match
@@ -205,8 +226,9 @@ The compiler excludes delegation branches from the new input type; tests still
 need to establish that the migration preserved the required checks. The account
 fixture denies requests with invalid organization, account, or endpoint captures.
 
-Once the leaf policies enforce the required checks, set the legacy
-`Yesod.isAuthorized _ _ = pure Authorized` and retain `defaultYesodMiddleware`.
+Retain `defaultYesodMiddleware`; either delegate `Yesod.isAuthorized` to the
+assembled leaf authorizer or make it a no-op when custom middleware enforces
+the policy.
 Existing users retain their current output and behavior when the new option is
 disabled. The leaf-view API can also be consumed by a future class-based
 dispatch implementation.
@@ -234,7 +256,8 @@ The regular suite covers ordinary/focused dispatch, mixed and pure delegation
 fragments, default headers, 404/405, method classification once, policy/handler
 order, parent/leaf captures, multipieces, unit arguments, mounted routes,
 parameterized captures, existential selection across different fragments,
-callback actions executed once, and focused data splices followed by full-site
-data generation. The separate script builds an isolated account application and
+callback execution and denial even when results are discarded, selection/embedding
+round trips, and focused data splices with hidden leaf constructors followed by
+full-site data generation. The separate script builds an isolated account application and
 requires compiler rejection of a nested pattern, an omitted endpoint, missing
 policy dictionaries, and unsupported parameterized compatibility mode.

@@ -9,8 +9,11 @@
   constraint, without adding authorization callbacks to dispatch.
 * `getCurrentRouteLeaves` returns the current endpoint in its owning level's
   `RouteLeaves` view, packaged existentially.
-  `withRouteLeaves @c` recovers that fragment's dictionary for a rank-n callback;
-  `withRouteLeavesWithParentArgs` also supplies its ancestor captures.
+  `withRouteLeaves @c` recovers that fragment's dictionary and executes a rank-n
+  handler callback; `withRouteLeavesWithParentArgs` also supplies its ancestor
+  captures. Pure visitors remain available as `withRouteLeaf` and `withSomeRouteLeaf`.
+* Enforcement retains the existing runner contract: raw WAI applications can
+  bypass parent middleware, and subsite misses can lack a parent route.
 
 ## 1.7.0.1
 

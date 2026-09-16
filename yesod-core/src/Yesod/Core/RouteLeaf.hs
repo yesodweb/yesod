@@ -45,29 +45,28 @@ getCurrentRouteLeaves = fmap selectRouteLeaf <$> getCurrentRoute
 -- dictionary supplies the instance for the fragment selected by the request.
 -- 'Nothing' means no current route, never a missing instance.
 --
--- The callback is pure in @result@: if it returns a handler action, the caller
--- must execute that returned action. Use 'withRouteLeavesWithParentArgs' for
--- policies that also need ancestor captures.
+-- The selected callback is executed once before this helper returns. Use
+-- 'withRouteLeavesWithParentArgs' for policies that also need ancestor captures,
+-- or 'withRouteLeaf' and 'withSomeRouteLeaf' for pure selection.
 withRouteLeaves
     :: forall constraint site result.
        (RouteLeafSelection site, RouteFragmentDict constraint (Route site))
     => (forall fragment.
            (HasRouteLeaves fragment, ParentSite fragment ~ site, constraint fragment)
-           => RouteLeaves fragment -> result)
+           => RouteLeaves fragment -> HandlerFor site result)
     -> HandlerFor site (Maybe result)
 withRouteLeaves callback = withRouteLeavesWithParentArgs @constraint $ \_ leaves -> callback leaves
 
 -- | Like 'withRouteLeaves', also passing the selected fragment's parent
--- captures. Selection and dictionary elimination are pure; this wrapper only
--- reads the current route. The callback's result is returned without executing
--- it, even when that result is itself a handler action.
+-- captures. The selected callback is executed once; no callback runs when
+-- there is no current route. Exceptions from the callback propagate normally.
 withRouteLeavesWithParentArgs
     :: forall constraint site result.
        (RouteLeafSelection site, RouteFragmentDict constraint (Route site))
     => (forall fragment.
            (HasRouteLeaves fragment, ParentSite fragment ~ site, constraint fragment)
-           => ParentArgs fragment -> RouteLeaves fragment -> result)
+           => ParentArgs fragment -> RouteLeaves fragment -> HandlerFor site result)
     -> HandlerFor site (Maybe result)
 withRouteLeavesWithParentArgs callback = do
     selected <- getCurrentRouteLeaves
-    pure $ fmap (\leaves -> withSomeRouteLeaf @constraint leaves callback) selected
+    traverse (\leaves -> withSomeRouteLeaf @constraint leaves callback) selected

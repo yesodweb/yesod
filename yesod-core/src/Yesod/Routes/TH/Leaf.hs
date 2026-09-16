@@ -18,7 +18,9 @@ mkRouteLeafData
     :: Cxt -> TyArgs -> Type -> Maybe String -> [ResourceTree Type] -> Q [Dec]
 mkRouteLeafData context tyargs site focus resources = do
     (root, rootLabel, trees) <- case focus of
-        Nothing -> pure (ConT ''Route `AppT` site, "Route" ++ siteName site, resources)
+        Nothing -> do
+            label <- typeHeadName site
+            pure (ConT ''Route `AppT` site, "Route" ++ label, resources)
         Just target -> case findNestedRoute target resources of
             Nothing -> fail $ "Route leaf target '" ++ target ++ "' was not found."
             Just (_, children) -> pure (childType target, target, children)
@@ -62,7 +64,9 @@ mkRouteLeafData context tyargs site focus resources = do
             -- Unresolved local datatypes have not been emitted yet.
             known <- case typ of
                 AppT (ConT route) _ | route == ''Route -> isInstance ''HasRouteLeaves [typ]
-                _ -> nestedInstanceExists ''HasRouteLeaves =<< resolveRouteCon (typeHeadName typ)
+                _ -> do
+                    name <- typeHeadName typ
+                    nestedInstanceExists ''HasRouteLeaves =<< resolveRouteCon name
             if known then pure [] else do
                 projections <- forM trees $ \tree -> case tree of
                     ResourceParent name _ _ _ _ ->
@@ -98,16 +102,25 @@ mkRouteLeafData context tyargs site focus resources = do
             projectClauses name front' (parents ++ vars) children
         ResourceLeaf res -> do
             vars <- fieldVars res
+            leaf <- newName "leaf"
+            -- Imported fragments may hide their generated leaf constructors.
+            -- Project through their public instance instead of naming those constructors.
+            let endpoint = applyConstructor (mkName $ resourceName res) vars
+                selected = foldl' AppE (ConE 'SomeRouteLeaf)
+                    [ConE $ witnessName label, parentArgsExpr parents, VarE leaf]
+                rejected = VarE 'error `AppE` LitE (StringL $
+                    "selectRouteLeaf: projectRouteLeaves rejected endpoint " ++ resourceName res)
             pure [Clause [front $ conPCompat (mkName $ resourceName res) (map VarP vars)]
-                (NormalB $ foldl' AppE (ConE 'SomeRouteLeaf)
-                    [ConE $ witnessName label, parentArgsExpr parents, applyConstructor (leafName res) vars]) []]
+                (NormalB $ CaseE (VarE 'projectRouteLeaves `AppE` endpoint)
+                    [ Match (conPCompat 'Just [VarP leaf]) (NormalB selected) []
+                    , Match (conPCompat 'Nothing []) (NormalB rejected) []
+                    ]) []]
 
     fieldVars res = replicateM (length $ leafFieldTypes res) (newName "capture")
     leafName res = mkName $ "Leaf" ++ resourceName res
     witnessName label = mkName $ "Fragment" ++ label
     applyConstructor name = foldl' AppE (ConE name) . map VarE
     lazyField = Bang NoSourceUnpackedness NoSourceStrictness
-    siteName = typeHeadName
-    typeHeadName (ConT name) = nameBase name
+    typeHeadName (ConT name) = pure $ nameBase name
     typeHeadName (AppT typ _) = typeHeadName typ
-    typeHeadName typ = error $ "Unexpected route type head: " ++ show typ
+    typeHeadName typ = fail $ "Unexpected route type head: " ++ show typ

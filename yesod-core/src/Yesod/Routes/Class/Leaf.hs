@@ -36,6 +36,7 @@ class RenderRouteNested fragment => HasRouteLeaves fragment where
     -- | A shallow projection. 'Nothing' means a delegation constructor.
     projectRouteLeaves :: fragment -> Maybe (RouteLeaves fragment)
     -- | Embed a local endpoint back into its original fragment.
+    -- Projecting this result must return the original leaf value.
     fromRouteLeaves :: RouteLeaves fragment -> fragment
 
 -- | Adapt a local-endpoint callback to an interface accepting a whole fragment.
@@ -75,6 +76,10 @@ data SomeRouteLeaf site where
 
 -- | Project a route to its endpoint value in the owning fragment's local view.
 -- Subsite mounts are leaves in the parent site; projection stops at the mount.
+-- Generated instances satisfy the round-trip law: selecting @SomeRouteLeaf _
+-- args leaf@ from @route@ and evaluating @toParentRoute args (fromRouteLeaves
+-- leaf)@ reconstructs @route@. Custom 'HasRouteLeaves' instances must project
+-- every direct endpoint to 'Just' its corresponding leaf.
 class RenderRoute site => RouteLeafSelection site where
     selectRouteLeaf :: Route site -> SomeRouteLeaf site
 

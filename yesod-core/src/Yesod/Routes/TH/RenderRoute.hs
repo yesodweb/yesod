@@ -119,7 +119,9 @@ defaultOpts = MkRouteOpts
 -- @FlexibleInstances@, @MultiParamTypeClasses@, @TypeFamilies@ and
 -- @UndecidableInstances@. Parameterized nested routes also need
 -- @setParameterizedSubroute True@. Share the same options between data and
--- dispatch splices. Default: 'False'.
+-- dispatch splices. Policy modules need @-Werror=incomplete-patterns@ to reject
+-- omitted endpoints at compile time; wildcard patterns opt out of that check.
+-- Default: 'False'.
 setRouteLeafViews :: Bool -> RouteOpts -> RouteOpts
 setRouteLeafViews enabled opts = opts { roRouteLeafViews = enabled }
 

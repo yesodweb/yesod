@@ -19,6 +19,7 @@ import qualified Network.Wai as W
 import qualified Network.Wai.Test as WT
 import Test.Hspec
 import Yesod.Core hiding (isAuthorized)
+import Yesod.Core.Class.Dispatch.ToParentRoute (toParentRoute)
 import Yesod.Core.RouteLeaf
 import YesodCoreTest.RouteLeaf.Foundation
 import YesodCoreTest.RouteLeaf.Options
@@ -152,7 +153,7 @@ specs = describe "leaf dictionary middleware" $ do
                 let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
                     middleware handler = defaultYesodMiddleware $ do
                         selected <- getCurrentRouteLeaves
-                        name <- withRouteLeaves @Show (show . fromRouteLeaves)
+                        name <- withRouteLeaves @Show (pure . show . fromRouteLeaves)
                         let describe :: SomeRouteLeaf LeafApp -> (([Text], [(Text, Text)]), String)
                             describe leaves = withSomeRouteLeaf @Show leaves $ \args leaf ->
                                 (renderRouteNested args $ fromRouteLeaves leaf, show $ fromRouteLeaves leaf)
@@ -163,20 +164,41 @@ specs = describe "leaf dictionary middleware" $ do
                 readIORef observed `shouldReturn`
                     Just (fmap (\name -> ((path, []), name)) expectedName, expectedName)
 
-    it "returns callback actions as values for the middleware to execute once" $ do
+    it "executes callback actions once even when their result is discarded" $ do
         ref <- newIORef []
         let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
             middleware handler = defaultYesodMiddleware $ do
-                check <- withRouteLeaves @Show $ \leaf ->
+                _ <- withRouteLeaves @Show $ \leaf ->
                     record (show $ fromRouteLeaves leaf)
-                record "selected"
-                forM_ check id
+                record "visited"
                 handler
         assertRequestRaw (toWaiAppPlain (LeafApp ref middleware))
             WT.defaultRequest { W.pathInfo = account "42" "alice" ["item", "7"] }
             200 Nothing
         readIORef ref `shouldReturn`
-            ["middleware", "write classification", "selected", "ItemR 7", "handler"]
+            ["middleware", "write classification", "ItemR 7", "visited", "handler"]
+
+    it "propagates callback denial before running the handler" $ do
+        ref <- newIORef []
+        let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
+            middleware handler = defaultYesodMiddleware $ do
+                _ <- withRouteLeaves @Show $ \_ -> permissionDenied "denied by visitor"
+                handler
+        assertRequestRaw (toWaiAppPlain (LeafApp ref middleware))
+            WT.defaultRequest { W.pathInfo = ["open"] } 403 Nothing
+        readIORef ref `shouldReturn` ["middleware", "write classification", "error"]
+
+    it "reconstructs the original route from every owner's selected leaf" $
+        forM_
+            [ OpenR, DeniedR, AnyR, MountR 42 PageR
+            , OrgR 23 OrgHomeR
+            , OrgR 42 (DelegationR (AccountR "alice" (ItemR 7)))
+            , OrgR 43 (DelegationR (AccountR "bob" (FilesR ["one", "two"])))
+            , OrgR 44 (DelegationR (AccountR "carol" ErrorR))
+            , StaticR StaticHomeR, OtherR OtherHomeR
+            ] $ \route ->
+                withRouteLeaf @ToParentRoute route (\args leaf -> toParentRoute args $ fromRouteLeaves leaf)
+                    `shouldBe` route
 
     it "rejects unexpected matched fragments in focused middleware" $ do
         ref <- newIORef []
