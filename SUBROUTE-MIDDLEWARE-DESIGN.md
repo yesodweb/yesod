@@ -83,6 +83,59 @@ Another possible API puts the class on the generated leaf type itself, with
 corresponding `ParentArgs`/`ParentSite` instances; the essential requirement is
 that its input type exclude delegation constructors. Names are provisional.
 
+## Adapting a leaf policy to the original route type
+
+The proposed `AuthDispatch a` is this same leaf-only view, called `RouteLeaf a`
+above. It also supports a generated adapter for APIs that still accept the
+original route. Using the `AuthDispatch` spelling, the complete shape is:
+
+```haskell
+class HasAuthDispatch a where
+    data AuthDispatch a
+    projectAuthDispatch :: a -> Maybe (AuthDispatch a)
+
+fillInNested
+    :: HasAuthDispatch a
+    => (AuthDispatch a -> r)
+    -> r
+    -> a
+    -> r
+fillInNested onLeaf onNested route =
+    maybe onNested onLeaf (projectAuthDispatch route)
+```
+
+This is an alternative spelling of the structural API, not a second required
+set of leaf types. Its projection is shallow: a direct endpoint becomes `Just`
+its leaf view; a delegation constructor becomes `Nothing`. Generated code owns
+all those delegation cases. The earlier `routeLeaf` operation instead descends
+to the endpoint's actual owner.
+
+The extra `a` argument is necessary: it is the route being inspected. An
+existing full-route interface can then use:
+
+```haskell
+authorizeExisting args =
+    fillInNested (authorizeLeaf args) errorOnNested
+```
+
+The nested fallback has the same result type as the leaf callback. Only the
+selected branch is evaluated. It is not a recursive authorizer and the constant
+fallback does not receive a child route or child dictionary.
+
+This gives useful compile-time migration checks. Retyping the policy to accept
+`AuthDispatch MyRouteR` makes a pattern such as `SubrouteR child` ill-typed: that
+constructor belongs to the original route, not the leaf view. Omitting a real
+leaf constructor is caught by `-Werror=incomplete-patterns`, assuming the policy
+does not use a wildcard that accepts future constructors.
+
+`errorOnNested` itself remains a runtime assertion. For the primary middleware
+path, generated projection should supply the leaf view directly, leaving no
+nested case to reject. Keep the adapter for migration or interfaces that still
+require the full route. Neither form proves that a programmer preserved every
+old parent check: removing a rejected branch without moving its validation can
+still compile. The input type enforces the policy's structural domain; behavioral
+regression tests must establish that the refactor preserves required checks.
+
 ## Reuse the generic FieldDict instance
 
 Prairie's relevant local API is `FieldDict`. Its generator emits an instance
@@ -360,6 +413,12 @@ projection and a focused middleware adapter; all three nested allow/deny/405
 requests passed. The foundation's polymorphic dictionary instance compiled
 without any policy imports. Expected orphan-instance warnings remained for
 instances kept outside the class/type modules.
+
+A separate `AuthDispatch`/`fillInNested` probe compiled with `-Wall -Werror` and
+passed five checks covering endpoint captures, both local constructors, nested
+fallback, and non-evaluation of the unselected branch. Two negative compilation
+checks confirmed that a nested-route pattern is a type error and an omitted
+leaf constructor is rejected by the exhaustiveness warning promoted to an error.
 
 These exploratory checks are outside the repository suite. Production TH
 emission, full `AuthPolicyStyleWrapper` integration, preservation of existing
