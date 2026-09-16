@@ -25,6 +25,19 @@ module Yesod.Routes.TH.RenderRoute
     , roNestedRouteFallthrough
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
+    , roRouteHandlerWrapper
+    , SiteAuthorization(..)
+    , roSiteAuthorization
+    , defaultSiteAuthorization
+    , SiteAuthorizationMode(..)
+    , siteAuthorizationMode
+    , siteAuthorizationOption
+    , setRouteHandlerWrapper
+    , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     , DiscoveryMode(..)
     , discoveryMode
     ) where
@@ -70,7 +83,130 @@ data RouteOpts = MkRouteOpts
     -- Default: 'False'.
     --
     -- @since 1.7.0.0
+    , roSiteAuthorization :: SiteAuthorization
+    -- ^ Site-only authorization settings, shared with dispatch generation.
+    --
+    -- @since 1.7.1.0
     }
+
+-- | Site-only options passed as one value through route and dispatch settings.
+-- 'subsiteRouteOpts' clears the whole value. The positional patterns in
+-- 'siteAuthorizationMode' require a validation decision for every new field.
+--
+-- @since 1.7.1.0
+data SiteAuthorization = SiteAuthorization
+    { saRouteAuth :: RouteAuthSpec
+    -- ^ Named authorization policy for emitted leaves.
+    --
+    -- @since 1.7.1.0
+    , saHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
+    -- ^ Optional site handler wrapper; see 'setRouteHandlerWrapper'.
+    --
+    -- @since 1.7.1.0
+    }
+
+-- | No named policy or handler wrapper.
+--
+-- @since 1.7.1.0
+defaultSiteAuthorization :: SiteAuthorization
+defaultSiteAuthorization = SiteAuthorization NoRouteAuth Nothing
+
+-- | Authorization configurations distinguished by subsite and mount validation.
+--
+-- @since 1.7.1.0
+data SiteAuthorizationMode
+    = Unconfigured
+    -- ^ Neither authorization option is enabled.
+    | WrapperOnly
+    -- ^ A handler wrapper is enabled without a named policy.
+    | Named RouteAuthSpec
+    -- ^ A named policy is enabled, possibly with a handler wrapper.
+
+-- | Classify the complete site authorization settings for validation.
+--
+-- @since 1.7.1.0
+siteAuthorizationMode :: SiteAuthorization -> SiteAuthorizationMode
+siteAuthorizationMode (SiteAuthorization NoRouteAuth Nothing) = Unconfigured
+siteAuthorizationMode (SiteAuthorization NoRouteAuth (Just _)) = WrapperOnly
+siteAuthorizationMode (SiteAuthorization policy _) = Named policy
+
+-- | Name an enabled site-only option for an unsupported-subsite diagnostic.
+--
+-- @since 1.7.1.0
+siteAuthorizationOption :: SiteAuthorization -> Maybe String
+siteAuthorizationOption authorization = case siteAuthorizationMode authorization of
+    Unconfigured -> Nothing
+    WrapperOnly -> Just "setRouteHandlerWrapper"
+    Named _ -> Just "setRouteAuthorization"
+
+-- | The policy for leaves emitted by this splice; see 'RouteAuthSpec'.
+--
+-- @since 1.7.1.0
+roRouteAuth :: RouteOpts -> RouteAuthSpec
+roRouteAuth = saRouteAuth . roSiteAuthorization
+
+-- | The optional site handler wrapper; see 'setRouteHandlerWrapper'.
+--
+-- @since 1.7.1.0
+roRouteHandlerWrapper :: RouteOpts -> Maybe (Q Exp -> Q Exp -> Q Exp)
+roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
+
+-- | How dispatch should authorize each generated leaf. Dispatch resolves
+-- authorization in the module that owns the handler, so the site's @Yesod@
+-- instance need not import authorizers.
+-- The policy applies only to dispatch emitted by this splice. Delegation to
+-- an existing nested instance uses that instance's policy; it cannot inherit
+-- or validate the delegating splice's authorization options. Configure each
+-- fragment's dispatch splice explicitly, deriving from shared route options.
+-- Named authorizers take the @isWrite@ flag after their route arguments and
+-- return @HandlerFor site AuthResult@. 'Yesod.Core.dispatchAuthorizationCheck'
+-- computes that flag and enforces the result.
+--
+-- With 'Yesod.Core.defaultYesodMiddleware', execution proceeds through the
+-- site-wide 'Yesod.Core.isAuthorized' check, the named authorization check,
+-- any 'setRouteHandlerWrapper' hook, and finally the handler body. The named
+-- check and wrapper execute inside the middleware. Custom middleware controls
+-- whether and where the site-wide check runs; applications using these hooks
+-- can leave the default @isAuthorized@ implementation.
+-- Subsite mounts demand an authorizer on the parent site. Subsite dispatch
+-- splices reject these options; subsite-local authorization is not supported.
+-- Mount checks run through the parent runner, including subsite 404s; see
+-- 'Yesod.Core.dispatchAuthorizationCheck' for the no-route method fallback
+-- and authentication response. Every subsite on a request's dispatch path
+-- must honor @ysreParentRunner@, including subsites mounted inside a generated
+-- subsite. A transitive @WaiSubsite@ or @EmbeddedStatic@ bypasses the outer
+-- mount check. Use @WaiSubsiteWithAuth@ for WAI apps at every level.
+-- TH rejects direct mounts of the known runner-bypassing types, unresolved
+-- type names, type variables, and type families under a named policy. It cannot
+-- inspect the dispatch implementation or transitive mounts of an arbitrary subsite type;
+-- a generated outer subsite alone does not establish runner compatibility.
+--
+-- @since 1.7.1.0
+data RouteAuthSpec
+    = NoRouteAuth
+    -- ^ Status quo: no authorizer is demanded and dispatch runs via
+    -- 'Yesod.Core.yesodRunner', so authorization falls back to the site-wide
+    -- @isAuthorized@.
+    | RouteAuthSubtree
+    -- ^ For a method-based leaf below a parent, demand that parent's
+    -- @authorize\<SubtreeName\>@ binding, applied to the parent dynamics and
+    -- the route fragment value:
+    -- @authorize\<SubtreeName\> parentDyn1 .. parentDynN fragment :: Bool -> HandlerFor site AuthResult@.
+    -- This selects the nearest enclosing subtree only. The binding covers its
+    -- direct method-based leaves; ancestor authorizers are not composed, and
+    -- parents containing only other parents or mounts demand no subtree
+    -- binding. Include any ancestor access checks in the selected policy.
+    -- Inline compatibility dispatch uses the same nearest-parent rule.
+    -- Top-level leaves and subsite mounts instead demand their own
+    -- @authorize\<ResourceName\>@ binding, applied to that resource's captures.
+    | RouteAuthPerResource
+    -- ^ Demand one @authorize\<ResourceName\>@ binding per leaf resource,
+    -- applied to the same argument spine as the handler:
+    -- @authorize\<ResourceName\> dyn1 .. dynN :: Bool -> HandlerFor site AuthResult@.
+    -- Each leaf emitted by this splice must have a binding in scope.
+    -- This includes subsite mounts, whose authorizers take the mount's
+    -- ancestor and local captures (not the child subsite's route).
+    deriving (Eq, Show)
 
 -- | Default options for generating routes.
 --
@@ -85,6 +221,8 @@ data RouteOpts = MkRouteOpts
 --     rather than focusing on a single nested route.
 --   * 'setNestedRouteFallthrough': 'False' — a nested route that fails to
 --     match throws 'notFound' instead of falling through.
+--   * 'setRouteHandlerWrapper': unset — leave handler expressions unchanged.
+--   * 'setRouteAuthorization': 'NoRouteAuth' — use the site's existing policy.
 --
 -- Use the @set*@ functions to override individual fields.
 --
@@ -98,6 +236,7 @@ defaultOpts = MkRouteOpts
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
+    , roSiteAuthorization = defaultSiteAuthorization
     }
 
 -- | If you set this with @routeName@, then the code generation will
@@ -186,6 +325,76 @@ unsetFocusOnNestedRoute rdo = rdo { roFocusOnNestedRoute = Nothing }
 -- @since 1.7.0.0
 setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
 setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
+
+-- | Set whether generated dispatch demands a per-route or per-subtree
+-- authorizer binding. See 'RouteAuthSpec'.
+--
+-- Default: 'NoRouteAuth'.
+--
+-- @since 1.7.1.0
+setRouteAuthorization :: RouteAuthSpec -> RouteOpts -> RouteOpts
+setRouteAuthorization spec rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saRouteAuth = spec } }
+
+-- | Wrap each matched handler expression (first argument), given an expression
+-- of type @WithParentArgs fragment@ (second argument). The result must have
+-- type @HandlerFor site TypedContent@, as does the first argument. For example:
+--
+-- @
+-- setRouteHandlerWrapper
+--     (\\handler route -> [| requireAuthorized $route >> $handler |])
+--     defaultOpts
+-- @
+--
+-- @requireAuthorized@ can call a type class method with an application-owned
+-- result type and throw on failure. Each nested dispatch instance needs only
+-- the authorization instance for its own fragment type. No site-wide
+-- authorizer needs to be imported by the site's @Yesod@ instance.
+--
+-- Nested dispatch supplies the fragment and all ancestor captures. Flat
+-- dispatch supplies @WithParentArgs () fullRoute@, including when nested
+-- routes are inlined for compatibility. This option wraps method-based site
+-- handlers only, not subsite mounts or handlers inside a mounted subsite.
+-- A splice with a wrapper and a mount must also enable 'setRouteAuthorization'
+-- and supply a named mount authorizer; wrapper-only mounts are rejected.
+-- That named policy demands bindings for every leaf emitted by the splice,
+-- even if a wrapper already guards its handler. To keep other leaves
+-- wrapper-only, place the mount alone under a parent route and focus a named
+-- dispatch splice on that parent. A mount leaf itself cannot be a focus target.
+-- See 'RouteAuthSpec' for the mount runner contract and ordering. Subsite
+-- dispatch splices reject this option; use 'subsiteRouteOpts' when deriving
+-- their options from shared options.
+-- Delegated fragments use the options of the splice that generated their
+-- dispatch, independently of the parent's wrapper or named policy.
+--
+-- The hook also wraps method-mismatch handlers (405). Unmatched paths do not
+-- invoke it. See 'RouteAuthSpec' for its order relative to other checks.
+-- The TH callback runs once per generated leaf handler, not once per method,
+-- and is not run by data-only splices such as 'Yesod.Core.Dispatch.mkYesodDataOpts'.
+--
+-- Default: no wrapper. Existing dispatch and authorization are unchanged.
+--
+-- @since 1.7.1.0
+setRouteHandlerWrapper :: (Q Exp -> Q Exp -> Q Exp) -> RouteOpts -> RouteOpts
+setRouteHandlerWrapper wrap rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saHandlerWrapper = Just wrap } }
+
+-- | Clear a handler wrapper while retaining all other shared route options.
+--
+-- @since 1.7.1.0
+unsetRouteHandlerWrapper :: RouteOpts -> RouteOpts
+unsetRouteHandlerWrapper rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saHandlerWrapper = Nothing } }
+
+-- | Derive options for a subsite dispatch splice from shared site options.
+-- Clears the named authorization policy and handler wrapper, retaining route
+-- shape, focus, and fallthrough settings. Subsite dispatch splices reject
+-- site authorization options unless explicitly cleared; configure checks on
+-- the parent site's mounts instead. See 'RouteAuthSpec'.
+--
+-- @since 1.7.1.0
+subsiteRouteOpts :: RouteOpts -> RouteOpts
+subsiteRouteOpts rdo = rdo { roSiteAuthorization = defaultSiteAuthorization }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --

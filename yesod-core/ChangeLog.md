@@ -1,5 +1,57 @@
 # ChangeLog for yesod-core
 
+## 1.7.1.0
+
+* Decentralized route authorization ([#1931](https://github.com/yesodweb/yesod/pull/1931)). Dispatch can now supply a per-route or
+  per-subtree authorization check, so authorization can live next to a route's
+  `YesodDispatchNested` instance instead of a single site-wide `isAuthorized`.
+    * New `dispatchAuthorizationCheck` accepts a callback of type
+      `Bool -> HandlerFor site AuthResult` and enforces its result with the
+      same semantics as `authorizationCheck`. Generated dispatch prefixes this
+      action onto the handler while preserving its runner. The check runs inside the site's
+      `yesodMiddleware`, before any handler wrapper and the handler body; the site-wide
+      `isAuthorized` check is untouched and still runs at its usual position.
+    * New `defaultYesodMiddlewareNoAuthCheck` retains the default response
+      headers while skipping legacy `isAuthorized` and its `isWriteRequest`
+      call. Applications authorizing in dispatch can select it as
+      `yesodMiddleware`; named checks and handler wrappers continue to run.
+      `defaultYesodMiddleware` retains its existing behavior.
+    * New `RouteAuthSpec` (`NoRouteAuth` / `RouteAuthSubtree` /
+      `RouteAuthPerResource`) and `setRouteAuthorization` on `RouteOpts`. When
+      set, generated dispatch references an `authorize<Name>` binding that must
+      be in scope for each leaf emitted by that splice. Delegated fragments
+      use their own splice's policy; parent options do not propagate into an
+      existing dispatch instance. `RouteAuthSubtree` selects only the nearest
+      enclosing parent of a method-based leaf, without composing ancestor
+      policies. Top-level leaves and subsite mounts require their own binding.
+      Subsite dispatch splices reject these options instead of ignoring them.
+      Named checks on direct `WaiSubsite` and `EmbeddedStatic` mounts are rejected
+      because these instances bypass the parent runner. Use `WaiSubsiteWithAuth`
+      for WAI applications at every level: all transitive subsite dispatch must
+      honor the parent runner, which TH cannot verify. Unresolved mount type
+      names, type variables, and type families are rejected; import concrete
+      types or ordinary aliases in the dispatch module.
+    * New opt-in `setRouteHandlerWrapper` on `RouteOpts` accepts a TH hook receiving
+      the handler and `WithParentArgs fragment` expressions, allowing a
+      user-defined class method to check access, throw on failure, and run the
+      handler on success. Its return type is application-defined, and each
+      fragment's dispatch resolves only its own authorization instance. Existing
+      `isAuthorized` and named authorization policies keep their behavior.
+      The wrapped handler has type `HandlerFor site TypedContent` in both
+      flat and nested dispatch, including 405s. `unsetRouteHandlerWrapper`
+      clears a wrapper while preserving other shared route options.
+      `subsiteRouteOpts` clears both site authorization options when deriving
+      subsite dispatch options from shared configuration.
+      Wrappers do not cover subsite mounts; a splice using wrappers and mounts
+      must enable a named mount policy, which also handles subsite 404s.
+      Data-only splices skip dispatch generation, including its validation and
+      callbacks. Named checks without a current route use the default request
+      method classification; the legacy check skips these unmatched routes.
+    * Existing public TH signatures and runtime environment records are
+      unchanged, and `RouteOpts` remains abstract. The default `RouteAuthSpec`
+      is `NoRouteAuth` and no wrapper is installed, so existing sites retain
+      their dispatch and authorization behavior.
+
 ## 1.7.0.1
 
 * The `encoding` dependency (used by `typedContentToSnippet` to decode GB18030/windows-1251/Shift_JIS/Windows-31J content snippets) is now gated off Windows, where it fails to build. On Windows those charsets fall back to utf-8-lenient decoding; behavior is unchanged on other platforms. [#1924](https://github.com/yesodweb/yesod/pull/1924)

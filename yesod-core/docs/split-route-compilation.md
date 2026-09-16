@@ -41,9 +41,11 @@ unchanged; splitting is opt-in and per-parent.
 Three modules: a shared route table, the split-out fragment, and the main site.
 
 First, put the route definitions in their own module so both sides can see
-them — along with your project's `RouteOpts`. Every splice that touches the
-route table should use the same options, so define them once (see
-[Fallthrough](#fallthrough) for why fallthrough should be on):
+them — along with your project's `RouteOpts`. Derive every splice's options
+from this shared value so route types and fallthrough stay consistent (see
+[Fallthrough](#fallthrough) for why fallthrough should be on). Focus and
+authorization options may differ by splice; subsite dispatch must clear the
+site-only authorization options described below:
 
 ```haskell
 module App.Routes.Resources where
@@ -217,6 +219,139 @@ subsite (`BigSub a`) that mounts a second, unparameterized subsite (`ChildSub`)
 as a leaf, and `YesodCoreTest.ParameterizedSubDispatchRuntime` is the separate,
 already-compiled module that dispatches both.
 
+## Authorization in a fragment
+
+`setRouteHandlerWrapper` gives your library an opt-in TH hook with the handler
+expression first and a `WithParentArgs fragment` expression second:
+
+```haskell
+authRouteOpts :: RouteOpts
+authRouteOpts = setRouteHandlerWrapper
+    (\handler route -> [| requireAuthorized $route >> $handler |])
+    appRouteOpts
+```
+
+`requireAuthorized` runs before the handler. It can call your own authorization
+function, inspect an application-defined `AuthorizationResult a`, and throw
+`permissionDenied` or `notAuthenticated` on failure. The hook does not require
+Yesod's `AuthResult` or impose a type on the callback's successful result.
+The handler expression and returned expression both have type
+`HandlerFor site TypedContent`, including for method-mismatch handlers. The TH
+callback runs once per generated leaf handler and is skipped by data-only
+splices such as `mkYesodDataOpts`.
+
+For class dispatch, your library can define its own `isAuthorized` method and
+use it both from `requireAuthorized` and directly in other handlers:
+
+```haskell
+import Yesod.Core hiding (isAuthorized)
+
+class RenderRouteNested route => AuthorizeRoute route where
+    isAuthorized
+        :: WithParentArgs route
+        -> HandlerFor (ParentSite route) (AuthorizationResult ())
+```
+
+Here `AuthorizationResult` is your library's type. Put the `AuthorizeRoute`
+instance for a fragment alongside its dispatch, and use `authRouteOpts` in its
+focused splice. Generated dispatch passes that fragment's type to the hook,
+so GHC resolves only that fragment's authorization instance. The foundation's
+`instance Yesod App` needs no imports of those instances. A parent dispatch
+that delegates to a separately compiled fragment uses the wrapper and named
+authorization policy selected by the fragment's splice. Neither option is
+inherited from the parent, and the parent cannot check which policy an opaque
+existing instance used. Configure and test each fragment's dispatch explicitly.
+
+Derive these options from the shared `appRouteOpts` so fallthrough and route
+type settings stay consistent. If the shared options already include a
+wrapper, `unsetRouteHandlerWrapper appRouteOpts` removes it for a splice that
+needs different authorization without resetting the other options.
+
+`WithParentArgs` contains all ancestor captures and the matched fragment,
+including its leaf captures and trailing multipieces. For example,
+`/org/#Int OrgR: /account/#Text AccountR: /item/#Int ItemR GET` supplies
+`WithParentArgs (orgId, accountName) (ItemR itemId)` to `AccountR`'s wrapper.
+Top-level leaves receive `WithParentArgs () fullRoute`; so do leaves inlined
+for compatibility instead of using nested dispatch.
+
+The wrapper runs inside the site's middleware, after any named authorization
+check. It also wraps the 405 handler for a matched path with an unsupported
+method, allowing authorization to fail before the 405 is reported. Unmatched
+paths do not invoke it. The wrapper does not wrap subsite mounts or handlers
+inside a mounted subsite. A splice with a wrapper and a mount must also enable
+`setRouteAuthorization RouteAuthPerResource` or `RouteAuthSubtree` and provide
+`authorize<MountName>` with the ancestor and mount captures. TH rejects
+wrapper-only mounts. Enabling a named policy requires bindings for every
+leaf emitted by that splice, even those already guarded by the wrapper.
+To keep other leaves wrapper-only, place the mount alone under a parent route
+and focus a named dispatch splice on that parent. A mount leaf cannot itself
+be a focus target; focusing an existing parent also emits its other leaves,
+which would need named bindings. The named mount policy runs through the parent
+runner, including on a subsite 404, where there is no subsite route value to
+supply to the wrapper.
+
+Subsite dispatch splices reject both authorization options. Derive their
+options from the shared value:
+
+```haskell
+appSubsiteOpts :: RouteOpts
+appSubsiteOpts = subsiteRouteOpts authRouteOpts
+```
+
+`WaiSubsite` and `EmbeddedStatic` bypass the parent runner. Dispatch generation
+rejects direct named mounts of these types, along with unresolved type names
+and type variables or type families. Import the concrete subsite type in the
+dispatch module; ordinary type synonyms are supported. Use `WaiSubsiteWithAuth` to apply the
+parent's middleware and authorization to a WAI application.
+
+This runner requirement applies at every level: mounting a `WaiSubsite` or
+`EmbeddedStatic` inside a generated subsite still bypasses the outer named
+mount authorizer. Replace raw WAI subsites with `WaiSubsiteWithAuth` throughout
+the dispatch path. TH cannot inspect transitive mounts or arbitrary instance
+bodies; a generated outer subsite alone does not guarantee protection.
+
+When a subsite route matches, the named check calls the site's `isWriteRequest`
+override. On a subsite 404, there is no route to pass to that method, so the
+default method policy applies: GET, HEAD, OPTIONS, and TRACE are reads; other
+methods are writes. The legacy `isAuthorized` check skips these misses while
+the named mount policy still runs. An `AuthenticationRequired` result can
+replace the 404 with a login redirect or 401, without changing `_ULT` when no
+route matches. For a method policy shared by hits and misses, the mount
+authorizer can inspect `waiRequest` directly.
+
+The existing `Yesod.isAuthorized` still runs through `defaultYesodMiddleware`.
+When authorization lives entirely in dispatch, select the default headers
+without the legacy middleware check:
+
+```haskell
+instance Yesod App where
+    yesodMiddleware = defaultYesodMiddlewareNoAuthCheck
+```
+
+This skips the legacy `isAuthorized` call and its `isWriteRequest` computation.
+Named dispatch checks and handler wrappers still run; named checks still use
+`isWriteRequest` for matched routes. Each fragment must configure its own
+authorization options as described above. Keeping `defaultYesodMiddleware`
+and the default, permissive `isAuthorized` implementation also works.
+Calling your library's `isAuthorized` directly checks another fragment without
+requiring a site-wide authorizer; Yesod's `maybeAuthorized` continues to use
+the legacy `Yesod.isAuthorized` method.
+
+Without `setRouteHandlerWrapper`, generation and authorization behave as before.
+The hook also composes with the named `setRouteAuthorization` policies. See
+the `RouteAuthSpec` Haddock for the ordering contract: default middleware's
+site-wide check, named check, wrapper, and handler body.
+
+`RouteAuthSubtree` demands `authorize<SubtreeName> parentCaptures fragment` for
+the nearest enclosing parent of each method-based leaf, in both nested and
+inline compatibility dispatch. Ancestor policies do not compose automatically.
+For `/org/#Int OrgR: /account/#Text AccountR: /item/#Int ItemR GET`, only
+`authorizeAccountR org account (ItemR item)` runs; put any organization access
+check there or call a shared helper from it. A parent containing only other
+parents or mounts needs no subtree binding. Top-level leaves and subsite
+mounts use `authorize<ResourceName> captures`; mount authorizers receive the
+ancestor and mount captures, not a child subsite route.
+
 ## Linking to nested routes
 
 A nested fragment constructor isn't a `Route App` on its own — its parent may
@@ -262,8 +397,10 @@ whose subtree has no match falls through to the routes after it.
 Fallthrough is decided per splice: each module containing a parent route
 decides for its own parents. Mixing modules spliced with different options
 gives confusingly inconsistent dispatch, which is why the recipe above defines
-`appRouteOpts`/`appRouteOptsFor` once and uses them everywhere — don't reach
-for `defaultOpts` directly in individual modules.
+`appRouteOpts`/`appRouteOptsFor` once and derives each splice's options from
+them. Keep route-shape and fallthrough settings shared; change focus and
+authorization at the owning splice as described above, and clear the site-only
+authorization options for subsite dispatch.
 
 Related gotcha: a nested parent with *no* leading static path piece matches
 unconditionally, so siblings declared after it are unreachable unless

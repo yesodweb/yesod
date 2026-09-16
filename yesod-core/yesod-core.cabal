@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.7.0.1
+version:         1.7.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -164,6 +164,8 @@ test-suite test-routes
                    Route.FocusLeafConsSpec
                    Route.MissingFocusTargetSpec
                    Route.MissingFocusTargetTypes
+                   Route.AuthorizationSpec
+                   Route.AuthCleared
                    YesodCoreTest.RenderRouteSpec
                    YesodCoreTest.RenderRouteSpec.TH
 
@@ -303,6 +305,17 @@ test-suite tests
                    YesodCoreTest.ParamFallthroughRuntime
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
+                   YesodCoreTest.RouteAuthRuntime
+                   YesodCoreTest.RouteAuthInlineResource
+                   YesodCoreTest.RouteAuthLogin
+                   YesodCoreTest.RouteAuthSubtree.Inline
+                   YesodCoreTest.RouteAuthSubtree.Nested
+                   YesodCoreTest.RouteAuthHook.Foundation
+                   YesodCoreTest.RouteAuthHook.Account
+                   YesodCoreTest.RouteAuthHook.Runtime
+                   YesodCoreTest.RouteAuthSplit.Foundation
+                   YesodCoreTest.RouteAuthSplit.Admin
+                   YesodCoreTest.RouteAuthSplit.Runtime
                    YesodCoreTest.FallthroughMatrix.Resources
                    YesodCoreTest.FallthroughMatrix.FirstFoo
                    YesodCoreTest.FallthroughMatrix.Runtime

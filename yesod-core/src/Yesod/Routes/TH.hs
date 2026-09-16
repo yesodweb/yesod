@@ -18,6 +18,12 @@ module Yesod.Routes.TH
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
+    , setRouteHandlerWrapper
+    , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     , DiscoveryMode(..)
     , discoveryMode
     , module Yesod.Routes.TH.ParseRoute

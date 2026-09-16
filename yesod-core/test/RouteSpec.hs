@@ -40,6 +40,7 @@ import qualified Route.InlineParseClausesSpec as InlineParseClausesSpec
 import qualified Route.NestedParseClausesSpec as NestedParseClausesSpec
 import qualified Route.FocusLeafConsSpec as FocusLeafConsSpec
 import qualified Route.MissingFocusTargetSpec as MissingFocusTargetSpec
+import qualified Route.AuthorizationSpec as AuthorizationSpec
 import qualified Data.Text as Text
 
 data MyApp = MyApp
@@ -115,6 +116,7 @@ main = hspec $ do
     describe "Route.NestedParseClausesSpec" NestedParseClausesSpec.spec
     describe "Route.FocusLeafConsSpec" FocusLeafConsSpec.spec
     describe "Route.MissingFocusTargetSpec" MissingFocusTargetSpec.spec
+    describe "Route.AuthorizationSpec" AuthorizationSpec.spec
     describe "RenderRoute instance" $ do
         it "renders root correctly" $ renderRoute RootR @?= ([], [])
         it "renders blog post correctly" $ renderRoute (BlogPostR $ Text.pack "foo") @?= (map Text.pack ["blog", "foo"], [])
