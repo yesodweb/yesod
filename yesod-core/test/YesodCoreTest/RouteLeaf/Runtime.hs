@@ -139,29 +139,44 @@ specs = describe "leaf dictionary middleware" $ do
                     status Nothing
                 readIORef ref `shouldReturn` trace "account auth" end
 
-    it "fetches only leaves at the requested level, with parent captures separately" $
+    it "fetches an existential and recovers the request-selected fragment's dictionary" $
         forM_
-            [ (["open"], 200, (Just OpenR, Nothing, Nothing))
-            , (["org", "42", "home"], 200, (Nothing, Just OrgHomeR, Nothing))
-            , (account "42" "alice" ["item", "7"], 200,
-                (Nothing, Nothing, Just ((42, "alice"), ItemR 7)))
-            , (["static"], 200, (Nothing, Nothing, Nothing))
-            , (["missing"], 404, (Nothing, Nothing, Nothing))
-            ] $ \(path, status, expected) -> do
+            [ (["open"], 200, Just "OpenR")
+            , (["org", "42", "home"], 200, Just "OrgHomeR")
+            , (account "42" "alice" ["item", "7"], 200, Just "ItemR 7")
+            , (["static"], 200, Just "StaticHomeR")
+            , (["missing"], 404, Nothing)
+            ] $ \(path, status, expectedName) -> do
                 ref <- newIORef []
                 observed <- newIORef Nothing
                 let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
                     middleware handler = defaultYesodMiddleware $ do
-                        root <- getDeepestLeaves @(Route LeafApp)
-                        org <- getDeepestLeaves @OrgR
-                        selected <- getDeepestLeavesWithParentArgs @AccountR
-                        let accountLeaf = fmap (\(args, leaves) -> (args, fromRouteLeaves leaves)) selected
-                        liftIO $ writeIORef observed $ Just
-                            (fmap fromRouteLeaves root, fmap fromRouteLeaves org, accountLeaf)
+                        selected <- getDeepestLeaves
+                        name <- withRouteLeaves @Show (show . fromRouteLeaves)
+                        let describe :: SomeRouteLeaf LeafApp -> (([Text], [(Text, Text)]), String)
+                            describe leaves = withSomeRouteLeaf @Show leaves $ \args leaf ->
+                                (renderRouteNested args $ fromRouteLeaves leaf, show $ fromRouteLeaves leaf)
+                        liftIO $ writeIORef observed $ Just (fmap describe selected, name)
                         handler
                 assertRequestRaw (toWaiAppPlain (LeafApp ref middleware)) WT.defaultRequest
                     { W.pathInfo = path } status Nothing
-                readIORef observed `shouldReturn` Just expected
+                readIORef observed `shouldReturn`
+                    Just (fmap (\name -> ((path, []), name)) expectedName, expectedName)
+
+    it "returns callback actions as values for the middleware to execute once" $ do
+        ref <- newIORef []
+        let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
+            middleware handler = defaultYesodMiddleware $ do
+                check <- withRouteLeaves @Show $ \leaf ->
+                    record (show $ fromRouteLeaves leaf)
+                record "selected"
+                forM_ check id
+                handler
+        assertRequestRaw (toWaiAppPlain (LeafApp ref middleware))
+            WT.defaultRequest { W.pathInfo = account "42" "alice" ["item", "7"] }
+            200 Nothing
+        readIORef ref `shouldReturn`
+            ["middleware", "write classification", "selected", "ItemR 7", "handler"]
 
     it "rejects unexpected matched fragments in focused middleware" $ do
         ref <- newIORef []

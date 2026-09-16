@@ -4,7 +4,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-orphans -Werror=incomplete-patterns #-}
@@ -43,19 +42,16 @@ getFilesR _ _ _ = record "handler" >> pure "files"
 getErrorR :: Int -> Text -> HandlerFor LeafApp Text
 getErrorR _ _ = record "handler" >> invalidArgs ["bad input"]
 
--- Fetch just this fragment's own leaves, without a site-wide policy dictionary.
+-- Inspect the existential witness without requiring a site-wide policy dictionary.
 accountMiddleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
 accountMiddleware handler = defaultYesodMiddleware $ do
-    selected <- getDeepestLeavesWithParentArgs @AccountR
+    selected <- getDeepestLeaves
     case selected of
-        Just (args, leaf) -> do
+        Just (SomeRouteLeaf FragmentAccountR args leaf) -> do
             enforceAuthorization =<< isAuthorized args leaf
             handler
-        Nothing -> do
-            current <- getCurrentRoute
-            case current of
-                Nothing -> handler
-                Just _ -> permissionDenied "unexpected endpoint in focused application"
+        Nothing -> handler
+        Just _ -> permissionDenied "unexpected endpoint in focused application"
 
 accountApp :: LeafApp -> IO Application
 accountApp = toWaiAppPlainNested (Proxy :: Proxy AccountR) (42, "alice")

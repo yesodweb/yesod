@@ -102,40 +102,51 @@ such assertion.
 
 ## Middleware and dependency ownership
 
-For a statically selected fragment, middleware can fetch its local leaf value:
+The request selects the deepest endpoint-owning fragment. `getDeepestLeaves`
+returns a fixed existential type rather than requiring the caller to name that
+fragment:
 
 ```haskell
 getDeepestLeaves
-    :: (LookupRouteLeaves fragment, RouteLeafSelection (ParentSite fragment))
-    => HandlerFor (ParentSite fragment) (Maybe (RouteLeaves fragment))
-
-getDeepestLeaves @AccountR
-    :: HandlerFor Site (Maybe (RouteLeaves AccountR))
-
-getDeepestLeavesWithParentArgs @AccountR
-    :: HandlerFor Site (Maybe (ParentArgs AccountR, RouteLeaves AccountR))
+    :: RouteLeafSelection site
+    => HandlerFor site (Maybe (SomeRouteLeaf site))
 ```
 
-The full-site data splice generates `LookupRouteLeaves` instances for these
-getters. Selection and lookup are pure; the handler wrapper only reads
-`getCurrentRoute`. They need no authorization dictionaries. `Nothing` means either no
-matched route or a matched endpoint owned by another fragment, including a
-deeper child. Parent captures are kept separate from the local leaf; use the
-second getter when the policy needs them. A focused middleware must reject
-unexpected matched fragments rather than silently skip authorization.
+`SomeRouteLeaf site` carries a local `RouteLeaves a`, its parent captures, and a
+witness identifying the hidden `a`. `RouteLeaves a` still contains only that
+level's endpoints; the existential packages whichever level the request chose.
+Fetching the package needs no authorization instances.
 
-For middleware that chooses the deepest fragment at runtime, retain the
-dictionary visitor. It supplies that fragment's local `RouteLeaves` value to the
-application-owned class method. The getter's type parameter is chosen by its
-caller; a request cannot change that result type dynamically:
+`withRouteLeaves @c` recovers the chosen constraint for that hidden fragment and
+passes its local leaves to a rank-n callback:
 
 ```haskell
+withRouteLeaves
+    :: (RouteLeafSelection site, RouteFragmentDict c (Route site))
+    => (forall a.
+           (HasRouteLeaves a, ParentSite a ~ site, c a)
+           => RouteLeaves a -> r)
+    -> HandlerFor site (Maybe r)
+
+-- For example, returns the selected fragment's local route name:
+withRouteLeaves @Show (show . fromRouteLeaves)
+```
+
+Selection and dictionary elimination are pure; the handler wrappers only read
+`getCurrentRoute`. `Nothing` means no matched route, not a missing dictionary or
+a different fragment. Dictionary coverage is checked at compile time.
+
+Authorization can use `withRouteLeavesWithParentArgs`, which also supplies the
+ancestor captures. The callback result is returned as a value: when `r` is a
+handler action, middleware explicitly runs it.
+
+```haskell
+import Control.Monad (forM_)
+
 authorizationMiddleware handler = defaultYesodMiddleware $ do
-    checked <- getDeepestSubrouteWithInstance @AuthorizeRoute $ \args leaf ->
-        enforceAuthorization =<< isAuthorized args leaf
-    case checked of
-        Nothing -> handler -- explicit policy for unmatched requests
-        Just () -> handler
+    authorization <- withRouteLeavesWithParentArgs @AuthorizeRoute isAuthorized
+    forM_ authorization $ \check -> enforceAuthorization =<< check
+    handler -- explicit policy: skip authorization when there is no current route
 
 -- Application-owned response policy; choose redirects here if desired.
 enforceAuthorization :: AuthResult -> HandlerFor site ()
@@ -144,11 +155,10 @@ enforceAuthorization AuthenticationRequired = notAuthenticated
 enforceAuthorization (Unauthorized message) = permissionDenied message
 ```
 
-The callback receives all ancestor captures and the local endpoint. It runs
-once; it neither invokes ancestor authorizers nor falls back after a denial.
-The pure `withRouteLeaf @c` visitor supports other constraints on the same
-generated table. `Nothing` from the handler visitor means no current route,
-not a missing dictionary. Dictionary coverage is checked at compile time.
+Only the selected policy runs; no ancestor authorizers run and there is no
+fallback after denial. The pure `withSomeRouteLeaf @c` helper interprets an
+already fetched existential, while `withRouteLeaf @c` also performs pure route
+selection. These helpers and the handler visitors share dictionary elimination.
 
 Using the full-site dictionary requires every policy listed in its context.
 Assemble this middleware in the application construction module, then inject it
@@ -178,8 +188,9 @@ interpreter returns 401 when authentication is required; applications can
 supply their own login redirect or other response behavior.
 
 A focused test must avoid constructing the full-site dictionary if it wants to
-exclude sibling policies. It can use `getDeepestLeavesWithParentArgs @AccountR`
-and call the same leaf instance as production. The prototype's
+exclude sibling policies. It can fetch `getDeepestLeaves`, match
+`SomeRouteLeaf FragmentAccountR args leaves`, and call the same leaf instance as
+production. The prototype's
 [account module](../test/YesodCoreTest/RouteLeaf/Account.hs) demonstrates this
 without importing root dispatch or sibling authorizers. Unexpected witnesses
 are rejected, and an independent executable verifies that dependency boundary.
@@ -221,7 +232,8 @@ yesod-core/test/check-route-leaf.sh
 The regular suite covers ordinary/focused dispatch, mixed and pure delegation
 fragments, default headers, 404/405, method classification once, policy/handler
 order, parent/leaf captures, multipieces, unit arguments, mounted routes,
-parameterized captures, and focused data splices followed by full-site data
-generation. The separate script builds an isolated account application and
+parameterized captures, existential selection across different fragments,
+callback actions executed once, and focused data splices followed by full-site
+data generation. The separate script builds an isolated account application and
 requires compiler rejection of a nested pattern, an omitted endpoint, missing
 policy dictionaries, and unsupported parameterized compatibility mode.

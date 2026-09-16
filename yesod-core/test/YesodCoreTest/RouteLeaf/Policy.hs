@@ -7,6 +7,7 @@
 
 module YesodCoreTest.RouteLeaf.Policy where
 
+import Control.Monad (forM_)
 import Yesod.Core hiding (isAuthorized)
 import Yesod.Core.RouteLeaf
 
@@ -26,8 +27,6 @@ authorizationMiddleware
        (Yesod site, RouteLeafSelection site, RouteFragmentDict AuthorizeRoute (Route site))
     => HandlerFor site a -> HandlerFor site a
 authorizationMiddleware handler = defaultYesodMiddleware $ do
-    checked <- getDeepestSubrouteWithInstance @AuthorizeRoute $ \args leaf ->
-        enforceAuthorization =<< isAuthorized args leaf
-    case checked of
-        Nothing -> handler -- explicit unmatched-route policy
-        Just () -> handler
+    authorization <- withRouteLeavesWithParentArgs @AuthorizeRoute isAuthorized
+    forM_ authorization $ \check -> enforceAuthorization =<< check
+    handler -- explicit policy: skip authorization when there is no current route

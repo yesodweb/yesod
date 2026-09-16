@@ -33,15 +33,6 @@ mkRouteLeafData context tyargs site focus resources = do
             fragmentVar <- newName "fragment"
             constraint <- newName "constraint"
             clauses <- projectClauses rootLabel id [] trees
-            lookups <- forM owners $ \(typ, label) -> do
-                args <- newName "parentArgs"
-                leaf <- newName "leaf"
-                let selected = conPCompat 'SomeRouteLeaf
-                        [conPCompat (witnessName label) [], VarP args, VarP leaf]
-                    found = ConE 'Just `AppE` mkTupE [VarE args, VarE leaf]
-                    fallback = [Clause [WildP] (NormalB $ ConE 'Nothing) [] | length owners > 1]
-                pure $ instanceD context (ConT ''LookupRouteLeaves `AppT` typ)
-                    [FunD 'lookupRouteLeaves (Clause [selected] (NormalB found) [] : fallback)]
             let witness fragmentType = ConT ''RouteFragmentWitness `AppT` root `AppT` fragmentType
                 constructors =
                     [ GadtC [witnessName label] [] (witness typ)
@@ -53,7 +44,7 @@ mkRouteLeafData context tyargs site focus resources = do
                         (NormalB $ ConE 'Dict) []
                     | (_, label) <- owners
                     ]
-            pure $ localViews ++ lookups ++
+            pure $ localViews ++
                 [ dataInstanceD ''RouteFragmentWitness [root, VarT fragmentVar] constructors
                 , instanceD dictContext
                     (ConT ''RouteFragmentDict `AppT` VarT constraint `AppT` root)

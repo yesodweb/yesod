@@ -7,8 +7,9 @@
   `RouteFragmentDict` instance using `Data.Constraint.Dict`. The new
   `Yesod.Core.RouteLeaf` module visits the matched leaf with a caller-selected
   constraint, without adding authorization callbacks to dispatch.
-* `getDeepestLeaves @fragment` fetches only the matched endpoint directly owned by
-  that fragment. `getDeepestLeavesWithParentArgs` also returns its ancestor captures.
+* `getDeepestLeaves` returns an existential for the request's deepest fragment.
+  `withRouteLeaves @c` recovers that fragment's dictionary for a rank-n callback;
+  `withRouteLeavesWithParentArgs` also supplies its ancestor captures.
 
 ## 1.7.0.1
 
