@@ -18,6 +18,7 @@ module Yesod.Routes.TH
     , setCreateResources
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setRouteLeafViews
     , DiscoveryMode(..)
     , discoveryMode
     , module Yesod.Routes.TH.ParseRoute

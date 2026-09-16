@@ -140,10 +140,7 @@ class RenderRoute site => Yesod site where
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
     isWriteRequest :: Route site -> HandlerFor site Bool
-    isWriteRequest _ = do
-        wai <- waiRequest
-        return $ W.requestMethod wai `notElem`
-            ["GET", "HEAD", "OPTIONS", "TRACE"]
+    isWriteRequest _ = defaultIsWriteRequest
 
     -- | The default route for authentication.
     --
@@ -380,10 +377,19 @@ defaultShouldLogIO _ level = return $ level >= LevelInfo
 --
 -- Since 1.2.0
 defaultYesodMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
-defaultYesodMiddleware handler = do
+defaultYesodMiddleware handler =
+    defaultYesodMiddlewareNoAuthCheck (authorizationCheck >> handler)
+
+-- | Add the default response headers without the legacy 'authorizationCheck'.
+-- Use when composing middleware that supplies its own authorization check.
+-- This skips 'isAuthorized' and the default middleware's call to
+-- 'isWriteRequest'; the supplied handler can perform its own checks.
+--
+-- @since 1.7.1.0
+defaultYesodMiddlewareNoAuthCheck :: HandlerFor site res -> HandlerFor site res
+defaultYesodMiddlewareNoAuthCheck handler = do
     addHeader "Vary" "Accept, Accept-Language"
     addHeader "X-XSS-Protection" "1; mode=block"
-    authorizationCheck
     handler
 
 -- | Defends against session hijacking by setting the secure bit on session
@@ -460,20 +466,54 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
     checkUrl url = do
         isWrite <- isWriteRequest url
         ar <- isAuthorized url isWrite
-        case ar of
-            Authorized -> return ()
-            AuthenticationRequired -> do
-                master <- getYesod
-                case authRoute master of
-                    Nothing -> void notAuthenticated
-                    Just url' ->
-                      void $ selectRep $ do
-                          provideRepType typeHtml $ do
-                              setUltDestCurrent
-                              void $ redirect url'
-                          provideRepType typeJson $
-                              void notAuthenticated
-            Unauthorized s' -> permissionDenied s'
+        handleAuthResult ar
+
+-- | Run a supplied authorization callback, enforcing its 'AuthResult' with
+-- the same semantics as 'authorizationCheck' ('Authorized' continues,
+-- 'AuthenticationRequired' redirects to 'authRoute' or denies, 'Unauthorized'
+-- is a 403). With a current route, the @isWrite@ flag is computed via
+-- 'isWriteRequest'. Without one, it uses the default method policy: GET, HEAD, OPTIONS,
+-- and TRACE are reads; other methods are writes. A site override cannot be
+-- called without a route. The legacy 'isAuthorized' check skips such misses,
+-- but the supplied callback still runs. An 'AuthenticationRequired'
+-- result can therefore replace a subsite 404 with a login redirect or 401;
+-- without a current route, it does not change the saved ultimate destination.
+--
+-- Call this from custom middleware to retain the standard authorization
+-- responses. Compose with 'defaultYesodMiddlewareNoAuthCheck' to retain the
+-- default headers without also running the legacy check.
+--
+-- @since 1.7.1.0
+dispatchAuthorizationCheck :: Yesod site => (Bool -> HandlerFor site AuthResult) -> HandlerFor site ()
+dispatchAuthorizationCheck auth = do
+    isWrite <- getCurrentRoute >>= maybe defaultIsWriteRequest isWriteRequest
+    handleAuthResult =<< auth isWrite
+
+-- Also used when a supplied authorizer runs
+-- without a matched route, so that case follows the class's default policy.
+defaultIsWriteRequest :: HandlerFor site Bool
+defaultIsWriteRequest = do
+    wai <- waiRequest
+    return $ W.requestMethod wai `notElem` ["GET", "HEAD", "OPTIONS", "TRACE"]
+
+-- | Shared enforcement of an 'AuthResult' — the body of 'authorizationCheck',
+-- factored out so 'dispatchAuthorizationCheck' applies identical semantics.
+handleAuthResult :: Yesod site => AuthResult -> HandlerFor site ()
+handleAuthResult ar =
+    case ar of
+        Authorized -> return ()
+        AuthenticationRequired -> do
+            master <- getYesod
+            case authRoute master of
+                Nothing -> void notAuthenticated
+                Just url' ->
+                  void $ selectRep $ do
+                      provideRepType typeHtml $ do
+                          setUltDestCurrent
+                          void $ redirect url'
+                      provideRepType typeJson $
+                          void notAuthenticated
+        Unauthorized s' -> permissionDenied s'
 
 -- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
 --

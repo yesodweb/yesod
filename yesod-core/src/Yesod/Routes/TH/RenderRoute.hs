@@ -25,6 +25,7 @@ module Yesod.Routes.TH.RenderRoute
     , roNestedRouteFallthrough
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setRouteLeafViews
     , DiscoveryMode(..)
     , discoveryMode
     ) where
@@ -39,6 +40,7 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 import Data.Foldable
 import Yesod.Routes.TH.Internal
+import Yesod.Routes.TH.Leaf (mkRouteLeafData)
 import Data.Char
 import Yesod.Core.Class.Dispatch.ToParentRoute
 
@@ -70,6 +72,8 @@ data RouteOpts = MkRouteOpts
     -- Default: 'False'.
     --
     -- @since 1.7.0.0
+    , roRouteLeafViews :: Bool
+    -- ^ Opt-in structural endpoint views for ordinary middleware.
     }
 
 -- | Default options for generating routes.
@@ -98,7 +102,26 @@ defaultOpts = MkRouteOpts
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
+    , roRouteLeafViews = False
     }
+
+-- | Generate experimental 'Yesod.Core.RouteLeaf.AuthDispatch' endpoint views,
+-- leaf witnesses, and a constraint-polymorphic dictionary instance with route
+-- data. Existing dispatch settings and handler calls are unaffected.
+--
+-- Import "Yesod.Core.RouteLeaf" to use the generated views. A leaf named
+-- @ItemR@ has view constructor @AuthItemR@; its owning fragment @AccountR@ has
+-- witness @LeafAccountR@. The root witness is @LeafRouteSite@ for site @Site@.
+-- Pure delegation fragments require no authorization instance. Mounts remain
+-- leaves of their parent site, with their child route retained as a field.
+--
+-- Splice modules need @GADTs@, @ConstraintKinds@, @FlexibleContexts@,
+-- @FlexibleInstances@, @MultiParamTypeClasses@, @TypeFamilies@ and
+-- @UndecidableInstances@. Parameterized nested routes also need
+-- @setParameterizedSubroute True@. Share the same options between data and
+-- dispatch splices. Default: 'False'.
+setRouteLeafViews :: Bool -> RouteOpts -> RouteOpts
+setRouteLeafViews enabled opts = opts { roRouteLeafViews = enabled }
 
 -- | If you set this with @routeName@, then the code generation will
 -- generate code for the @routeName@ to be imported in the main dispatch
@@ -335,17 +358,7 @@ plainTVCompat =
 leafRouteCon :: Resource Type -> Con
 leafRouteCon res =
     NormalC (mkName $ resourceName res)
-        $ map (notStrict,)
-        $ concat [singles, multi, sub]
-  where
-    singles = concatMap toSingle $ resourcePieces res
-    toSingle Static{}      = []
-    toSingle (Dynamic typ) = [typ]
-    multi = maybeToList $ resourceMulti res
-    sub =
-        case resourceDispatch res of
-            Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
-            _ -> []
+        $ map (notStrict,) $ leafFieldTypes res
 
 -- | Build the data constructor for a route parent: @ParentR ty… (ChildR tyargs…)@,
 -- whose trailing field is the (possibly type-argument-applied) child route
@@ -723,7 +736,13 @@ mkRenderRouteInstanceOpts
     -- ^ The actual tree of routes to generate code for
     -> Q [Dec]
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
-    case roFocusOnNestedRoute opts of
+    leafDecs <- if roRouteLeafViews opts
+        then do
+            when (discoveryMode opts tyargs == InlineCompat && any isParent ress) $
+                fail "setRouteLeafViews: parameterized nested routes require setParameterizedSubroute True."
+            mkRouteLeafData cxt tyargs typ (roFocusOnNestedRoute opts) ress
+        else pure []
+    routeDecs <- case roFocusOnNestedRoute opts of
         Nothing -> do
             cls <- mkRenderRouteClauses opts tyargs ress
             (cons, decs) <- mkRouteConsOpts opts cxt tyargs typ ress
@@ -755,7 +774,10 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     fail $ "Target '" <> target <> "' was not found in resources."
                 Just (prepieces, ress') ->
                     mkRenderRouteNestedInstanceOpts opts cxt tyargs typ prepieces target ress'
+    pure $ routeDecs ++ leafDecs
   where
+    isParent ResourceParent{} = True
+    isParent _ = False
     routeDataName = ConT ''Route `AppT` typ
     (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
 

@@ -25,6 +25,8 @@ import qualified YesodCoreTest.ParamNoExplicitArgs as ParamNoExplicitArgs
 import qualified YesodCoreTest.ParamFallthroughRuntime as ParamFallthroughRuntime
 import qualified YesodCoreTest.ParamNoFallthroughRuntime as ParamNoFallthroughRuntime
 import qualified YesodCoreTest.ParamNestedNoFallthroughRuntime as ParamNestedNoFallthroughRuntime
+import qualified YesodCoreTest.RouteLeaf.Runtime as RouteLeaf
+import qualified YesodCoreTest.RouteLeaf.Parameterized as RouteLeafParameterized
 import qualified YesodCoreTest.FallthroughMatrix.Runtime as FallthroughMatrixRuntime
 import qualified YesodCoreTest.MultiPieceNestedRuntime as MultiPieceNestedRuntime
 import qualified YesodCoreTest.ZeroPieceShadowRuntime as ZeroPieceShadowRuntime
@@ -107,6 +109,8 @@ specs = do
       ParamFallthroughRuntime.specs
       ParamNoFallthroughRuntime.specs
       ParamNestedNoFallthroughRuntime.specs
+      RouteLeaf.specs
+      RouteLeafParameterized.specs
       FallthroughMatrixRuntime.specs
       MultiPieceNestedRuntime.specs
       ZeroPieceShadowRuntime.specs

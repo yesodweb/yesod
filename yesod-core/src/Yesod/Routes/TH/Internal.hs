@@ -15,6 +15,7 @@ import Language.Haskell.TH.Syntax hiding (newName)
 import Language.Haskell.TH.Syntax.Compat (Quote(..))
 import Web.PathPieces (fromPathPiece, fromPathMultiPiece)
 import Yesod.Routes.TH.Types
+import Yesod.Routes.Class (RenderRoute (Route))
 
 conPCompat :: Name -> [Pat] -> Pat
 conPCompat n pats = ConP n
@@ -25,6 +26,25 @@ conPCompat n pats = ConP n
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
+
+-- | Data-family instance compatibility, shared by generated structural views.
+dataInstanceD :: Name -> [Type] -> [Con] -> Dec
+dataInstanceD family args constructors = DataInstD []
+#if MIN_VERSION_template_haskell(2,15,0)
+    Nothing (foldl AppT (ConT family) args)
+#else
+    family args
+#endif
+    Nothing constructors []
+
+-- | Fields shared by an ordinary route leaf and its local-endpoint view.
+leafFieldTypes :: Resource Type -> [Type]
+leafFieldTypes resource =
+    [typ | Dynamic typ <- resourcePieces resource]
+    ++ maybe [] pure (resourceMulti resource)
+    ++ case resourceDispatch resource of
+        Subsite typ _ -> [ConT ''Route `AppT` typ]
+        Methods{} -> []
 
 mkTupE :: [Exp] -> Exp
 mkTupE =

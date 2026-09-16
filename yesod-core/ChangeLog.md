@@ -1,5 +1,16 @@
 # ChangeLog for yesod-core
 
+## 1.7.1.0
+
+* Prototype opt-in leaf route views for authorization in ordinary middleware:
+  `setRouteLeafViews` generates `AuthDispatch` endpoint views and a generic
+  `SubrouteDict` instance using `Data.Constraint.Dict`. The new
+  `Yesod.Core.RouteLeaf` module visits the matched leaf with a caller-selected
+  constraint, without adding authorization callbacks to dispatch.
+* Add `defaultYesodMiddlewareNoAuthCheck` and `dispatchAuthorizationCheck` for
+  composing custom authorization middleware with the default response behavior.
+  Existing middleware and route generation keep their defaults.
+
 ## 1.7.0.1
 
 * The `encoding` dependency (used by `typedContentToSnippet` to decode GB18030/windows-1251/Shift_JIS/Windows-31J content snippets) is now gated off Windows, where it fails to build. On Windows those charsets fall back to utf-8-lenient decoding; behavior is unchanged on other platforms. [#1924](https://github.com/yesodweb/yesod/pull/1924)

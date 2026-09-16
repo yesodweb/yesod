@@ -50,6 +50,7 @@ module Yesod.Core.Internal.TH
     , unsetFocusOnNestedRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , setRouteLeafViews
     )
  where
 
