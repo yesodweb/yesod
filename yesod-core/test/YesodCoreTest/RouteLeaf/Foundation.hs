@@ -38,7 +38,8 @@ record event = getYesod >>= liftIO . flip modifyIORef' (++ [event]) . leafEvents
 instance Yesod LeafApp where
     makeSessionBackend _ = pure Nothing
     messageLoggerSource = mempty
-    isAuthorized _ _ = record "legacy auth" >> pure (Unauthorized "legacy must not run")
+    -- The application-supplied middleware enforces the leaf policy.
+    isAuthorized _ _ = pure Authorized
     isWriteRequest _ = record "write classification" >> pure False
     yesodMiddleware handler = do
         record "middleware"

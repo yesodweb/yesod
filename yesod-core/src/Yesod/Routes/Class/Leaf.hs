@@ -12,7 +12,7 @@
 -- | Structural views of the endpoints directly owned by a route fragment.
 -- Experimental: generated with @setRouteLeafViews True@.
 module Yesod.Routes.Class.Leaf
-    ( HasAuthDispatch (..)
+    ( HasRouteLeaf (..)
     , fillInNested
     , RouteLeaves (..)
     , SomeRouteLeaf (..)
@@ -28,24 +28,24 @@ import Yesod.Routes.Class
 
 -- | A fragment's direct endpoints, excluding delegation constructors.
 -- Purely delegating fragments do not need this instance.
-class RenderRouteNested route => HasAuthDispatch route where
+class RenderRouteNested route => HasRouteLeaf route where
     -- | Direct endpoint constructors and their captures, with delegation
-    -- constructors omitted. Generated constructor names start with @Auth@.
-    data AuthDispatch route :: Type
+    -- constructors omitted. Generated constructor names start with @Leaf@.
+    data RouteLeaf route :: Type
     -- | A shallow projection. 'Nothing' means a delegation constructor.
-    projectAuthDispatch :: route -> Maybe (AuthDispatch route)
+    projectRouteLeaf :: route -> Maybe (RouteLeaf route)
     -- | Embed a local endpoint back into its original fragment.
-    fromAuthDispatch :: AuthDispatch route -> route
+    fromRouteLeaf :: RouteLeaf route -> route
 
--- | Adapt a local-endpoint policy to an interface accepting a whole fragment.
+-- | Adapt a local-endpoint callback to an interface accepting a whole fragment.
 -- Only the chosen branch is evaluated. This does not recurse into children.
 fillInNested
-    :: HasAuthDispatch route
-    => (AuthDispatch route -> result)
+    :: HasRouteLeaf route
+    => (RouteLeaf route -> result)
     -> result
     -> route
     -> result
-fillInNested onLeaf onNested = maybe onNested onLeaf . projectAuthDispatch
+fillInNested onLeaf onNested = maybe onNested onLeaf . projectRouteLeaf
 
 -- | A generated witness for an endpoint-owning fragment within a route tree.
 -- No witness is generated for a fragment that only delegates.
@@ -60,10 +60,10 @@ class SubrouteDict (constraint :: Type -> Constraint) root where
 -- | The selected endpoint, including captures consumed by every ancestor.
 data SomeRouteLeaf site where
     SomeRouteLeaf
-        :: (HasAuthDispatch route, ParentSite route ~ site)
+        :: (HasRouteLeaf route, ParentSite route ~ site)
         => Subroute (Route site) route
         -> ParentArgs route
-        -> AuthDispatch route
+        -> RouteLeaf route
         -> SomeRouteLeaf site
 
 -- | Project a matched route to its deepest endpoint-owning fragment.
@@ -71,15 +71,15 @@ data SomeRouteLeaf site where
 class RenderRoute site => RouteLeaves site where
     routeLeaf :: Route site -> SomeRouteLeaf site
 
--- | Visit the selected endpoint with a caller-chosen constraint. Parent
--- authorizers are not invoked, and there is no ancestor fallback.
+-- | Visit the selected endpoint with a caller-chosen constraint. The callback
+-- runs only for that endpoint, without visiting ancestors or falling back.
 withRouteLeaf
     :: forall constraint site result.
        (RouteLeaves site, SubrouteDict constraint (Route site))
     => Route site
     -> (forall route.
-           (HasAuthDispatch route, ParentSite route ~ site, constraint route)
-           => ParentArgs route -> AuthDispatch route -> result)
+           (HasRouteLeaf route, ParentSite route ~ site, constraint route)
+           => ParentArgs route -> RouteLeaf route -> result)
     -> result
 withRouteLeaf matched callback =
     case routeLeaf matched of

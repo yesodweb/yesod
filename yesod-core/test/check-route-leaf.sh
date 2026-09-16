@@ -31,7 +31,7 @@ expect_failure() {
     echo "Expected compiler rejection: $fixture"
 }
 
-expect_failure NestedPattern "Couldn't match expected type.*AuthDispatch"
+expect_failure NestedPattern "Couldn't match expected type.*RouteLeaf"
 expect_failure MissingEndpoint 'non-exhaustive'
 expect_failure MissingPolicy 'No instance for.*AuthorizeRoute'
 expect_failure InlineCompat 'parameterized nested routes require setParameterizedSubroute True'

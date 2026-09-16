@@ -6,7 +6,7 @@ hooks. TH generates structural views and dictionary selection; ordinary
 dispatcher receives no authorization callback.
 
 The branch targets master directly and is independent of the dispatch-hook
-proposal. It includes the middleware helpers used below.
+proposal. It uses the existing default middleware unchanged.
 
 Enable the views through shared data/dispatch options:
 
@@ -28,21 +28,23 @@ Given a mixed fragment:
 data OrgR = OrgHomeR | DelegationR DelegationR
 ```
 
-its generated `AuthDispatch OrgR` contains only `AuthOrgHomeR`. It has no
-delegation constructor. An instance such as this is exhaustive:
+its generated `RouteLeaf OrgR` contains only `LeafOrgHomeR`. It has no
+delegation constructor. `RouteLeaf` describes this structural view independently
+of the constraint used to visit it; authorization is one application. An
+instance such as this is exhaustive:
 
 ```haskell
 instance AuthorizeRoute OrgR where
-    isAuthorized org AuthOrgHomeR = checkOrganizationHome org
+    isAuthorized org LeafOrgHomeR = checkOrganizationHome org
 ```
 
 The application defines the class, including its result type:
 
 ```haskell
-class HasAuthDispatch route => AuthorizeRoute route where
+class HasRouteLeaf route => AuthorizeRoute route where
     isAuthorized
         :: ParentArgs route
-        -> AuthDispatch route
+        -> RouteLeaf route
         -> HandlerFor (ParentSite route) AuthResult
 ```
 
@@ -52,10 +54,10 @@ the fragment's dispatch instance.
 
 For each fragment with direct endpoints, generation supplies:
 
-* An `AuthDispatch` data instance, with `Auth` prefixed to each local endpoint's
+* A `RouteLeaf` data instance, with `Leaf` prefixed to each local endpoint's
   constructor name and the original endpoint fields retained.
-* `projectAuthDispatch`, a shallow conversion returning `Nothing` for delegation
-  constructors, and `fromAuthDispatch`, its local-endpoint embedding.
+* `projectRouteLeaf`, a shallow conversion returning `Nothing` for delegation
+  constructors, and `fromRouteLeaf`, its local-endpoint embedding.
 * A witness such as `LeafAccountR`. The root witness is `LeafRouteSite` for site
   `Site`, when the root owns direct endpoints.
 
@@ -85,12 +87,18 @@ such assertion.
 ## Middleware and dependency ownership
 
 ```haskell
-authorizationMiddleware handler = defaultYesodMiddlewareNoAuthCheck $ do
+authorizationMiddleware handler = defaultYesodMiddleware $ do
     checked <- getDeepestSubrouteWithInstance @AuthorizeRoute $ \args leaf ->
-        dispatchAuthorizationCheck (const $ isAuthorized args leaf)
+        enforceAuthorization =<< isAuthorized args leaf
     case checked of
         Nothing -> handler -- explicit policy for unmatched requests
         Just () -> handler
+
+-- Application-owned response policy; choose redirects here if desired.
+enforceAuthorization :: AuthResult -> HandlerFor site ()
+enforceAuthorization Authorized = pure ()
+enforceAuthorization AuthenticationRequired = notAuthenticated
+enforceAuthorization (Unauthorized message) = permissionDenied message
 ```
 
 The callback receives all ancestor captures and the local endpoint. It runs
@@ -110,6 +118,7 @@ data App = App
     }
 
 instance Yesod App where
+    isAuthorized _ _ = pure Authorized
     yesodMiddleware handler = do
         app <- getYesod
         requestMiddleware app handler
@@ -118,6 +127,12 @@ instance Yesod App where
 The foundation imports no authorizers. The application construction module
 imports them and supplies the middleware value. This changes the application's
 own foundation constructor, not a Yesod runtime environment record.
+
+The legacy `Yesod.isAuthorized` is a no-op because the supplied middleware
+enforces the leaf policy. `defaultYesodMiddleware` still supplies the normal
+headers and calls `isWriteRequest` for matched routes. The example's policy
+interpreter returns 401 when authentication is required; applications can
+supply their own login redirect or other response behavior.
 
 A focused test must avoid constructing the full-site dictionary if it wants to
 exclude sibling policies. It can use `routeLeaf`, match its known witness, and
@@ -135,8 +150,8 @@ The compiler excludes delegation branches from the new input type; tests still
 need to establish that the migration preserved the required checks. The account
 fixture denies requests with invalid organization, account, or endpoint captures.
 
-Use `defaultYesodMiddlewareNoAuthCheck` when composing this middleware so that
-the legacy `isAuthorized` policy is replaced rather than run a second time.
+Once the leaf policies enforce the required checks, set the legacy
+`Yesod.isAuthorized _ _ = pure Authorized` and retain `defaultYesodMiddleware`.
 Existing users retain their current output and behavior when the new option is
 disabled. The leaf-view API can also be consumed by a future class-based
 dispatch implementation.

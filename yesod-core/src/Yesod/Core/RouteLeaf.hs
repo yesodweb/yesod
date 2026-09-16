@@ -34,8 +34,8 @@ getDeepestSubrouteWithInstance
     :: forall constraint site result.
        (RouteLeaves site, SubrouteDict constraint (Route site))
     => (forall route.
-           (HasAuthDispatch route, ParentSite route ~ site, constraint route)
-           => ParentArgs route -> AuthDispatch route -> HandlerFor site result)
+           (HasRouteLeaf route, ParentSite route ~ site, constraint route)
+           => ParentArgs route -> RouteLeaf route -> HandlerFor site result)
     -> HandlerFor site (Maybe result)
 getDeepestSubrouteWithInstance callback = do
     current <- getCurrentRoute

@@ -29,19 +29,19 @@ specs :: Spec
 specs = describe "parameterized leaf views" $ do
     it "reuses views from a focused data splice" $ do
         let route = ScopeR 42 (GroupR (ChildR "alice" (SplitItemR 7))) :: Route (SplitLeafApp ())
-        withRouteLeaf @Show route (\args leaf -> renderRouteNested args $ fromAuthDispatch leaf)
+        withRouteLeaf @Show route (\args leaf -> renderRouteNested args $ fromRouteLeaf leaf)
             `shouldBe` (["scope", "42", "group", "child", "alice", "item", "7"], [])
 
     it "retains the focused mixed fragment's shallow projection" $ do
-        let onLocal (AuthLocalR text) = text
+        let onLocal (LeafLocalR text) = text
         fillInNested onLocal "nested" (LocalR "hello" :: ScopeR ()) `shouldBe` "hello"
         fillInNested onLocal "nested" (GroupR (ChildR "alice" (SplitItemR 7)) :: ScopeR ()) `shouldBe` "nested"
 
     it "covers root endpoints alongside imported fragment views" $ do
-        withRouteLeaf @Show (TopR :: Route (SplitLeafApp ())) (\_ leaf -> show $ fromAuthDispatch leaf)
+        withRouteLeaf @Show (TopR :: Route (SplitLeafApp ())) (\_ leaf -> show $ fromRouteLeaf leaf)
             `shouldBe` "TopR"
 
     it "preserves type-variable captures and instance contexts" $ do
         let route = CapturedR 42 (ValueR 7) :: Route (CaptureApp Int)
-        withRouteLeaf @Show route (\args leaf -> renderRouteNested args $ fromAuthDispatch leaf)
+        withRouteLeaf @Show route (\args leaf -> renderRouteNested args $ fromRouteLeaf leaf)
             `shouldBe` (["captured", "42", "value", "7"], [])

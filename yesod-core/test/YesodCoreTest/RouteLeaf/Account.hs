@@ -25,11 +25,11 @@ instance AuthorizeRoute AccountR where
         pure $ if org /= 42 || account /= "alice"
             then Unauthorized "parent captures denied"
             else case endpoint of
-                AuthItemR 7 -> Authorized
-                AuthItemR _ -> Unauthorized "item denied"
-                AuthFilesR ["one", "two"] -> Authorized
-                AuthFilesR _ -> Unauthorized "files denied"
-                AuthErrorR -> Authorized
+                LeafItemR 7 -> Authorized
+                LeafItemR _ -> Unauthorized "item denied"
+                LeafFilesR ["one", "two"] -> Authorized
+                LeafFilesR _ -> Unauthorized "files denied"
+                LeafErrorR -> Authorized
 
 mkYesodDispatchOpts (setFocusOnNestedRoute "AccountR" leafOpts) "LeafApp" leafResources
 
@@ -45,12 +45,12 @@ getErrorR _ _ = record "handler" >> invalidArgs ["bad input"]
 -- A total site-wide dictionary would require siblings here. Instead, the
 -- focused application checks the generated witness and uses its own policy.
 accountMiddleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
-accountMiddleware handler = defaultYesodMiddlewareNoAuthCheck $ do
+accountMiddleware handler = defaultYesodMiddleware $ do
     current <- getCurrentRoute
     case fmap routeLeaf current of
         Nothing -> handler
         Just (SomeRouteLeaf LeafAccountR args leaf) -> do
-            dispatchAuthorizationCheck (const $ isAuthorized args leaf)
+            enforceAuthorization =<< isAuthorized args leaf
             handler
         Just _ -> permissionDenied "unexpected endpoint in focused application"
 

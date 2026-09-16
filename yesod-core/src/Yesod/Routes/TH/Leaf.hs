@@ -61,8 +61,8 @@ mkRouteLeafData context tyargs site focus resources = do
             -- A child can be imported from an earlier focused data splice.
             -- Unresolved local datatypes have not been emitted yet.
             known <- case typ of
-                AppT (ConT route) _ | route == ''Route -> isInstance ''HasAuthDispatch [typ]
-                _ -> nestedInstanceExists ''HasAuthDispatch =<< resolveRouteCon (typeHeadName typ)
+                AppT (ConT route) _ | route == ''Route -> isInstance ''HasRouteLeaf [typ]
+                _ -> nestedInstanceExists ''HasRouteLeaf =<< resolveRouteCon (typeHeadName typ)
             if known then pure [] else do
                 projections <- forM trees $ \tree -> case tree of
                     ResourceParent name _ _ _ _ ->
@@ -70,16 +70,16 @@ mkRouteLeafData context tyargs site focus resources = do
                     ResourceLeaf res -> do
                         vars <- fieldVars res
                         pure $ Clause [conPCompat (mkName $ resourceName res) (map VarP vars)]
-                            (NormalB $ ConE 'Just `AppE` applyConstructor (authName res) vars) []
+                            (NormalB $ ConE 'Just `AppE` applyConstructor (leafName res) vars) []
                 embeddings <- forM leaves $ \res -> do
                     vars <- fieldVars res
-                    pure $ Clause [conPCompat (authName res) (map VarP vars)]
+                    pure $ Clause [conPCompat (leafName res) (map VarP vars)]
                         (NormalB $ applyConstructor (mkName $ resourceName res) vars) []
-                pure [instanceD context (ConT ''HasAuthDispatch `AppT` typ)
-                    [ dataInstanceD ''AuthDispatch [typ]
-                        [NormalC (authName res) [(lazyField, t) | t <- leafFieldTypes res] | res <- leaves]
-                    , FunD 'projectAuthDispatch projections
-                    , FunD 'fromAuthDispatch embeddings
+                pure [instanceD context (ConT ''HasRouteLeaf `AppT` typ)
+                    [ dataInstanceD ''RouteLeaf [typ]
+                        [NormalC (leafName res) [(lazyField, t) | t <- leafFieldTypes res] | res <- leaves]
+                    , FunD 'projectRouteLeaf projections
+                    , FunD 'fromRouteLeaf embeddings
                     ]]
         children <- forM [ (name, child) | ResourceParent name _ _ _ child <- trees ] $
             \(name, child) -> localInstances (childType name) child
@@ -100,10 +100,10 @@ mkRouteLeafData context tyargs site focus resources = do
             vars <- fieldVars res
             pure [Clause [front $ conPCompat (mkName $ resourceName res) (map VarP vars)]
                 (NormalB $ foldl' AppE (ConE 'SomeRouteLeaf)
-                    [ConE $ witnessName label, parentArgsExpr parents, applyConstructor (authName res) vars]) []]
+                    [ConE $ witnessName label, parentArgsExpr parents, applyConstructor (leafName res) vars]) []]
 
     fieldVars res = replicateM (length $ leafFieldTypes res) (newName "capture")
-    authName res = mkName $ "Auth" ++ resourceName res
+    leafName res = mkName $ "Leaf" ++ resourceName res
     witnessName label = mkName $ "Leaf" ++ label
     applyConstructor name = foldl' AppE (ConE name) . map VarE
     lazyField = Bang NoSourceUnpackedness NoSourceStrictness

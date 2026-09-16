@@ -30,25 +30,25 @@ instance AuthorizeRoute (Route LeafApp) where
     isAuthorized () endpoint = do
         record "root auth"
         pure $ case endpoint of
-            AuthOpenR -> Authorized
-            AuthDeniedR -> Unauthorized "root denied"
-            AuthAnyR -> Authorized
-            AuthMountR capture PageR
+            LeafOpenR -> Authorized
+            LeafDeniedR -> Unauthorized "root denied"
+            LeafAnyR -> Authorized
+            LeafMountR capture PageR
                 | capture == 42 -> Authorized
                 | otherwise -> Unauthorized "mount denied"
 
 -- OrgR mixes local endpoints and delegation; this pattern is exhaustive.
 instance AuthorizeRoute OrgR where
-    isAuthorized org AuthOrgHomeR = do
+    isAuthorized org LeafOrgHomeR = do
         record "org auth"
         pure $ if org == 42 then Authorized else Unauthorized "org denied"
 
 -- There is deliberately no AuthorizeRoute DelegationR instance.
 instance AuthorizeRoute StaticR where
-    isAuthorized () AuthStaticHomeR = record "static auth" >> pure Authorized
+    isAuthorized () LeafStaticHomeR = record "static auth" >> pure Authorized
 
 instance AuthorizeRoute OtherR where
-    isAuthorized () AuthOtherHomeR = record "other auth" >> pure (Unauthorized "other denied")
+    isAuthorized () LeafOtherHomeR = record "other auth" >> pure (Unauthorized "other denied")
 
 instance YesodSubDispatch LeafSub LeafApp where
     yesodSubDispatch = $(mkYesodSubDispatch [parseRoutes| /page PageR GET |])
@@ -82,7 +82,7 @@ specs = describe "leaf dictionary middleware" $ do
     it "runs only the selected policy in ordinary middleware" $
         check "GET" ["open"] 200 (trace "root auth" "handler")
 
-    it "denies without invoking the handler or legacy authorization" $
+    it "denies without invoking the handler" $
         check "GET" ["denied"] 403 (trace "root auth" "error")
 
     it "authorizes unrestricted-method handlers" $
@@ -142,7 +142,7 @@ specs = describe "leaf dictionary middleware" $ do
     it "lets callers recover another constraint from the same generated instance" $ do
         let matched = OrgR 42 (DelegationR (AccountR "alice" (ItemR 7)))
         withRouteLeaf @Show matched (\args leaf ->
-            (renderRouteNested args (fromAuthDispatch leaf), show $ fromAuthDispatch leaf))
+            (renderRouteNested args (fromRouteLeaf leaf), show $ fromRouteLeaf leaf))
             `shouldBe` ((["org", "42", "delegation", "account", "alice", "item", "7"], []), "ItemR 7")
 
     it "fills delegation branches without evaluating the leaf callback" $ do
@@ -150,4 +150,4 @@ specs = describe "leaf dictionary middleware" $ do
             `shouldBe` "leaf"
         fillInNested (error "leaf evaluated") ("nested" :: String) (DelegationR (AccountR "alice" (ItemR 7)))
             `shouldBe` "nested"
-        fromAuthDispatch (AuthFilesR ["one", "two"]) `shouldBe` FilesR ["one", "two"]
+        fromRouteLeaf (LeafFilesR ["one", "two"]) `shouldBe` FilesR ["one", "two"]

@@ -3,5 +3,5 @@ module MissingEndpoint where
 import Yesod.Core.RouteLeaf
 import YesodCoreTest.RouteLeaf.Foundation
 
-bad :: AuthDispatch AccountR -> Bool
-bad (AuthItemR _) = True
+bad :: RouteLeaf AccountR -> Bool
+bad (LeafItemR _) = True
