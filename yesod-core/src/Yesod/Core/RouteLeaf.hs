@@ -16,7 +16,7 @@
 -- independent of the policy modules.
 module Yesod.Core.RouteLeaf
     ( module Yesod.Routes.Class.Leaf
-    , getDeepestLeaves
+    , getCurrentRouteLeaves
     , withRouteLeaves
     , withRouteLeavesWithParentArgs
     ) where
@@ -26,20 +26,21 @@ import Yesod.Core.Types (HandlerFor)
 import Yesod.Routes.Class
 import Yesod.Routes.Class.Leaf
 
--- | Fetch the deepest matched endpoint as an existential package. The request
--- selects the fragment; the package retains its local 'RouteLeaves' value,
--- parent captures, and a witness for recovering a caller-chosen constraint.
+-- | Fetch the current route in its owning fragment's local 'RouteLeaves' view.
+-- The existential package contains the currently matched endpoint constructor
+-- and its captures, together with parent captures and a witness for recovering
+-- a caller-chosen constraint. The request determines the fragment's type.
 --
 -- No policy dictionaries are needed to fetch it. 'Nothing' means no current
 -- route, including subsite misses that supply no parent route. Matched-path
 -- 405s still have a route. Applications that bypass the parent runner also
 -- bypass its middleware.
-getDeepestLeaves
+getCurrentRouteLeaves
     :: RouteLeafSelection site
     => HandlerFor site (Maybe (SomeRouteLeaf site))
-getDeepestLeaves = fmap selectRouteLeaf <$> getCurrentRoute
+getCurrentRouteLeaves = fmap selectRouteLeaf <$> getCurrentRoute
 
--- | Visit the deepest matched leaf using a constraint selected with type
+-- | Visit the current route's local leaf view using a constraint selected with type
 -- application, such as @withRouteLeaves \@MyConstraint callback@. The generated
 -- dictionary supplies the instance for the fragment selected by the request.
 -- 'Nothing' means no current route, never a missing instance.
@@ -68,5 +69,5 @@ withRouteLeavesWithParentArgs
            => ParentArgs fragment -> RouteLeaves fragment -> result)
     -> HandlerFor site (Maybe result)
 withRouteLeavesWithParentArgs callback = do
-    selected <- getDeepestLeaves
+    selected <- getCurrentRouteLeaves
     pure $ fmap (\leaves -> withSomeRouteLeaf @constraint leaves callback) selected

@@ -45,7 +45,7 @@ getErrorR _ _ = record "handler" >> invalidArgs ["bad input"]
 -- Inspect the existential witness without requiring a site-wide policy dictionary.
 accountMiddleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
 accountMiddleware handler = defaultYesodMiddleware $ do
-    selected <- getDeepestLeaves
+    selected <- getCurrentRouteLeaves
     case selected of
         Just (SomeRouteLeaf FragmentAccountR args leaf) -> do
             enforceAuthorization =<< isAuthorized args leaf

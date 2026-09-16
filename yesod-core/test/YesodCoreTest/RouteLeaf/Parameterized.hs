@@ -32,12 +32,12 @@ specs = describe "parameterized leaf views" $ do
         withRouteLeaf @Show route (\args leaf -> renderRouteNested args $ fromRouteLeaves leaf)
             `shouldBe` (["scope", "42", "group", "child", "alice", "item", "7"], [])
 
-    it "packages the deepest parameterized fragment and its parent captures" $ do
+    it "packages the endpoint's owning fragment and its parent captures" $ do
         let route = ScopeR 42 (GroupR (ChildR "alice" (SplitItemR 7))) :: Route (SplitLeafApp ())
         case selectRouteLeaf route of
             SomeRouteLeaf FragmentChildR args leaves ->
                 (args, fromRouteLeaves leaves) `shouldBe` ((42, "alice"), SplitItemR 7)
-            _ -> expectationFailure "expected the deepest ChildR fragment"
+            _ -> expectationFailure "expected the endpoint's ChildR fragment"
 
     it "retains the focused mixed fragment's shallow projection" $ do
         let onLocal (LeafLocalR text) = text

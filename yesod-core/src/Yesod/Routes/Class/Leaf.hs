@@ -73,7 +73,7 @@ data SomeRouteLeaf site where
         -> RouteLeaves fragment
         -> SomeRouteLeaf site
 
--- | Project a matched route to its deepest endpoint-owning fragment.
+-- | Project a route to its endpoint value in the owning fragment's local view.
 -- Subsite mounts are leaves in the parent site; projection stops at the mount.
 class RenderRoute site => RouteLeafSelection site where
     selectRouteLeaf :: Route site -> SomeRouteLeaf site

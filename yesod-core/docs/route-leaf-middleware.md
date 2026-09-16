@@ -102,12 +102,13 @@ such assertion.
 
 ## Middleware and dependency ownership
 
-The request selects the deepest endpoint-owning fragment. `getDeepestLeaves`
-returns a fixed existential type rather than requiring the caller to name that
-fragment:
+`getCurrentRouteLeaves` returns the current route in its owning level's
+`RouteLeaves a` view. The contained value is the currently matched endpoint
+constructor, with its captures. The request determines `a`, so the getter
+returns a fixed existential type:
 
 ```haskell
-getDeepestLeaves
+getCurrentRouteLeaves
     :: RouteLeafSelection site
     => HandlerFor site (Maybe (SomeRouteLeaf site))
 ```
@@ -188,7 +189,7 @@ interpreter returns 401 when authentication is required; applications can
 supply their own login redirect or other response behavior.
 
 A focused test must avoid constructing the full-site dictionary if it wants to
-exclude sibling policies. It can fetch `getDeepestLeaves`, match
+exclude sibling policies. It can fetch `getCurrentRouteLeaves`, match
 `SomeRouteLeaf FragmentAccountR args leaves`, and call the same leaf instance as
 production. The prototype's
 [account module](../test/YesodCoreTest/RouteLeaf/Account.hs) demonstrates this

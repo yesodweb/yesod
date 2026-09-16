@@ -139,7 +139,7 @@ specs = describe "leaf dictionary middleware" $ do
                     status Nothing
                 readIORef ref `shouldReturn` trace "account auth" end
 
-    it "fetches an existential and recovers the request-selected fragment's dictionary" $
+    it "fetches the current endpoint in its owning level's view and recovers its dictionary" $
         forM_
             [ (["open"], 200, Just "OpenR")
             , (["org", "42", "home"], 200, Just "OrgHomeR")
@@ -151,7 +151,7 @@ specs = describe "leaf dictionary middleware" $ do
                 observed <- newIORef Nothing
                 let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
                     middleware handler = defaultYesodMiddleware $ do
-                        selected <- getDeepestLeaves
+                        selected <- getCurrentRouteLeaves
                         name <- withRouteLeaves @Show (show . fromRouteLeaves)
                         let describe :: SomeRouteLeaf LeafApp -> (([Text], [(Text, Text)]), String)
                             describe leaves = withSomeRouteLeaf @Show leaves $ \args leaf ->
