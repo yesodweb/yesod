@@ -13,14 +13,14 @@ module YesodCoreTest.RouteLeaf.Account where
 
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
-import Yesod.Core hiding (isAuthorized)
+import Yesod.Core
 import Yesod.Core.RouteLeaf
 import YesodCoreTest.RouteLeaf.Foundation
 import YesodCoreTest.RouteLeaf.Options
 import YesodCoreTest.RouteLeaf.Policy
 
 instance AuthorizeRoute AccountR where
-    isAuthorized (org, account) endpoint = do
+    authorizeRoute (org, account) endpoint = do
         record "account auth"
         pure $ if org /= 42 || account /= "alice"
             then Unauthorized "parent captures denied"
@@ -48,7 +48,7 @@ accountMiddleware handler = defaultYesodMiddleware $ do
     selected <- getCurrentRouteLeaves
     case selected of
         Just (SomeRouteLeaf FragmentAccountR args leaf) -> do
-            enforceAuthorization =<< isAuthorized args leaf
+            enforceAuthorization =<< authorizeRoute args leaf
             handler
         Nothing -> handler
         Just _ -> permissionDenied "unexpected endpoint in focused application"

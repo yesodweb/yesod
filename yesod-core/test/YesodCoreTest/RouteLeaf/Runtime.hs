@@ -18,7 +18,7 @@ import Data.Text (Text)
 import qualified Network.Wai as W
 import qualified Network.Wai.Test as WT
 import Test.Hspec
-import Yesod.Core hiding (isAuthorized)
+import Yesod.Core
 import Yesod.Core.Class.Dispatch.ToParentRoute (toParentRoute)
 import Yesod.Core.RouteLeaf
 import YesodCoreTest.RouteLeaf.Foundation
@@ -28,7 +28,7 @@ import YesodCoreTest.RouteLeaf.Account
 import YesodCoreTest.RuntimeHarness (assertRequestRaw)
 
 instance AuthorizeRoute (Route LeafApp) where
-    isAuthorized () endpoint = do
+    authorizeRoute () endpoint = do
         record "root auth"
         pure $ case endpoint of
             LeafOpenR -> Authorized
@@ -40,16 +40,16 @@ instance AuthorizeRoute (Route LeafApp) where
 
 -- OrgR mixes local endpoints and delegation; this pattern is exhaustive.
 instance AuthorizeRoute OrgR where
-    isAuthorized org LeafOrgHomeR = do
+    authorizeRoute org LeafOrgHomeR = do
         record "org auth"
         pure $ if org == 42 then Authorized else Unauthorized "org denied"
 
 -- There is deliberately no AuthorizeRoute DelegationR instance.
 instance AuthorizeRoute StaticR where
-    isAuthorized () LeafStaticHomeR = record "static auth" >> pure Authorized
+    authorizeRoute () LeafStaticHomeR = record "static auth" >> pure Authorized
 
 instance AuthorizeRoute OtherR where
-    isAuthorized () LeafOtherHomeR = record "other auth" >> pure (Unauthorized "other denied")
+    authorizeRoute () LeafOtherHomeR = record "other auth" >> pure (Unauthorized "other denied")
 
 instance YesodSubDispatch LeafSub LeafApp where
     yesodSubDispatch = $(mkYesodSubDispatch [parseRoutes| /page PageR GET |])

@@ -42,7 +42,7 @@ instance such as this is exhaustive:
 
 ```haskell
 instance AuthorizeRoute OrgR where
-    isAuthorized org LeafOrgHomeR = checkOrganizationHome org
+    authorizeRoute org LeafOrgHomeR = checkOrganizationHome org
 ```
 
 This is local to one level: `RouteLeaves (Route Site)` contains only root
@@ -53,7 +53,7 @@ The application defines the class, including its result type:
 
 ```haskell
 class HasRouteLeaves fragment => AuthorizeRoute fragment where
-    isAuthorized
+    authorizeRoute
         :: ParentArgs fragment
         -> RouteLeaves fragment
         -> HandlerFor (ParentSite fragment) AuthResult
@@ -144,10 +144,10 @@ instance Yesod App where
         appAuthorization app route isWrite
 
 -- Application assembly: import every endpoint owner's policy instance.
--- Policy.isAuthorized is the application-owned class method above.
+-- Policy.authorizeRoute is the application-owned class method above.
 authorizeRoute :: Route App -> Bool -> HandlerFor App AuthResult
 authorizeRoute route _isWrite =
-    withRouteLeaf @AuthorizeRoute route Policy.isAuthorized
+    withRouteLeaf @AuthorizeRoute route Policy.authorizeRoute
 ```
 
 Construct `App` with `appAuthorization = authorizeRoute`. The normal
@@ -187,7 +187,7 @@ For example, custom middleware can choose its own denial responses:
 ```haskell
 authorizationMiddleware handler = defaultYesodMiddleware $ do
     _ <- withRouteLeavesWithParentArgs @AuthorizeRoute $ \args leaf ->
-        enforceAuthorization =<< Policy.isAuthorized args leaf
+        enforceAuthorization =<< Policy.authorizeRoute args leaf
     handler -- explicit policy: skip authorization when there is no current route
 
 -- Application-owned response policy; choose redirects here if desired.

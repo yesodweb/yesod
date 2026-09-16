@@ -8,11 +8,11 @@
 module YesodCoreTest.RouteLeaf.Policy where
 
 import Control.Monad (forM_)
-import Yesod.Core hiding (isAuthorized)
+import Yesod.Core
 import Yesod.Core.RouteLeaf
 
 class HasRouteLeaves route => AuthorizeRoute route where
-    isAuthorized :: ParentArgs route -> RouteLeaves route -> HandlerFor (ParentSite route) AuthResult
+    authorizeRoute :: ParentArgs route -> RouteLeaves route -> HandlerFor (ParentSite route) AuthResult
 
 -- Application-owned response policy; this example returns 401 for a missing login.
 enforceAuthorization :: AuthResult -> HandlerFor site ()
@@ -27,6 +27,6 @@ authorizationMiddleware
        (Yesod site, RouteLeafSelection site, RouteFragmentDict AuthorizeRoute (Route site))
     => HandlerFor site a -> HandlerFor site a
 authorizationMiddleware handler = defaultYesodMiddleware $ do
-    authorization <- withRouteLeavesWithParentArgs @AuthorizeRoute isAuthorized
+    authorization <- withRouteLeavesWithParentArgs @AuthorizeRoute authorizeRoute
     forM_ authorization enforceAuthorization
     handler -- explicit policy: skip authorization when there is no current route
