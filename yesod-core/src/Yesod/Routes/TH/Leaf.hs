@@ -33,6 +33,15 @@ mkRouteLeafData context tyargs site focus resources = do
             fragmentVar <- newName "fragment"
             constraint <- newName "constraint"
             clauses <- projectClauses rootLabel id [] trees
+            lookups <- forM owners $ \(typ, label) -> do
+                args <- newName "parentArgs"
+                leaf <- newName "leaf"
+                let selected = conPCompat 'SomeRouteLeaf
+                        [conPCompat (witnessName label) [], VarP args, VarP leaf]
+                    found = ConE 'Just `AppE` mkTupE [VarE args, VarE leaf]
+                    fallback = [Clause [WildP] (NormalB $ ConE 'Nothing) [] | length owners > 1]
+                pure $ instanceD context (ConT ''LookupRouteLeaves `AppT` typ)
+                    [FunD 'lookupRouteLeaves (Clause [selected] (NormalB found) [] : fallback)]
             let witness fragmentType = ConT ''RouteFragmentWitness `AppT` root `AppT` fragmentType
                 constructors =
                     [ GadtC [witnessName label] [] (witness typ)
@@ -44,13 +53,13 @@ mkRouteLeafData context tyargs site focus resources = do
                         (NormalB $ ConE 'Dict) []
                     | (_, label) <- owners
                     ]
-            pure $ localViews ++
+            pure $ localViews ++ lookups ++
                 [ dataInstanceD ''RouteFragmentWitness [root, VarT fragmentVar] constructors
                 , instanceD dictContext
                     (ConT ''RouteFragmentDict `AppT` VarT constraint `AppT` root)
                     [FunD 'getRouteFragmentDict dictClauses]
-                , instanceD context (ConT ''RouteLeaves `AppT` site)
-                    [FunD 'routeLeaf clauses]
+                , instanceD context (ConT ''RouteLeafSelection `AppT` site)
+                    [FunD 'selectRouteLeaf clauses]
                 ]
   where
     childType name = applyTyArgs (ConT $ mkName name) tyargs
@@ -61,8 +70,8 @@ mkRouteLeafData context tyargs site focus resources = do
             -- A child can be imported from an earlier focused data splice.
             -- Unresolved local datatypes have not been emitted yet.
             known <- case typ of
-                AppT (ConT route) _ | route == ''Route -> isInstance ''HasRouteLeaf [typ]
-                _ -> nestedInstanceExists ''HasRouteLeaf =<< resolveRouteCon (typeHeadName typ)
+                AppT (ConT route) _ | route == ''Route -> isInstance ''HasRouteLeaves [typ]
+                _ -> nestedInstanceExists ''HasRouteLeaves =<< resolveRouteCon (typeHeadName typ)
             if known then pure [] else do
                 projections <- forM trees $ \tree -> case tree of
                     ResourceParent name _ _ _ _ ->
@@ -75,11 +84,11 @@ mkRouteLeafData context tyargs site focus resources = do
                     vars <- fieldVars res
                     pure $ Clause [conPCompat (leafName res) (map VarP vars)]
                         (NormalB $ applyConstructor (mkName $ resourceName res) vars) []
-                pure [instanceD context (ConT ''HasRouteLeaf `AppT` typ)
-                    [ dataInstanceD ''RouteLeaf [typ]
+                pure [instanceD context (ConT ''HasRouteLeaves `AppT` typ)
+                    [ dataInstanceD ''RouteLeaves [typ]
                         [NormalC (leafName res) [(lazyField, t) | t <- leafFieldTypes res] | res <- leaves]
-                    , FunD 'projectRouteLeaf projections
-                    , FunD 'fromRouteLeaf embeddings
+                    , FunD 'projectRouteLeaves projections
+                    , FunD 'fromRouteLeaves embeddings
                     ]]
         children <- forM [ (name, child) | ResourceParent name _ _ _ child <- trees ] $
             \(name, child) -> localInstances (childType name) child

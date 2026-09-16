@@ -139,10 +139,40 @@ specs = describe "leaf dictionary middleware" $ do
                     status Nothing
                 readIORef ref `shouldReturn` trace "account auth" end
 
+    it "fetches only leaves at the requested level, with parent captures separately" $
+        forM_
+            [ (["open"], 200, (Just OpenR, Nothing, Nothing))
+            , (["org", "42", "home"], 200, (Nothing, Just OrgHomeR, Nothing))
+            , (account "42" "alice" ["item", "7"], 200,
+                (Nothing, Nothing, Just ((42, "alice"), ItemR 7)))
+            , (["static"], 200, (Nothing, Nothing, Nothing))
+            , (["missing"], 404, (Nothing, Nothing, Nothing))
+            ] $ \(path, status, expected) -> do
+                ref <- newIORef []
+                observed <- newIORef Nothing
+                let middleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
+                    middleware handler = defaultYesodMiddleware $ do
+                        root <- getDeepestLeaves @(Route LeafApp)
+                        org <- getDeepestLeaves @OrgR
+                        selected <- getDeepestLeavesWithParentArgs @AccountR
+                        let accountLeaf = fmap (\(args, leaves) -> (args, fromRouteLeaves leaves)) selected
+                        liftIO $ writeIORef observed $ Just
+                            (fmap fromRouteLeaves root, fmap fromRouteLeaves org, accountLeaf)
+                        handler
+                assertRequestRaw (toWaiAppPlain (LeafApp ref middleware)) WT.defaultRequest
+                    { W.pathInfo = path } status Nothing
+                readIORef observed `shouldReturn` Just expected
+
+    it "rejects unexpected matched fragments in focused middleware" $ do
+        ref <- newIORef []
+        assertRequestRaw (toWaiAppPlain (LeafApp ref accountMiddleware))
+            WT.defaultRequest { W.pathInfo = ["open"] } 403 Nothing
+        readIORef ref `shouldReturn` ["middleware", "write classification", "error"]
+
     it "lets callers recover another constraint from the same generated instance" $ do
         let matched = OrgR 42 (DelegationR (AccountR "alice" (ItemR 7)))
         withRouteLeaf @Show matched (\args leaf ->
-            (renderRouteNested args (fromRouteLeaf leaf), show $ fromRouteLeaf leaf))
+            (renderRouteNested args (fromRouteLeaves leaf), show $ fromRouteLeaves leaf))
             `shouldBe` ((["org", "42", "delegation", "account", "alice", "item", "7"], []), "ItemR 7")
 
     it "fills delegation branches without evaluating the leaf callback" $ do
@@ -150,4 +180,4 @@ specs = describe "leaf dictionary middleware" $ do
             `shouldBe` "leaf"
         fillInNested (error "leaf evaluated") ("nested" :: String) (DelegationR (AccountR "alice" (ItemR 7)))
             `shouldBe` "nested"
-        fromRouteLeaf (LeafFilesR ["one", "two"]) `shouldBe` FilesR ["one", "two"]
+        fromRouteLeaves (LeafFilesR ["one", "two"]) `shouldBe` FilesR ["one", "two"]

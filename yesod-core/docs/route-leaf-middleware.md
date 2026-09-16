@@ -28,8 +28,8 @@ Given a mixed fragment:
 data OrgR = OrgHomeR | DelegationR DelegationR
 ```
 
-its generated `RouteLeaf OrgR` contains only `LeafOrgHomeR`. It has no
-delegation constructor. `RouteLeaf` describes this structural view independently
+its generated `RouteLeaves OrgR` contains only `LeafOrgHomeR`. It has no
+delegation constructor. `RouteLeaves` describes this structural view independently
 of the constraint used to visit it; authorization is one application. An
 instance such as this is exhaustive:
 
@@ -38,13 +38,17 @@ instance AuthorizeRoute OrgR where
     isAuthorized org LeafOrgHomeR = checkOrganizationHome org
 ```
 
+This is local to one level: `RouteLeaves (Route Site)` contains only root
+endpoints, and `RouteLeaves AccountR` contains only endpoints directly owned by
+`AccountR`. Neither includes leaves belonging to nested children.
+
 The application defines the class, including its result type:
 
 ```haskell
-class HasRouteLeaf fragment => AuthorizeRoute fragment where
+class HasRouteLeaves fragment => AuthorizeRoute fragment where
     isAuthorized
         :: ParentArgs fragment
-        -> RouteLeaf fragment
+        -> RouteLeaves fragment
         -> HandlerFor (ParentSite fragment) AuthResult
 ```
 
@@ -54,10 +58,10 @@ the fragment's dispatch instance.
 
 For each fragment with direct endpoints, generation supplies:
 
-* A `RouteLeaf` data instance, with `Leaf` prefixed to each local endpoint's
+* A `RouteLeaves` data instance, with `Leaf` prefixed to each local endpoint's
   constructor name and the original endpoint fields retained.
-* `projectRouteLeaf`, a shallow conversion returning `Nothing` for delegation
-  constructors, and `fromRouteLeaf`, its local-endpoint embedding.
+* `projectRouteLeaves`, a shallow conversion returning `Nothing` for delegation
+  constructors, and `fromRouteLeaves`, its local-endpoint embedding.
 * A witness such as `FragmentAccountR`. The root witness is `FragmentRouteSite`
   for site `Site`, when the root owns direct endpoints.
 
@@ -71,9 +75,9 @@ FragmentRouteSite :: RouteFragmentWitness (Route Site) (Route Site)
 
 `wholeRoute` is the entire site's route sum; `fragment` is the selected
 endpoint-owning sum, which may be the root itself. The witness identifies its
-type; `RouteLeaf fragment` carries the selected endpoint and its local captures.
+type; `RouteLeaves fragment` carries the selected endpoint and its local captures.
 
-A full-site data splice also emits `RouteLeaves site` and the generic instance:
+A full-site data splice also emits `RouteLeafSelection site` and the generic instance:
 
 ```haskell
 instance (c (Route Site), c OrgR, c AccountR, ...)
@@ -97,6 +101,33 @@ assertion. The middleware visitor supplies the leaf view directly and needs no
 such assertion.
 
 ## Middleware and dependency ownership
+
+For a statically selected fragment, middleware can fetch its local leaf value:
+
+```haskell
+getDeepestLeaves
+    :: (LookupRouteLeaves fragment, RouteLeafSelection (ParentSite fragment))
+    => HandlerFor (ParentSite fragment) (Maybe (RouteLeaves fragment))
+
+getDeepestLeaves @AccountR
+    :: HandlerFor Site (Maybe (RouteLeaves AccountR))
+
+getDeepestLeavesWithParentArgs @AccountR
+    :: HandlerFor Site (Maybe (ParentArgs AccountR, RouteLeaves AccountR))
+```
+
+The full-site data splice generates `LookupRouteLeaves` instances for these
+getters. Selection and lookup are pure; the handler wrapper only reads
+`getCurrentRoute`. They need no authorization dictionaries. `Nothing` means either no
+matched route or a matched endpoint owned by another fragment, including a
+deeper child. Parent captures are kept separate from the local leaf; use the
+second getter when the policy needs them. A focused middleware must reject
+unexpected matched fragments rather than silently skip authorization.
+
+For middleware that chooses the deepest fragment at runtime, retain the
+dictionary visitor. It supplies that fragment's local `RouteLeaves` value to the
+application-owned class method. The getter's type parameter is chosen by its
+caller; a request cannot change that result type dynamically:
 
 ```haskell
 authorizationMiddleware handler = defaultYesodMiddleware $ do
@@ -147,8 +178,8 @@ interpreter returns 401 when authentication is required; applications can
 supply their own login redirect or other response behavior.
 
 A focused test must avoid constructing the full-site dictionary if it wants to
-exclude sibling policies. It can use `routeLeaf`, match its known witness, and
-call the same leaf instance as production. The prototype's
+exclude sibling policies. It can use `getDeepestLeavesWithParentArgs @AccountR`
+and call the same leaf instance as production. The prototype's
 [account module](../test/YesodCoreTest/RouteLeaf/Account.hs) demonstrates this
 without importing root dispatch or sibling authorizers. Unexpected witnesses
 are rejected, and an independent executable verifies that dependency boundary.

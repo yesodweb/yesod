@@ -16,6 +16,8 @@
 -- independent of the policy modules.
 module Yesod.Core.RouteLeaf
     ( module Yesod.Routes.Class.Leaf
+    , getDeepestLeaves
+    , getDeepestLeavesWithParentArgs
     , getDeepestSubrouteWithInstance
     ) where
 
@@ -23,6 +25,30 @@ import Yesod.Core.Handler (getCurrentRoute)
 import Yesod.Core.Types (HandlerFor)
 import Yesod.Routes.Class
 import Yesod.Routes.Class.Leaf
+
+-- | Fetch the current endpoint only if it is directly owned by @fragment@.
+-- For example, @getDeepestLeaves \@AccountR@ excludes endpoints owned by children
+-- of @AccountR@. Select the fragment with type application or the result type.
+--
+-- 'Nothing' means either no current route or an endpoint in another fragment.
+-- Use 'getDeepestSubrouteWithInstance' to dispatch across all fragments instead
+-- of checking one known fragment. No policy dictionaries are needed here.
+getDeepestLeaves
+    :: forall fragment.
+       (LookupRouteLeaves fragment, RouteLeafSelection (ParentSite fragment))
+    => HandlerFor (ParentSite fragment) (Maybe (RouteLeaves fragment))
+getDeepestLeaves = fmap (fmap snd) (getDeepestLeavesWithParentArgs @fragment)
+
+-- | Like 'getDeepestLeaves', retaining ancestor captures for policies that need
+-- them. A local leaf contains only its own captures, so parent captures remain
+-- separate. Matched-path 405s still have a route; unmatched requests do not.
+getDeepestLeavesWithParentArgs
+    :: forall fragment.
+       (LookupRouteLeaves fragment, RouteLeafSelection (ParentSite fragment))
+    => HandlerFor (ParentSite fragment) (Maybe (ParentArgs fragment, RouteLeaves fragment))
+getDeepestLeavesWithParentArgs = do
+    current <- getCurrentRoute
+    pure $ current >>= lookupRouteLeaves @fragment . selectRouteLeaf
 
 -- | Visit the current endpoint using a constraint selected with type
 -- application. 'Nothing' means there is no current route (for example a 404),
@@ -32,10 +58,10 @@ import Yesod.Routes.Class.Leaf
 -- runner, or recover a mount route on subsite misses that supply no route.
 getDeepestSubrouteWithInstance
     :: forall constraint site result.
-       (RouteLeaves site, RouteFragmentDict constraint (Route site))
+       (RouteLeafSelection site, RouteFragmentDict constraint (Route site))
     => (forall fragment.
-           (HasRouteLeaf fragment, ParentSite fragment ~ site, constraint fragment)
-           => ParentArgs fragment -> RouteLeaf fragment -> HandlerFor site result)
+           (HasRouteLeaves fragment, ParentSite fragment ~ site, constraint fragment)
+           => ParentArgs fragment -> RouteLeaves fragment -> HandlerFor site result)
     -> HandlerFor site (Maybe result)
 getDeepestSubrouteWithInstance callback = do
     current <- getCurrentRoute

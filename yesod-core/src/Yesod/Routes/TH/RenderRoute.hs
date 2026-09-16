@@ -105,7 +105,7 @@ defaultOpts = MkRouteOpts
     , roRouteLeafViews = False
     }
 
--- | Generate experimental 'Yesod.Core.RouteLeaf.RouteLeaf' endpoint views,
+-- | Generate experimental 'Yesod.Core.RouteLeaf.RouteLeaves' endpoint views,
 -- leaf witnesses, and a constraint-polymorphic dictionary instance with route
 -- data. Existing dispatch settings and handler calls are unaffected.
 --

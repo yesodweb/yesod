@@ -3,10 +3,12 @@
 ## 1.7.1.0
 
 * Prototype opt-in leaf route views for authorization in ordinary middleware:
-  `setRouteLeafViews` generates `RouteLeaf` endpoint views and a generic
+  `setRouteLeafViews` generates `RouteLeaves` endpoint views and a generic
   `RouteFragmentDict` instance using `Data.Constraint.Dict`. The new
   `Yesod.Core.RouteLeaf` module visits the matched leaf with a caller-selected
   constraint, without adding authorization callbacks to dispatch.
+* `getDeepestLeaves @fragment` fetches only the matched endpoint directly owned by
+  that fragment. `getDeepestLeavesWithParentArgs` also returns its ancestor captures.
 
 ## 1.7.0.1
 

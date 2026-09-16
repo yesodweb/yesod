@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-orphans -Werror=incomplete-patterns #-}
@@ -42,17 +43,19 @@ getFilesR _ _ _ = record "handler" >> pure "files"
 getErrorR :: Int -> Text -> HandlerFor LeafApp Text
 getErrorR _ _ = record "handler" >> invalidArgs ["bad input"]
 
--- A total site-wide dictionary would require siblings here. Instead, the
--- focused application checks the generated witness and uses its own policy.
+-- Fetch just this fragment's own leaves, without a site-wide policy dictionary.
 accountMiddleware :: HandlerFor LeafApp a -> HandlerFor LeafApp a
 accountMiddleware handler = defaultYesodMiddleware $ do
-    current <- getCurrentRoute
-    case fmap routeLeaf current of
-        Nothing -> handler
-        Just (SomeRouteLeaf FragmentAccountR args leaf) -> do
+    selected <- getDeepestLeavesWithParentArgs @AccountR
+    case selected of
+        Just (args, leaf) -> do
             enforceAuthorization =<< isAuthorized args leaf
             handler
-        Just _ -> permissionDenied "unexpected endpoint in focused application"
+        Nothing -> do
+            current <- getCurrentRoute
+            case current of
+                Nothing -> handler
+                Just _ -> permissionDenied "unexpected endpoint in focused application"
 
 accountApp :: LeafApp -> IO Application
 accountApp = toWaiAppPlainNested (Proxy :: Proxy AccountR) (42, "alice")
