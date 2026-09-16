@@ -469,7 +469,7 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
         ar <- isAuthorized url isWrite
         handleAuthResult ar
 
--- | Run a dispatch-supplied 'RouteAuthorizer', enforcing its 'AuthResult' with
+-- | Run a dispatch-supplied authorization callback, enforcing its 'AuthResult' with
 -- the same semantics as 'authorizationCheck' ('Authorized' continues,
 -- 'AuthenticationRequired' redirects to 'authRoute' or denies, 'Unauthorized'
 -- is a 403). With a current route, the @isWrite@ flag is computed via
@@ -484,16 +484,16 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- classify matched and unmatched paths identically.
 --
 -- Generated dispatch prefixes this action onto the handler while preserving
--- its runner. It can also be called directly when wiring a 'RouteAuthorizer'
+-- its runner. It can also be called directly when wiring an authorization callback
 -- by hand. When 'defaultYesodMiddleware' also performs legacy authorization,
 -- the two checks evaluate 'isWriteRequest' separately.
 -- See <Yesod-Core-Dispatch.html#t:RouteAuthSpec RouteAuthSpec> for generated check ordering.
 --
 -- @since 1.7.1.0
-dispatchAuthorizationCheck :: Yesod site => RouteAuthorizer site -> HandlerFor site ()
+dispatchAuthorizationCheck :: Yesod site => (Bool -> HandlerFor site AuthResult) -> HandlerFor site ()
 dispatchAuthorizationCheck auth = do
     isWrite <- getCurrentRoute >>= maybe defaultIsWriteRequest isWriteRequest
-    handleAuthResult =<< runRouteAuthorizer auth isWrite
+    handleAuthResult =<< auth isWrite
 
 -- Also used when a manually supplied authorizer or a subsite mount runs
 -- without a matched route, so that case follows the class's default policy.

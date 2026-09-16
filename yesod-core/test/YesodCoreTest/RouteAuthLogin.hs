@@ -43,7 +43,7 @@ getLoginSub _ _ = LoginSub
 getPageR :: SubHandlerFor LoginSub LoginApp Text
 getPageR = pure "private subsite handler must not run"
 
-authorizeMountR, authorizeNestedMountR :: Int -> RouteAuthorizer LoginApp
+authorizeMountR, authorizeNestedMountR :: Int -> Bool -> HandlerFor LoginApp AuthResult
 authorizeMountR = authorizePrivateR
 authorizeNestedMountR = authorizePrivateR
 
@@ -54,11 +54,11 @@ instance Yesod LoginApp where
         session <- readIORef ref
         pure (session, \saved -> writeIORef ref saved >> pure [])
 
-authorizeLoginR :: RouteAuthorizer LoginApp
-authorizeLoginR = RouteAuthorizer $ \_ -> pure Authorized
+authorizeLoginR :: Bool -> HandlerFor LoginApp AuthResult
+authorizeLoginR _ = pure Authorized
 
-authorizePrivateR, authorizeNestedPrivateR :: Int -> RouteAuthorizer LoginApp
-authorizePrivateR _ = RouteAuthorizer $ \_ -> pure AuthenticationRequired
+authorizePrivateR, authorizeNestedPrivateR :: Int -> Bool -> HandlerFor LoginApp AuthResult
+authorizePrivateR _ _ = pure AuthenticationRequired
 authorizeNestedPrivateR = authorizePrivateR
 
 getLoginR :: HandlerFor LoginApp Text

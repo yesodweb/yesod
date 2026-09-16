@@ -14,8 +14,8 @@ import YesodCoreTest.RouteAuthSplit.Foundation
 
 mkYesodDispatchOpts (setFocusOnNestedRoute "AdminR" authOpts) "App" resourcesApp
 
-authorizeUserR :: Int -> Int -> RouteAuthorizer App
-authorizeUserR admin user = RouteAuthorizer $ \_ -> do
+authorizeUserR :: Int -> Int -> Bool -> HandlerFor App AuthResult
+authorizeUserR admin user _ = do
     record "fragment auth"
     pure $ if (admin, user) == (1, 2) then Authorized else Unauthorized "denied"
 

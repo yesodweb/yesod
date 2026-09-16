@@ -36,8 +36,8 @@ getStaticLeafR, postStaticLeafR :: HandlerFor NestedApp Text
 getStaticLeafR = pure "static"
 postStaticLeafR = pure "static-post"
 
-authorizeStaticR :: StaticR -> RouteAuthorizer NestedApp
-authorizeStaticR StaticLeafR = RouteAuthorizer $ \isWrite ->
+authorizeStaticR :: StaticR -> Bool -> HandlerFor NestedApp AuthResult
+authorizeStaticR StaticLeafR isWrite =
     pure $ if isWrite then Unauthorized "static write" else Authorized
 
 getItemR, postItemR :: Int -> Int -> Int -> HandlerFor NestedApp Text
@@ -48,14 +48,14 @@ getSub :: NestedApp -> Int -> Int -> Int -> WaiSubsiteWithAuth
 getSub _ _ _ _ = WaiSubsiteWithAuth $ \_ replyToRequest ->
     replyToRequest $ responseLBS H.status200 [] "subsite"
 
-authorizeAccountR :: Int -> Int -> AccountR -> RouteAuthorizer NestedApp
-authorizeAccountR org account fragment = RouteAuthorizer $ \isWrite ->
+authorizeAccountR :: Int -> Int -> AccountR -> Bool -> HandlerFor NestedApp AuthResult
+authorizeAccountR org account fragment isWrite =
     pure $ case fragment of
         ItemR 3 | org == 1 && account == 2 && not isWrite -> Authorized
         _ -> Unauthorized "wrong fragment"
 
-authorizeMountR :: Int -> Int -> Int -> RouteAuthorizer NestedApp
-authorizeMountR org account mount = RouteAuthorizer $ \_ ->
+authorizeMountR :: Int -> Int -> Int -> Bool -> HandlerFor NestedApp AuthResult
+authorizeMountR org account mount _ =
     pure $ if (org, account, mount) == (1, 2, 3) then Authorized else Unauthorized "wrong mount"
 
 specs :: Spec

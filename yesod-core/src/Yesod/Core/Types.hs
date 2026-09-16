@@ -165,18 +165,6 @@ type ResolvedApproot = Text
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized !Text
     deriving (Eq, Show, Read)
 
--- | A route-scoped authorization check, supplied by generated dispatch code
--- rather than the site-wide 'Yesod.Core.isAuthorized'. The 'Bool' is the
--- @isWrite@ flag; see 'Yesod.Core.dispatchAuthorizationCheck' for
--- the site's method policy and the fallback when no route matches.
---
--- See <Yesod-Core-Dispatch.html#t:RouteAuthSpec RouteAuthSpec> for generated authorization's scope,
--- runner requirements, and order relative to middleware and handler wrappers.
---
--- @since 1.7.1.0
-newtype RouteAuthorizer site = RouteAuthorizer
-    { runRouteAuthorizer :: Bool -> HandlerFor site AuthResult }
-
 data ScriptLoadPosition master
     = BottomOfBody
     | BottomOfHeadBlocking

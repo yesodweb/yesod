@@ -180,8 +180,8 @@ do
 getCustomR :: HandlerFor CustomApp String
 getCustomR = record "handler" >> pure "custom"
 
-authorizeCustomR :: RouteAuthorizer CustomApp
-authorizeCustomR = RouteAuthorizer $ \isWrite -> do
+authorizeCustomR :: Bool -> HandlerFor CustomApp AuthResult
+authorizeCustomR isWrite = do
     record "auth"
     pure $ if isWrite then Unauthorized "no writes" else Authorized
 

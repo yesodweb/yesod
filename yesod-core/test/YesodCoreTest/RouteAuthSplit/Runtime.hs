@@ -20,8 +20,8 @@ import YesodCoreTest.RuntimeHarness (assertRequest)
 
 mkYesodDispatchOpts authOpts "App" resourcesApp
 
-authorizeHomeR :: RouteAuthorizer App
-authorizeHomeR = RouteAuthorizer $ \_ -> record "root auth" >> pure Authorized
+authorizeHomeR :: Bool -> HandlerFor App AuthResult
+authorizeHomeR _ = record "root auth" >> pure Authorized
 
 getHomeR :: HandlerFor App String
 getHomeR = record "root handler" >> pure "home"

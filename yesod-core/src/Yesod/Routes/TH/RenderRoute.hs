@@ -158,6 +158,9 @@ roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
 -- an existing nested instance uses that instance's policy; it cannot inherit
 -- or validate the delegating splice's authorization options. Configure each
 -- fragment's dispatch splice explicitly, deriving from shared route options.
+-- Named authorizers take the @isWrite@ flag after their route arguments and
+-- return @HandlerFor site AuthResult@. 'Yesod.Core.dispatchAuthorizationCheck'
+-- computes that flag and enforces the result.
 --
 -- With 'Yesod.Core.defaultYesodMiddleware', execution proceeds through the
 -- site-wide 'Yesod.Core.isAuthorized' check, the named authorization check,
@@ -188,7 +191,7 @@ data RouteAuthSpec
     -- ^ For a method-based leaf below a parent, demand that parent's
     -- @authorize\<SubtreeName\>@ binding, applied to the parent dynamics and
     -- the route fragment value:
-    -- @authorize\<SubtreeName\> parentDyn1 .. parentDynN fragment :: 'Yesod.Core.Types.RouteAuthorizer' site@.
+    -- @authorize\<SubtreeName\> parentDyn1 .. parentDynN fragment :: Bool -> HandlerFor site AuthResult@.
     -- This selects the nearest enclosing subtree only. The binding covers its
     -- direct method-based leaves; ancestor authorizers are not composed, and
     -- parents containing only other parents or mounts demand no subtree
@@ -199,7 +202,7 @@ data RouteAuthSpec
     | RouteAuthPerResource
     -- ^ Demand one @authorize\<ResourceName\>@ binding per leaf resource,
     -- applied to the same argument spine as the handler:
-    -- @authorize\<ResourceName\> dyn1 .. dynN :: 'Yesod.Core.Types.RouteAuthorizer' site@.
+    -- @authorize\<ResourceName\> dyn1 .. dynN :: Bool -> HandlerFor site AuthResult@.
     -- Each leaf emitted by this splice must have a binding in scope.
     -- This includes subsite mounts, whose authorizers take the mount's
     -- ancestor and local captures (not the child subsite's route).

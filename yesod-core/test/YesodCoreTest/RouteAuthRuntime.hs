@@ -137,29 +137,29 @@ getStaticLeafR, postStaticLeafR :: HandlerFor AuthApp String
 getStaticLeafR = record "handler" >> pure "static"
 postStaticLeafR = record "handler" >> pure "static-post"
 
-authorizeStaticLeafR :: RouteAuthorizer AuthApp
+authorizeStaticLeafR :: Bool -> HandlerFor AuthApp AuthResult
 authorizeStaticLeafR = authorizeSecretR
 
 -- Authorizers demanded by dispatch. Reads are allowed; writes are denied, so a
 -- write yields 'permissionDenied' (403).
-authorizeOpenR :: RouteAuthorizer AuthApp
-authorizeOpenR = RouteAuthorizer $ \_isWrite -> record "named" >> pure Authorized
+authorizeOpenR :: Bool -> HandlerFor AuthApp AuthResult
+authorizeOpenR _isWrite = record "named" >> pure Authorized
 
-authorizeSecretR :: RouteAuthorizer AuthApp
-authorizeSecretR = RouteAuthorizer $ \isWrite -> do
+authorizeSecretR :: Bool -> HandlerFor AuthApp AuthResult
+authorizeSecretR isWrite = do
     record "named"
     pure $ if isWrite then Unauthorized "no writes to secret" else Authorized
 
-authorizeInnerR :: Int -> RouteAuthorizer AuthApp
-authorizeInnerR _ = RouteAuthorizer $ \isWrite -> do
+authorizeInnerR :: Int -> Bool -> HandlerFor AuthApp AuthResult
+authorizeInnerR _ isWrite = do
     record "named"
     pure $ if isWrite then Unauthorized "no writes to inner" else Authorized
 
-authorizeMountR :: Int -> RouteAuthorizer AuthApp
+authorizeMountR :: Int -> Bool -> HandlerFor AuthApp AuthResult
 authorizeMountR mount = authorizeNestedMountR 1 mount
 
-authorizeNestedMountR :: Int -> Int -> RouteAuthorizer AuthApp
-authorizeNestedMountR parent mount = RouteAuthorizer $ \isWrite -> do
+authorizeNestedMountR :: Int -> Int -> Bool -> HandlerFor AuthApp AuthResult
+authorizeNestedMountR parent mount isWrite = do
     record "named"
     pure $ if parent == 1 && mount == 2 && not isWrite
         then Authorized else Unauthorized "private subsite"

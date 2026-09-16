@@ -44,8 +44,8 @@ getStaticLeafR, postStaticLeafR :: HandlerFor (InlineApp a) Text
 getStaticLeafR = pure "static"
 postStaticLeafR = pure "static-post"
 
-authorizeStaticR :: StaticR -> RouteAuthorizer (InlineApp a)
-authorizeStaticR StaticLeafR = RouteAuthorizer $ \isWrite ->
+authorizeStaticR :: StaticR -> Bool -> HandlerFor (InlineApp a) AuthResult
+authorizeStaticR StaticLeafR isWrite =
     pure $ if isWrite then Unauthorized "static write" else Authorized
 
 getOuterR :: Int -> HandlerFor (InlineApp a) Text
@@ -62,23 +62,23 @@ getSub :: InlineApp a -> Int -> Int -> Int -> WaiSubsiteWithAuth
 getSub _ _ _ _ = WaiSubsiteWithAuth $ \_ replyToRequest ->
     replyToRequest $ responseLBS H.status200 [] "subsite"
 
-authorizeOpenR :: RouteAuthorizer (InlineApp a)
-authorizeOpenR = RouteAuthorizer $ \_ -> pure Authorized
+authorizeOpenR :: Bool -> HandlerFor (InlineApp a) AuthResult
+authorizeOpenR _ = pure Authorized
 
-authorizeOrgR :: Int -> OrgR -> RouteAuthorizer (InlineApp a)
-authorizeOrgR org _ = RouteAuthorizer $ \_ ->
+authorizeOrgR :: Int -> OrgR -> Bool -> HandlerFor (InlineApp a) AuthResult
+authorizeOrgR org _ _ =
     pure $ if org == 1 then Authorized else Unauthorized "wrong org"
 
-authorizeAccountR :: Int -> Int -> AccountR -> RouteAuthorizer (InlineApp a)
-authorizeAccountR org account fragment = RouteAuthorizer $ \isWrite ->
+authorizeAccountR :: Int -> Int -> AccountR -> Bool -> HandlerFor (InlineApp a) AuthResult
+authorizeAccountR org account fragment isWrite =
     pure $ case fragment of
         ItemR 3 | org == 1 && account == 2 && not isWrite -> Authorized
         FilesR ["one", "two"] | org == 1 && account == 2 -> Authorized
         _ -> Unauthorized "wrong fragment"
 
 -- Mounts have their own parent-site policy, including in subtree mode.
-authorizeMountR :: Int -> Int -> Int -> RouteAuthorizer (InlineApp a)
-authorizeMountR org account mount = RouteAuthorizer $ \_ ->
+authorizeMountR :: Int -> Int -> Int -> Bool -> HandlerFor (InlineApp a) AuthResult
+authorizeMountR org account mount _ =
     pure $ if (org, account, mount) == (1, 2, 3) then Authorized else Unauthorized "wrong mount"
 
 specs :: Spec

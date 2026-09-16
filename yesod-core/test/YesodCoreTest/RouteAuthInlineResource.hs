@@ -29,13 +29,13 @@ instance Yesod (App a) where
     messageLoggerSource = mempty
     makeSessionBackend _ = pure Nothing
 
-authorizeItemR :: Int -> Text -> Int -> RouteAuthorizer (App a)
-authorizeItemR org account item = RouteAuthorizer $ \isWrite ->
+authorizeItemR :: Int -> Text -> Int -> Bool -> HandlerFor (App a) AuthResult
+authorizeItemR org account item isWrite =
     pure $ if (org, account, item) == (1, "alice", 2) && not isWrite
         then Authorized else Unauthorized "item denied"
 
-authorizeFilesR :: Int -> Text -> [Text] -> RouteAuthorizer (App a)
-authorizeFilesR org account pieces = RouteAuthorizer $ \_ ->
+authorizeFilesR :: Int -> Text -> [Text] -> Bool -> HandlerFor (App a) AuthResult
+authorizeFilesR org account pieces _ =
     pure $ if (org, account, pieces) == (1, "alice", ["one", "two"])
         then Authorized else Unauthorized "files denied"
 

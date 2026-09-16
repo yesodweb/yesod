@@ -5,10 +5,10 @@
 * Decentralized route authorization ([#1931](https://github.com/yesodweb/yesod/pull/1931)). Dispatch can now supply a per-route or
   per-subtree authorization check, so authorization can live next to a route's
   `YesodDispatchNested` instance instead of a single site-wide `isAuthorized`.
-    * New `RouteAuthorizer` type, `dispatchAuthorizationCheck` (enforces a
-      `RouteAuthorizer`'s `AuthResult` with the same semantics as
-      `authorizationCheck`). Generated dispatch prefixes this action onto the
-      handler while preserving its runner. The check runs inside the site's
+    * New `dispatchAuthorizationCheck` accepts a callback of type
+      `Bool -> HandlerFor site AuthResult` and enforces its result with the
+      same semantics as `authorizationCheck`. Generated dispatch prefixes this
+      action onto the handler while preserving its runner. The check runs inside the site's
       `yesodMiddleware`, before any handler wrapper and the handler body; the site-wide
       `isAuthorized` check is untouched and still runs at its usual position.
     * New `defaultYesodMiddlewareNoAuthCheck` retains the default response

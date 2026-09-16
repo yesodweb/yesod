@@ -23,8 +23,8 @@ instance Yesod ClearedApp where
 getClearedR :: HandlerFor ClearedApp String
 getClearedR = pure "cleared"
 
-authorizeClearedR :: RouteAuthorizer ClearedApp
-authorizeClearedR = RouteAuthorizer $ \isWrite ->
+authorizeClearedR :: Bool -> HandlerFor ClearedApp AuthResult
+authorizeClearedR isWrite =
     pure $ if isWrite then Unauthorized "no writes" else Authorized
 
 app :: IO Application
