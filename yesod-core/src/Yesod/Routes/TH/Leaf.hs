@@ -30,10 +30,10 @@ mkRouteLeafData context tyargs site focus resources = do
             if null owners
                 then fail "setRouteLeafViews: the route tree must contain an endpoint."
                 else pure ()
-            routeVar <- newName "route"
+            fragmentVar <- newName "fragment"
             constraint <- newName "constraint"
             clauses <- projectClauses rootLabel id [] trees
-            let witness routeType = ConT ''Subroute `AppT` root `AppT` routeType
+            let witness fragmentType = ConT ''RouteFragmentWitness `AppT` root `AppT` fragmentType
                 constructors =
                     [ GadtC [witnessName label] [] (witness typ)
                     | (typ, label) <- owners
@@ -45,10 +45,10 @@ mkRouteLeafData context tyargs site focus resources = do
                     | (_, label) <- owners
                     ]
             pure $ localViews ++
-                [ dataInstanceD ''Subroute [root, VarT routeVar] constructors
+                [ dataInstanceD ''RouteFragmentWitness [root, VarT fragmentVar] constructors
                 , instanceD dictContext
-                    (ConT ''SubrouteDict `AppT` VarT constraint `AppT` root)
-                    [FunD 'getSubrouteDict dictClauses]
+                    (ConT ''RouteFragmentDict `AppT` VarT constraint `AppT` root)
+                    [FunD 'getRouteFragmentDict dictClauses]
                 , instanceD context (ConT ''RouteLeaves `AppT` site)
                     [FunD 'routeLeaf clauses]
                 ]
@@ -104,7 +104,7 @@ mkRouteLeafData context tyargs site focus resources = do
 
     fieldVars res = replicateM (length $ leafFieldTypes res) (newName "capture")
     leafName res = mkName $ "Leaf" ++ resourceName res
-    witnessName label = mkName $ "Leaf" ++ label
+    witnessName label = mkName $ "Fragment" ++ label
     applyConstructor name = foldl' AppE (ConE name) . map VarE
     lazyField = Bang NoSourceUnpackedness NoSourceStrictness
     siteName = typeHeadName

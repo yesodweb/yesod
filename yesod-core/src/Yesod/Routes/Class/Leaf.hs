@@ -16,8 +16,8 @@ module Yesod.Routes.Class.Leaf
     , fillInNested
     , RouteLeaves (..)
     , SomeRouteLeaf (..)
-    , Subroute
-    , SubrouteDict (..)
+    , RouteFragmentWitness
+    , RouteFragmentDict (..)
     , Dict (..)
     , withRouteLeaf
     ) where
@@ -28,42 +28,48 @@ import Yesod.Routes.Class
 
 -- | A fragment's direct endpoints, excluding delegation constructors.
 -- Purely delegating fragments do not need this instance.
-class RenderRouteNested route => HasRouteLeaf route where
+class RenderRouteNested fragment => HasRouteLeaf fragment where
     -- | Direct endpoint constructors and their captures, with delegation
     -- constructors omitted. Generated constructor names start with @Leaf@.
-    data RouteLeaf route :: Type
+    data RouteLeaf fragment :: Type
     -- | A shallow projection. 'Nothing' means a delegation constructor.
-    projectRouteLeaf :: route -> Maybe (RouteLeaf route)
+    projectRouteLeaf :: fragment -> Maybe (RouteLeaf fragment)
     -- | Embed a local endpoint back into its original fragment.
-    fromRouteLeaf :: RouteLeaf route -> route
+    fromRouteLeaf :: RouteLeaf fragment -> fragment
 
 -- | Adapt a local-endpoint callback to an interface accepting a whole fragment.
 -- Only the chosen branch is evaluated. This does not recurse into children.
 fillInNested
-    :: HasRouteLeaf route
-    => (RouteLeaf route -> result)
+    :: HasRouteLeaf fragment
+    => (RouteLeaf fragment -> result)
     -> result
-    -> route
+    -> fragment
     -> result
 fillInNested onLeaf onNested = maybe onNested onLeaf . projectRouteLeaf
 
--- | A generated witness for an endpoint-owning fragment within a route tree.
+-- | Evidence that @fragment@ owns endpoints within @wholeRoute@, the full
+-- route type (usually @Route site@). This identifies the fragment's type;
+-- the actual endpoint and captures are carried separately by 'SomeRouteLeaf'.
+--
+-- For example, @FragmentAccountR :: RouteFragmentWitness (Route App) AccountR@.
+-- A fragment can also be @Route App@ itself when the site has root endpoints.
 -- No witness is generated for a fragment that only delegates.
-data family Subroute root :: Type -> Type
+data family RouteFragmentWitness wholeRoute fragment :: Type
 
 -- | Generated once, polymorphic in @constraint@, with one constraint in its
 -- context per endpoint-owning fragment. Concrete dictionaries are required
 -- where this instance is used, not where route data is generated.
-class SubrouteDict (constraint :: Type -> Constraint) root where
-    getSubrouteDict :: Subroute root route -> Dict (constraint route)
+class RouteFragmentDict (constraint :: Type -> Constraint) wholeRoute where
+    -- | Recover the chosen constraint for the fragment identified by a witness.
+    getRouteFragmentDict :: RouteFragmentWitness wholeRoute fragment -> Dict (constraint fragment)
 
 -- | The selected endpoint, including captures consumed by every ancestor.
 data SomeRouteLeaf site where
     SomeRouteLeaf
-        :: (HasRouteLeaf route, ParentSite route ~ site)
-        => Subroute (Route site) route
-        -> ParentArgs route
-        -> RouteLeaf route
+        :: (HasRouteLeaf fragment, ParentSite fragment ~ site)
+        => RouteFragmentWitness (Route site) fragment
+        -> ParentArgs fragment
+        -> RouteLeaf fragment
         -> SomeRouteLeaf site
 
 -- | Project a matched route to its deepest endpoint-owning fragment.
@@ -75,14 +81,14 @@ class RenderRoute site => RouteLeaves site where
 -- runs only for that endpoint, without visiting ancestors or falling back.
 withRouteLeaf
     :: forall constraint site result.
-       (RouteLeaves site, SubrouteDict constraint (Route site))
+       (RouteLeaves site, RouteFragmentDict constraint (Route site))
     => Route site
-    -> (forall route.
-           (HasRouteLeaf route, ParentSite route ~ site, constraint route)
-           => ParentArgs route -> RouteLeaf route -> result)
+    -> (forall fragment.
+           (HasRouteLeaf fragment, ParentSite fragment ~ site, constraint fragment)
+           => ParentArgs fragment -> RouteLeaf fragment -> result)
     -> result
 withRouteLeaf matched callback =
     case routeLeaf matched of
         SomeRouteLeaf witness args leaf ->
-            case getSubrouteDict @constraint witness of
+            case getRouteFragmentDict @constraint witness of
                 Dict -> callback args leaf

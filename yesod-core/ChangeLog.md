@@ -4,7 +4,7 @@
 
 * Prototype opt-in leaf route views for authorization in ordinary middleware:
   `setRouteLeafViews` generates `RouteLeaf` endpoint views and a generic
-  `SubrouteDict` instance using `Data.Constraint.Dict`. The new
+  `RouteFragmentDict` instance using `Data.Constraint.Dict`. The new
   `Yesod.Core.RouteLeaf` module visits the matched leaf with a caller-selected
   constraint, without adding authorization callbacks to dispatch.
 

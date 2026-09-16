@@ -32,10 +32,10 @@ import Yesod.Routes.Class.Leaf
 -- runner, or recover a mount route on subsite misses that supply no route.
 getDeepestSubrouteWithInstance
     :: forall constraint site result.
-       (RouteLeaves site, SubrouteDict constraint (Route site))
-    => (forall route.
-           (HasRouteLeaf route, ParentSite route ~ site, constraint route)
-           => ParentArgs route -> RouteLeaf route -> HandlerFor site result)
+       (RouteLeaves site, RouteFragmentDict constraint (Route site))
+    => (forall fragment.
+           (HasRouteLeaf fragment, ParentSite fragment ~ site, constraint fragment)
+           => ParentArgs fragment -> RouteLeaf fragment -> HandlerFor site result)
     -> HandlerFor site (Maybe result)
 getDeepestSubrouteWithInstance callback = do
     current <- getCurrentRoute

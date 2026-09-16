@@ -41,11 +41,11 @@ instance AuthorizeRoute OrgR where
 The application defines the class, including its result type:
 
 ```haskell
-class HasRouteLeaf route => AuthorizeRoute route where
+class HasRouteLeaf fragment => AuthorizeRoute fragment where
     isAuthorized
-        :: ParentArgs route
-        -> RouteLeaf route
-        -> HandlerFor (ParentSite route) AuthResult
+        :: ParentArgs fragment
+        -> RouteLeaf fragment
+        -> HandlerFor (ParentSite fragment) AuthResult
 ```
 
 The library does not require `AuthResult`; an application can retain
@@ -58,14 +58,26 @@ For each fragment with direct endpoints, generation supplies:
   constructor name and the original endpoint fields retained.
 * `projectRouteLeaf`, a shallow conversion returning `Nothing` for delegation
   constructors, and `fromRouteLeaf`, its local-endpoint embedding.
-* A witness such as `LeafAccountR`. The root witness is `LeafRouteSite` for site
-  `Site`, when the root owns direct endpoints.
+* A witness such as `FragmentAccountR`. The root witness is `FragmentRouteSite`
+  for site `Site`, when the root owns direct endpoints.
+
+`RouteFragmentWitness wholeRoute fragment` identifies an endpoint-owning
+fragment within the full route type. For example:
+
+```haskell
+FragmentAccountR :: RouteFragmentWitness (Route Site) AccountR
+FragmentRouteSite :: RouteFragmentWitness (Route Site) (Route Site)
+```
+
+`wholeRoute` is the entire site's route sum; `fragment` is the selected
+endpoint-owning sum, which may be the root itself. The witness identifies its
+type; `RouteLeaf fragment` carries the selected endpoint and its local captures.
 
 A full-site data splice also emits `RouteLeaves site` and the generic instance:
 
 ```haskell
 instance (c (Route Site), c OrgR, c AccountR, ...)
-    => SubrouteDict c (Route Site)
+    => RouteFragmentDict c (Route Site)
 ```
 
 Only endpoint-owning fragments appear in that context. Pure grouping fragments
@@ -73,7 +85,7 @@ require no policy instance. Focused data splices generate local views; a later
 full-site splice reuses those instances and constructs the site-wide table.
 Neither step looks for authorization instances.
 
-`getSubrouteDict` returns the upstream `Data.Constraint.Dict` from the
+`getRouteFragmentDict` returns the upstream `Data.Constraint.Dict` from the
 `constraints` package, re-exported by `Yesod.Core.RouteLeaf`.
 
 `fillInNested authorize onNested` adapts a leaf-only function to the original

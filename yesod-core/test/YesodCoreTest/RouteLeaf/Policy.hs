@@ -23,7 +23,7 @@ enforceAuthorization (Unauthorized message) = permissionDenied message
 -- entire dictionary; a focused test can instead supply just its leaf policy.
 authorizationMiddleware
     :: forall site a.
-       (Yesod site, RouteLeaves site, SubrouteDict AuthorizeRoute (Route site))
+       (Yesod site, RouteLeaves site, RouteFragmentDict AuthorizeRoute (Route site))
     => HandlerFor site a -> HandlerFor site a
 authorizationMiddleware handler = defaultYesodMiddleware $ do
     checked <- getDeepestSubrouteWithInstance @AuthorizeRoute $ \args leaf ->

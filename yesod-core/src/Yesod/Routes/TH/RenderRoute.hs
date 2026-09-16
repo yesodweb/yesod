@@ -111,7 +111,7 @@ defaultOpts = MkRouteOpts
 --
 -- Import "Yesod.Core.RouteLeaf" to use the generated views. A leaf named
 -- @ItemR@ has view constructor @LeafItemR@; its owning fragment @AccountR@ has
--- witness @LeafAccountR@. The root witness is @LeafRouteSite@ for site @Site@.
+-- witness @FragmentAccountR@. The root witness is @FragmentRouteSite@ for site @Site@.
 -- Pure delegation fragments require no authorization instance. Mounts remain
 -- leaves of their parent site, with their child route retained as a field.
 --

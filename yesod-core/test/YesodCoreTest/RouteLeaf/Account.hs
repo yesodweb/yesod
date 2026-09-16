@@ -49,7 +49,7 @@ accountMiddleware handler = defaultYesodMiddleware $ do
     current <- getCurrentRoute
     case fmap routeLeaf current of
         Nothing -> handler
-        Just (SomeRouteLeaf LeafAccountR args leaf) -> do
+        Just (SomeRouteLeaf FragmentAccountR args leaf) -> do
             enforceAuthorization =<< isAuthorized args leaf
             handler
         Just _ -> permissionDenied "unexpected endpoint in focused application"
