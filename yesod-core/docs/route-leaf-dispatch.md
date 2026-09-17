@@ -58,6 +58,28 @@ ancestor checks; ancestor policies are not invoked on the way to a child.
 `projectRouteLeaves`, `fromRouteLeaves`, and `fillInNested` provide pure adapters
 for incremental migration of existing route functions.
 
+### Migrating ancestor checks
+
+`RouteLeaves` is local to one fragment. A request for a nested child invokes
+only the selected child's leaf policy; it cannot also match an ancestor's
+delegation constructor in an ancestor `RouteLeaves` instance. Ancestor
+authorization instances are not an enforcement layer in this design.
+
+Before migrating a nested endpoint, trace its entire legacy authorization path.
+Carry every check on that path into the new leaf policy, including checks that
+ran before or after delegation. Use `ParentArgs` to access ancestor captures,
+and compose shared parent-check functions with the endpoint's own policy.
+Preserve their ordering and failure behavior. For example, replacing
+`validateTeam team >> authorizeMember member` with a member leaf policy must
+retain `validateTeam team`; implementing only `authorizeMember member` loses
+the team check.
+
+Test a request whose leaf check passes but whose ancestor check fails, as well
+as the successful request. Exhaustive leaf matching proves endpoint coverage;
+it cannot prove that a migration preserved these authorization conditions.
+Once migrated, replace the corresponding legacy case with an explicit wiring
+error so accidental legacy calls fail visibly instead of using a stale policy.
+
 ## Dictionary boundaries
 
 The generated code has the following shape (omitting unrelated constraints):
@@ -77,16 +99,18 @@ Generated contexts may require `FlexibleContexts` and `UndecidableInstances`.
 
 An application whose policy class depends on the foundation can use a small,
 foundation-independent bridge class in its shared route options. The application
-class can still return its existing policy type, with a bridge instance beside
-each policy interpreting that value. This breaks the route-data/options/policy
+class can still return its existing policy type, with one shared bridge instance
+interpreting values from that class. This breaks the route-data/options/policy
 module cycle without separate data/dispatch options or widespread import edits.
 
-For an incremental draft, an overlappable bridge instance can delegate to the
-original `isAuthorized . toParentRoute` function. Import that fallback where
-assembling legacy requests or the complete application, not in the shared
-provider, bridge class, or migrated dispatch modules. It intentionally retains
-the legacy policy graph for those callers; explicit local instances are the
-migration endpoint.
+For an incremental draft, an overlappable application policy instance can
+delegate to the original policy selector after reconstructing the full route
+with `toParentRoute`. Thread the `isWrite` argument supplied by
+`dispatchAuthorizationCheck` into the policy method when legacy policies use it.
+Import that fallback when assembling legacy requests or the complete application,
+not in the shared provider, general test prelude, bridge class, or migrated
+dispatch modules. It intentionally retains the legacy policy graph for those
+callers; explicit local instances are the migration endpoint.
 
 ## Enforcement and compatibility
 
