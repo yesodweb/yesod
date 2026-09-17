@@ -41,15 +41,23 @@ mkRouteLeafData context tyargs site focus resources = do
                         pure $ Clause [RecP (mkName name) []] (NormalB $ ConE 'Nothing) []
                     ResourceLeaf res -> do
                         vars <- fieldVars res
+                        let fields = case resourceDispatch res of
+                                Methods{} -> map VarE vars
+                                Subsite{} -> map VarE (init vars) ++ [ConE 'Just `AppE` VarE (last vars)]
                         pure $ Clause [conPCompat (mkName $ resourceName res) (map VarP vars)]
-                            (NormalB $ ConE 'Just `AppE` applyConstructor (leafName res) vars) []
+                            (NormalB $ ConE 'Just `AppE` foldl' AppE (ConE $ leafName res) fields) []
                 embeddings <- forM leaves $ \res -> do
                     vars <- fieldVars res
+                    let embedded = case resourceDispatch res of
+                            Methods{} -> ConE 'Just `AppE` applyConstructor (mkName $ resourceName res) vars
+                            Subsite{} -> VarE 'fmap
+                                `AppE` applyConstructor (mkName $ resourceName res) (init vars)
+                                `AppE` VarE (last vars)
                     pure $ Clause [conPCompat (leafName res) (map VarP vars)]
-                        (NormalB $ applyConstructor (mkName $ resourceName res) vars) []
+                        (NormalB embedded) []
                 pure [instanceD context (ConT ''HasRouteLeaves `AppT` typ)
                     [ dataInstanceD ''RouteLeaves [typ]
-                        [NormalC (leafName res) [(lazyField, t) | t <- leafFieldTypes res] | res <- leaves]
+                        [NormalC (leafName res) [(lazyField, t) | t <- viewFieldTypes res] | res <- leaves]
                     , FunD 'projectRouteLeaves projections
                     , FunD 'fromRouteLeaves embeddings
                     ]]
@@ -58,6 +66,9 @@ mkRouteLeafData context tyargs site focus resources = do
         pure $ own ++ concat children
 
     fieldVars res = replicateM (length $ leafFieldTypes res) (newName "capture")
+    viewFieldTypes res = case resourceDispatch res of
+        Methods{} -> leafFieldTypes res
+        Subsite{} -> init (leafFieldTypes res) ++ [ConT ''Maybe `AppT` last (leafFieldTypes res)]
     leafName res = mkName $ "Leaf" ++ resourceName res
     applyConstructor name = foldl' AppE (ConE name) . map VarE
     lazyField = Bang NoSourceUnpackedness NoSourceStrictness

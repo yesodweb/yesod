@@ -40,11 +40,11 @@ import Control.Monad.Reader (ReaderT, runReaderT, asks, local, lift)
 import Data.List (foldl')
 import Yesod.Routes.TH.Types
 import Yesod.Routes.Class (WithParentArgs(..))
-import Yesod.Routes.Class.Leaf (projectRouteLeaves)
+import Yesod.Routes.Class.Leaf (RouteLeaves, projectRouteLeaves)
 import Data.Char (toLower)
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
-import Yesod.Core.Class.Dispatch.ToParentRoute (ToParentRoute(..))
+import Yesod.Core.Class.Dispatch.ToParentRoute (ToParentRoute(..), FromParentRoute(..))
 import Yesod.Core.Class.Yesod (Yesod, dispatchAuthorizationCheck)
 
 -- | This datatype describes how to create the dispatch clause for a route
@@ -452,7 +452,7 @@ mkDispatchClauseWith checkMountType tyargs MkDispatchSettings {..} resources = d
                                in foldr AppE (AppE thisRoute $ VarE sroute) extraCons
                     exp <-
                         [| $(mdsSubDispatcher)
-                            $(leafRunnerExp mdsRunHandler
+                            $(mountRunnerExp mdsRunHandler mdsSiteAuthorization name extraParams dyns
                                 (routeAuthorizerExp (saRouteAuth mdsSiteAuthorization) name allDyns Nothing))
                             $(pure sub2)
                             $(pure routeBuilder)
@@ -587,13 +587,73 @@ leafDispatchContext opts routeType tyargs resources =
         Just (constraintQ, _) -> do
             constraint <- constraintQ
             pure $
-                [constraint `AppT` routeType | any hasHandler resources]
+                [constraint `AppT` routeType | any isLeaf resources]
+                ++ [ConT ''FromParentRoute `AppT` routeType | any isMount resources]
                 ++ [ ConT ''YesodDispatchNested `AppT` applyTyArgs (ConT $ mkName name) tyargs
                    | ResourceParent name _ _ _ _ <- resources
                    ]
   where
-    hasHandler (ResourceLeaf Resource { resourceDispatch = Methods{} }) = True
-    hasHandler _ = False
+    isLeaf ResourceLeaf{} = True
+    isLeaf _ = False
+    isMount (ResourceLeaf Resource { resourceDispatch = Subsite{} }) = True
+    isMount _ = False
+
+-- The subsite has selected a route (or a miss) when it invokes the parent
+-- runner. Recover the owning fragment structurally, without parsing the path
+-- again or running middleware twice. Captures are available even on a miss.
+mountRunnerExp
+    :: Q Exp -> SiteAuthorization -> String -> [Exp] -> [Exp] -> Maybe Exp -> Q Exp
+mountRunnerExp base authorization name parentDyns mountDyns named =
+    case saLeafHandlerWrapper authorization of
+        Nothing -> leafRunnerExp base named
+        Just (_, wrap) -> do
+            handler <- newName "handler"
+            environment <- newName "environment"
+            matched <- newName "matched"
+            child <- newName "child"
+            leaf <- newName "leaf"
+            constructor <- routeLeafConstructor name
+            let mountLeaf childE = foldl' AppE (ConE constructor) (mountDyns ++ [childE])
+                mountPattern = conPCompat (mkName name) (replicate (length mountDyns) WildP ++ [VarP child])
+                recoveredPattern = conPCompat 'Just [conPCompat 'WithParentArgs [WildP, mountPattern]]
+            recovered <- newName "recovered"
+            leafE <- [| case $(varE matched) of
+                Nothing -> $(pure $ mountLeaf $ ConE 'Nothing)
+                Just $(varP recovered) -> $(pure $ CaseE (VarE 'fromParentRoute `AppE` VarE recovered)
+                    [ Match recoveredPattern (NormalB $ mountLeaf $ ConE 'Just `AppE` VarE child) []
+                    , Match WildP (NormalB $ errorExp) []
+                    ]) |]
+            wrapped <- wrap (varE handler) (pure $ parentArgsExprFromExps parentDyns) (varE leaf)
+            [| \ $(varP handler) $(varP environment) $(varP matched) ->
+                let $(varP leaf) = $(pure leafE)
+                in $(leafRunnerExp base named) ($(varE leaf) `seq` $(pure wrapped)) $(varE environment) $(varE matched)
+             |]
+  where
+    errorExp = VarE 'error `AppE` LitE (StringL "Route leaf wrapper: subsite returned a route outside its mount")
+
+-- A split data module may hide its leaf constructors. Reification gives the
+-- original constructor name without requiring an extra import in dispatch.
+routeLeafConstructor :: String -> Q Name
+routeLeafConstructor resource = do
+    let leaf = "Leaf" ++ resource
+    visible <- lookupValueName leaf
+    case visible of
+        Just name -> pure name
+        Nothing -> do
+            route <- lookupValueName resource
+            case route of
+                Nothing -> pure $ mkName leaf -- data and dispatch in this splice
+                Just name -> do
+                    info <- reify name
+                    case info of
+                        DataConI _ typ _ -> do
+                            instances <- reifyInstances ''RouteLeaves [constructorResultType typ]
+                            case [constructor | declaration <- instances
+                                 , constructor <- dataInstanceConstructors declaration
+                                 , nameBase constructor == leaf] of
+                                constructor : _ -> pure constructor
+                                [] -> pure $ mkName leaf
+                        _ -> pure $ mkName leaf
 
 -- | Prefix authorization while retaining the caller's runner. In particular,
 -- a custom 'mdsRunHandler' must not be replaced by 'yesodRunner'.
@@ -615,13 +675,13 @@ validateAuthorizationTarget SubsiteNested authorization =
         "keep mdsSiteAuthorization = defaultSiteAuthorization."
 validateAuthorizationTarget TopLevelNested _ = pure ()
 
--- A mount has no fragment value on a subsite 404, so the handler wrapper
--- cannot guard its whole path space. Require a separate named mount policy
--- when a splice opts into wrappers, rather than silently leaving it open.
+-- The local-leaf wrapper represents subsite misses explicitly. The older
+-- whole-route wrapper cannot do that and still requires a named mount policy.
 validateMount :: SiteAuthorization
     -> (String -> a -> Q ()) -> String -> a -> Q ()
 validateMount authorization checkType name subsite = case siteAuthorizationMode authorization of
     Unconfigured -> pure ()
+    WrapperOnly | isJust (saLeafHandlerWrapper authorization) -> checkType name subsite
     WrapperOnly -> fail $
         fromMaybe "handler wrapper" (siteAuthorizationOption authorization) ++
         " does not wrap subsite mount '" ++ name ++ "'. " ++
@@ -644,7 +704,7 @@ validateMountType resource subsite = do
     forM_ bypass $ \name -> fail $
         "Subsite mount '" ++ resource ++ "' uses " ++ name ++
         ", whose YesodSubDispatch instance bypasses ysreParentRunner, so its " ++
-        "named authorizer would never run. Use WaiSubsiteWithAuth for a WAI " ++
+        "mount authorization would never run. Use WaiSubsiteWithAuth for a WAI " ++
         "application, or a subsite instance that honors the parent runner."
   where
     -- GHC rejects recursive type synonyms. A legal alias can still appear
@@ -1062,7 +1122,8 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                         -- Top-level: construct YesodSubRunnerEnv directly
                         [| Just (yesodSubDispatch
                             YesodSubRunnerEnv
-                                { ysreParentRunner = $(leafRunnerExp [| yesodRunner |]
+                                { ysreParentRunner = $(mountRunnerExp [| yesodRunner |]
+                                    (roSiteAuthorization routeOpts) name (map VarE parentDynVars) (map VarE dynVars)
                                     (routeAuthorizerExp (roRouteAuth routeOpts) name (map VarE allDynVars) Nothing))
                                 , ysreGetSub = $(pure sub2)
                                 , ysreToParentRoute = $(pure routeLam)

@@ -326,6 +326,10 @@ test-suite tests
                    YesodCoreTest.RouteLeafHook.Account
                    YesodCoreTest.RouteLeafHook.AccountPolicy
                    YesodCoreTest.RouteLeafHook.Runtime
+                   YesodCoreTest.RouteLeafHook.Mounts.Data
+                   YesodCoreTest.RouteLeafHook.Mounts.Policy
+                   YesodCoreTest.RouteLeafHook.Mounts.Dispatch
+                   YesodCoreTest.RouteLeafHook.Mounts.Runtime
                    YesodCoreTest.RouteAuthSplit.Foundation
                    YesodCoreTest.RouteAuthSplit.Admin
                    YesodCoreTest.RouteAuthSplit.Runtime

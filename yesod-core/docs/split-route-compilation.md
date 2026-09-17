@@ -281,7 +281,10 @@ paths do not invoke it. The wrapper does not wrap subsite mounts or handlers
 inside a mounted subsite. A splice with a wrapper and a mount must also enable
 `setRouteAuthorization RouteAuthPerResource` or `RouteAuthSubtree` and provide
 `authorize<MountName>` with the ancestor and mount captures. TH rejects
-wrapper-only mounts. Enabling a named policy requires bindings for every
+wrapper-only mounts. The local `setRouteLeafHandlerWrapper` instead treats
+mounts as leaves and represents the selected child as `Maybe (Route subsite)`;
+see [the leaf dispatch guide](route-leaf-dispatch.md) for that unified callback.
+Enabling a named policy requires bindings for every
 leaf emitted by that splice, even those already guarded by the wrapper.
 To keep other leaves wrapper-only, place the mount alone under a parent route
 and focus a named dispatch splice on that parent. A mount leaf cannot itself

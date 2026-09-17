@@ -15,12 +15,14 @@ import Yesod.Routes.Class
 class RenderRouteNested fragment => HasRouteLeaves fragment where
     -- | Direct endpoint constructors and their captures, with delegation
     -- constructors omitted. Generated constructor names start with @Leaf@.
+    -- Subsite mounts are leaves of the parent: their final field is
+    -- @Maybe (Route subsite)@, with 'Nothing' for a subsite miss.
     data RouteLeaves fragment :: Type
     -- | A shallow projection. 'Nothing' means a delegation constructor.
     projectRouteLeaves :: fragment -> Maybe (RouteLeaves fragment)
-    -- | Embed a local endpoint back into its original fragment.
-    -- Projecting this result must return the original leaf value.
-    fromRouteLeaves :: RouteLeaves fragment -> fragment
+    -- | Embed a matched local endpoint back into its original fragment.
+    -- A subsite miss has no original route and returns 'Nothing'.
+    fromRouteLeaves :: RouteLeaves fragment -> Maybe fragment
 
 -- | Adapt a local-endpoint callback to an interface accepting a whole fragment.
 -- Only the chosen branch is evaluated. This does not recurse into children.
@@ -31,4 +33,3 @@ fillInNested
     -> fragment
     -> result
 fillInNested onLeaf onNested = maybe onNested onLeaf . projectRouteLeaves
-

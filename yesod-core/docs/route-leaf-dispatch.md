@@ -115,7 +115,8 @@ callers; explicit local instances are the migration endpoint.
 ## Enforcement and compatibility
 
 The hook runs inside normal Yesod middleware, immediately before the selected
-handler, including matched-path 405s. Unmatched paths have no leaf and skip it.
+handler, including matched-path 405s. Unmatched ordinary paths have no leaf and
+skip it; a selected subsite mount has a leaf even when its child route misses.
 A callback can call `dispatchAuthorizationCheck` to preserve Yesod's `AuthResult`
 handling and write-request classification. An application migrating its existing
 check to dispatch can set `Yesod.isAuthorized _ _ = pure Authorized` and retain
@@ -126,7 +127,33 @@ instance contexts. No fields are added to exported runtime records. The older
 plain `setRouteHandlerWrapper` and named authorizer options remain available;
 setting either wrapper replaces the other.
 
-Subsite mounts require a named mount policy, including their unmatched paths.
+Subsite mounts are leaves of their owning fragment and use the same callback:
+
+```haskell
+-- /service/#Int ServiceR MySubsite getService
+-- data instance RouteLeaves Fragment = LeafServiceR Int (Maybe (Route MySubsite))
+authorizeRoute parent (LeafServiceR service selected) = do
+    validateParent parent
+    validateService service
+    case selected of
+        Just child -> authorizeServiceEndpoint child
+        Nothing -> pure () -- explicitly retain the subsite's 404 after mount checks
+```
+
+The dispatcher supplies the actual selected route, including on 405s. It does
+not parse the request path again. On a subsite miss, ancestor and mount captures
+remain available. `fromRouteLeaves` returns `Just fragment` for ordinary leaves
+and matched mounts, and `Nothing` for mount misses: there is no full route to
+reconstruct in that case. A policy requiring a full route must handle this case
+explicitly rather than fabricate one.
+
+No second hook or named mount binding is required. An optional named policy
+runs before the leaf callback. Mount wrappers execute inside the existing parent
+middleware and share the handler's session. The root data splice generates
+structural `FromParentRoute` instances for mount-owning fragments; these
+carry no authorization requirements. An inconsistent route returned through a
+custom runner is an internal error, not a miss or an authorization denial.
+
 Every subsite on that path must honor `ysreParentRunner`; TH cannot establish
 that contract for arbitrary or transitively mounted implementations. A raw WAI
 subsite which bypasses the parent runner also bypasses this policy, just as it

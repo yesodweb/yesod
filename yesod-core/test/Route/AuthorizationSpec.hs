@@ -53,6 +53,8 @@ mountOptionFailures = $(do
         options rejectsNamed =
             [ ("defaults", defaultOpts, False)
             , ("wrapper only", setRouteHandlerWrapper (\handler _ -> handler) defaultOpts, True)
+            , ("leaf wrapper", setRouteLeafHandlerWrapper [t| Show |]
+                (\handler _ _ -> handler) defaultOpts, rejectsNamed)
             , ("per resource", setRouteAuthorization RouteAuthPerResource defaultOpts, rejectsNamed)
             , ("subtree", setRouteAuthorization RouteAuthSubtree defaultOpts, rejectsNamed)
             , ("named and wrapper", setRouteHandlerWrapper (\handler _ -> handler) $

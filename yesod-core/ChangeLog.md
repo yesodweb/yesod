@@ -2,7 +2,7 @@
 
 ## 1.7.1.0
 
-* Add opt-in local `RouteLeaves` views and `setRouteLeafHandlerWrapper`, with policy constraints retained on generated dispatch instances. See `docs/route-leaf-dispatch.md`.
+* Add opt-in local `RouteLeaves` views and `setRouteLeafHandlerWrapper`, with policy constraints retained on generated dispatch instances. Subsite mounts are leaves of their parent, carrying `Maybe (Route subsite)` so matches and misses use the same callback with all captures intact. `fromRouteLeaves` returns `Maybe fragment`; `FromParentRoute` recovers a fragment and its ancestor captures without policy dependencies. See `docs/route-leaf-dispatch.md`.
 
 * Decentralized route authorization ([#1931](https://github.com/yesodweb/yesod/pull/1931)). Dispatch can now supply a per-route or
   per-subtree authorization check, so authorization can live next to a route's
@@ -39,7 +39,7 @@
       clears a wrapper while preserving other shared route options.
       `subsiteRouteOpts` clears both site authorization options when deriving
       subsite dispatch options from shared configuration.
-      Wrappers do not cover subsite mounts; a splice using wrappers and mounts
+      This whole-route wrapper does not cover subsite mounts; a splice using it and mounts
       must enable a named mount policy, which also handles subsite 404s.
       Data-only splices skip dispatch generation, including its validation and
       callbacks. Named checks without a current route use the default request

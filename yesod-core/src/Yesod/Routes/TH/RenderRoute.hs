@@ -390,21 +390,27 @@ setRouteHandlerWrapper wrap rdo = rdo
         { saHandlerWrapper = Just wrap, saLeafHandlerWrapper = Nothing } }
 
 -- | Generate each fragment's local 'Yesod.Core.RouteLeaf.RouteLeaves' view.
--- Nested delegation constructors are omitted. This option requires nested
+-- Nested delegation constructors are omitted; subsite mounts remain leaves.
+-- A mount's child-route field is @Maybe (Route subsite)@ so the same local
+-- view can represent a selected mount whose subsite did not match a route.
+-- This option requires nested
 -- discovery when a parameterized site contains nested routes.
 --
 -- @since 1.7.1.0
 setRouteLeafViews :: Bool -> RouteOpts -> RouteOpts
 setRouteLeafViews enabled opts = opts { roRouteLeafViews = enabled }
 
--- | Wrap each method-based handler with its owning fragment's local leaf view.
+-- | Wrap each endpoint or subsite mount with its owning fragment's local leaf view.
 -- The first argument quotes a class of kind @Type -> Constraint@. Generated
 -- dispatch instances demand that class for their own endpoints and dispatch
 -- dictionaries for their children. Dictionaries are supplied when dispatch is
 -- used, rather than being resolved globally by the foundation or test setup.
 --
 -- The callback receives the handler, parent captures, and @RouteLeaves fragment@,
--- in that order. It also wraps matched-path 405s. Data splices generate leaf
+-- in that order. It also wraps matched-path 405s and subsite misses. A mount
+-- leaf retains its captures and carries @Just childRoute@ for a match or
+-- @Nothing@ for a miss. Ordinary unmatched paths have no leaf.
+-- Data splices generate leaf
 -- views but never invoke the callback. The same options must be used for data
 -- and dispatch generation. Imported leaf constructors may remain hidden.
 --
@@ -415,8 +421,11 @@ setRouteLeafViews enabled opts = opts { roRouteLeafViews = enabled }
 -- @
 --
 -- This replaces any existing handler wrapper and enables 'setRouteLeafViews'.
--- It has the same subsite-mount contract as 'setRouteHandlerWrapper': mounts
--- require a separate named policy, and subsite dispatch rejects site wrappers.
+-- Mounts use this same callback through the supplied parent runner; they do
+-- not require separate named bindings. An optional named policy runs first.
+-- Every subsite on the path must honor the parent runner, as described by
+-- 'RouteAuthSpec'. Direct known runner-bypassing mounts are rejected.
+-- Subsite dispatch itself rejects site wrappers.
 -- Generated contexts can require @FlexibleContexts@ and @UndecidableInstances@.
 --
 -- @since 1.7.1.0
@@ -1005,7 +1014,9 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
             -- machinery; the backwards-compatible default emits none.
             parentRouteInstancesDecs <-
                 case discoveryMode opts tyargs of
-                    NestedDiscovery -> mkToParentRouteInstances cxt tyargs ress
+                    NestedDiscovery -> mkToParentRouteInstances
+                        (roRouteLeafViews opts || isJust (saLeafHandlerWrapper $ roSiteAuthorization opts))
+                        cxt tyargs ress
                     InlineCompat    -> pure []
             pure $ mconcat
                 [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
@@ -1052,13 +1063,13 @@ getDerivesFor opts cxt
 --
 -- > instance ToParentRoute FooR where
 -- >     toParentRoute (a0, a1) = FooR a0 a1
-mkToParentRouteInstances :: Cxt -> TyArgs -> [ResourceTree Type] -> Q [Dec]
-mkToParentRouteInstances cxt origTyargs ress = do
-    mconcat <$> mapM (go ([], [])) ress
+mkToParentRouteInstances :: Bool -> Cxt -> TyArgs -> [ResourceTree Type] -> Q [Dec]
+mkToParentRouteInstances includeProjection cxt origTyargs ress = do
+    mconcat <$> mapM (go ([], [], length ress == 1)) ress
   where
     go _ (ResourceLeaf _) =
         pure []
-    go (accPieces, parentConstructors) (ResourceParent name _check _attrs pieces children) = do
+    go (accPieces, parentConstructors, exhaustive) (ResourceParent name _check _attrs pieces children) = do
         -- Extract dynamic types from accumulated parent pieces
         let accDynTypes = [t | Dynamic t <- accPieces]
         accDynVars <- mapM (\_ -> newName "parent") accDynTypes
@@ -1087,19 +1098,41 @@ mkToParentRouteInstances cxt origTyargs ress = do
 
         let thisInstance =
                 instanceD cxt (ConT ''ToParentRoute `AppT` applyTypeVariables name) [toParentRouteD]
+            projectionInstances =
+                [ instanceD cxt (ConT ''FromParentRoute `AppT` applyTypeVariables name)
+                    [ FunD 'fromParentRoute $
+                        [ Clause [routePattern applyConToParentArgs]
+                            (NormalB $ ConE 'Just `AppE`
+                                (ConE 'WithParentArgs `AppE` parentArgsExpr allParentDynVars `AppE` VarE child)) []
+                        ] ++ [Clause [WildP] (NormalB $ ConE 'Nothing) [] | not exhaustive]
+                    ]
+                | includeProjection, any isMount children
+                ]
 
         -- Accumulate pieces and constructor info for children
         let thisPieceCount = length piecesDynTypes
             acc' =
                 ( accPieces <> pieces
                 , parentConstructors ++ [(mkName name, thisPieceCount)]
+                , exhaustive && length children == 1
                 )
 
         childrenInstances <- mconcat <$> mapM (go acc') children
-        pure $ thisInstance : childrenInstances
+        pure $ thisInstance : projectionInstances ++ childrenInstances
+
+    -- The embedding contains only constructors and captured variables.
+    routePattern = goPat []
+      where
+        goPat args (AppE f x) = goPat (routePattern x : args) f
+        goPat args (ConE name) = conPCompat name args
+        goPat [] (VarE name) = VarP name
+        goPat _ unexpected = error $ "Unexpected route embedding: " ++ show unexpected
 
     applyTypeVariables name =
         applyTyArgs (ConT (mkName name)) origTyargs
+
+    isMount (ResourceLeaf Resource { resourceDispatch = Subsite{} }) = True
+    isMount _ = False
 
     -- Build the route expression by applying constructors from outermost to innermost
     buildRouteExpr :: [(Name, Int)] -> Name -> [Name] -> Exp -> Exp

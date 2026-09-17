@@ -37,6 +37,31 @@ dataInstanceD family args constructors = DataInstD []
 #endif
     Nothing constructors []
 
+-- | Constructor names from associated data instances, including instances
+-- nested inside a reified class instance.
+dataInstanceConstructors :: Dec -> [Name]
+dataInstanceConstructors (InstanceD _ _ _ declarations) = concatMap dataInstanceConstructors declarations
+dataInstanceConstructors (DataInstD _ _ _ _ constructors _) = concatMap constructorNames constructors
+dataInstanceConstructors _ = []
+
+constructorNames :: Con -> [Name]
+constructorNames (NormalC name _) = [name]
+constructorNames (RecC name _) = [name]
+constructorNames (InfixC _ name _) = [name]
+constructorNames (ForallC _ _ constructor) = constructorNames constructor
+constructorNames (GadtC names _ _) = names
+constructorNames (RecGadtC names _ _) = names
+
+-- | Drop constructor quantifiers and arrows, including the linear arrows
+-- returned by reification on GHC 9 and later.
+constructorResultType :: Type -> Type
+constructorResultType (ForallT _ _ typ) = constructorResultType typ
+constructorResultType (AppT (AppT ArrowT _) typ) = constructorResultType typ
+#if MIN_VERSION_template_haskell(2,17,0)
+constructorResultType (AppT (AppT (AppT MulArrowT _) _) typ) = constructorResultType typ
+#endif
+constructorResultType typ = typ
+
 -- | Fields shared by an ordinary route leaf and its local-endpoint view.
 leafFieldTypes :: Resource Type -> [Type]
 leafFieldTypes resource =
