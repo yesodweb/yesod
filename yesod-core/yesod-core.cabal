@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.7.0.1
+version:         1.7.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -21,6 +21,9 @@ extra-source-files:
   ChangeLog.md
   README.md
   docs/split-route-compilation.md
+  docs/route-leaf-dispatch.md
+  test/check-route-leaf.sh
+  test/RouteLeafCompile/*.hs
 
 library
     default-language: Haskell2010
@@ -82,6 +85,7 @@ library
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
+                     Yesod.Core.RouteLeaf
                      Yesod.Core.Dispatch
                      Yesod.Core.Handler
                      Yesod.Core.Json
@@ -112,6 +116,8 @@ library
 
                      Yesod.Routes.TH
                      Yesod.Routes.Class
+                     Yesod.Routes.Class.Leaf
+                     Yesod.Routes.TH.Leaf
                      Yesod.Routes.Parse
                      Yesod.Routes.Overlap
                      Yesod.Routes.TH.Dispatch
@@ -145,6 +151,8 @@ test-suite test-routes
                    Yesod.Routes.TH.Dispatch
                    Yesod.Routes.TH.ParseRoute
                    Yesod.Routes.TH.RenderRoute
+                   Yesod.Routes.Class.Leaf
+                   Yesod.Routes.TH.Leaf
                    Yesod.Routes.TH.RouteAttrs
                    Yesod.Routes.TH.Types
                    Yesod.Routes.TH.Internal
@@ -164,6 +172,8 @@ test-suite test-routes
                    Route.FocusLeafConsSpec
                    Route.MissingFocusTargetSpec
                    Route.MissingFocusTargetTypes
+                   Route.AuthorizationSpec
+                   Route.AuthCleared
                    YesodCoreTest.RenderRouteSpec
                    YesodCoreTest.RenderRouteSpec.TH
 
@@ -303,6 +313,22 @@ test-suite tests
                    YesodCoreTest.ParamFallthroughRuntime
                    YesodCoreTest.ParamNoFallthroughRuntime
                    YesodCoreTest.ParamNestedNoFallthroughRuntime
+                   YesodCoreTest.RouteAuthRuntime
+                   YesodCoreTest.RouteAuthInlineResource
+                   YesodCoreTest.RouteAuthLogin
+                   YesodCoreTest.RouteAuthSubtree.Inline
+                   YesodCoreTest.RouteAuthSubtree.Nested
+                   YesodCoreTest.RouteAuthHook.Foundation
+                   YesodCoreTest.RouteAuthHook.Account
+                   YesodCoreTest.RouteAuthHook.Runtime
+                   YesodCoreTest.RouteLeafHook.Options
+                   YesodCoreTest.RouteLeafHook.Foundation
+                   YesodCoreTest.RouteLeafHook.Account
+                   YesodCoreTest.RouteLeafHook.AccountPolicy
+                   YesodCoreTest.RouteLeafHook.Runtime
+                   YesodCoreTest.RouteAuthSplit.Foundation
+                   YesodCoreTest.RouteAuthSplit.Admin
+                   YesodCoreTest.RouteAuthSplit.Runtime
                    YesodCoreTest.FallthroughMatrix.Resources
                    YesodCoreTest.FallthroughMatrix.FirstFoo
                    YesodCoreTest.FallthroughMatrix.Runtime
