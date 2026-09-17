@@ -23,6 +23,7 @@ specs = describe "subsite mounts as local leaves" $ do
             assertRequestRaw (makeApp parent (MountApp ref :: MountApp ())) WT.defaultRequest
                 { W.requestMethod = method, W.pathInfo = path } status body
             readIORef ref `shouldReturn` events
+        root :: Int -> MountApp () -> IO Application
         root = const toWaiApp
         fragment = toWaiAppPlainNested (Proxy @(MountGroupR ()))
 
