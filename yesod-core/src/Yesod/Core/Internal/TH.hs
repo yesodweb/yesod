@@ -54,8 +54,9 @@ module Yesod.Core.Internal.TH
     , roRouteAuth
     , setRouteAuthorization
     , setRouteHandlerWrapper
-    , setRouteLeafHandlerWrapper
-    , setRouteLeafViews
+    , setRouteDispatchWrapper
+    , parseResourceTypes
+    , setRouteDataGenerator
     , unsetRouteHandlerWrapper
     , subsiteRouteOpts
     )
@@ -220,6 +221,8 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 -- attributed compile error (via 'fail') rather than a raw 'error' thrown lazily
 -- when the resulting tree is forced. This is the single 'String'-to-'Type'
 -- boundary: callers downstream only ever handle @['ResourceTree' 'Type']@.
+--
+-- @since 1.7.1.0
 parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
 parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
 

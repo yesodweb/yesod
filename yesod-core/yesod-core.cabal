@@ -85,7 +85,6 @@ library
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
-                     Yesod.Core.RouteLeaf
                      Yesod.Core.Dispatch
                      Yesod.Core.Handler
                      Yesod.Core.Json
@@ -116,8 +115,6 @@ library
 
                      Yesod.Routes.TH
                      Yesod.Routes.Class
-                     Yesod.Routes.Class.Leaf
-                     Yesod.Routes.TH.Leaf
                      Yesod.Routes.Parse
                      Yesod.Routes.Overlap
                      Yesod.Routes.TH.Dispatch
@@ -151,8 +148,6 @@ test-suite test-routes
                    Yesod.Routes.TH.Dispatch
                    Yesod.Routes.TH.ParseRoute
                    Yesod.Routes.TH.RenderRoute
-                   Yesod.Routes.Class.Leaf
-                   Yesod.Routes.TH.Leaf
                    Yesod.Routes.TH.RouteAttrs
                    Yesod.Routes.TH.Types
                    Yesod.Routes.TH.Internal

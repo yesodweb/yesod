@@ -11,13 +11,12 @@ import qualified Network.Wai.Test as WT
 import Test.Hspec
 import Yesod.Core
 import Yesod.Core.Class.Dispatch.ToParentRoute
-import Yesod.Core.RouteLeaf
 import YesodCoreTest.RouteLeafHook.Mounts.Data
 import YesodCoreTest.RouteLeafHook.Mounts.Dispatch ()
 import YesodCoreTest.RuntimeHarness (assertRequestRaw)
 
 specs :: Spec
-specs = describe "subsite mounts as local leaves" $ do
+specs = describe "matched subsite route wrappers" $ do
     let check makeApp parent method path status body events = do
             ref <- newIORef []
             assertRequestRaw (makeApp parent (MountApp ref :: MountApp ())) WT.defaultRequest
@@ -32,16 +31,16 @@ specs = describe "subsite mounts as local leaves" $ do
             it "passes parent and mount captures with the selected child" $
                 check makeApp 42 "GET" ["group", "42", "mount", "allowed", "page"] 200
                     (Just "authorized") ["middleware", "mount-page", "handler"]
-            it "preserves captures on a miss and runs the wrapper before the 404" $
+            it "skips the wrapper on a subsite miss" $
                 check makeApp 42 "GET" ["group", "42", "mount", "allowed", "missing"] 404
-                    Nothing ["middleware", "mount-miss", "error"]
-            it "denies matched routes, method mismatches, and misses before their handlers" $
-                forM_ [("GET", "page"), ("POST", "page"), ("GET", "missing")] $ \(method, suffix) ->
+                    Nothing ["middleware", "error"]
+            it "denies matched routes and method mismatches before their handlers" $
+                forM_ [("GET", "page"), ("POST", "page")] $ \(method, suffix) ->
                     check makeApp 41 method ["group", "41", "mount", "allowed", suffix] 403
-                        Nothing ["middleware", if suffix == "missing" then "mount-miss" else "mount-page", "error"]
-            it "checks local mount captures on misses" $
-                check makeApp 42 "GET" ["group", "42", "mount", "denied", "missing"] 403
-                    Nothing ["middleware", "mount-miss", "error"]
+                        Nothing ["middleware", "mount-page", "error"]
+            it "preserves the unauthenticated 404 for a denied mount with no matching child" $
+                check makeApp 42 "GET" ["group", "42", "mount", "denied", "missing"] 404
+                    Nothing ["middleware", "error"]
             it "runs once for a matched-path 405" $
                 check makeApp 42 "POST" ["group", "42", "mount", "allowed", "page"] 405
                     Nothing ["middleware", "mount-page", "error"]
@@ -55,20 +54,14 @@ specs = describe "subsite mounts as local leaves" $ do
     it "wraps top-level mounts through the same callback" $ do
         check root 42 "GET" ["mount", "7", "page"] 200 (Just "authorized")
             ["middleware", "mount-page", "handler"]
-        check root 42 "GET" ["mount", "8", "missing"] 403 Nothing
-            ["middleware", "mount-miss", "error"]
+        check root 42 "GET" ["mount", "8", "missing"] 404 Nothing
+            ["middleware", "error"]
 
     it "keeps ordinary endpoints on the same callback" $
         check root 42 "GET" ["plain"] 200 (Just "plain") ["middleware", "plain-policy", "handler"]
 
     it "reports an inconsistent route from a custom subsite as an internal error" $
         check root 42 "GET" ["wrong"] 500 Nothing ["middleware", "error"]
-
-    it "reconstructs matched mounts but does not fabricate routes for misses" $ do
-        fromRouteLeaves (LeafNestedMountR "allowed" (Just SubPageR) :: RouteLeaves (MountGroupR ()))
-            `shouldBe` Just (NestedMountR "allowed" SubPageR)
-        fromRouteLeaves (LeafNestedMountR "allowed" Nothing :: RouteLeaves (MountGroupR ()))
-            `shouldBe` Nothing
 
     it "recovers the original parent captures and rejects routes from another fragment" $ do
         let recover = fromParentRoute @(MountGroupR ())

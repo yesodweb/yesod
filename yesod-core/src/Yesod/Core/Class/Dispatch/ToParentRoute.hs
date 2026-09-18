@@ -18,7 +18,7 @@ instance (RenderRoute a) => ToParentRoute (Route a) where
     toParentRoute _ = id
 
 -- | Recover a fragment and its ancestor captures from a full route. Generated
--- for mount-owning fragments alongside local leaf views in the root data
+-- for mount-owning fragments with a dispatch wrapper in the root data
 -- splice, without policy constraints.
 -- A route belonging to another fragment returns 'Nothing'.
 --

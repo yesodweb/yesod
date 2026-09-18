@@ -28,20 +28,23 @@ instance AuthorizeRoute (Route LeafApp) where
     authorizeRoute () route = do
         recordEvent "root"
         case route of
-            LeafOpenR -> pure ()
-            LeafAnyR -> pure ()
-            LeafDeniedR -> permissionDenied "root access denied"
-            LeafLoginR -> pure ()
-            LeafOtherRouteR -> pure ()
-            LeafMixedR -> pure ()
+            OpenR -> pure ()
+            AnyR -> pure ()
+            DeniedR -> permissionDenied "root access denied"
+            LoginR -> pure ()
+            OtherRouteR -> pure ()
+            MixedR -> pure ()
+            OrgR _ _ -> error "nested policy must be delegated"
+            UnrelatedR _ -> error "nested policy must be delegated"
 
 instance AuthorizeRoute OrgR where
-    authorizeRoute org LeafFallbackR = do
+    authorizeRoute _ AccountR{} = error "nested policy must be delegated"
+    authorizeRoute org FallbackR = do
         recordEvent "org"
         if org == 42 then pure () else permissionDenied "wrong org"
 
 instance AuthorizeRoute UnrelatedR where
-    authorizeRoute () LeafUnrelatedHomeR = recordEvent "unrelated" >> permissionDenied "unrelated denied"
+    authorizeRoute () UnrelatedHomeR = recordEvent "unrelated" >> permissionDenied "unrelated denied"
 
 mkYesodDispatchOpts
     hookRouteOpts
@@ -53,7 +56,7 @@ getOpenR = recordEvent "handler" >> pure "open"
 getDeniedR = recordEvent "handler" >> pure "denied"
 handleAnyR = recordEvent "handler" >> pure "any"
 getLoginR = pure "login"
-getOtherRouteR = authorizeRoute (42, "alice") (LeafItemR 7) >> pure "allowed"
+getOtherRouteR = authorizeRoute (42, "alice") (ItemR 7) >> pure "allowed"
 
 getFallbackR :: Int -> HandlerFor LeafApp String
 getFallbackR _ = recordEvent "handler" >> pure "fallback"
@@ -68,7 +71,7 @@ getUnrelatedHomeR :: HandlerFor LeafApp String
 getUnrelatedHomeR = pure "unrelated"
 
 specs :: Spec
-specs = describe "local leaf dispatch hook" $ do
+specs = describe "constrained route dispatch hook" $ do
     let check method path status body events = do
             ref <- newIORef []
             assertRequestRaw (toWaiApp (LeafApp ref)) WT.defaultRequest

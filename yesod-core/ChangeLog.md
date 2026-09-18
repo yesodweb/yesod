@@ -2,7 +2,7 @@
 
 ## 1.7.1.0
 
-* Add opt-in local `RouteLeaves` views and `setRouteLeafHandlerWrapper`, with policy constraints retained on generated dispatch instances. Subsite mounts are leaves of their parent, carrying `Maybe (Route subsite)` so matches and misses use the same callback with all captures intact. `fromRouteLeaves` returns `Maybe fragment`; `FromParentRoute` recovers a fragment and its ancestor captures without policy dependencies. See `docs/route-leaf-dispatch.md`.
+* Add `setRouteDispatchWrapper`, retaining application-supplied constraints on dispatch instances and wrapping matched subsite routes as well as ordinary endpoints. Add `setRouteDataGenerator` and expose `parseResourceTypes` so applications can own their route views. `FromParentRoute` recovers mount-owning fragments without policy dependencies. See `docs/route-leaf-dispatch.md`.
 
 * Decentralized route authorization ([#1931](https://github.com/yesodweb/yesod/pull/1931)). Dispatch can now supply a per-route or
   per-subtree authorization check, so authorization can live next to a route's

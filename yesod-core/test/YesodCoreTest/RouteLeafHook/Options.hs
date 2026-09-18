@@ -4,11 +4,10 @@
 module YesodCoreTest.RouteLeafHook.Options where
 
 import Yesod.Core
-import Yesod.Core.RouteLeaf
 
-class HasRouteLeaves route => AuthorizeRoute route where
-    authorizeRoute :: ParentArgs route -> RouteLeaves route -> HandlerFor (ParentSite route) ()
+class AuthorizeRoute route where
+    authorizeRoute :: ParentArgs route -> route -> HandlerFor (ParentSite route) ()
 
 hookRouteOpts :: RouteOpts
-hookRouteOpts = setRouteLeafHandlerWrapper [t| AuthorizeRoute |]
-    (\handler args leaves -> [| authorizeRoute $args $leaves >> $handler |]) defaultOpts
+hookRouteOpts = setRouteDispatchWrapper [t| AuthorizeRoute |]
+    (\handler route -> [| let WithParentArgs args fragment = $route in authorizeRoute args fragment >> $handler |]) defaultOpts

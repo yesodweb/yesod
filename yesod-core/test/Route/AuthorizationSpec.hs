@@ -53,8 +53,8 @@ mountOptionFailures = $(do
         options rejectsNamed =
             [ ("defaults", defaultOpts, False)
             , ("wrapper only", setRouteHandlerWrapper (\handler _ -> handler) defaultOpts, True)
-            , ("leaf wrapper", setRouteLeafHandlerWrapper [t| Show |]
-                (\handler _ _ -> handler) defaultOpts, rejectsNamed)
+            , ("constrained wrapper", setRouteDispatchWrapper [t| Show |]
+                (\handler _ -> handler) defaultOpts, rejectsNamed)
             , ("per resource", setRouteAuthorization RouteAuthPerResource defaultOpts, rejectsNamed)
             , ("subtree", setRouteAuthorization RouteAuthSubtree defaultOpts, rejectsNamed)
             , ("named and wrapper", setRouteHandlerWrapper (\handler _ -> handler) $
@@ -136,11 +136,28 @@ dataOnlySkipsWrapper = $(recover [| False |] $ do
 
 leafDataOnlySkipsWrapper :: Bool
 leafDataOnlySkipsWrapper = $(recover [| False |] $ do
-    let opts = setRouteLeafHandlerWrapper
+    let opts = setRouteDispatchWrapper
             (fail "constraint quotation ran in a data splice")
-            (\_ _ _ -> fail "leaf callback ran in a data splice") defaultOpts
+            (\_ _ -> fail "dispatch callback ran in a data splice") defaultOpts
     _ <- mkYesodDataOpts opts "OnlyLeafData" [parseRoutes| / LeafDataR GET |]
     [| True |])
+
+dataGeneratorScopes :: [Maybe String]
+dataGeneratorScopes = $(do
+    ref <- runIO $ newIORef []
+    let generate _ _ _ focus _ = runIO (modifyIORef' ref (++ [focus])) >> pure []
+        opts = setRouteDataGenerator generate defaultOpts
+        resources = [parseRoutes|
+/group/#Int GeneratorGroupR:
+    /leaf GeneratorLeafR GET
+|]
+    _ <- mkYesodDataOpts opts "OnlyData" resources
+    _ <- mkYesodDataOpts (setFocusOnNestedRoute "GeneratorGroupR" opts) "OnlyData" resources
+    _ <- mkYesodSubDataOpts opts "OnlySubData" resources
+    resolved <- parseResourceTypes resources
+    _ <- mkDispatchInstance opts (ConT ''()) [] NoTyArgs pure resolved
+    scopes <- runIO $ readIORef ref
+    listE [maybe [| Nothing |] (\name -> [| Just name |]) scope | scope <- scopes])
 
 namedRunnerCount :: Int
 namedRunnerCount = $(do
@@ -212,8 +229,10 @@ spec = describe "authorization code generation" $ do
         callbackCount `shouldBe` 2
     it "does not run dispatch callbacks or mount validation in data-only splices" $
         dataOnlySkipsWrapper `shouldBe` True
-    it "does not evaluate the leaf hook or its constraint in data-only splices" $
+    it "does not evaluate the dispatch hook or its constraint in data-only splices" $
         leafDataOnlySkipsWrapper `shouldBe` True
+    it "runs the data extension for root, focused, and subsite data, but not dispatch" $
+        dataGeneratorScopes `shouldBe` [Nothing, Just "GeneratorGroupR", Nothing]
     it "generates one runner per named leaf and one for 404, regardless of method count" $
         namedRunnerCount `shouldBe` 2
     it "can clear a shared wrapper and serve an authorized read" $

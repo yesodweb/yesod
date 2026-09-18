@@ -53,8 +53,9 @@ module Yesod.Core.Dispatch
     , RouteAuthSpec(..)
     , setRouteAuthorization
     , setRouteHandlerWrapper
-    , setRouteLeafHandlerWrapper
-    , setRouteLeafViews
+    , setRouteDispatchWrapper
+    , parseResourceTypes
+    , setRouteDataGenerator
     , unsetRouteHandlerWrapper
     , subsiteRouteOpts
       -- *** Helpers

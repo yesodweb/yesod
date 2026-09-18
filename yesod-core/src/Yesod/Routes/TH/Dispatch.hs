@@ -40,7 +40,6 @@ import Control.Monad.Reader (ReaderT, runReaderT, asks, local, lift)
 import Data.List (foldl')
 import Yesod.Routes.TH.Types
 import Yesod.Routes.Class (WithParentArgs(..))
-import Yesod.Routes.Class.Leaf (RouteLeaves, projectRouteLeaves)
 import Data.Char (toLower)
 import Yesod.Core.Internal.Run
 import Yesod.Core.Handler
@@ -434,8 +433,8 @@ mkDispatchClauseWith checkMountType tyargs MkDispatchSettings {..} resources = d
                     handlerChoice <- chooseMethod
                         (\method -> [| fmap toTypedContent $(handlerFor method) |])
                         [| fmap toTypedContent $(mds405) |]
-                    wrapped <- case saLeafHandlerWrapper mdsSiteAuthorization of
-                        Just (_, wrap) -> wrapLeafHandler wrap (pure handlerChoice) extraParams thisRoute
+                    wrapped <- case saDispatchWrapper mdsSiteAuthorization of
+                        Just (_, wrap) -> wrapRouteHandler (Just wrap) (pure handlerChoice) [] fullRoute
                         Nothing -> wrapRouteHandler (saHandlerWrapper mdsSiteAuthorization) (pure handlerChoice) [] fullRoute
                     func <- runHandlerExp wrapped
 
@@ -564,25 +563,12 @@ wrapRouteHandler (Just wrap) handler parentDyns fragment =
     wrap handler [| WithParentArgs $(pure $ parentArgsExprFromExps parentDyns) $(pure fragment) |]
 wrapRouteHandler Nothing handler _ _ = handler
 
--- Dispatch only reaches this function after matching a direct endpoint.
--- Projection avoids referring to leaf constructors hidden by another module.
-wrapLeafHandler
-    :: (Q Exp -> Q Exp -> Q Exp -> Q Exp)
-    -> Q Exp -> [Exp] -> Exp -> Q Exp
-wrapLeafHandler wrap handler parentDyns fragment = do
-    leaves <- newName "leaves"
-    wrapped <- wrap handler (pure $ parentArgsExprFromExps parentDyns) (varE leaves)
-    [| case projectRouteLeaves $(pure fragment) of
-        Just $(varP leaves) -> $(pure wrapped)
-        Nothing -> error "Route leaf wrapper: projectRouteLeaves rejected a matched endpoint"
-     |]
-
 -- Keep instance requirements local. A parent asks for each child's dispatcher,
 -- whose context can use a different wrapper or policy. Rendering stays free of
 -- these constraints, and the foundation's Yesod instance never needs them.
-leafDispatchContext :: RouteOpts -> Type -> TyArgs -> [ResourceTree Type] -> Q Cxt
-leafDispatchContext opts routeType tyargs resources =
-    case saLeafHandlerWrapper (roSiteAuthorization opts) of
+wrapperDispatchContext :: RouteOpts -> Type -> TyArgs -> [ResourceTree Type] -> Q Cxt
+wrapperDispatchContext opts routeType tyargs resources =
+    case saDispatchWrapper (roSiteAuthorization opts) of
         Nothing -> pure []
         Just (constraintQ, _) -> do
             constraint <- constraintQ
@@ -598,62 +584,37 @@ leafDispatchContext opts routeType tyargs resources =
     isMount (ResourceLeaf Resource { resourceDispatch = Subsite{} }) = True
     isMount _ = False
 
--- The subsite has selected a route (or a miss) when it invokes the parent
--- runner. Recover the owning fragment structurally, without parsing the path
--- again or running middleware twice. Captures are available even on a miss.
+-- A child selects its route before invoking the parent runner. Recover the
+-- owning fragment structurally; never parse the request path a second time.
 mountRunnerExp
     :: Q Exp -> SiteAuthorization -> String -> [Exp] -> [Exp] -> Maybe Exp -> Q Exp
 mountRunnerExp base authorization name parentDyns mountDyns named =
-    case saLeafHandlerWrapper authorization of
+    case saDispatchWrapper authorization of
         Nothing -> leafRunnerExp base named
         Just (_, wrap) -> do
             handler <- newName "handler"
             environment <- newName "environment"
             matched <- newName "matched"
             child <- newName "child"
-            leaf <- newName "leaf"
-            constructor <- routeLeafConstructor name
-            let mountLeaf childE = foldl' AppE (ConE constructor) (mountDyns ++ [childE])
+            fragment <- newName "fragment"
+            recovered <- newName "recovered"
+            let mount = foldl' AppE (ConE $ mkName name) (mountDyns ++ [VarE child])
                 mountPattern = conPCompat (mkName name) (replicate (length mountDyns) WildP ++ [VarP child])
                 recoveredPattern = conPCompat 'Just [conPCompat 'WithParentArgs [WildP, mountPattern]]
-            recovered <- newName "recovered"
-            leafE <- [| case $(varE matched) of
-                Nothing -> $(pure $ mountLeaf $ ConE 'Nothing)
-                Just $(varP recovered) -> $(pure $ CaseE (VarE 'fromParentRoute `AppE` VarE recovered)
-                    [ Match recoveredPattern (NormalB $ mountLeaf $ ConE 'Just `AppE` VarE child) []
-                    , Match WildP (NormalB $ errorExp) []
-                    ]) |]
-            wrapped <- wrap (varE handler) (pure $ parentArgsExprFromExps parentDyns) (varE leaf)
+                errorExp = VarE 'error `AppE` LitE (StringL "Route dispatch wrapper: subsite returned a route outside its mount")
+            wrapped <- wrapRouteHandler (Just wrap) (varE handler) parentDyns (VarE fragment)
+            let recoveredHandler = CaseE (VarE 'fromParentRoute `AppE` VarE recovered)
+                    [ Match recoveredPattern (NormalB $ LetE
+                        [ValD (VarP fragment) (NormalB mount) []] wrapped) []
+                    , Match WildP (NormalB errorExp) []
+                    ]
             [| \ $(varP handler) $(varP environment) $(varP matched) ->
-                let $(varP leaf) = $(pure leafE)
-                in $(leafRunnerExp base named) ($(varE leaf) `seq` $(pure wrapped)) $(varE environment) $(varE matched)
+                $(leafRunnerExp base named)
+                    (case $(varE matched) of
+                        Nothing -> $(varE handler)
+                        Just $(varP recovered) -> $(pure recoveredHandler))
+                    $(varE environment) $(varE matched)
              |]
-  where
-    errorExp = VarE 'error `AppE` LitE (StringL "Route leaf wrapper: subsite returned a route outside its mount")
-
--- A split data module may hide its leaf constructors. Reification gives the
--- original constructor name without requiring an extra import in dispatch.
-routeLeafConstructor :: String -> Q Name
-routeLeafConstructor resource = do
-    let leaf = "Leaf" ++ resource
-    visible <- lookupValueName leaf
-    case visible of
-        Just name -> pure name
-        Nothing -> do
-            route <- lookupValueName resource
-            case route of
-                Nothing -> pure $ mkName leaf -- data and dispatch in this splice
-                Just name -> do
-                    info <- reify name
-                    case info of
-                        DataConI _ typ _ -> do
-                            instances <- reifyInstances ''RouteLeaves [constructorResultType typ]
-                            case [constructor | declaration <- instances
-                                 , constructor <- dataInstanceConstructors declaration
-                                 , nameBase constructor == leaf] of
-                                constructor : _ -> pure constructor
-                                [] -> pure $ mkName leaf
-                        _ -> pure $ mkName leaf
 
 -- | Prefix authorization while retaining the caller's runner. In particular,
 -- a custom 'mdsRunHandler' must not be replaced by 'yesodRunner'.
@@ -681,7 +642,7 @@ validateMount :: SiteAuthorization
     -> (String -> a -> Q ()) -> String -> a -> Q ()
 validateMount authorization checkType name subsite = case siteAuthorizationMode authorization of
     Unconfigured -> pure ()
-    WrapperOnly | isJust (saLeafHandlerWrapper authorization) -> checkType name subsite
+    WrapperOnly | isJust (saDispatchWrapper authorization) -> checkType name subsite
     WrapperOnly -> fail $
         fromMaybe "handler wrapper" (siteAuthorizationOption authorization) ++
         " does not wrap subsite mount '" ++ name ++ "'. " ++
@@ -789,7 +750,7 @@ mkTopLevelDispatchInstance
     -> [ResourceTree Type]
     -> DecsQ
 mkTopLevelDispatchInstance routeOpts master cxt tyargs unwrapper res = do
-    wrapperContext <- leafDispatchContext routeOpts (ConT ''Route `AppT` master) tyargs res
+    wrapperContext <- wrapperDispatchContext routeOpts (ConT ''Route `AppT` master) tyargs res
     let mds =
             mkMDS
                 unwrapper
@@ -898,7 +859,7 @@ mkNestedDispatchInstanceWith nestedTarget mmaster routeOpts target cxt tyargs un
         preDyns = [() | Dynamic _ <- prePieces]
         targetT = applyTyArgs (ConT (mkName curTarget)) tyargs
 
-    wrapperContext <- leafDispatchContext routeOpts targetT tyargs subres
+    wrapperContext <- wrapperDispatchContext routeOpts targetT tyargs subres
 
     -- UrlToDispatch/RedirectUrl is a top-level-only convenience and only
     -- possible when ParentArgs ~ () (no dynamic parent pieces).
@@ -1092,8 +1053,8 @@ genNestedDispatchClauses nestedTarget routeOpts curTarget parentDynVars toParent
                     allDynExps = map VarE parentDynVars ++ dynExpsMulti
                 -- Subsite-local options were rejected at the entry point;
                 -- their absent wrapper and NoRouteAuth reduce to identity.
-                handlerExp <- case saLeafHandlerWrapper (roSiteAuthorization routeOpts) of
-                    Just (_, wrap) -> wrapLeafHandler wrap
+                handlerExp <- case saDispatchWrapper (roSiteAuthorization routeOpts) of
+                    Just (_, wrap) -> wrapRouteHandler (Just wrap)
                         (genHandlerCase name methods allDynExps) (map VarE parentDynVars) fragmentExp
                     Nothing -> wrapRouteHandler (roRouteHandlerWrapper routeOpts)
                         (genHandlerCase name methods allDynExps) (map VarE parentDynVars) fragmentExp

@@ -22,8 +22,8 @@ module Yesod.Routes.TH
     , roRouteAuth
     , setRouteAuthorization
     , setRouteHandlerWrapper
-    , setRouteLeafHandlerWrapper
-    , setRouteLeafViews
+    , setRouteDispatchWrapper
+    , setRouteDataGenerator
     , unsetRouteHandlerWrapper
     , subsiteRouteOpts
     , DiscoveryMode(..)

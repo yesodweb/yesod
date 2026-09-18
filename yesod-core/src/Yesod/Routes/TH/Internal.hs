@@ -27,42 +27,7 @@ conPCompat n pats = ConP n
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
 
--- | Data-family instance compatibility, shared by generated structural views.
-dataInstanceD :: Name -> [Type] -> [Con] -> Dec
-dataInstanceD family args constructors = DataInstD []
-#if MIN_VERSION_template_haskell(2,15,0)
-    Nothing (foldl AppT (ConT family) args)
-#else
-    family args
-#endif
-    Nothing constructors []
-
--- | Constructor names from associated data instances, including instances
--- nested inside a reified class instance.
-dataInstanceConstructors :: Dec -> [Name]
-dataInstanceConstructors (InstanceD _ _ _ declarations) = concatMap dataInstanceConstructors declarations
-dataInstanceConstructors (DataInstD _ _ _ _ constructors _) = concatMap constructorNames constructors
-dataInstanceConstructors _ = []
-
-constructorNames :: Con -> [Name]
-constructorNames (NormalC name _) = [name]
-constructorNames (RecC name _) = [name]
-constructorNames (InfixC _ name _) = [name]
-constructorNames (ForallC _ _ constructor) = constructorNames constructor
-constructorNames (GadtC names _ _) = names
-constructorNames (RecGadtC names _ _) = names
-
--- | Drop constructor quantifiers and arrows, including the linear arrows
--- returned by reification on GHC 9 and later.
-constructorResultType :: Type -> Type
-constructorResultType (ForallT _ _ typ) = constructorResultType typ
-constructorResultType (AppT (AppT ArrowT _) typ) = constructorResultType typ
-#if MIN_VERSION_template_haskell(2,17,0)
-constructorResultType (AppT (AppT (AppT MulArrowT _) _) typ) = constructorResultType typ
-#endif
-constructorResultType typ = typ
-
--- | Fields shared by an ordinary route leaf and its local-endpoint view.
+-- | Constructor fields for a route resource.
 leafFieldTypes :: Resource Type -> [Type]
 leafFieldTypes resource =
     [typ | Dynamic typ <- resourcePieces resource]

@@ -12,20 +12,20 @@ import YesodCoreTest.RouteLeafHook.Options
 
 instance AuthorizeRoute (Route (MountApp a)) where
     authorizeRoute () leaf = case leaf of
-        LeafPlainR -> recordMountEvent "plain-policy"
-        LeafRootMountR capture selected -> mountPolicy (capture == 7) selected
-        LeafWrongMountR _ -> recordMountEvent "wrong-policy"
+        PlainR -> recordMountEvent "plain-policy"
+        RootMountR capture selected -> mountPolicy (capture == 7) selected
+        WrongMountR _ -> recordMountEvent "wrong-policy"
+        MountGroupR _ _ -> error "nested dispatch must own its policy"
 
 instance AuthorizeRoute (MountGroupR a) where
-    authorizeRoute parent (LeafNestedMountR capture selected) =
+    authorizeRoute parent (NestedMountR capture selected) =
         mountPolicy (parent == 42 && capture == "allowed") selected
 
-mountPolicy :: Bool -> Maybe (Route MountSub) -> HandlerFor (MountApp a) ()
+mountPolicy :: Bool -> Route MountSub -> HandlerFor (MountApp a) ()
 mountPolicy allowed selected = do
     recordMountEvent $ case selected of
-        Nothing -> "mount-miss"
-        Just SubPageR -> "mount-page"
-        Just SubErrorR -> "mount-error"
+        SubPageR -> "mount-page"
+        SubErrorR -> "mount-error"
     if allowed
         then setSession "mount-policy" "authorized"
         else permissionDenied "mount denied"

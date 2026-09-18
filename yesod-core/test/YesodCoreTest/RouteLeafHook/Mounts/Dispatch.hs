@@ -11,7 +11,7 @@
 module YesodCoreTest.RouteLeafHook.Mounts.Dispatch () where
 
 import Yesod.Core
--- Deliberately hide RouteLeaves constructors across the data/dispatch boundary.
+-- Policies and dispatch are compiled separately from route data.
 import YesodCoreTest.RouteLeafHook.Mounts.Data
     (MountApp, MountSub, WrongRouteSub, MountGroupR (..), Route (..), resourcesMountApp,
      getRootSub, getNestedSub, getWrongSub, recordMountEvent)

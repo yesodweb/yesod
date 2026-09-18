@@ -36,8 +36,8 @@ module Yesod.Routes.TH.RenderRoute
     , siteAuthorizationMode
     , siteAuthorizationOption
     , setRouteHandlerWrapper
-    , setRouteLeafViews
-    , setRouteLeafHandlerWrapper
+    , setRouteDataGenerator
+    , setRouteDispatchWrapper
     , unsetRouteHandlerWrapper
     , subsiteRouteOpts
     , DiscoveryMode(..)
@@ -54,7 +54,6 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 import Data.Foldable
 import Yesod.Routes.TH.Internal
-import Yesod.Routes.TH.Leaf (mkRouteLeafData)
 import Data.Char
 import Yesod.Core.Class.Dispatch.ToParentRoute
 
@@ -90,7 +89,7 @@ data RouteOpts = MkRouteOpts
     -- ^ Site-only authorization settings, shared with dispatch generation.
     --
     -- @since 1.7.1.0
-    , roRouteLeafViews :: Bool
+    , roRouteDataGenerator :: Maybe (Cxt -> TyArgs -> Type -> Maybe String -> [ResourceTree Type] -> Q [Dec])
     }
 
 -- | Site-only options passed as one value through route and dispatch settings.
@@ -107,8 +106,8 @@ data SiteAuthorization = SiteAuthorization
     -- ^ Optional site handler wrapper; see 'setRouteHandlerWrapper'.
     --
     -- @since 1.7.1.0
-    , saLeafHandlerWrapper :: Maybe (Q Type, Q Exp -> Q Exp -> Q Exp -> Q Exp)
-    -- ^ The required fragment constraint and the local-leaf wrapper.
+    , saDispatchWrapper :: Maybe (Q Type, Q Exp -> Q Exp -> Q Exp)
+    -- ^ The required fragment constraint and the matched-route wrapper.
     }
 
 -- | No named policy or handler wrapper.
@@ -142,8 +141,8 @@ siteAuthorizationMode (SiteAuthorization policy _ _) = Named policy
 siteAuthorizationOption :: SiteAuthorization -> Maybe String
 siteAuthorizationOption authorization = case siteAuthorizationMode authorization of
     Unconfigured -> Nothing
-    WrapperOnly -> Just $ case saLeafHandlerWrapper authorization of
-        Just _ -> "setRouteLeafHandlerWrapper"
+    WrapperOnly -> Just $ case saDispatchWrapper authorization of
+        Just _ -> "setRouteDispatchWrapper"
         Nothing -> "setRouteHandlerWrapper"
     Named _ -> Just "setRouteAuthorization"
 
@@ -245,7 +244,7 @@ defaultOpts = MkRouteOpts
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
     , roSiteAuthorization = defaultSiteAuthorization
-    , roRouteLeafViews = False
+    , roRouteDataGenerator = Nothing
     }
 
 -- | If you set this with @routeName@, then the code generation will
@@ -387,56 +386,47 @@ setRouteAuthorization spec rdo = rdo
 setRouteHandlerWrapper :: (Q Exp -> Q Exp -> Q Exp) -> RouteOpts -> RouteOpts
 setRouteHandlerWrapper wrap rdo = rdo
     { roSiteAuthorization = (roSiteAuthorization rdo)
-        { saHandlerWrapper = Just wrap, saLeafHandlerWrapper = Nothing } }
+        { saHandlerWrapper = Just wrap, saDispatchWrapper = Nothing } }
 
--- | Generate each fragment's local 'Yesod.Core.RouteLeaf.RouteLeaves' view.
--- Nested delegation constructors are omitted; subsite mounts remain leaves.
--- A mount's child-route field is @Maybe (Route subsite)@ so the same local
--- view can represent a selected mount whose subsite did not match a route.
--- This option requires nested
--- discovery when a parameterized site contains nested routes.
+-- | Extend route data generation with application-owned declarations. The
+-- callback receives the instance context, type arguments, site type, optional
+-- focused fragment name, and resolved resource tree. It runs only in data
+-- splices; dispatch splices do not evaluate it. This supports local route
+-- views without coupling the dispatcher to their representation.
 --
 -- @since 1.7.1.0
-setRouteLeafViews :: Bool -> RouteOpts -> RouteOpts
-setRouteLeafViews enabled opts = opts { roRouteLeafViews = enabled }
-
--- | Wrap each endpoint or subsite mount with its owning fragment's local leaf view.
--- The first argument quotes a class of kind @Type -> Constraint@. Generated
--- dispatch instances demand that class for their own endpoints and dispatch
--- dictionaries for their children. Dictionaries are supplied when dispatch is
--- used, rather than being resolved globally by the foundation or test setup.
---
--- The callback receives the handler, parent captures, and @RouteLeaves fragment@,
--- in that order. It also wraps matched-path 405s and subsite misses. A mount
--- leaf retains its captures and carries @Just childRoute@ for a match or
--- @Nothing@ for a miss. Ordinary unmatched paths have no leaf.
--- Data splices generate leaf
--- views but never invoke the callback. The same options must be used for data
--- and dispatch generation. Imported leaf constructors may remain hidden.
---
--- @
--- setRouteLeafHandlerWrapper [t| AuthorizeRoute |]
---     (\\handler args leaf -> [| authorizeRoute $args $leaf >> $handler |])
---     defaultOpts
--- @
---
--- This replaces any existing handler wrapper and enables 'setRouteLeafViews'.
--- Mounts use this same callback through the supplied parent runner; they do
--- not require separate named bindings. An optional named policy runs first.
--- Every subsite on the path must honor the parent runner, as described by
--- 'RouteAuthSpec'. Direct known runner-bypassing mounts are rejected.
--- Subsite dispatch itself rejects site wrappers.
--- Generated contexts can require @FlexibleContexts@ and @UndecidableInstances@.
---
--- @since 1.7.1.0
-setRouteLeafHandlerWrapper
-    :: Q Type
-    -> (Q Exp -> Q Exp -> Q Exp -> Q Exp)
+setRouteDataGenerator
+    :: (Cxt -> TyArgs -> Type -> Maybe String -> [ResourceTree Type] -> Q [Dec])
     -> RouteOpts -> RouteOpts
-setRouteLeafHandlerWrapper constraint wrap opts = opts
-    { roRouteLeafViews = True
-    , roSiteAuthorization = (roSiteAuthorization opts)
-        { saHandlerWrapper = Nothing, saLeafHandlerWrapper = Just (constraint, wrap) }
+setRouteDataGenerator generate opts = opts { roRouteDataGenerator = Just generate }
+
+-- | Wrap matched handlers with an application-supplied fragment constraint.
+-- The quoted class has kind @Type -> Constraint@. The callback receives the
+-- handler and @WithParentArgs fragment@, just like 'setRouteHandlerWrapper'.
+-- Each generated dispatch instance retains the constraint for its own
+-- resources and dispatch constraints for its nested children. No policy
+-- dictionary is required by route data generation or the site's @Yesod@ instance.
+--
+-- Subsite mounts invoke the callback only after the child selects a route,
+-- including method mismatches. The fragment contains the actual child route;
+-- misses do not invoke the wrapper. Applications may use that route to
+-- delegate to child-specific policies. Every subsite on the path must honor
+-- @ysreParentRunner@; see 'RouteAuthSpec'. The wrapper runs inside the existing
+-- middleware and shares the handler's session. Subsite dispatch splices do
+-- not inherit this option; use 'subsiteRouteOpts' for their ordinary dispatch.
+--
+-- This replaces 'setRouteHandlerWrapper'. Generated contexts can require
+-- @FlexibleContexts@ and @UndecidableInstances@. Parameterized nested routes
+-- require 'setParameterizedSubroute'.
+--
+-- @since 1.7.1.0
+setRouteDispatchWrapper
+    :: Q Type
+    -> (Q Exp -> Q Exp -> Q Exp)
+    -> RouteOpts -> RouteOpts
+setRouteDispatchWrapper constraint wrap opts = opts
+    { roSiteAuthorization = (roSiteAuthorization opts)
+        { saHandlerWrapper = Nothing, saDispatchWrapper = Just (constraint, wrap) }
     }
 
 -- | Clear a handler wrapper while retaining all other shared route options.
@@ -445,7 +435,7 @@ setRouteLeafHandlerWrapper constraint wrap opts = opts
 unsetRouteHandlerWrapper :: RouteOpts -> RouteOpts
 unsetRouteHandlerWrapper rdo = rdo
     { roSiteAuthorization = (roSiteAuthorization rdo)
-        { saHandlerWrapper = Nothing, saLeafHandlerWrapper = Nothing } }
+        { saHandlerWrapper = Nothing, saDispatchWrapper = Nothing } }
 
 -- | Derive options for a subsite dispatch splice from shared site options.
 -- Clears the named authorization policy and handler wrapper, retaining route
@@ -993,12 +983,12 @@ mkRenderRouteInstanceOpts
     -- ^ The actual tree of routes to generate code for
     -> Q [Dec]
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
-    leafDecs <- if roRouteLeafViews opts || isJust (saLeafHandlerWrapper $ roSiteAuthorization opts)
-        then do
-            when (discoveryMode opts tyargs == InlineCompat && any isParent ress) $
-                fail "setRouteLeafViews: parameterized nested routes require setParameterizedSubroute True."
-            mkRouteLeafData cxt tyargs typ (roFocusOnNestedRoute opts) ress
-        else pure []
+    extraDecs <- case roRouteDataGenerator opts of
+        Nothing -> pure []
+        Just generate -> generate cxt tyargs typ (roFocusOnNestedRoute opts) ress
+    when (isJust (saDispatchWrapper $ roSiteAuthorization opts)
+            && discoveryMode opts tyargs == InlineCompat && any isParent ress) $
+        fail "setRouteDispatchWrapper: parameterized nested routes require setParameterizedSubroute True."
     routeDecs <- case roFocusOnNestedRoute opts of
         Nothing -> do
             cls <- mkRenderRouteClauses opts tyargs ress
@@ -1015,7 +1005,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
             parentRouteInstancesDecs <-
                 case discoveryMode opts tyargs of
                     NestedDiscovery -> mkToParentRouteInstances
-                        (roRouteLeafViews opts || isJust (saLeafHandlerWrapper $ roSiteAuthorization opts))
+                        (isJust (saDispatchWrapper $ roSiteAuthorization opts))
                         cxt tyargs ress
                     InlineCompat    -> pure []
             pure $ mconcat
@@ -1033,7 +1023,7 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     fail $ "Target '" <> target <> "' was not found in resources."
                 Just (prepieces, ress') ->
                     mkRenderRouteNestedInstanceOpts opts cxt tyargs typ prepieces target ress'
-    pure (routeDecs ++ leafDecs)
+    pure (routeDecs ++ extraDecs)
   where
     isParent ResourceParent{} = True
     isParent ResourceLeaf{} = False
