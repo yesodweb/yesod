@@ -15,6 +15,7 @@ import Language.Haskell.TH.Syntax hiding (newName)
 import Language.Haskell.TH.Syntax.Compat (Quote(..))
 import Web.PathPieces (fromPathPiece, fromPathMultiPiece)
 import Yesod.Routes.TH.Types
+import Yesod.Routes.Class (Route)
 
 conPCompat :: Name -> [Pat] -> Pat
 conPCompat n pats = ConP n
@@ -25,6 +26,27 @@ conPCompat n pats = ConP n
 
 instanceD :: Cxt -> Type -> [Dec] -> Dec
 instanceD = InstanceD Nothing
+
+-- | Constructor fields for a route resource.
+leafFieldTypes :: Resource Type -> [Type]
+leafFieldTypes resource =
+    [typ | Dynamic typ <- resourcePieces resource]
+    ++ maybe [] pure (resourceMulti resource)
+    ++ case resourceDispatch resource of
+        Subsite typ _ -> [ConT ''Route `AppT` typ]
+        Methods{} -> []
+
+-- | A type-variable binder's name, independent of the flag introduced in
+-- template-haskell 2.17.
+#if MIN_VERSION_template_haskell(2,17,0)
+tyVarBndrName :: TyVarBndr flag -> Name
+tyVarBndrName (PlainTV name _) = name
+tyVarBndrName (KindedTV name _ _) = name
+#else
+tyVarBndrName :: TyVarBndr -> Name
+tyVarBndrName (PlainTV name) = name
+tyVarBndrName (KindedTV name _) = name
+#endif
 
 mkTupE :: [Exp] -> Exp
 mkTupE =

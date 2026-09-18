@@ -16,3 +16,15 @@ class (RenderRoute (ParentSite a)) => ToParentRoute a where
 
 instance (RenderRoute a) => ToParentRoute (Route a) where
     toParentRoute _ = id
+
+-- | Recover a fragment and its ancestor captures from a full route. Generated
+-- for mount-owning fragments with a dispatch wrapper in the root data
+-- splice, without policy constraints.
+-- A route belonging to another fragment returns 'Nothing'.
+--
+-- @since 1.7.1.0
+class ToParentRoute a => FromParentRoute a where
+    fromParentRoute :: Route (ParentSite a) -> Maybe (WithParentArgs a)
+
+instance RenderRoute a => FromParentRoute (Route a) where
+    fromParentRoute = Just . WithParentArgs ()

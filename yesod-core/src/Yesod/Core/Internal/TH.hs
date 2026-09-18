@@ -50,6 +50,15 @@ module Yesod.Core.Internal.TH
     , unsetFocusOnNestedRoute
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
+    , setRouteHandlerWrapper
+    , setRouteDispatchWrapper
+    , parseResourceTypes
+    , setRouteDataGenerator
+    , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     )
  where
 
@@ -113,17 +122,25 @@ mkYesodData = mkYesodDataOpts defaultOpts
 --
 -- @since 1.6.25.0
 mkYesodDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
-mkYesodDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name False return resS
+mkYesodDataOpts opts = mkYesodDataOnly opts False
 
 
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodSubData = mkYesodSubDataOpts defaultOpts
 
--- |
+-- | Generate subsite route data with custom options. Authorization options
+-- and handler callbacks are skipped in this data-only splice; see 'RouteAuthSpec'.
 --
 -- @since 1.6.25.0
 mkYesodSubDataOpts :: RouteOpts -> String -> [ResourceTree String] -> Q [Dec]
-mkYesodSubDataOpts opts name resS = fst <$> mkYesodWithParserOpts opts name True return resS
+mkYesodSubDataOpts opts = mkYesodDataOnly opts True
+
+-- Data splices share route-shape options, but must never validate dispatch
+-- policies, invoke handler callbacks, or probe for dispatch instances.
+mkYesodDataOnly :: RouteOpts -> Bool -> String -> [ResourceTree String] -> Q [Dec]
+mkYesodDataOnly opts isSub name resources = do
+    (name', args, cxt) <- parseYesodNameQ name
+    fst <$> mkYesodGeneralOptsWith SkipDispatch opts cxt name' args isSub pure resources
 
 
 -- | Run 'parseYesodName' in 'Q', failing the splice with the parse error
@@ -204,6 +221,8 @@ mkYesodGeneral = mkYesodGeneralOpts defaultOpts
 -- attributed compile error (via 'fail') rather than a raw 'error' thrown lazily
 -- when the resulting tree is forced. This is the single 'String'-to-'Type'
 -- boundary: callers downstream only ever handle @['ResourceTree' 'Type']@.
+--
+-- @since 1.7.1.0
 parseResourceTypes :: [ResourceTree String] -> Q [ResourceTree Type]
 parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
 
@@ -216,6 +235,8 @@ parseResourceTypes = traverse (traverse (\s -> dropBracketM s >>= parseTypeM))
 -- via 'parseResourceTypes', so the caller never touches the partial
 -- 'parseType'\/'dropBracket'. A malformed type fails the splice with an
 -- attributed error instead.
+-- Site authorization options are rejected; use 'subsiteRouteOpts'. See
+-- 'RouteAuthSpec' for configuring authorization on the parent mount.
 --
 -- @since 1.7.0.0
 mkNestedSubDispatchInstance
@@ -283,7 +304,14 @@ mkYesodGeneralOpts :: RouteOpts                 -- ^ Options to adjust route cre
                    -> (Exp -> Q Exp)            -- ^ unwrap handler
                    -> [ResourceTree String]
                    -> Q([Dec],[Dec])
-mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
+mkYesodGeneralOpts = mkYesodGeneralOptsWith GenerateDispatch
+
+data DispatchGeneration = GenerateDispatch | SkipDispatch
+
+mkYesodGeneralOptsWith
+    :: DispatchGeneration -> RouteOpts -> [[String]] -> String -> [String]
+    -> Bool -> (Exp -> Q Exp) -> [ResourceTree String] -> Q ([Dec], [Dec])
+mkYesodGeneralOptsWith generation opts appCxt' namestr mtys isSub f resS = do
     appCxt <- buildAppCxt appCxt'
     foundation <- resolveFoundation namestr mtys resS
     -- The explicitly-written args plus the fresh vars filling the reified
@@ -326,8 +354,10 @@ mkYesodGeneralOpts opts appCxt' namestr mtys isSub f resS = do
                     target
                     (rfResources foundation)
 
-    dispatchDec <-
-        mkDispatchInstance opts (rfSite foundation) appCxt tyArgs f (rfResources foundation)
+    dispatchDec <- case generation of
+        GenerateDispatch ->
+            mkDispatchInstance opts (rfSite foundation) appCxt tyArgs f (rfResources foundation)
+        SkipDispatch -> pure []
     parseRouteDec <-
         mkParseRouteInstanceOpts opts tyArgs appCxt (rfSite foundation) (rfResources foundation)
     let rname = mkName $ "resources" ++ namestr
@@ -390,6 +420,8 @@ mkYesodSubDispatchInstance = mkYesodSubDispatchInstanceOpts defaultOpts
 -- flag is threaded into both the @yesodSubDispatch@ body (so the subsite's own
 -- top-level parent clauses fall through to later siblings on an inner miss) and
 -- the generated @YesodSubDispatchNested@ fragment instances.
+-- Site authorization options are rejected; derive these options with
+-- 'subsiteRouteOpts' and configure the parent mount as described by 'RouteAuthSpec'.
 --
 -- @since 1.7.0.0
 mkYesodSubDispatchInstanceOpts

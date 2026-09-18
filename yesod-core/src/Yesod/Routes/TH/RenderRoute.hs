@@ -25,6 +25,21 @@ module Yesod.Routes.TH.RenderRoute
     , roNestedRouteFallthrough
     , setParameterizedSubroute
     , setNestedRouteFallthrough
+    , RouteAuthSpec(..)
+    , roRouteAuth
+    , setRouteAuthorization
+    , roRouteHandlerWrapper
+    , SiteAuthorization(..)
+    , roSiteAuthorization
+    , defaultSiteAuthorization
+    , SiteAuthorizationMode(..)
+    , siteAuthorizationMode
+    , siteAuthorizationOption
+    , setRouteHandlerWrapper
+    , setRouteDataGenerator
+    , setRouteDispatchWrapper
+    , unsetRouteHandlerWrapper
+    , subsiteRouteOpts
     , DiscoveryMode(..)
     , discoveryMode
     ) where
@@ -70,7 +85,135 @@ data RouteOpts = MkRouteOpts
     -- Default: 'False'.
     --
     -- @since 1.7.0.0
+    , roSiteAuthorization :: SiteAuthorization
+    -- ^ Site-only authorization settings, shared with dispatch generation.
+    --
+    -- @since 1.7.1.0
+    , roRouteDataGenerator :: Maybe (Cxt -> TyArgs -> Type -> Maybe String -> [ResourceTree Type] -> Q [Dec])
     }
+
+-- | Site-only options passed as one value through route and dispatch settings.
+-- 'subsiteRouteOpts' clears the whole value. The positional patterns in
+-- 'siteAuthorizationMode' require a validation decision for every new field.
+--
+-- @since 1.7.1.0
+data SiteAuthorization = SiteAuthorization
+    { saRouteAuth :: RouteAuthSpec
+    -- ^ Named authorization policy for emitted leaves.
+    --
+    -- @since 1.7.1.0
+    , saHandlerWrapper :: Maybe (Q Exp -> Q Exp -> Q Exp)
+    -- ^ Optional site handler wrapper; see 'setRouteHandlerWrapper'.
+    --
+    -- @since 1.7.1.0
+    , saDispatchWrapper :: Maybe (Q Type, Q Exp -> Q Exp -> Q Exp)
+    -- ^ The required fragment constraint and the matched-route wrapper.
+    }
+
+-- | No named policy or handler wrapper.
+--
+-- @since 1.7.1.0
+defaultSiteAuthorization :: SiteAuthorization
+defaultSiteAuthorization = SiteAuthorization NoRouteAuth Nothing Nothing
+
+-- | Authorization configurations distinguished by subsite and mount validation.
+--
+-- @since 1.7.1.0
+data SiteAuthorizationMode
+    = Unconfigured
+    -- ^ Neither authorization option is enabled.
+    | WrapperOnly
+    -- ^ A handler wrapper is enabled without a named policy.
+    | Named RouteAuthSpec
+    -- ^ A named policy is enabled, possibly with a handler wrapper.
+
+-- | Classify the complete site authorization settings for validation.
+--
+-- @since 1.7.1.0
+siteAuthorizationMode :: SiteAuthorization -> SiteAuthorizationMode
+siteAuthorizationMode (SiteAuthorization NoRouteAuth Nothing Nothing) = Unconfigured
+siteAuthorizationMode (SiteAuthorization NoRouteAuth _ _) = WrapperOnly
+siteAuthorizationMode (SiteAuthorization policy _ _) = Named policy
+
+-- | Name an enabled site-only option for an unsupported-subsite diagnostic.
+--
+-- @since 1.7.1.0
+siteAuthorizationOption :: SiteAuthorization -> Maybe String
+siteAuthorizationOption authorization = case siteAuthorizationMode authorization of
+    Unconfigured -> Nothing
+    WrapperOnly -> Just $ case saDispatchWrapper authorization of
+        Just _ -> "setRouteDispatchWrapper"
+        Nothing -> "setRouteHandlerWrapper"
+    Named _ -> Just "setRouteAuthorization"
+
+-- | The policy for leaves emitted by this splice; see 'RouteAuthSpec'.
+--
+-- @since 1.7.1.0
+roRouteAuth :: RouteOpts -> RouteAuthSpec
+roRouteAuth = saRouteAuth . roSiteAuthorization
+
+-- | The optional site handler wrapper; see 'setRouteHandlerWrapper'.
+--
+-- @since 1.7.1.0
+roRouteHandlerWrapper :: RouteOpts -> Maybe (Q Exp -> Q Exp -> Q Exp)
+roRouteHandlerWrapper = saHandlerWrapper . roSiteAuthorization
+
+-- | How dispatch should authorize each generated leaf. Dispatch resolves
+-- authorization in the module that owns the handler, so the site's @Yesod@
+-- instance need not import authorizers.
+-- The policy applies only to dispatch emitted by this splice. Delegation to
+-- an existing nested instance uses that instance's policy; it cannot inherit
+-- or validate the delegating splice's authorization options. Configure each
+-- fragment's dispatch splice explicitly, deriving from shared route options.
+-- Named authorizers take the @isWrite@ flag after their route arguments and
+-- return @HandlerFor site AuthResult@. 'Yesod.Core.dispatchAuthorizationCheck'
+-- computes that flag and enforces the result.
+--
+-- With 'Yesod.Core.defaultYesodMiddleware', execution proceeds through the
+-- site-wide 'Yesod.Core.isAuthorized' check, the named authorization check,
+-- any 'setRouteHandlerWrapper' hook, and finally the handler body. The named
+-- check and wrapper execute inside the middleware. Custom middleware controls
+-- whether and where the site-wide check runs; applications using these hooks
+-- can leave the default @isAuthorized@ implementation.
+-- Subsite mounts demand an authorizer on the parent site. Subsite dispatch
+-- splices reject these options; subsite-local authorization is not supported.
+-- Mount checks run through the parent runner, including subsite 404s; see
+-- 'Yesod.Core.dispatchAuthorizationCheck' for the no-route method fallback
+-- and authentication response. Every subsite on a request's dispatch path
+-- must honor @ysreParentRunner@, including subsites mounted inside a generated
+-- subsite. A transitive @WaiSubsite@ or @EmbeddedStatic@ bypasses the outer
+-- mount check. Use @WaiSubsiteWithAuth@ for WAI apps at every level.
+-- TH rejects direct mounts of the known runner-bypassing types, unresolved
+-- type names, type variables, and type families under a named policy. It cannot
+-- inspect the dispatch implementation or transitive mounts of an arbitrary subsite type;
+-- a generated outer subsite alone does not establish runner compatibility.
+--
+-- @since 1.7.1.0
+data RouteAuthSpec
+    = NoRouteAuth
+    -- ^ Status quo: no authorizer is demanded and dispatch runs via
+    -- 'Yesod.Core.yesodRunner', so authorization falls back to the site-wide
+    -- @isAuthorized@.
+    | RouteAuthSubtree
+    -- ^ For a method-based leaf below a parent, demand that parent's
+    -- @authorize\<SubtreeName\>@ binding, applied to the parent dynamics and
+    -- the route fragment value:
+    -- @authorize\<SubtreeName\> parentDyn1 .. parentDynN fragment :: Bool -> HandlerFor site AuthResult@.
+    -- This selects the nearest enclosing subtree only. The binding covers its
+    -- direct method-based leaves; ancestor authorizers are not composed, and
+    -- parents containing only other parents or mounts demand no subtree
+    -- binding. Include any ancestor access checks in the selected policy.
+    -- Inline compatibility dispatch uses the same nearest-parent rule.
+    -- Top-level leaves and subsite mounts instead demand their own
+    -- @authorize\<ResourceName\>@ binding, applied to that resource's captures.
+    | RouteAuthPerResource
+    -- ^ Demand one @authorize\<ResourceName\>@ binding per leaf resource,
+    -- applied to the same argument spine as the handler:
+    -- @authorize\<ResourceName\> dyn1 .. dynN :: Bool -> HandlerFor site AuthResult@.
+    -- Each leaf emitted by this splice must have a binding in scope.
+    -- This includes subsite mounts, whose authorizers take the mount's
+    -- ancestor and local captures (not the child subsite's route).
+    deriving (Eq, Show)
 
 -- | Default options for generating routes.
 --
@@ -85,6 +228,8 @@ data RouteOpts = MkRouteOpts
 --     rather than focusing on a single nested route.
 --   * 'setNestedRouteFallthrough': 'False' — a nested route that fails to
 --     match throws 'notFound' instead of falling through.
+--   * 'setRouteHandlerWrapper': unset — leave handler expressions unchanged.
+--   * 'setRouteAuthorization': 'NoRouteAuth' — use the site's existing policy.
 --
 -- Use the @set*@ functions to override individual fields.
 --
@@ -98,6 +243,8 @@ defaultOpts = MkRouteOpts
     , roParameterizedSubroute = False
     , roFocusOnNestedRoute = Nothing
     , roNestedRouteFallthrough = False
+    , roSiteAuthorization = defaultSiteAuthorization
+    , roRouteDataGenerator = Nothing
     }
 
 -- | If you set this with @routeName@, then the code generation will
@@ -186,6 +333,119 @@ unsetFocusOnNestedRoute rdo = rdo { roFocusOnNestedRoute = Nothing }
 -- @since 1.7.0.0
 setNestedRouteFallthrough :: Bool -> RouteOpts -> RouteOpts
 setNestedRouteFallthrough b rdo = rdo { roNestedRouteFallthrough = b }
+
+-- | Set whether generated dispatch demands a per-route or per-subtree
+-- authorizer binding. See 'RouteAuthSpec'.
+--
+-- Default: 'NoRouteAuth'.
+--
+-- @since 1.7.1.0
+setRouteAuthorization :: RouteAuthSpec -> RouteOpts -> RouteOpts
+setRouteAuthorization spec rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo) { saRouteAuth = spec } }
+
+-- | Wrap each matched handler expression (first argument), given an expression
+-- of type @WithParentArgs fragment@ (second argument). The result must have
+-- type @HandlerFor site TypedContent@, as does the first argument. For example:
+--
+-- @
+-- setRouteHandlerWrapper
+--     (\\handler route -> [| requireAuthorized $route >> $handler |])
+--     defaultOpts
+-- @
+--
+-- @requireAuthorized@ can call a type class method with an application-owned
+-- result type and throw on failure. Each nested dispatch instance needs only
+-- the authorization instance for its own fragment type. No site-wide
+-- authorizer needs to be imported by the site's @Yesod@ instance.
+--
+-- Nested dispatch supplies the fragment and all ancestor captures. Flat
+-- dispatch supplies @WithParentArgs () fullRoute@, including when nested
+-- routes are inlined for compatibility. This option wraps method-based site
+-- handlers only, not subsite mounts or handlers inside a mounted subsite.
+-- A splice with a wrapper and a mount must also enable 'setRouteAuthorization'
+-- and supply a named mount authorizer; wrapper-only mounts are rejected.
+-- That named policy demands bindings for every leaf emitted by the splice,
+-- even if a wrapper already guards its handler. To keep other leaves
+-- wrapper-only, place the mount alone under a parent route and focus a named
+-- dispatch splice on that parent. A mount leaf itself cannot be a focus target.
+-- See 'RouteAuthSpec' for the mount runner contract and ordering. Subsite
+-- dispatch splices reject this option; use 'subsiteRouteOpts' when deriving
+-- their options from shared options.
+-- Delegated fragments use the options of the splice that generated their
+-- dispatch, independently of the parent's wrapper or named policy.
+--
+-- The hook also wraps method-mismatch handlers (405). Unmatched paths do not
+-- invoke it. See 'RouteAuthSpec' for its order relative to other checks.
+-- The TH callback runs once per generated leaf handler, not once per method,
+-- and is not run by data-only splices such as 'Yesod.Core.Dispatch.mkYesodDataOpts'.
+--
+-- Default: no wrapper. Existing dispatch and authorization are unchanged.
+--
+-- @since 1.7.1.0
+setRouteHandlerWrapper :: (Q Exp -> Q Exp -> Q Exp) -> RouteOpts -> RouteOpts
+setRouteHandlerWrapper wrap rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo)
+        { saHandlerWrapper = Just wrap, saDispatchWrapper = Nothing } }
+
+-- | Extend route data generation with application-owned declarations. The
+-- callback receives the instance context, type arguments, site type, optional
+-- focused fragment name, and resolved resource tree. It runs only in data
+-- splices; dispatch splices do not evaluate it. This supports local route
+-- views without coupling the dispatcher to their representation.
+--
+-- @since 1.7.1.0
+setRouteDataGenerator
+    :: (Cxt -> TyArgs -> Type -> Maybe String -> [ResourceTree Type] -> Q [Dec])
+    -> RouteOpts -> RouteOpts
+setRouteDataGenerator generate opts = opts { roRouteDataGenerator = Just generate }
+
+-- | Wrap matched handlers with an application-supplied fragment constraint.
+-- The quoted class has kind @Type -> Constraint@. The callback receives the
+-- handler and @WithParentArgs fragment@, just like 'setRouteHandlerWrapper'.
+-- Each generated dispatch instance retains the constraint for its own
+-- resources and dispatch constraints for its nested children. No policy
+-- dictionary is required by route data generation or the site's @Yesod@ instance.
+--
+-- Subsite mounts invoke the callback only after the child selects a route,
+-- including method mismatches. The fragment contains the actual child route;
+-- misses do not invoke the wrapper. Applications may use that route to
+-- delegate to child-specific policies. Every subsite on the path must honor
+-- @ysreParentRunner@; see 'RouteAuthSpec'. The wrapper runs inside the existing
+-- middleware and shares the handler's session. Subsite dispatch splices do
+-- not inherit this option; use 'subsiteRouteOpts' for their ordinary dispatch.
+--
+-- This replaces 'setRouteHandlerWrapper'. Generated contexts can require
+-- @FlexibleContexts@ and @UndecidableInstances@. Parameterized nested routes
+-- require 'setParameterizedSubroute'.
+--
+-- @since 1.7.1.0
+setRouteDispatchWrapper
+    :: Q Type
+    -> (Q Exp -> Q Exp -> Q Exp)
+    -> RouteOpts -> RouteOpts
+setRouteDispatchWrapper constraint wrap opts = opts
+    { roSiteAuthorization = (roSiteAuthorization opts)
+        { saHandlerWrapper = Nothing, saDispatchWrapper = Just (constraint, wrap) }
+    }
+
+-- | Clear a handler wrapper while retaining all other shared route options.
+--
+-- @since 1.7.1.0
+unsetRouteHandlerWrapper :: RouteOpts -> RouteOpts
+unsetRouteHandlerWrapper rdo = rdo
+    { roSiteAuthorization = (roSiteAuthorization rdo)
+        { saHandlerWrapper = Nothing, saDispatchWrapper = Nothing } }
+
+-- | Derive options for a subsite dispatch splice from shared site options.
+-- Clears the named authorization policy and handler wrapper, retaining route
+-- shape, focus, and fallthrough settings. Subsite dispatch splices reject
+-- site authorization options unless explicitly cleared; configure checks on
+-- the parent site's mounts instead. See 'RouteAuthSpec'.
+--
+-- @since 1.7.1.0
+subsiteRouteOpts :: RouteOpts -> RouteOpts
+subsiteRouteOpts rdo = rdo { roSiteAuthorization = defaultSiteAuthorization }
 
 -- | When 'True', derive an 'Eq' instance for the route datatype.
 --
@@ -723,7 +983,13 @@ mkRenderRouteInstanceOpts
     -- ^ The actual tree of routes to generate code for
     -> Q [Dec]
 mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
-    case roFocusOnNestedRoute opts of
+    extraDecs <- case roRouteDataGenerator opts of
+        Nothing -> pure []
+        Just generate -> generate cxt tyargs typ (roFocusOnNestedRoute opts) ress
+    when (isJust (saDispatchWrapper $ roSiteAuthorization opts)
+            && discoveryMode opts tyargs == InlineCompat && any isParent ress) $
+        fail "setRouteDispatchWrapper: parameterized nested routes require setParameterizedSubroute True."
+    routeDecs <- case roFocusOnNestedRoute opts of
         Nothing -> do
             cls <- mkRenderRouteClauses opts tyargs ress
             (cons, decs) <- mkRouteConsOpts opts cxt tyargs typ ress
@@ -738,7 +1004,9 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
             -- machinery; the backwards-compatible default emits none.
             parentRouteInstancesDecs <-
                 case discoveryMode opts tyargs of
-                    NestedDiscovery -> mkToParentRouteInstances cxt tyargs ress
+                    NestedDiscovery -> mkToParentRouteInstances
+                        (isJust (saDispatchWrapper $ roSiteAuthorization opts))
+                        cxt tyargs ress
                     InlineCompat    -> pure []
             pure $ mconcat
                 [ pure $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
@@ -755,7 +1023,10 @@ mkRenderRouteInstanceOpts opts cxt tyargs typ ress = do
                     fail $ "Target '" <> target <> "' was not found in resources."
                 Just (prepieces, ress') ->
                     mkRenderRouteNestedInstanceOpts opts cxt tyargs typ prepieces target ress'
+    pure (routeDecs ++ extraDecs)
   where
+    isParent ResourceParent{} = True
+    isParent ResourceLeaf{} = False
     routeDataName = ConT ''Route `AppT` typ
     (inlineDerives, mkStandaloneDerives) = getDerivesFor opts cxt
 
@@ -782,13 +1053,13 @@ getDerivesFor opts cxt
 --
 -- > instance ToParentRoute FooR where
 -- >     toParentRoute (a0, a1) = FooR a0 a1
-mkToParentRouteInstances :: Cxt -> TyArgs -> [ResourceTree Type] -> Q [Dec]
-mkToParentRouteInstances cxt origTyargs ress = do
-    mconcat <$> mapM (go ([], [])) ress
+mkToParentRouteInstances :: Bool -> Cxt -> TyArgs -> [ResourceTree Type] -> Q [Dec]
+mkToParentRouteInstances includeProjection cxt origTyargs ress = do
+    mconcat <$> mapM (go ([], [], length ress == 1)) ress
   where
     go _ (ResourceLeaf _) =
         pure []
-    go (accPieces, parentConstructors) (ResourceParent name _check _attrs pieces children) = do
+    go (accPieces, parentConstructors, exhaustive) (ResourceParent name _check _attrs pieces children) = do
         -- Extract dynamic types from accumulated parent pieces
         let accDynTypes = [t | Dynamic t <- accPieces]
         accDynVars <- mapM (\_ -> newName "parent") accDynTypes
@@ -817,19 +1088,41 @@ mkToParentRouteInstances cxt origTyargs ress = do
 
         let thisInstance =
                 instanceD cxt (ConT ''ToParentRoute `AppT` applyTypeVariables name) [toParentRouteD]
+            projectionInstances =
+                [ instanceD cxt (ConT ''FromParentRoute `AppT` applyTypeVariables name)
+                    [ FunD 'fromParentRoute $
+                        [ Clause [routePattern applyConToParentArgs]
+                            (NormalB $ ConE 'Just `AppE`
+                                (ConE 'WithParentArgs `AppE` parentArgsExpr allParentDynVars `AppE` VarE child)) []
+                        ] ++ [Clause [WildP] (NormalB $ ConE 'Nothing) [] | not exhaustive]
+                    ]
+                | includeProjection, any isMount children
+                ]
 
         -- Accumulate pieces and constructor info for children
         let thisPieceCount = length piecesDynTypes
             acc' =
                 ( accPieces <> pieces
                 , parentConstructors ++ [(mkName name, thisPieceCount)]
+                , exhaustive && length children == 1
                 )
 
         childrenInstances <- mconcat <$> mapM (go acc') children
-        pure $ thisInstance : childrenInstances
+        pure $ thisInstance : projectionInstances ++ childrenInstances
+
+    -- The embedding contains only constructors and captured variables.
+    routePattern = goPat []
+      where
+        goPat args (AppE f x) = goPat (routePattern x : args) f
+        goPat args (ConE name) = conPCompat name args
+        goPat [] (VarE name) = VarP name
+        goPat _ unexpected = error $ "Unexpected route embedding: " ++ show unexpected
 
     applyTypeVariables name =
         applyTyArgs (ConT (mkName name)) origTyargs
+
+    isMount (ResourceLeaf Resource { resourceDispatch = Subsite{} }) = True
+    isMount _ = False
 
     -- Build the route expression by applying constructors from outermost to innermost
     buildRouteExpr :: [(Name, Int)] -> Name -> [Name] -> Exp -> Exp
