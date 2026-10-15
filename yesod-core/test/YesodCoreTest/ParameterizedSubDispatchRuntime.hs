@@ -7,6 +7,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Runtime coverage for the backwards-compatible (opt-out) inline
@@ -44,6 +46,8 @@ import YesodCoreTest.RuntimeHarness (assertRequestFor)
 -- 'Text', so the dynamically-keyed nested parent (@!/#{AssocType subsite}@)
 -- becomes a plain @Text@ path piece at runtime.
 data ConcreteSub = ConcreteSub
+-- | A parameterized but still concrete sub route.
+data ParamConcreteSub = ParamConcreteSub
 
 instance ParamSubsiteClass ConcreteSub App where
     type AssocType ConcreteSub = Text
@@ -64,15 +68,22 @@ instance ParamSubsiteClass ConcreteSub App where
 type ConcreteParamSub = ParamSubsite ConcreteSub
 type ConcreteBigSub = BigSub ()
 
+type ParamConcreteParamSub = ParamSubsite ParamConcreteSub
+
 data App = App
 
-mkYesod "App" [parseRoutes|
+mkYesodOpts
+    (setParameterizedSubroute True defaultOpts)
+    "(ParamSubsiteClass ParamConcreteSub App) => App"
+    [parseRoutes|
 / HomeR GET
 /sub ParamSubR ConcreteParamSub getSub
 /big BigSubR ConcreteBigSub getBig
+/contained ContainedR:
+    /paramsub ParamParamSubR ParamConcreteParamSub getParamConcreteParamSub
 |]
 
-instance Yesod App where
+instance (ParamSubsiteClass ParamConcreteSub App) => Yesod App where
     messageLoggerSource = mempty
 
 getHomeR :: Handler Text
@@ -83,6 +94,9 @@ getSub _ = ParamSubsite ConcreteSub
 
 getBig :: App -> ConcreteBigSub
 getBig _ = BigSub ()
+
+getParamConcreteParamSub :: App -> ParamConcreteParamSub
+getParamConcreteParamSub app = ParamSubsite ParamConcreteSub
 
 -- Dispatch + handlers for the BigSub / ChildSub subsites.
 instance YesodSubDispatch (BigSub a) master where
@@ -131,6 +145,13 @@ bigSampleRoutes =
     , EmbedParentR (ChildR ChildHomeR)
     , EmbedParentR (ChildR (ChildXR 9))
     ]
+
+-- block class resolution
+$(pure [])
+
+instance ParamSubsiteClass ParamConcreteSub App where
+    type AssocType ParamConcreteSub = Text
+    getSubsiteValue _ _ = "param_concrete"
 
 testRequestIO
     :: HasCallStack

@@ -360,15 +360,14 @@ parentRouteCon name pieces tyargs =
     toSingle Static{}      = []
     toSingle (Dynamic typ) = [typ]
 
--- | The deriving context for a child\/subroute datatype. The site's instance
--- context only makes sense on a child that actually carries the type
--- arguments; an unparameterized child (the backwards-compatible default)
--- can't, so deriving with that context would leave the variables ambiguous.
--- Nullify the context in that case, mirroring historical Yesod.
-childDerivCxt :: TyArgs -> Cxt -> Cxt
-childDerivCxt tyargs cxt
-    | hasTyArgs tyargs = cxt
-    | otherwise        = []
+-- | The deriving context for a child\/subroute datatype. If the route opts have
+-- enabled parameterized sub routes, then we pass the context to the subroute.
+-- Else, we discard the context.
+--
+-- Previously the helper here discarded the context if there were no tyargs;
+-- that means contexts like `SubsiteClass SubsiteData` were being discarded.
+nullifyWhenNoParam :: RouteOpts -> Cxt -> Cxt
+nullifyWhenNoParam opts = if roParameterizedSubroute opts then id else const []
 
 -- | Generate the constructors of a route data type, with custom
 -- 'RouteOpts'.
@@ -410,8 +409,8 @@ mkRouteConsOpts opts cxt origTyargs master resourceTrees = do
             InlineCompat    -> NoTyArgs
     subrouteDecTypeArgs = fmap plainTVCompat (tyArgsBinders tyargs)
 
-    -- Derives for the child (subroute) datatypes. See 'childDerivCxt'.
-    childCxt = childDerivCxt tyargs cxt
+    -- Derives for the child (subroute) datatypes. See 'nullifyWhenNoParam'.
+    childCxt = nullifyWhenNoParam opts cxt
     (inlineDerives, mkStandaloneDerives) = getDerivesFor opts childCxt
 
     mkRouteConsOpts' :: [Piece Type] -> [ResourceTree Type] -> Q ([Con], [Dec])
@@ -941,8 +940,8 @@ mkRenderRouteNestedInstanceOpts routeOpts cxt tyargs typ prepieces target ress =
     -- followed by the declarations for any nested children.
     (<> childDecs) <$> targetDecs
   where
-    -- The focused datatype carries the site's type arguments. See 'childDerivCxt'.
-    childCxt = childDerivCxt tyargs cxt
+    -- The focused datatype carries the site's type arguments. See 'nullifyWhenNoParam'.
+    childCxt = nullifyWhenNoParam routeOpts cxt
 
     -- Generate constructors and nested-instance declarations for the children
     -- of the focused target. Structurally similar to 'mkRouteConsOpts'' inner

@@ -1,5 +1,9 @@
 # ChangeLog for yesod-core
 
+## 1.7.0.2
+
+* Restore previous behaviour of parameterised subroute routing - if classes are present, include them even if there are no type arguments. [#1937](https://github.com/yesodweb/yesod/pull/1937)
+
 ## 1.7.0.1
 
 * The `encoding` dependency (used by `typedContentToSnippet` to decode GB18030/windows-1251/Shift_JIS/Windows-31J content snippets) is now gated off Windows, where it fails to build. On Windows those charsets fall back to utf-8-lenient decoding; behavior is unchanged on other platforms. [#1924](https://github.com/yesodweb/yesod/pull/1924)
