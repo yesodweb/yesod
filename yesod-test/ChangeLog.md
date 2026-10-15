@@ -1,5 +1,9 @@
 # ChangeLog for yesod-test
 
+## 1.7.0.4
+
+* Support aeson 2.3, containers 0.8, and time 1.15 [#1935](https://github.com/yesodweb/yesod/pull/1935)
+
 ## 1.7.0.3
 
 * Adopt the `runFormPRG` integration tests from yesod-form's test
